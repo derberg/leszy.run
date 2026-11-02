@@ -303,7 +303,7 @@ export default function RegistrationEventPage({ raw, now, preview = false, links
             <CoursePanel courses={m.courses} compact />
           </section>
         )}
-        <PartnerLogos partners={raw.partners ?? []} />
+        <PartnerLogos partners={raw.partners ?? []} variant="dark" />
       </div>
     </div>
   )

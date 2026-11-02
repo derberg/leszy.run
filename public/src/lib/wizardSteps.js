@@ -1,5 +1,5 @@
 // The wizard's steps (spec §2): Podstawy · Biuro zawodów · Konkurencje ·
-// Kategorie · Pomiar czasu · Formularz · Dodatki · Płatności · Publikacja.
+// Kategorie · Pomiar czasu · Formularz · Dodatki · Partnerzy · Płatności · Publikacja.
 //
 // wizardSteps({ pricingMode, hasPricedExtras, donationsEnabled, hasKidsCompetition, state: { checklist, current } })
 //   → [{ key, label, available, done, kidsGroups? }]
@@ -8,6 +8,8 @@
 //   isCharity && donationsEnabled, ruling 7). takesMoney() in checklist.js is
 //   the same rule for the publish checklist.
 // * Every step is available. Dodatki is shown only while the money features are live (moneyLive).
+// * Partnerzy is always shown, money or not (partners matter to free events too), and no checklist
+//   item points at it: its edits apply at once (organizer-partners), nothing there blocks publishing.
 // * `done`: a step before `current` that no checklist item points at. The
 //   checklist is get-registration-event's publishChecklist(); blocking items
 //   name a field, missing ones name their step.
@@ -22,6 +24,7 @@ const STEPS = [
   { key: 'pomiar', label: 'Pomiar czasu' },
   { key: 'formularz', label: 'Formularz' },
   { key: 'dodatki', label: 'Dodatki' },
+  { key: 'partnerzy', label: 'Partnerzy' },
   { key: 'platnosci', label: 'Płatności' },
   { key: 'publikacja', label: 'Publikacja' },
 ]

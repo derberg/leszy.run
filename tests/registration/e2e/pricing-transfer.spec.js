@@ -81,7 +81,7 @@ async function codeFor(email) {
 const zgloszenia = (eventId) => `/klub/zatyrani-test/wydarzenia/${eventId}/zgloszenia`
 const platnosci = (eventId) => `/klub/zatyrani-test/wydarzenia/${eventId}/platnosci`
 
-test('V-80 a partnered, discounted package across four audiences: the code and partner made in Płatności, paid with a shirt and a donation, handed on through RA6/RA7; the list, the panel, the e-mails and the timing host follow; used stays 1', async ({ actors }) => {
+test('V-80 a partnered, discounted package across four audiences: the partner made in Partnerzy and the code in Płatności, paid with a shirt and a donation, handed on through RA6/RA7; the list, the panel, the e-mails and the timing host follow; used stays 1', async ({ actors }) => {
   test.setTimeout(180_000)
   await resetThrottle()
   await dpayReset()
@@ -97,8 +97,8 @@ test('V-80 a partnered, discounted package across four audiences: the code and p
   await enableTransfers(e)
   const { name: eventName } = await one('registration_settings', { event_id: e.eventId })
 
-  // ---- owner: the partner and the code, in Płatności.
-  const org = await open(actors.owner, platnosci(e.eventId))
+  // ---- owner: the partner in Partnerzy, the code in Płatności.
+  const org = await open(actors.owner, platnosci(e.eventId).replace(/platnosci$/, 'partnerzy'))
   const partners = org.getByTestId('partners')
   await partners.getByRole('button', { name: '+ Partner' }).click()
   const pd = org.getByRole('dialog', { name: 'Nowy partner' })
@@ -106,6 +106,7 @@ test('V-80 a partnered, discounted package across four audiences: the code and p
   await pd.getByRole('button', { name: 'Dodaj partnera' }).click()
   await expect(pd).toHaveCount(0)
   await expect(partners.getByTestId('partner-row')).toHaveText([new RegExp(PARTNER)])
+  await org.goto(platnosci(e.eventId))
   const codes = org.getByTestId('vouchers')
   await codes.getByRole('button', { name: '+ Kod' }).click()
   const cd = org.getByRole('dialog', { name: 'Nowy kod' })

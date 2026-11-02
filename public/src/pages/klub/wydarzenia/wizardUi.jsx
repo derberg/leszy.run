@@ -96,3 +96,8 @@ export function InfoTip({ label, children, testId, mark = 'ⓘ' }) {
     </>
   )
 }
+
+// A row's small action buttons (Płatności's codes, Partnerzy's list): one line, never wrapped.
+const smallBtn = 'min-h-9 px-2.5 border font-sans font-bold text-sm whitespace-nowrap disabled:opacity-40 disabled:cursor-not-allowed'
+export const ghostSmall = `${smallBtn} border-apex-border-bright text-apex-text-bright hover:border-apex-yellow-dim`
+export const dangerSmall = `${smallBtn} border-apex-red text-apex-red hover:bg-apex-red hover:text-white`

@@ -10,7 +10,7 @@ import { minutesFromNow, orderOk, paidOrderOk, person, runnerEmail, setSettings 
 // publish (A8). V-70: the owner builds the A3 tier fixture and an extra in a draft, and both
 // survive a reload (autosave). V-71: after a registration the tier-1 cell is read-only, tier 2 is
 // editable and „Opublikuj zmiany” applies it; a sold extra keeps its price and its sold variant.
-// Task 9b: V-72 Płatności's codes, partners and package transfer (A6), V-73 B3's partner column,
+// Task 9b: V-72 Płatności's codes and package transfer (A6; the partner from the Partnerzy step), V-73 B3's partner column,
 // filter and dialog and the organizer's transfer, V-74 no button wraps at 390 px.
 // Playwright loads the Deno-side modules as CommonJS, so nothing here imports
 // supabase/functions/_shared.
@@ -347,14 +347,13 @@ const wrappedButtons = (page) => page.locator('button:visible').evaluateAll((els
 }).map((e) => e.textContent))
 const noSideways = (page) => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)
 
-test('V-72 Płatności: a partner, 20 generated codes listed with it, the CSV with the BOM; the package transfer switch and date are kept', async ({ browser }) => {
+test('V-72 Płatności: a partner (made in Partnerzy), 20 generated codes listed with it, the CSV with the BOM; the package transfer switch and date are kept', async ({ browser }) => {
   test.setTimeout(150_000)
   const { club, event, base } = await paidEventWithEntries('v72')
   const ctx = await contextFor(browser, club.ownerEmail)
   const page = await ctx.newPage()
-  await page.goto(`${base}/platnosci`)
-
-  // Partnerzy: „+ Partner”.
+  // The partner comes from its own step („Partnerzy”); Płatności has no partner card any more.
+  await page.goto(`${base}/partnerzy`)
   const partners = page.getByTestId('partners')
   await partners.getByRole('button', { name: '+ Partner' }).click()
   const pd = page.getByRole('dialog', { name: 'Nowy partner' })
@@ -362,6 +361,9 @@ test('V-72 Płatności: a partner, 20 generated codes listed with it, the CSV wi
   await pd.getByRole('button', { name: 'Dodaj partnera' }).click()
   await expect(pd).toHaveCount(0)
   await expect(partners.getByTestId('partner-row')).toHaveText([/Sklep Biegacz/])
+  await page.goto(`${base}/platnosci`)
+  await expect(page.getByTestId('vouchers')).toBeVisible()
+  await expect(page.getByTestId('partners')).toHaveCount(0)
 
   // Kody rabatowe: „Wygeneruj kody”, a 422 names its field first.
   const codes = page.getByTestId('vouchers')
@@ -409,15 +411,6 @@ test('V-72 Płatności: a partner, 20 generated codes listed with it, the CSV wi
   await own.getByRole('button', { name: 'Usuń — BIEGACZ10' }).click()
   await ask.getByRole('button', { name: 'Usuń' }).click()
   await expect(rows).toHaveCount(20)
-  // A partner nobody carries is deleted the same way.
-  await partners.getByRole('button', { name: '+ Partner' }).click()
-  await page.getByRole('dialog', { name: 'Nowy partner' }).getByLabel('Nazwa').fill('Radio Piekary')
-  await page.getByRole('dialog', { name: 'Nowy partner' }).getByRole('button', { name: 'Dodaj partnera' }).click()
-  await expect(partners.getByTestId('partner-row')).toHaveCount(2)
-  await partners.getByRole('button', { name: 'Usuń — Radio Piekary' }).click()
-  await page.getByRole('alertdialog', { name: 'Usunąć partnera Radio Piekary?' }).getByRole('button', { name: 'Usuń' }).click()
-  await expect(partners.getByTestId('partner-row')).toHaveText([/Sklep Biegacz/])
-
   // „Eksport CSV”: the server's file, BOM first.
   const [download] = await Promise.all([page.waitForEvent('download'), codes.getByRole('button', { name: 'Eksport CSV' }).click()])
   expect(download.suggestedFilename()).toMatch(/^kody-.+-\d{4}-\d\d-\d\d\.csv$/)

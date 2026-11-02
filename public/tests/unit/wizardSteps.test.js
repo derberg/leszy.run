@@ -2,14 +2,14 @@ import { describe, it, test } from 'node:test'
 import assert from 'node:assert/strict'
 import { wizardSteps, stepForBlocking } from '../../src/lib/wizardSteps.js'
 
-const ALL = ['Podstawy', 'Biuro zawodów', 'Konkurencje', 'Kategorie', 'Pomiar czasu', 'Formularz', 'Dodatki', 'Płatności', 'Publikacja']
+const ALL = ['Podstawy', 'Biuro zawodów', 'Konkurencje', 'Kategorie', 'Pomiar czasu', 'Formularz', 'Dodatki', 'Partnerzy', 'Płatności', 'Publikacja']
 const empty = { blocking: [], missing: [] }
 
-test('a paid event has the nine steps in spec order', () => {
+test('a paid event has the ten steps in spec order', () => {
   const steps = wizardSteps({ pricingMode: 'fixed', hasKidsCompetition: false, state: { checklist: empty } })
   assert.deepEqual(steps.map((s) => s.label), ALL)
   assert.deepEqual(steps.map((s) => s.key),
-    ['podstawy', 'biuro', 'konkurencje', 'kategorie', 'pomiar', 'formularz', 'dodatki', 'platnosci', 'publikacja'])
+    ['podstawy', 'biuro', 'konkurencje', 'kategorie', 'pomiar', 'formularz', 'dodatki', 'partnerzy', 'platnosci', 'publikacja'])
 })
 
 test('a free event has no Płatności step', () => {
@@ -47,7 +47,7 @@ test('a step behind the current one is done unless the checklist blocks on it', 
   const done = Object.fromEntries(steps.map((s) => [s.key, s.done]))
   assert.deepEqual(done, {
     podstawy: true, biuro: false, konkurencje: false, kategorie: true, pomiar: true,
-    formularz: false, dodatki: false, publikacja: false,
+    formularz: false, dodatki: false, partnerzy: false, publikacja: false,
   })
 })
 
@@ -88,5 +88,27 @@ describe('wizardSteps with the money features off (final review I-1 + I-4)', () 
   it('live (the default): Dodatki always, Płatności for donations too', () => {
     assert.ok(keys({ pricingMode: 'free' }).includes('dodatki'))
     assert.ok(keys({ pricingMode: 'free', donationsEnabled: true }).includes('platnosci'))
+  })
+})
+
+describe('Partnerzy (event partners step)', () => {
+  const keys = (args) => wizardSteps({ hasKidsCompetition: false, state: { checklist: empty }, ...args }).map((s) => s.key)
+  it('sits between Dodatki and Płatności', () => {
+    const k = keys({ pricingMode: 'fixed' })
+    assert.equal(k.indexOf('partnerzy'), k.indexOf('dodatki') + 1)
+    assert.equal(k.indexOf('platnosci'), k.indexOf('partnerzy') + 1)
+  })
+  it('stays with the money features off, where Dodatki is gone: after Formularz, before Płatności', () => {
+    assert.deepEqual(keys({ pricingMode: 'fixed', moneyLive: false }),
+      ['podstawy', 'biuro', 'konkurencje', 'kategorie', 'pomiar', 'formularz', 'partnerzy', 'platnosci', 'publikacja'])
+    assert.deepEqual(keys({ pricingMode: 'free', moneyLive: false }),
+      ['podstawy', 'biuro', 'konkurencje', 'kategorie', 'pomiar', 'formularz', 'partnerzy', 'publikacja'])
+  })
+  it('is available and done once passed, since no checklist item ever points at it', () => {
+    const checklist = { blocking: [{ key: 'payments', label: 'Płatności' }, { key: 'agreement', label: 'Umowa' }], missing: [] }
+    const p = wizardSteps({ pricingMode: 'fixed', hasKidsCompetition: false, state: { checklist, current: 'platnosci' } })
+      .find((s) => s.key === 'partnerzy')
+    assert.equal(p.available, true)
+    assert.equal(p.done, true)
   })
 })
