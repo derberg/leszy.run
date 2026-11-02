@@ -211,16 +211,16 @@ test('T-80 a relay across every audience: built in the wizard, paid once, one co
   expect(consentMails[0].subject).toMatch(/^Zapisano Cię na .+ — zaakceptuj regulamin$/)
   expect((await captureRequests()).map((r) => [r.to].flat().join())).toHaveLength(2)
 
-  // viewer: the team and three first names. Piotr has not accepted, so he is counted, not named (T-74).
+  // viewer: the team and three full names. Piotr has not accepted, so he is counted, not named (T-74).
   const viewer = await open(actors.viewer)
   await viewer.goto(`/events/${event.slug}/lista`)
   const entry = viewer.getByTestId('start-list-entry')
   await expect(entry).toHaveCount(1)
   await expect(entry).toContainText(TEAM)
-  for (const first of ['Ola', 'Zosia', 'Staś']) await expect(entry).toContainText(first)
+  for (const full of ['Ola Leśna', 'Zosia Leśna', 'Staś Leśny']) await expect(entry).toContainText(full)
   await expect(entry).not.toContainText('Piotr')
-  await expect(entry).not.toContainText('Leśn')
-  await expect(entry.locator('td').nth(4)).toHaveText('4 osoby')
+  await expect(entry).not.toContainText('Borowy')
+  await expect(entry.locator('td').nth(4)).toHaveText('4')
   await expect(viewer.getByTestId('list-competition')).toContainText(`${RELAY} · drużyny`)
   await expect(viewer.getByTestId('list-competition')).toContainText('1 / 20')
 
@@ -238,7 +238,7 @@ test('T-80 a relay across every audience: built in the wizard, paid once, one co
   await org.reload()
   await expect(row).toContainText('ZGODY 4/4')
   await viewer.reload()
-  for (const first of ['Ola', 'Piotr', 'Zosia', 'Staś']) await expect(entry).toContainText(first)
+  for (const full of ['Ola Leśna', 'Piotr Borowy', 'Zosia Leśna', 'Staś Leśny']) await expect(entry).toContainText(full)
 
   // The operator hands out bibs, then the host follows the swap.
   const host = await startScratchHost()

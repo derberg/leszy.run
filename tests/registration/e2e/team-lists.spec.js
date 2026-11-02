@@ -89,17 +89,16 @@ for (const width of WIDTHS) {
     const entries = viewer.getByTestId('start-list-entry')
     await expect(entries).toHaveCount(1)
     await expect(entries.first()).toContainText('Wilcze Stado')
-    for (const first of ['Ola', 'Piotr', 'Ewa', 'Jan']) await expect(entries.first()).toContainText(first)
-    await expect(entries.first()).not.toContainText('Leśn')
+    for (const full of ['Ola Leśna', 'Piotr Leśny', 'Ewa Leśny', 'Jan Leśny']) await expect(entries.first()).toContainText(full)
     await expect(viewer.getByTestId('list-competition')).toContainText('Sztafeta · drużyny')
     await expect(viewer.getByTestId('list-competition')).toContainText('1 / 20 miejsc')
     if (width === 390) {
       await expect(entries.first()).toContainText(/sztafeta · 4 osoby/i)
     } else {
       const cells = entries.first().locator('td')
-      await expect(cells.nth(1)).toHaveText('Gliwice')
-      await expect(cells.nth(2)).toHaveText('—')
-      await expect(cells.nth(4)).toHaveText('4 osoby')
+      await expect(cells.nth(1)).toContainText('Ola Leśna')
+      await expect(cells.nth(2)).toHaveText('Gliwice')
+      await expect(cells.nth(4)).toHaveText('4')
     }
     await noOverflow(viewer)
 
@@ -107,6 +106,8 @@ for (const width of WIDTHS) {
     await viewer.getByLabel('Szukaj').fill('piotr')
     await expect(entries).toHaveCount(1)
     await viewer.getByLabel('Szukaj').fill('leśny')
+    await expect(entries).toHaveCount(1)
+    await viewer.getByLabel('Szukaj').fill('gliwice')
     await expect(entries).toHaveCount(0)
 
     const org = await open(actors.owner, width, zgloszenia(event.eventId))
