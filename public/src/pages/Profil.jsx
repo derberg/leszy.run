@@ -12,6 +12,7 @@ import { ProfilContext } from './profil/context.js'
 //   { to: '/profil/wyniki', label: 'Wyniki' },
 //   { to: '/profil/osiagniecia', label: 'Osiągnięcia' },
 const SECTIONS = [
+  { to: '/profil/zapisy', label: 'Zapisy' },
   { to: '/profil/obserwowane', label: 'Obserwowane' },
   { to: '/profil/zgloszenia', label: 'Zgłoszenia' },
   { to: '/profil/klub', label: 'Klub' },

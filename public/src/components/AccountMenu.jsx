@@ -75,6 +75,7 @@ export default function AccountMenu({ user, onNavigate, large = false }) {
         large={large}
         testId="menu-starred"
       />
+      <Item to="/profil/zapisy" icon="starts" label="Moje zapisy" onNavigate={onNavigate} large={large} testId="menu-registrations" />
       <div className="border-t border-apex-border" />
       {club.hasClub ? (
         <>
