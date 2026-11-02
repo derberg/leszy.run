@@ -49,7 +49,9 @@ export function AgreementText({ body }) {
   return (
     <>
       {preamble.length > 0 && (
-        <div className="border border-apex-border bg-apex-surface px-4 py-3">
+        // How the agreement is concluded in the Serwis, not a term of it: kept
+        // out of the PDF.
+        <div data-print-hide className="border border-apex-border bg-apex-surface px-4 py-3">
           <Blocks blocks={preamble} />
         </div>
       )}
