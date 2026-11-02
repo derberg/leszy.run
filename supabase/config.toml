@@ -278,6 +278,10 @@ entrypoint = "./functions/organizer-vouchers/index.js"
 verify_jwt = false
 entrypoint = "./functions/organizer-partners/index.js"
 
+[functions.upload-partner-logo]
+verify_jwt = false
+entrypoint = "./functions/upload-partner-logo/index.js"
+
 [functions.send-organizer-message]
 verify_jwt = false
 entrypoint = "./functions/send-organizer-message/index.js"

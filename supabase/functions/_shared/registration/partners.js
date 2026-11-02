@@ -2,6 +2,8 @@
 // app's backend. The table's CHECKs state the same rules (migration 20261106200000).
 // Plain ESM, no Deno APIs. null means "no value", undefined means "invalid".
 
+import { isUuid } from './organizerEvent.js'
+
 export const MAX_PARTNER_NAME = 80
 export const MAX_PARTNER_NOTE = 500
 const MAX_PARTNER_URL = 500
@@ -30,4 +32,12 @@ export function partnerUrl(v) {
   if (!t) return null
   if (t.length > MAX_PARTNER_URL || !/^https?:\/\/\S+$/i.test(t)) return undefined
   return t
+}
+
+/** The partner row, when it belongs to the event (else null: a 404, never another event's partner). */
+export async function partnerOf(admin, eventId, id) {
+  if (!isUuid(id)) return null
+  const { data, error } = await admin.from('event_partners').select('*').eq('id', id).eq('event_id', eventId).maybeSingle()
+  if (error) throw error
+  return data
 }

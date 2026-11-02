@@ -4,7 +4,7 @@ import { getSession } from '../_shared/session.js'
 import { logOrganizerAction } from '../_shared/organizer.js'
 import { isUuid, loadOrganizerEvent } from '../_shared/registration/organizerEvent.js'
 import { allRows } from '../_shared/registration/allRows.js'
-import { partnerName, partnerNote, partnerUrl } from '../_shared/registration/partners.js'
+import { partnerName, partnerNote, partnerOf, partnerUrl } from '../_shared/registration/partners.js'
 
 // A partner's note is the organizer's: never cached.
 function json(body, status, req) {
@@ -65,12 +65,6 @@ async function single(query) {
   const { data, error } = await query
   if (error) throw error
   return data
-}
-
-/** The partner, when it belongs to the event (else null: a 404, never another event's partner). */
-async function partnerOf(admin, eventId, id) {
-  if (!isUuid(id)) return null
-  return single(admin.from('event_partners').select('*').eq('id', id).eq('event_id', eventId).maybeSingle())
 }
 
 /** Every partner of the event in the wizard's order, with `referenced` (a code or an entry holds it). */
