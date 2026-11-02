@@ -192,7 +192,7 @@ export default function Formularz({ event, queue, saveState, readOnly, onSaved, 
               {p.minorsOnly ? (
                 <span className="flex flex-col">
                   <span>{p.label}</span>
-                  <span className="inline-flex items-center gap-2">
+                  <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
                     <span className="font-mono text-xs text-apex-muted whitespace-nowrap" data-testid="minors-only-tag">TYLKO PRZY DZIECKU</span>
                     <InfoTip label="Komu pokazujemy zgodę opiekuna" testId="minors-only-tip">{MINORS_ONLY_TIP}</InfoTip>
                   </span>
