@@ -99,6 +99,18 @@ export function kidsGroupLabel(person, competition) {
   return kidsGroupFor(person.birthDate, pool)?.label ?? null
 }
 
+/**
+ * „Grupa” on a child card: the kids' group, else an age class that covers the child, or null.
+ * Never the adult `K open` / `M open` fallback: a girl's card reads Dziewczynka, and „K open”
+ * next to it names an adult women's class she is not in.
+ */
+export function childGroup(person, competition, ctx) {
+  const kids = kidsGroupLabel(person, competition)
+  if (kids) return kids
+  const label = categoryPreview(person, ctx)
+  return label && label !== `${person.gender} open` ? label : null
+}
+
 /** The server's validatePerson, run in the browser so errors show before any e-mail is sent. */
 export function checkPerson(person, ctx) {
   return validatePerson(person, ctx)
