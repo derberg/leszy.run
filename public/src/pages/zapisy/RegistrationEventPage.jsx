@@ -187,14 +187,22 @@ export default function RegistrationEventPage({ raw, now, preview = false, links
           <Stat testId="stat-days" label={thirdStat.label} value={thirdStat.value} />
         </div>
 
-        {m.description && (
+        {(m.description || m.websiteUrl) && (
           <section className="border border-apex-border px-3.5 py-3 flex flex-col gap-1.5 min-w-0" data-testid="event-description">
             <span className={labelCls}>O wydarzeniu</span>
-            <p className="text-base text-apex-text-bright whitespace-pre-line break-words">
-              {linkParts(m.description).map((p, i) => (p.href
-                ? <a key={i} href={p.href} target="_blank" rel="noopener noreferrer nofollow" className={`break-all ${linkCls}`}>{p.text}</a>
-                : <span key={i}>{p.text}</span>))}
-            </p>
+            {m.description && (
+              <p className="text-base text-apex-text-bright whitespace-pre-line break-words">
+                {linkParts(m.description).map((p, i) => (p.href
+                  ? <a key={i} href={p.href} target="_blank" rel="noopener noreferrer nofollow" className={`break-all ${linkCls}`}>{p.text}</a>
+                  : <span key={i}>{p.text}</span>))}
+              </p>
+            )}
+            {m.websiteUrl && (
+              <p className="text-base text-apex-text-bright break-words" data-testid="event-website">
+                Więcej informacji:{' '}
+                <a href={m.websiteUrl} target="_blank" rel="noopener noreferrer nofollow" className={`break-all ${linkCls}`}>{m.websiteUrl.replace(/^https?:\/\//i, '').replace(/\/$/, '')}</a>
+              </p>
+            )}
           </section>
         )}
 

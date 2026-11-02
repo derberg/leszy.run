@@ -292,6 +292,13 @@ test('W-72 W-73 the description and the cause page are diff rows with their labe
   assert.deepEqual(noticeAudience(out), { all: false, categoryIds: [] })
 })
 
+test('W-77 the event page is a diff row „Strona wydarzenia”', () => {
+  const out = changeDiff({ ...live, settings: { ...live.settings, website_url: null } },
+    { basics: { website_url: 'https://example.org/bieg' } })
+  assert.deepEqual(out, [{ field: 'basics.website_url', label: 'Strona wydarzenia', before: null, after: 'https://example.org/bieg' }])
+  assert.deepEqual(noticeAudience(out), { all: false, categoryIds: [] })
+})
+
 test('office hours: a changed note alone is a change; a staged row with no note matches a live one without', () => {
   const withHours = { ...live, officeHours: [{ starts_at: '2026-12-05T16:00:00Z', ends_at: '2026-12-05T18:00:00Z', note: null }] }
   assert.deepEqual(changeDiff(withHours, { office: { hours: [{ date: '2026-12-05', from: '17:00', to: '19:00' }] } }), [])

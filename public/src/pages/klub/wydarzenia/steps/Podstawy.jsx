@@ -32,6 +32,7 @@ function initialForm(s) {
     charityGoal: s.charityGoal ?? '',
     charityUrl: s.charityUrl ?? '',
     description: s.description ?? '',
+    websiteUrl: s.websiteUrl ?? '',
     donationsEnabled: !!s.donationsEnabled,
     regulaminKind: s.regulaminKind ?? 'pdf',
     regulaminUrl: s.regulaminUrl ?? '',
@@ -63,6 +64,7 @@ function basicsValue(f, { state, savedSlug, refusedSlug }) {
     charityGoal: orNull(f.charityGoal),
     charityUrl: orNull(f.charityUrl.trim()),
     description: orNull(f.description),
+    websiteUrl: orNull(f.websiteUrl.trim()),
     donationsEnabled: f.donationsEnabled,
     regulaminKind: f.regulaminKind,
     regulaminUrl: orNull(f.regulaminUrl),
@@ -137,7 +139,7 @@ export default function Podstawy({ event, queue, saveState, readOnly, reload, re
     }
     // An address still being typed waits; everything else saves meanwhile.
     const typing = {}
-    for (const field of ['contactEmail', 'charityUrl']) {
+    for (const field of ['contactEmail', 'charityUrl', 'websiteUrl']) {
       if (result.ok || !result.errors[field]) continue
       typing[field] = result.errors[field]
       const { [field]: _dropped, ...rest } = value
@@ -256,6 +258,14 @@ export default function Podstawy({ event, queue, saveState, readOnly, reload, re
           value={form.description} onChange={set('description')} />
         <MonoHint>{form.description.length} / {DESCRIPTION_MAX}</MonoHint>
         <FieldError message={errors.description} />
+      </div>
+
+      <div className="max-w-[640px]">
+        <label htmlFor="ev-website" className={fieldLabel}>Strona wydarzenia</label>
+        <input id="ev-website" type="url" inputMode="url" autoComplete="off" placeholder="https://" className={fieldInput}
+          value={form.websiteUrl} onChange={set('websiteUrl')} />
+        <MonoHint>Na stronie zapisów pod opisem: „Więcej informacji: …”</MonoHint>
+        <FieldError message={errors.websiteUrl} />
       </div>
 
       <div className="grid gap-4 grid-cols-[repeat(auto-fit,minmax(min(100%,280px),1fr))] items-start">

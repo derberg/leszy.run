@@ -78,3 +78,24 @@ test('W-72 W-73 the public event page shows the description as text with its lin
   await expect(cause).toHaveAttribute('rel', /noopener/)
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
 })
+
+test('W-77 the public event page shows „Więcej informacji” with the event page under the description', async ({ actors }) => {
+  const session = await owner()
+  const event = await createPublishedFreeEvent(session)
+  await admin().from('registration_settings').update({
+    description: 'Nocny bieg po lesie.', website_url: 'https://example.org/wilczy-bieg-w77/',
+  }).eq('event_id', event.eventId)
+
+  const page = await actors.viewer.newPage()
+  await offline(page)
+  await page.setViewportSize({ width: 390, height: 844 })
+  await page.goto(`/events/${event.slug}`)
+  const more = page.getByTestId('event-website')
+  await expect(more).toHaveText('Więcej informacji: example.org/wilczy-bieg-w77')
+  const link = more.getByRole('link')
+  await expect(link).toHaveAttribute('href', 'https://example.org/wilczy-bieg-w77/')
+  await expect(link).toHaveAttribute('target', '_blank')
+  await expect(link).toHaveAttribute('rel', /noopener/)
+  await expect(page.getByTestId('event-description')).toContainText('Nocny bieg po lesie.')
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
+})

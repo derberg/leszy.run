@@ -498,3 +498,14 @@ describe('W-72 W-73 description and cause page', () => {
     assert.equal(out.charityUrl, 'https://example.org/c')
   })
 })
+
+describe('W-77 event page („Więcej informacji”)', () => {
+  it('an http(s) address is passed through on any event; anything else is never a link', () => {
+    assert.equal(model({ ...RA1, isCharity: false, websiteUrl: 'https://example.org/bieg' }).websiteUrl, 'https://example.org/bieg')
+    assert.equal(model(RA1).websiteUrl, null)
+    assert.equal(model({ ...RA1, websiteUrl: 'javascript:alert(1)' }).websiteUrl, null)
+  })
+  it('mergePending shows a staged event page in the preview', () => {
+    assert.equal(mergePending(RA1, { payload: { basics: { website_url: 'https://example.org/b' } } }).websiteUrl, 'https://example.org/b')
+  })
+})

@@ -104,6 +104,32 @@ test('W-72 W-73 after publish both are staged, listed in the diff and live only 
   assert.equal(after.body.charityUrl, 'https://example.org/zosia')
 })
 
+test('W-77 the event page: saved in a draft, refused when not http(s) (also by the column), staged after publish and served by /api/event', async () => {
+  const r = await callFn('create-registration-event', owner, { clubId, name: `Strona Leszego ${rand()}` })
+  const { eventId } = r.body.data
+  assert.equal((await save(eventId, { websiteUrl: 'https://example.org/bieg' })).status, 200)
+  assert.equal((await settingsOf(eventId)).website_url, 'https://example.org/bieg')
+  assert.equal((await callFn('get-registration-event', owner, { eventId })).body.data.settings.websiteUrl, 'https://example.org/bieg')
+  const bad = await save(eventId, { websiteUrl: 'javascript:alert(1)' })
+  assert.equal(bad.status, 422)
+  assert.equal(bad.body.fields.websiteUrl, 'Podaj adres zaczynający się od http:// albo https://.')
+
+  const event = await createPublishedFreeEvent(owner)
+  const col = await db().from('registration_settings').update({ website_url: 'javascript:alert(1)' }).eq('event_id', event.eventId)
+  assert.equal(col.error?.code, '23514')
+  assert.equal((await getEvent(event.slug)).body.websiteUrl, null)
+  const s = await save(event.eventId, { websiteUrl: 'https://example.org/bieg' })
+  assert.equal(s.status, 200, JSON.stringify(s.body))
+  assert.ok(s.body.data.changedFields.includes('basics.website_url'))
+  assert.equal((await settingsOf(event.eventId)).website_url, null, 'nothing live before publish')
+  const preview = await callFn('publish-registration-event', owner, { eventId: event.eventId, action: 'preview_changes' })
+  const row = preview.body.data.diff.find((d) => d.field === 'basics.website_url')
+  assert.equal(row.label, 'Strona wydarzenia')
+  const pub = await callFn('publish-registration-event', owner, { eventId: event.eventId, action: 'publish_changes', notify: { send: false } })
+  assert.equal(pub.status, 200, JSON.stringify(pub.body))
+  assert.equal((await getEvent(event.slug)).body.websiteUrl, 'https://example.org/bieg')
+})
+
 test('W-76 a taken address is refused on the step-1 save, before publish, and the other basics fields still save', async () => {
   const a = await createPublishedFreeEvent(owner)
   const r = await callFn('create-registration-event', owner, { clubId, name: `Adres Leszego ${rand()}` })

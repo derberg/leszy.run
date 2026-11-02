@@ -136,6 +136,8 @@ const BASICS = {
   charityUrl: ['charity_url', rules.webUrl()],
   // Plain text shown on the public event page; never rendered as HTML.
   description: ['description', rules.text(5000)],
+  // The event's own page, „Więcej informacji” under the description.
+  websiteUrl: ['website_url', rules.webUrl()],
   donationsEnabled: ['donations_enabled', rules.bool()],
   townLabel: ['town_label', rules.text(120)],
   townArea: ['town_area', rules.text(200)],
