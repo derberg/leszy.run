@@ -2,6 +2,8 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { getCorsHeaders, guardRequest, emailLinkBase } from '../_shared/cors.js'
 import { requestLoginCode } from '../_shared/requestCode.js'
 import { clientIp } from '../_shared/clientIp.js'
+import { sanitizeFrom } from '../_shared/safeFrom.js'
+import { isLoginEmail } from '../_shared/loginEmail.js'
 
 function json(body, status, req) {
   return new Response(JSON.stringify(body), {
@@ -17,15 +19,6 @@ function json(body, status, req) {
 // the victim a genuine login link pointing at that host.
 function magicLinkBase(req) {
   return emailLinkBase(req.headers.get('Origin'), Deno.env.get('SUPABASE_URL'))
-}
-
-// `from` must be an internal path: starts with single "/", no "//", no "\", no "..".
-function sanitizeFrom(raw) {
-  if (typeof raw !== 'string' || raw.length === 0) return null
-  if (!raw.startsWith('/')) return null
-  if (raw.startsWith('//') || raw.includes('\\') || raw.includes('..')) return null
-  if (raw.length > 500) return null
-  return raw
 }
 
 Deno.serve(async (req) => {
@@ -44,7 +37,7 @@ Deno.serve(async (req) => {
 
     if (honeypot) return json({ success: true }, 200, req)
 
-    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    if (!isLoginEmail(email)) {
       return json({ error: 'Nieprawidłowy adres email.' }, 400, req)
     }
 

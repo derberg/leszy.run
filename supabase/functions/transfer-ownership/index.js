@@ -76,14 +76,25 @@ Deno.serve(async (req) => {
 
       const previousOwnerId = club.owner_id
 
-      const { error: clubUpdateErr } = await supabaseAdmin.from('clubs')
-        .update({ owner_id: session.userId, pending_owner_id: null }).eq('id', club_id)
+      // Conditional on the nomination and the owner we read, so a cancel or a
+      // re-nomination landing between the read above and this write wins:
+      // the update then changes no row and the accept is refused before any
+      // role is touched. Unconditional, a nominee whose nomination had just
+      // been cancelled still took the club.
+      let transfer = supabaseAdmin.from('clubs')
+        .update({ owner_id: session.userId, pending_owner_id: null })
+        .eq('id', club_id).eq('pending_owner_id', session.userId)
+      transfer = previousOwnerId ? transfer.eq('owner_id', previousOwnerId) : transfer.is('owner_id', null)
+      const { data: transferred, error: clubUpdateErr } = await transfer.select('id')
       if (clubUpdateErr) throw clubUpdateErr
+      if (!transferred?.length) {
+        return json({ error: 'Nominacja została właśnie zmieniona. Odśwież stronę.' }, 409, req)
+      }
 
-      const { error: newOwnerErr } = await supabaseAdmin.from('club_members')
-        .update({ role: 'owner' }).eq('club_id', club_id).eq('user_id', session.userId)
-      if (newOwnerErr) throw newOwnerErr
-
+      // clubs.owner_id is the source of truth and is already switched. Demote
+      // the old owner BEFORE promoting the new one: a failure between the two
+      // then leaves the club with no 'owner' role row (repairable, and
+      // clubs.owner_id still names the right person), never with two.
       if (previousOwnerId && previousOwnerId !== session.userId) {
         const { error: oldOwnerErr } = await supabaseAdmin.from('club_members')
           .update({ role: 'admin' }).eq('club_id', club_id).eq('user_id', previousOwnerId)
@@ -92,6 +103,10 @@ Deno.serve(async (req) => {
           club_id, user_id: previousOwnerId, event: 'role_changed', role: 'admin', actor_id: session.userId,
         })
       }
+
+      const { error: newOwnerErr } = await supabaseAdmin.from('club_members')
+        .update({ role: 'owner' }).eq('club_id', club_id).eq('user_id', session.userId)
+      if (newOwnerErr) throw newOwnerErr
 
       // A transfer changes two people's roles and used to write nothing to the
       // log, while a hand-made demotion wrote a row — so the history said an

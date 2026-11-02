@@ -56,3 +56,24 @@ export function invitesToOffer(invites, memberClubIds, now = new Date()) {
   const member = new Set(memberClubIds)
   return invites.filter((i) => inviteState(i, now) === 'valid' && !member.has(i.club_id))
 }
+
+// What a removed member hears when a link or a join request would let them back in.
+export const REMOVED_REFUSAL = 'Administrator usunął Cię z tego klubu. Aby wrócić, poproś o zaproszenie imienne.'
+
+/**
+ * Whether a caller whose club_members row for this club has `existingStatus`
+ * may come back through this path. A member an admin REMOVED used to rejoin
+ * through any still-live link invite (accept-invite upserted 'active' over the
+ * 'removed' row), or reset the row to 'pending' with request-join, so a
+ * removal lasted only as long as nobody shared a link. Only a direct invite
+ * addressed to them (inviteIsForCaller already checked that) lets them back:
+ * an admin chose to invite this one person again. request-join passes no
+ * invite, so a removed member is always refused there.
+ *
+ * @param existingStatus {string|null|undefined} status of the caller's row in this club, if any
+ * @param invite {{ kind: string }|null}
+ */
+export function removedMemberMayRejoin(existingStatus, invite = null) {
+  if (existingStatus !== 'removed') return true
+  return invite?.kind === 'direct'
+}

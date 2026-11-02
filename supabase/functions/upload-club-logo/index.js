@@ -6,10 +6,17 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { Image } from 'https://deno.land/x/imagescript@1.2.15/mod.ts'
 import { getCorsHeaders, guardRequest } from '../_shared/cors.js'
 import { getSession } from '../_shared/session.js'
+import { imageHeader } from '../_shared/imageHeader.js'
 
 const MAX_BYTES = 5 * 1024 * 1024 // 5MB
 const MAX_DIMENSION = 512
-const DATA_URL_RE = /^data:image\/(png|jpe?g|webp);base64,/
+// Read from the header before decode, as in upload-partner-logo: a 50000×50000 PNG is a few
+// hundred bytes and decodes to 10 GB.
+const MAX_HEADER_PX = 4096
+const TYPES = ['png', 'jpeg']
+// PNG and JPEG only: imagescript has no WebP decoder, so a WebP never decoded here anyway. The
+// browser (ClubLogoUpload via logoResize) converts a WebP pick to PNG before upload.
+const DATA_URL_RE = /^data:image\/(png|jpe?g);base64,/
 
 function json(body, status, req) {
   return new Response(JSON.stringify(body), {
@@ -62,8 +69,21 @@ Deno.serve(async (req) => {
     if (bytes.length > MAX_BYTES) {
       return json({ error: 'Plik jest za duży (limit 5MB).' }, 400, req)
     }
+    // The magic bytes decide the type, never the data URL's MIME type.
+    const header = imageHeader(bytes)
+    if (!header || !TYPES.includes(header.type)) {
+      return json({ error: 'Dozwolone: PNG, JPG, WebP.' }, 400, req)
+    }
+    if (header.width > MAX_HEADER_PX || header.height > MAX_HEADER_PX) {
+      return json({ error: 'Obraz jest za duży (maks. 4096×4096 px).' }, 400, req)
+    }
 
-    const img = await Image.decode(bytes)
+    let img
+    try {
+      img = await Image.decode(bytes)
+    } catch {
+      return json({ error: 'Nie udało się odczytać obrazu.' }, 400, req)
+    }
     const resized = (img.width > MAX_DIMENSION || img.height > MAX_DIMENSION)
       ? img.resize(
           img.width >= img.height ? MAX_DIMENSION : Image.RESIZE_AUTO,

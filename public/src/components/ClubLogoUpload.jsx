@@ -1,11 +1,11 @@
 import { useState, useRef } from 'react'
 import { uploadClubLogo } from '../lib/clubs.js'
+import { logoResize, LOGO_TYPES, LOGO_TYPE_ERROR } from '../lib/logoResize.js'
 
-const ALLOWED_TYPES = ['image/png', 'image/jpeg', 'image/webp']
-const MAX_BYTES = 5 * 1024 * 1024 // 5MB — mirrors the server-side upload-club-logo limit
-
-// File → dataURL → upload-club-logo, with a client-side type/size guard that
-// fails fast (mirrors the server's own rule) plus a preview box.
+// File → logoResize (redrawn in the browser as PNG, or JPEG past 2 MB) →
+// upload-club-logo, plus a preview box. The server decodes PNG and JPEG only:
+// its image library has no WebP decoder, so a WebP is converted here, the same
+// way partner logos are.
 // <ClubLogoUpload clubId currentUrl onUploaded={(logo_url) => {}} />
 export default function ClubLogoUpload({ clubId, currentUrl, onUploaded }) {
   const [preview, setPreview] = useState(currentUrl || null)
@@ -13,34 +13,20 @@ export default function ClubLogoUpload({ clubId, currentUrl, onUploaded }) {
   const [error, setError] = useState(null)
   const inputRef = useRef(null)
 
-  function readAsDataUrl(file) {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader()
-      reader.onload = () => resolve(reader.result)
-      reader.onerror = () => reject(reader.error || new Error('Nie udało się odczytać pliku.'))
-      reader.readAsDataURL(file)
-    })
-  }
-
   async function handleChange(e) {
     const file = e.target.files?.[0]
     if (!file) return
     setError(null)
 
-    if (!ALLOWED_TYPES.includes(file.type)) {
-      setError('Dozwolone formaty: PNG, JPG, WebP.')
-      if (inputRef.current) inputRef.current.value = ''
-      return
-    }
-    if (file.size > MAX_BYTES) {
-      setError('Plik jest za duży — maksymalnie 5MB.')
+    if (!LOGO_TYPES.includes(file.type)) {
+      setError(LOGO_TYPE_ERROR)
       if (inputRef.current) inputRef.current.value = ''
       return
     }
 
     setBusy(true)
     try {
-      const dataUrl = await readAsDataUrl(file)
+      const dataUrl = await logoResize(file)
       const { logo_url } = await uploadClubLogo(clubId, dataUrl)
       setPreview(logo_url)
       onUploaded?.(logo_url)

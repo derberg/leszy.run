@@ -1,0 +1,32 @@
+-- anon and authenticated read only a club's public face, never who owns it.
+--
+-- 20260930090000_club_read_scope_and_grants.sql narrowed the SELECT policy to
+-- `is_public = true` and then granted SELECT on the WHOLE table. is_public
+-- defaults to true and the switch that would turn it off is parked (the
+-- public club page is not shipped), so in practice every club matched, and
+-- `GET /rest/v1/clubs?select=*` with the publishable key returned owner_id and
+-- pending_owner_id for all of them. Both are profile ids, and profiles_public
+-- maps a profile id to its username: anyone could list who owns each club and
+-- who is about to take it over. registration_enabled (which clubs sell entries)
+-- came with them.
+--
+-- Who reads clubs with a client key: nobody. Checked across public/src,
+-- public/api, frontend/src, backend/src, backend/scripts, scripts and
+-- supabase/functions: the club picker calls search_clubs (SECURITY DEFINER),
+-- profiles_public and registration_public read clubs as their owner, the admin
+-- backend and the publish script use the service role, and every club page in
+-- the public app goes through an edge function on the service role.
+--
+-- So the grant keeps only what is public anyway: id, name, slug and logo_url.
+-- The name is what search_clubs and preview-invite already return to anybody,
+-- the slug is in every club link, and the logo is an object in the public
+-- club-logos bucket. owner_id, pending_owner_id, registration_enabled,
+-- normalized_name, description, city, voivodeship, is_public and created_at
+-- are left out: nothing reads them with a client key, and a column added to
+-- clubs later is not readable until somebody grants it here.
+--
+-- The "Public read public clubs" policy stays as it is. Selecting any other
+-- column as anon or authenticated is now a permission error.
+
+revoke select on public.clubs from anon, authenticated;
+grant select (id, name, slug, logo_url) on public.clubs to anon, authenticated;

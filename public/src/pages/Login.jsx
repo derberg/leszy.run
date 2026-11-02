@@ -8,17 +8,10 @@ import { clearNotificationsCache } from '../hooks/useNotifications.js'
 import useSeo from '../hooks/useSeo.js'
 import useInvitePreview from '../hooks/useInvitePreview.js'
 import { inviteFromPath, postAuthPath as nextPathAfterAuth } from '../lib/inviteLink.js'
+import { safeFromPath } from '../lib/safeFrom.js'
 
 const inputClass = 'w-full bg-apex-surface border border-apex-border text-apex-text-bright font-sans text-base md:text-sm font-medium py-2.5 px-3.5 outline-none focus:border-apex-yellow-dim transition-colors'
 const labelClass = 'block font-display font-bold text-xs tracking-widest uppercase text-apex-muted mb-1.5'
-
-// Only allow internal redirects: must start with a single "/", no "//" (off-site), no "\".
-function sanitizeFrom(raw) {
-  if (!raw || typeof raw !== 'string') return null
-  if (!raw.startsWith('/')) return null
-  if (raw.startsWith('//') || raw.includes('\\')) return null
-  return raw
-}
 
 export default function Login() {
   useSeo({ title: 'Logowanie — Leszy.run', path: '/login', noindex: true })
@@ -29,7 +22,7 @@ export default function Login() {
 
   const linkEmail = searchParams.get('email')
   const linkCode = searchParams.get('code')
-  const fromParam = sanitizeFrom(searchParams.get('from'))
+  const fromParam = safeFromPath(searchParams.get('from'))
   const hasMagicLink = !!linkEmail && /^\d{6}$/.test(linkCode || '')
 
   const postAuthPath = (hasUsername) => nextPathAfterAuth({ from: fromParam, hasUsername })

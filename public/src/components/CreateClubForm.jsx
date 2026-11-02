@@ -53,17 +53,18 @@ export default function CreateClubForm({ onCreated, onCancel }) {
           value={name}
           onChange={e => setName(e.target.value)}
           placeholder="Klub Biegacza Kraków"
-          maxLength={120}
+          maxLength={100}
           className={inputClass}
           autoFocus
         />
-        <p className="font-mono text-[10px] text-apex-muted mt-0.5">{name.length}/120</p>
+        <p className="font-mono text-[10px] text-apex-muted mt-0.5">{name.length}/100</p>
       </div>
       <textarea
         data-testid="create-description"
         value={description}
         onChange={e => setDescription(e.target.value)}
         placeholder="Opis klubu (opcjonalnie)"
+        maxLength={2000}
         rows={2}
         className={`${inputClass} resize-none`}
       />

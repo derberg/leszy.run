@@ -3,6 +3,7 @@ import { getCorsHeaders, guardRequest } from '../_shared/cors.js'
 import { getSession } from '../_shared/session.js'
 import { sanitizePrivacySettings } from '../_shared/privacySettings.js'
 import { usernameChangeError } from '../_shared/usernameChange.js'
+import { profileFieldsError } from '../_shared/profileFields.js'
 
 function json(body, status, req) {
   return new Response(JSON.stringify(body), {
@@ -52,6 +53,9 @@ Deno.serve(async (req) => {
         .single()
       if (taken) return json({ error: 'Username already taken' }, 409, req)
     }
+
+    const fieldsErr = profileFieldsError({ display_name, bio, avatar_url })
+    if (fieldsErr) return json({ error: fieldsErr }, 400, req)
 
     if (gender !== undefined && gender !== null && !['M', 'F', 'X'].includes(gender)) {
       return json({ error: 'Płeć musi być jedną z: M, F, X' }, 400, req)

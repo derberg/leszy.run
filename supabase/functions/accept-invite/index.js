@@ -1,7 +1,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { getCorsHeaders, guardRequest } from '../_shared/cors.js'
 import { getSession } from '../_shared/session.js'
-import { inviteIsForCaller, inviteState } from '../_shared/clubInvites.js'
+import { inviteIsForCaller, inviteState, removedMemberMayRejoin, REMOVED_REFUSAL } from '../_shared/clubInvites.js'
 import { checkAndAwardBadges } from '../_shared/badge-check.js'
 import { logMembershipEvent } from '../_shared/membershipLog.js'
 
@@ -48,6 +48,14 @@ Deno.serve(async (req) => {
       .from('profiles').select('username').eq('id', session.userId).maybeSingle()
     if (!inviteIsForCaller(invite, { email: session.email, username: callerProfile?.username })) {
       return json({ error: 'To zaproszenie jest dla innej osoby.' }, 403, req)
+    }
+
+    // A member an admin removed does not come back through a shared link:
+    // only a direct invite addressed to them (checked just above) undoes it.
+    const { data: existing } = await supabaseAdmin.from('club_members')
+      .select('status').eq('club_id', invite.club_id).eq('user_id', session.userId).maybeSingle()
+    if (!removedMemberMayRejoin(existing?.status, invite)) {
+      return json({ error: REMOVED_REFUSAL }, 403, req)
     }
 
     // Enforce ≤1 active membership per user

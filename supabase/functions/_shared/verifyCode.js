@@ -8,6 +8,12 @@ import { isEmailRetired, RETIRED_EMAIL_MESSAGE } from './deletedEmails.js'
 
 const SESSION_MAX_AGE = 90 * 24 * 60 * 60 // 90 days in seconds
 
+// Verify attempts per client address per 15 minutes. The per-address limit
+// below stops guessing at one mailbox; it does nothing against one machine
+// trying a few codes at each of thousands of addresses. Generous, because a
+// carrier's CGNAT or an office puts many honest logins behind one address.
+export const VERIFY_IP_LIMIT = 300
+
 async function sha256hex(text) {
   const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text))
   return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('')
@@ -22,12 +28,15 @@ function randomToken() {
 const fail = (status, error, extra = {}) => ({ ok: false, status, error, ...extra })
 
 /**
+ * `ip` is `await clientIp(req)` from the caller; a missing address counts in
+ * the shared 'unknown' bucket, never skips the limit.
+ *
  * @returns {Promise<
  *   { ok: true, profile: { id: string, username: string|null }, email: string, cookie: string } |
  *   { ok: false, status: number, error: string, code?: string, retryAfterSec?: number }
  * >}
  */
-export async function verifyCodeAndOpenSession(supabaseAdmin, { email, code }) {
+export async function verifyCodeAndOpenSession(supabaseAdmin, { email, code, ip = null }) {
   if (!email || !code || !/^\d{6}$/.test(String(code).trim())) {
     return fail(400, 'Nieprawidłowe dane.')
   }
@@ -35,6 +44,14 @@ export async function verifyCodeAndOpenSession(supabaseAdmin, { email, code }) {
   const normalizedEmail = email.toLowerCase().trim()
   const trimmedCode = String(code).trim()
   const now = new Date().toISOString()
+
+  // Checked before the per-address limit, so a machine past its cap cannot
+  // keep spending the attempts of the mailboxes it is trying. failOpen for the
+  // same reason as below.
+  const ipThrottle = await checkAndIncrement(supabaseAdmin, `verify-ip:${ip ?? 'unknown'}`, VERIFY_IP_LIMIT, { failOpen: true })
+  if (!ipThrottle.allowed) {
+    return fail(429, 'Zbyt wiele prób. Spróbuj ponownie później.', { retryAfterSec: ipThrottle.retryAfterSec })
+  }
 
   // Guessing is bounded per address as well as per code: requesting a new code
   // resets the 3-attempt counter, so without this an attacker could keep

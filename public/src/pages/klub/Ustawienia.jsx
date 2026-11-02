@@ -135,7 +135,7 @@ export default function Ustawienia() {
           <div>
             <label htmlFor="club-name" className={fieldLabel}>Nazwa klubu</label>
             <input id="club-name" data-testid="edit-club-name" type="text" value={name}
-              onChange={(e) => setName(e.target.value)} maxLength={120}
+              onChange={(e) => setName(e.target.value)} maxLength={100}
               placeholder="np. Zatyrani Gratisownia" className={fieldInput} />
           </div>
           {/* Read-only: the address is fixed once the club is created. Changing
@@ -155,7 +155,7 @@ export default function Ustawienia() {
           <div>
             <label htmlFor="club-description" className={fieldLabel}>Opis klubu</label>
             <textarea id="club-description" data-testid="edit-club-description" value={description}
-              onChange={(e) => setDescription(e.target.value)} rows={4}
+              onChange={(e) => setDescription(e.target.value)} rows={4} maxLength={2000}
               placeholder="Napisz kilka zdań o klubie — kto biega, skąd jesteście, jak dołączyć…"
               className={`${fieldInput} resize-none`} />
           </div>

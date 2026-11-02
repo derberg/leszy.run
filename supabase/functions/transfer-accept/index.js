@@ -44,9 +44,11 @@ import { isUuid } from '../_shared/registration/organizerEvent.js'
 import { callTransferRpc, GONE, sendAcceptedTransferEmail, TRANSFER_REFUSALS } from '../_shared/registration/transfers.js'
 import { refundsInFlight } from '../_shared/registration/refundInFlight.js'
 import { requiredConsents } from '../_shared/registration/consents.js'
+import { LOGIN_EMAIL_RE } from '../_shared/loginEmail.js'
 
 const TOKEN_RE = /^[A-Za-z0-9_-]{43}$/
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+// The login-address rule shared with auth-request-code (_shared/loginEmail.js).
+const EMAIL_RE = LOGIN_EMAIL_RE
 // Per client address (clientIp, #333): generous, because a whole carrier's CGNAT or an office can share
 // one address; the per-token cap (10/h) and the e-mail code are the per-link guards.
 const HOUR_IP_LIMIT = 300
@@ -206,7 +208,7 @@ async function accept(admin, req, body, hash, { transfer, reg, settings }) {
     const code = body.code
     if (code == null || code === '') return json({ error: 'Wpisz kod wysłany na adres e-mail.', code: 'code_required' }, 401, req)
     if (await isEmailRetired(admin, email)) return json({ error: RETIRED_EMAIL_MESSAGE, code: 'email_retired' }, 403, req)
-    const verified = await verifyCodeAndOpenSession(admin, { email, code: String(code) })
+    const verified = await verifyCodeAndOpenSession(admin, { email, code: String(code), ip: await clientIp(req) })
     if (!verified.ok) {
       const extra = verified.retryAfterSec ? { 'retry-after': String(verified.retryAfterSec) } : {}
       return json({ error: verified.error, ...(verified.code ? { code: verified.code } : {}) }, verified.status, req, extra)
