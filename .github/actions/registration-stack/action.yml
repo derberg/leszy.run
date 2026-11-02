@@ -1,0 +1,45 @@
+name: Registration test stack
+description: Node, the Supabase CLI, the email and dpay mocks, a local Supabase stack with migrations and served edge functions.
+runs:
+  using: composite
+  steps:
+    - name: Setup Node
+      uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+      with:
+        node-version: 24
+
+    - shell: bash
+      run: npm ci
+
+    - name: Install Supabase CLI
+      uses: supabase/setup-cli@46f7f98c7f948ad727d22c1e67fab04c223a0520 # v3.0.0
+      with:
+        version: 2.109.1
+
+    - name: Start email capture server
+      shell: bash
+      run: node tests/registration/helpers/emailCaptureServer.js &
+
+    - name: Start mocked dpay server
+      shell: bash
+      run: node tests/registration/helpers/dpayMock.js &
+
+    - name: Start local Supabase stack
+      # One retry for a transient pull error; layers already pulled are kept.
+      shell: bash
+      run: |
+        tests/registration/start-stack.sh && exit 0
+        echo "supabase start failed, retrying once in 30s"
+        supabase stop --no-backup >/dev/null 2>&1 || true
+        sleep 30
+        tests/registration/start-stack.sh
+
+    - name: Apply migrations and seed
+      shell: bash
+      run: supabase db reset
+
+    - name: Serve edge functions
+      shell: bash
+      run: |
+        supabase functions serve --env-file tests/registration/functions.env > functions.log 2>&1 &
+        sleep 15

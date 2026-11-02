@@ -188,8 +188,11 @@ by every agent, and on 2026-11-01 two agents overwrote each other's suite logs. 
 db reset` waits until REST answers before it returns, so a suite started right after it does not
 meet PostgREST's `PGRST002` schema-cache errors.
 
-CI runs the same steps (plus backend and public unit tests) in `.github/workflows/registration-tests.yml`
-on every pull request. Every scenario and the test that covers it is listed in
+CI runs the same steps in `.github/workflows/registration-tests.yml`: backend and public unit tests on every
+pull request; the integration suite and the Playwright suite (three shards), each on its own stack
+(`.github/actions/registration-stack`), only when the pull request changes a file outside the paths they
+cannot reach (`changes` job: docs, enricher, vision, the admin frontend, checkpoint agent, scheduler,
+scrapers, backend scripts, `.md`). A new directory runs them until it is added to that list. Every scenario and the test that covers it is listed in
 [docs/registration/scenario-matrix.md](docs/registration/scenario-matrix.md): add a row for each new one.
 Never run the backend from a worktree against the Mac's real database or a production `SUPABASE_URL`.
 
