@@ -42,3 +42,17 @@ export function inviteState(invite, now = new Date()) {
   if (invite.max_uses != null && invite.uses >= invite.max_uses) return 'exhausted'
   return 'valid'
 }
+
+/**
+ * The direct invites worth showing the caller as "Masz zaproszenie": still
+ * usable, and to a club they are not already in. A direct invite has one use,
+ * so accepting it leaves the row exhausted, not revoked or expired — the
+ * profile kept offering it and every click answered "Zaproszenie wyczerpane".
+ *
+ * @param invites {Array<{ club_id: string, revoked?: boolean, expires_at?: string|null, max_uses?: number|null, uses?: number }>}
+ * @param memberClubIds {string[]} clubs the caller is an active member of
+ */
+export function invitesToOffer(invites, memberClubIds, now = new Date()) {
+  const member = new Set(memberClubIds)
+  return invites.filter((i) => inviteState(i, now) === 'valid' && !member.has(i.club_id))
+}

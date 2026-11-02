@@ -2,6 +2,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { getCorsHeaders, guardRequest } from '../_shared/cors.js'
 import { getSession } from '../_shared/session.js'
+import { invitesToOffer } from '../_shared/clubInvites.js'
 
 function json(body, status, req) {
   return new Response(JSON.stringify(body), {
@@ -88,7 +89,7 @@ Deno.serve(async (req) => {
   const nowIso = new Date().toISOString()
   const { data: invites } = await supabaseAdmin
     .from('club_invites')
-    .select('id, club_id, clubs(name)')
+    .select('id, club_id, revoked, expires_at, max_uses, uses, clubs(name)')
     .eq('kind', 'direct')
     .eq('revoked', false)
     .or(`expires_at.is.null,expires_at.gt.${nowIso}`)
@@ -120,7 +121,7 @@ Deno.serve(async (req) => {
       : null,
     pending_ownership: pendingOwnership ?? [],
     my_clubs: myClubs,
-    incoming_invites: (invites ?? []).map((i) => ({
+    incoming_invites: invitesToOffer(invites ?? [], (activeMemberships ?? []).map((m) => m.club_id)).map((i) => ({
       id: i.id, club_id: i.club_id, club_name: i.clubs?.name ?? null,
     })),
   }, 200, req)
