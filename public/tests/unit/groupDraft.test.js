@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import {
   newDraft, addPerson, removePerson, updatePerson, setGuardianConsent, setNotRunning, cardVariant, cardVariants,
   effectivePerson, peopleCount, canAdd, toRequest, checkDraft, draftReady, groupFailure, cardName, fixMessage, cardEmpty,
-  setCardOpen, formStep, stepAfter, LIST_STEP, addableCompetitions,
+  setCardOpen, formStep, stepAfter, LIST_STEP, addableCompetitions, draftConsents,
 } from '../../src/lib/groupDraft.js'
 import { EMPTY_PERSON, personContext } from '../../src/lib/personFormModel.js'
 
@@ -375,5 +375,39 @@ describe('Final review I-1: an added person never picks a team competition', () 
     const f = groupFailure({ status: 409, code: 'team_competition', message: 'W tej konkurencji startują tylko drużyny.' }, family(), TODAY)
     assert.deepEqual(f.errors, {})
     assert.equal(f.message, 'W tej konkurencji startują tylko drużyny.')
+  })
+})
+
+describe('the guardian consent (minorsOnly): shown and sent only while a child is in the request', () => {
+  const GUARDIAN = { id: 'kg', kind: 'custom', text: 'Jako opiekun zgadzam się na udział dziecka w zawodach.', minorsOnly: true }
+  const consents = [...RAW.consents, GUARDIAN]
+  const adults = () => {
+    let d = newDraft('c9')
+    d = updatePerson(d, d.cards[0].key, me)
+    d = addPerson(d, { categoryId: 'c9' })
+    return updatePerson(d, d.cards[1].key, partner)
+  }
+  it('adults only: not shown, not sent, not waited for', () => {
+    const d = adults()
+    assert.deepEqual(draftConsents(d, consents, TODAY).map((c) => c.id), ['k1', 'k2'])
+    assert.deepEqual(toRequest(d, { consents, today: TODAY }).acceptedConsentIds, ['k1', 'k2'])
+    assert.equal(draftReady(d, { consents, accepted: { k1: true, k2: true }, serviceAccepted: true, today: TODAY }), true)
+  })
+  it('a single adult (the legacy body) does not send it either', () => {
+    let d = newDraft('c9')
+    d = updatePerson(d, d.cards[0].key, me)
+    assert.deepEqual(toRequest(d, { consents, today: TODAY }).acceptedConsentIds, ['k1', 'k2'])
+  })
+  it('with a child: shown, sent and required', () => {
+    const d = family()
+    assert.deepEqual(draftConsents(d, consents, TODAY).map((c) => c.id), ['k1', 'k2', 'kg'])
+    assert.deepEqual(toRequest(d, { consents, today: TODAY }).acceptedConsentIds, ['k1', 'k2', 'kg'])
+    assert.equal(draftReady(d, { consents, accepted: { k1: true, k2: true }, serviceAccepted: true, today: TODAY }), false)
+    assert.equal(draftReady(d, { consents, accepted: { k1: true, k2: true, kg: true }, serviceAccepted: true, today: TODAY }), true)
+  })
+  it('the child removed: gone again, a tick left over is not sent', () => {
+    const f = family()
+    const d = removePerson(f, f.cards[2].key)
+    assert.deepEqual(toRequest(d, { consents, today: TODAY }).acceptedConsentIds, ['k1', 'k2'])
   })
 })

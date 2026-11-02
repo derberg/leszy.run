@@ -299,3 +299,14 @@ test('office hours: a changed note alone is a change; a staged row with no note 
   assert.equal(d.field, 'office.hours')
   assert.deepEqual(d.after, [{ date: '2026-12-05', from: '17:00', to: '19:00', note: 'tylko dzieci' }])
 })
+
+test('consents: switching minorsOnly alone is a change; the same list with the same flag is none', () => {
+  const text = 'Jako opiekun zgadzam się na udział dziecka w zawodach.'
+  const withConsent = (minorsOnly) => ({ ...live, consents: [{ id: C1, kind: 'custom', text, minors_only: minorsOnly }] })
+  assert.deepEqual(changeDiff(withConsent(true), { form: { consents: [{ id: C1, text, minorsOnly: true }] } }), [])
+  assert.deepEqual(changeDiff(withConsent(false), { form: { consents: [{ id: C1, text }] } }), [])
+  const diff = changeDiff(withConsent(false), { form: { consents: [{ id: C1, text, minorsOnly: true }] } })
+  assert.deepEqual(diff.map((d) => [d.field, d.before, d.after]), [
+    ['form.consents', [text], [`${text} (tylko przy dziecku)`]],
+  ])
+})

@@ -26,6 +26,7 @@ import { verifyCodeAndOpenSession } from '../_shared/verifyCode.js'
 import { requestLoginCode } from '../_shared/requestCode.js'
 import { isEmailRetired, RETIRED_EMAIL_MESSAGE } from '../_shared/deletedEmails.js'
 import { json } from '../_shared/registration/registrationRequest.js'
+import { requiredConsents } from '../_shared/registration/consents.js'
 import {
   emailHint, IP_LIMIT, ipKey, loadByToken, personContext, personOf, sessionMatches, throttled, TOKEN_LIMIT, tokenHash, TOO_MANY,
 } from '../_shared/registration/consentAccess.js'
@@ -49,7 +50,7 @@ function regulaminOf(settings, path) {
 
 async function fullAnswer(admin, registration, settings, competition, publicPart) {
   const [{ data: consents, error }, { data: upload, error: uErr }] = await Promise.all([
-    admin.from('event_consents').select('id, kind, text, sort_order, created_at').eq('event_id', registration.event_id),
+    admin.from('event_consents').select('id, kind, text, sort_order, created_at, minors_only').eq('event_id', registration.event_id),
     settings.regulamin_upload_id
       ? admin.from('registration_uploads').select('path, kind, event_id').eq('id', settings.regulamin_upload_id).maybeSingle()
       : Promise.resolve({ data: null, error: null }),
@@ -57,7 +58,8 @@ async function fullAnswer(admin, registration, settings, competition, publicPart
   if (error) throw error
   if (uErr) throw uErr
   const path = upload && upload.kind === 'regulamin' && upload.event_id === registration.event_id ? upload.path : null
-  const ordered = (consents ?? []).slice().sort((a, b) =>
+  // An added adult accepts for themself: a minors-only consent is not theirs (consents.js).
+  const ordered = requiredConsents(consents).slice().sort((a, b) =>
     (KIND_ORDER[a.kind] ?? 3) - (KIND_ORDER[b.kind] ?? 3) || a.sort_order - b.sort_order ||
     String(a.created_at).localeCompare(String(b.created_at)) || String(a.id).localeCompare(String(b.id)))
   return {

@@ -407,7 +407,7 @@ export function mergePending(raw, pending, now = new Date()) {
     if (has(payload.form, 'consents')) {
       out.consents = [
         ...(raw.consents ?? []).filter((k) => k.kind !== 'custom'),
-        ...payload.form.consents.map((k) => ({ id: k.id ?? null, kind: 'custom', text: k.text })),
+        ...payload.form.consents.map((k) => ({ id: k.id ?? null, kind: 'custom', text: k.text, minorsOnly: k.minorsOnly === true })),
       ]
     }
   }

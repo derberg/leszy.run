@@ -12,7 +12,7 @@ import {
 } from '../../lib/personFormModel.js'
 import {
   updatePerson, setCardOpen, setGuardianConsent, cardVariants, effectivePerson, cardEmpty, cardName, claimedEmail,
-  erroredCards, fixMessage, formStep, LIST_STEP, setCardVoucher, setCardExtra, draftOrdersExtras,
+  erroredCards, fixMessage, formStep, LIST_STEP, setCardVoucher, setCardExtra, draftOrdersExtras, draftConsents,
 } from '../../lib/groupDraft.js'
 import { donationsOffered, orderableExtras, pickedExtras } from '../../lib/cartModel.js'
 import { checkVoucherCode } from '../../lib/voucherCheck.js'
@@ -28,6 +28,7 @@ import { useMoveFocus } from '../../lib/useMoveFocus.jsx'
 import { warsawToday } from '@registration/dates.js'
 import { MIN_TEAM_SIZE } from '@registration/flags.js'
 import { TEAM_NAME_MAX } from '@registration/team.js'
+import { requiredConsents } from '@registration/consents.js'
 import { runnerDataInfo } from '../../legal/runnerDataInfo.js'
 import CodeStep from '../../components/registration/CodeStep.jsx'
 import ConsentList from '../../components/registration/ConsentList.jsx'
@@ -68,6 +69,9 @@ export default function TeamSignup({ raw: rawProp, categoryId, preview = false, 
   const context = useMemo(() => teamContext(raw, competition), [raw, competition])
   const fields = fieldModes(raw.formFields)
   const consents = raw.consents ?? []
+  // RB1's boxes are the captain's own: a minors-only consent (the guardian's) waits for RB2, where
+  // it shows only while a child is in the squad (guardianConsents below).
+  const captainConsents = requiredConsents(consents)
   const legOrder = competition.legOrderEnabled === true
   const teamMin = Math.max(competition.teamMin ?? MIN_TEAM_SIZE, MIN_TEAM_SIZE)
   const teamMax = Math.max(competition.teamMax ?? teamMin, teamMin)
@@ -147,6 +151,8 @@ export default function TeamSignup({ raw: rawProp, categoryId, preview = false, 
 
   const today = warsawToday()
   const variants = cardVariants(draft, today)
+  const guardianConsents = draftConsents(draft, consents, today).filter((c) => !captainConsents.includes(c))
+  const guardianReady = consentsComplete(guardianConsents, accepted, true)
   const open = row?.state === 'open'
   const priceGrosze = fee ?? competition.priceGrosze ?? 0
   const feePaid = raw.pricingMode !== 'free' && priceGrosze !== 0
@@ -275,7 +281,7 @@ export default function TeamSignup({ raw: rawProp, categoryId, preview = false, 
   }
 
   async function leaveCaptain() {
-    if (preview || busy || !open || !consentsComplete(consents, accepted, serviceAccepted)) return undefined
+    if (preview || busy || !open || !consentsComplete(captainConsents, accepted, serviceAccepted)) return undefined
     setMessage(null)
     const v = draft.cards[0].voucher
     if (v.code.trim() && v.state !== 'ok') {
@@ -308,7 +314,7 @@ export default function TeamSignup({ raw: rawProp, categoryId, preview = false, 
   // RB1's way back to the squad is RB1's way forward: an edited captain is checked and, with a
   // changed address, verified. Boxes unticked meanwhile are said out loud.
   function backToSquad() {
-    if (consentsComplete(consents, accepted, serviceAccepted)) return leaveCaptain()
+    if (consentsComplete(captainConsents, accepted, serviceAccepted)) return leaveCaptain()
     setMessage('Zaznacz wymagane zgody, żeby wrócić do składu.')
     return undefined
   }
@@ -418,7 +424,7 @@ export default function TeamSignup({ raw: rawProp, categoryId, preview = false, 
   }
 
   function submitSquad() {
-    if (preview || busy || !open || !draft.membersConsent) return undefined
+    if (preview || busy || !open || !draft.membersConsent || !guardianReady) return undefined
     setMessage(null)
     const r = checkTeam(draft, { context, now: new Date() })
     if (!r.ok) {
@@ -569,10 +575,10 @@ export default function TeamSignup({ raw: rawProp, categoryId, preview = false, 
             codeNote={codeNeeded ? 'Wyślemy na niego kod potwierdzający zapis.' : 'Jesteś zalogowany na ten adres — bez kodu.'}
             voucher={voucherProps} extras={extrasProps(draft.cards[0])} />
         </div>
-        <ConsentList consents={consents} accepted={accepted} onToggle={(id, v) => setAccepted((a) => ({ ...a, [id]: v }))}
+        <ConsentList consents={captainConsents} accepted={accepted} onToggle={(id, v) => setAccepted((a) => ({ ...a, [id]: v }))}
           serviceAccepted={serviceAccepted} onService={setServiceAccepted} regulaminUrl={model.regulaminUrl} dataInfo={dataInfo} />
         {errorLine}
-        <button type="submit" disabled={preview || busy || !open || !consentsComplete(consents, accepted, serviceAccepted)} className={primaryBtn}>
+        <button type="submit" disabled={preview || busy || !open || !consentsComplete(captainConsents, accepted, serviceAccepted)} className={primaryBtn}>
           {busy ? 'Chwileczkę…' : 'Dalej: skład'}
         </button>
       </form>
@@ -662,8 +668,15 @@ export default function TeamSignup({ raw: rawProp, categoryId, preview = false, 
               onChange={(e) => { const v = e.target.checked; setDraft((d) => ({ ...d, membersConsent: v })) }} data-testid="members-consent" />
             <span><span className="text-apex-red" aria-hidden="true">*</span> Mam zgodę członków drużyny na podanie ich danych. Każdy dorosły dostanie mail z regulaminem do potwierdzenia.</span>
           </label>
+          {guardianConsents.map((k) => (
+            <label key={k.id} className="flex gap-3 items-start font-sans text-[15px] leading-snug text-apex-text cursor-pointer">
+              <input type="checkbox" className="mt-0.5 w-5 h-5 shrink-0 accent-apex-yellow rounded-none" required checked={accepted[k.id] === true}
+                onChange={(e) => { const v = e.target.checked; setAccepted((a) => ({ ...a, [k.id]: v })) }} data-testid="guardian-event-consent" />
+              <span><span className="text-apex-red" aria-hidden="true">*</span> {k.text}</span>
+            </label>
+          ))}
           {errorLine}
-          <button type="submit" disabled={preview || busy || !open || !draft.membersConsent} className={primaryBtn} data-testid="squad-submit">
+          <button type="submit" disabled={preview || busy || !open || !draft.membersConsent || !guardianReady} className={primaryBtn} data-testid="squad-submit">
             {busy ? 'Chwileczkę…' : paid ? 'Dalej: płatność' : 'Zapisz drużynę'}
           </button>
         </>

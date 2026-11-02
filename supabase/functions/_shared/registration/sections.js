@@ -448,10 +448,14 @@ function validateForm(value, ctx, c) {
     else {
       out.consents = value.consents.map((k) => {
         if (!isPlainObject(k)) return c.fail('consents', 'Nieprawidłowa zgoda.')
-        checkKeys(k, ['id', 'text'], c)
+        checkKeys(k, ['id', 'text', 'minorsOnly'], c)
+        // minorsOnly: shown and required only when a child is entered (consents.js). Sent
+        // only when true; absent means every registrant.
+        if ('minorsOnly' in k && typeof k.minorsOnly !== 'boolean') c.fail('minorsOnly', 'Nieprawidłowa wartość.')
         return {
           id: rules.uuid()(k.id, 'id', c) ?? null,
           text: rules.text(500, { required: true, emptyMsg: 'Podaj treść zgody.' })(k.text, 'text', c),
+          ...(k.minorsOnly === true ? { minorsOnly: true } : {}),
         }
       })
       // One entry per consent: a repeated id would let a list keep an accepted

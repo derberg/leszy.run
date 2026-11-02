@@ -268,6 +268,11 @@ describe('mergePending', () => {
     ])
   })
 
+  it('a staged guardian consent stays minors-only in the preview', () => {
+    const merged = mergePending(RA1, { payload: { form: { consents: [{ id: null, text: 'Opiekun.', minorsOnly: true }, { id: null, text: 'Wszyscy.' }] } } })
+    assert.deepEqual(merged.consents.filter((k) => k.kind === 'custom').map((k) => [k.text, k.minorsOnly]), [['Opiekun.', true], ['Wszyscy.', false]])
+  })
+
   it('a competition hidden live stays hidden unless the staged item unhides it', () => {
     const item = (over) => ({ category_id: 'hid', name: 'Ukryty 1 km', start_time: '09:00', capacity: 10, min_age: null, max_age: null, is_kids: false, timed: true, discipline: 'run', distance_label: '1 km', gpx_upload_id: null, ...over })
     const names = (it) => mergePending(RA1, { payload: { competitions: { pricing_mode: 'free', items: [it] } } }).competitions.map((c) => c.name)

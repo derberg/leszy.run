@@ -74,7 +74,7 @@ async function liveSnapshot(admin, settings) {
     allRows(() => admin.from('office_hours').select('starts_at, ends_at, note').eq('event_id', eventId).order('starts_at')),
     byCategory('age_groups', '*'),
     byCategory('kids_groups', '*'),
-    allRows(() => admin.from('event_consents').select('kind, text, sort_order').eq('event_id', eventId).order('sort_order')),
+    allRows(() => admin.from('event_consents').select('kind, text, sort_order, minors_only').eq('event_id', eventId).order('sort_order')),
     payoutState(admin, settings),
     // registration_raw's tier order: ends_on nulls last, sort_order, id.
     allRows(() => admin.from('price_tiers').select('id, ends_on, sort_order').eq('event_id', eventId)

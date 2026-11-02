@@ -109,7 +109,10 @@ const stagedHours = (rows = []) => rows
 const ageGroups = (rows = []) => rows.map(({ category_id, gender, label, min_age, max_age }) => ({ category_id, gender, label, min_age, max_age }))
 const kidsGroups = (rows = []) => rows.map(({ category_id, label, birth_year_from, birth_year_to, gender, distance_label }) =>
   ({ category_id, label, birth_year_from, birth_year_to, gender, distance_label }))
-const customConsents = (rows = []) => rows.filter((k) => (k.kind ?? 'custom') === 'custom').map((k) => k.text)
+// Whom a consent applies to is part of it: switching minors-only alone is a change. Live rows
+// carry minors_only, staged ones minorsOnly.
+const customConsents = (rows = []) => rows.filter((k) => (k.kind ?? 'custom') === 'custom')
+  .map((k) => ((k.minorsOnly ?? k.minors_only) === true ? `${k.text} (tylko przy dziecku)` : k.text))
 
 const LISTS = {
   'office.hours': { label: 'Godziny biura', live: (l) => liveHours(l.officeHours), staged: stagedHours },

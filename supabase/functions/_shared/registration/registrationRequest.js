@@ -27,6 +27,7 @@ import { DONATION_MESSAGE, EXTRAS_MESSAGE, VOUCHER_CODE_MESSAGE, cartIsEmpty, ca
 import { cartAmounts } from './pricing.js'
 import { normalizeCode } from './vouchers.js'
 import { moneyLiveFor } from './moneyLive.js'
+import { hasMinor, requiredConsents } from './consents.js'
 
 export function json(body, status, req, headers = {}) {
   return new Response(JSON.stringify(body), {
@@ -294,7 +295,7 @@ export async function prepareRegistration(req, admin, body, { pricing, throttles
   // ---- the group
   const [contexts, consents] = await Promise.all([
     personContexts(admin, settings, compRows),
-    rows(admin.from('event_consents').select('id').eq('event_id', settings.event_id)),
+    rows(admin.from('event_consents').select('id, minors_only').eq('event_id', settings.event_id)),
   ])
   const now = new Date()
 
@@ -355,8 +356,9 @@ export async function prepareRegistration(req, admin, body, { pricing, throttles
     : `${group.buyer.firstName} ${group.buyer.lastName}`
   const buyerFirstName = self.length ? self[0].firstName : group.buyer.firstName
 
-  // ---- consents: every event consent and the LESZY.RUN service regulamin
-  const consentIds = consents.map((c) => c.id)
+  // ---- consents: every event consent that applies (a minors-only one only when a child is
+  // entered, consents.js) and the LESZY.RUN service regulamin
+  const consentIds = requiredConsents(consents, { hasMinor: hasMinor(people) }).map((c) => c.id)
   if (serviceRegulamin !== true || !Array.isArray(acceptedConsentIds) || !sameSet(acceptedConsentIds, consentIds)) {
     return { response: json({ error: REFUSALS.consents_changed[1], code: 'consents_required' }, 400, req) }
   }
