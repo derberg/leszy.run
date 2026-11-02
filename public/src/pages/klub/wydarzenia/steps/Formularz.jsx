@@ -31,7 +31,7 @@ const FIELDS = [
 const MODES = [['required', 'Wymagane'], ['optional', 'Opcjonalne'], ['off', 'Brak']]
 
 const PRESETS = [
-  { label: 'Start na własną odpowiedzialność', text: 'Startuję na własną odpowiedzialność.' },
+  { label: 'Start na własną odpowiedzialność', text: 'Startuję na własną odpowiedzialność. Oświadczam, że mój stan zdrowia pozwala na udział w zawodach i nie mam przeciwwskazań lekarskich. Wiem, że udział w wydarzeniu wiąże się z ryzykiem urazu lub pogorszenia zdrowia.' },
   { label: 'Zgoda opiekuna · dzieci', text: 'Jako opiekun zgadzam się na udział dziecka w zawodach.', minorsOnly: true },
 ]
 const MINORS_ONLY_TIP = 'Widzi ją tylko ktoś, kto zapisuje dziecko. Dorosły zapisujący siebie jej nie zobaczy.'
