@@ -337,7 +337,7 @@ test('W-25 owner creates an event, fills every step, reloads, previews as a runn
     const rank = { regulamin: 0, data_info: 1, image: 2, custom: 3 }
     return [s.form_fields, k.sort((a, b) => rank[a.kind] - rank[b.kind]).map((c) => c.text)]
   }, { timeout: 15_000 }).toEqual([
-    { city: 'optional', club: 'off', ice: 'optional', nationality: 'required' },
+    { city: 'required', club: 'off', ice: 'optional', nationality: 'required' },
     ['Akceptuję regulamin zawodów.', 'Znam informację o danych osobowych.',
       'Akceptuję, że mój wizerunek utrwalony podczas zawodów (zdjęcia, wideo) może zostać opublikowany w relacjach i wynikach zawodów, zgodnie z regulaminem.',
       'Startuję na własną odpowiedzialność.', 'Zgadzam się na pomiar czasu chipem.'],
@@ -471,7 +471,7 @@ test('W-70 „Podgląd jako zawodnik” shows the course inline, the deadline, t
   const ra1 = page.getByTestId('registration-event-page')
   await expect(ra1.getByTestId('deadline')).toContainText('Zapisy do')
   await expect(ra1.getByTestId('deadline')).toContainText('23:59')
-  await expect(ra1.getByTestId('start-place')).toHaveText('Nieborowice · mapa ↗')
+  await expect(ra1.getByTestId('start-place')).toHaveText('Nieborowice · OpenStreetMap ↗ · Google Maps ↗')
   const course = ra1.getByTestId('event-course')
   await course.scrollIntoViewIfNeeded()
   await expect(course.getByTestId('course-map').locator('path.leaflet-interactive').first()).toBeVisible()

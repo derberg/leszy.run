@@ -130,8 +130,9 @@ test('W-67 W-68 W-69 W-70 the event page shows the deadline, the start, the cour
   await expect(page.getByTestId('deadline')).toHaveText(`Zapisy do ${dmy(event.closesOn)}, 23:59`)
 
   // W-67: the start is the event place and pin; an office at the event says so instead of repeating it.
-  await expect(page.getByTestId('start-place')).toHaveText('Nieborowice, Boisko przy szkole · mapa ↗')
-  await expect(page.getByTestId('start-place')).toHaveAttribute('href', 'https://www.openstreetmap.org/?mlat=50.2381&mlon=18.5412#map=17/50.2381/18.5412')
+  await expect(page.getByTestId('start-place')).toHaveText('Nieborowice, Boisko przy szkole · OpenStreetMap ↗ · Google Maps ↗')
+  await expect(page.getByTestId('start-place-osm')).toHaveAttribute('href', 'https://www.openstreetmap.org/?mlat=50.2381&mlon=18.5412#map=17/50.2381/18.5412')
+  await expect(page.getByTestId('start-place-google')).toHaveAttribute('href', 'https://www.google.com/maps/search/?api=1&query=50.2381,18.5412')
   await expect(page.getByTestId('office')).toContainText('8:00–9:30')
   await expect(page.getByTestId('office-at-start')).toHaveText('W miejscu startu')
   await expect(page.getByTestId('office-place')).toHaveCount(0)
@@ -154,8 +155,8 @@ test('W-67 W-68 W-69 W-70 the event page shows the deadline, the start, the cour
   // The office with its own address keeps its own place line.
   const other = await createPublishedFreeEvent(owner, { office: OFFICE })
   await page.goto(`/events/${other.slug}`)
-  await expect(page.getByTestId('start-place')).toHaveText('Nieborowice · mapa ↗')
-  await expect(page.getByTestId('office-place')).toHaveText('Szkoła Podstawowa, ul. Szkolna 4 · mapa ↗')
+  await expect(page.getByTestId('start-place')).toHaveText('Nieborowice · OpenStreetMap ↗ · Google Maps ↗')
+  await expect(page.getByTestId('office-place')).toHaveText('Szkoła Podstawowa, ul. Szkolna 4 · OpenStreetMap ↗ · Google Maps ↗')
   await expect(page.getByTestId('office-at-start')).toHaveCount(0)
   await expect(page.getByTestId('event-course')).toHaveCount(0)
 
