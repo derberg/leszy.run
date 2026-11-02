@@ -478,7 +478,7 @@ test('T-45 D5-24 a captain\'s resubmit while their team waits for payment → 40
   assert.equal((await teamsOf(event.eventId)).length, 1)
 })
 
-test('T-45 D5-24 dpay refuses the registration → 502, the order cancelled with its reason, the name free, and the captain can sign up again', async () => {
+test('T-45 D5-24 dpay refuses the registration → 502 naming the order, which stays pending and keeps the name; pay-order pays it', async () => {
   const event = await paidTeamEvent(owner)
   const me = runnerEmail('capt')
   const session = await sessionFor(me)
@@ -486,17 +486,21 @@ test('T-45 D5-24 dpay refuses the registration → 502, the order cancelled with
   await dpayMode({ registerFails: true })
   const r = await call('register-team', body, session)
   assert.equal(r.status, 502, JSON.stringify(r.body))
-  assert.deepEqual(r.body, { error: DPAY_DOWN, code: 'dpay_unavailable' })
   const [order] = await rows('orders', { event_id: event.eventId })
-  assert.equal(order.status, 'cancelled')
-  assert.equal(order.cancelled_reason, 'dpay_register_failed')
-  assert.ok((await teamsOf(event.eventId))[0].released_at, 'the name is free again')
+  assert.deepEqual(r.body, { error: DPAY_DOWN, code: 'dpay_unavailable', orderId: order.id })
+  assert.equal(order.status, 'pending')
+  assert.equal(order.cancelled_reason, null)
+  assert.equal((await teamsOf(event.eventId))[0].released_at, null, 'the name stays with the pending team')
   const logged = await rows('payment_events', { order_id: order.id })
   assert.equal(logged.filter((e) => e.kind === 'register' && e.payload.ok === false).length, 1)
 
   await dpayReset()
   const again = await call('register-team', body, session)
-  assert.equal(again.status, 201, JSON.stringify(again.body))
+  assert.equal(again.status, 409, JSON.stringify(again.body))
+  assert.equal(again.body.orderId, order.id)
+  const paid = await call('pay-order', { orderId: order.id }, session)
+  assert.equal(paid.status, 200, JSON.stringify(paid.body))
+  assert.ok(paid.body.data.redirectUrl)
 })
 
 test('T-45 D5-24 pay-order on a team order: a new transaction at the frozen fee; a dpay failure leaves the order pending', async () => {

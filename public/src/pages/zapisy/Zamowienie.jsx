@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useLocation, useParams } from 'react-router-dom'
 import Navbar from '../../components/Navbar.jsx'
 import useSeo from '../../hooks/useSeo.js'
 import usePublicRegistrationEvent from '../../hooks/usePublicRegistrationEvent.js'
@@ -203,7 +203,8 @@ function CancelOrder({ orderId, prominent, onDone }) {
 
 function Pending({ orderId, order, raw, polling, onAgain }) {
   const [busy, setBusy] = useState(false)
-  const [message, setMessage] = useState(null)
+  // The signup page lands here when dpay refused the first payment (create-order / register-team 502).
+  const [message, setMessage] = useState(useLocation().state?.payError ?? null)
   const [, tick] = useState(0)
   const closesAt = order.closesAt ?? raw?.closesAt ?? null
   const closed = !payLinkOpen(closesAt)

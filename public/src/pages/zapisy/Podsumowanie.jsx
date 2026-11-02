@@ -149,6 +149,13 @@ export default function Podsumowanie({
         navigate(orderPath(err.orderId), { replace: true })
         return
       }
+      // dpay refused the payment: the order is kept, and its page pays it.
+      if (err.code === 'dpay_unavailable' && err.orderId) {
+        settled()
+        releaseLeaveGuard()
+        navigate(orderPath(err.orderId), { replace: true, state: { payError: err.message } })
+        return
+      }
       if (err.field === 'donation') {
         setDonationError(err.message)
         return
