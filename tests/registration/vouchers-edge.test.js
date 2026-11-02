@@ -91,8 +91,11 @@ async function createVoucher(eventId, over = {}) {
   return one('vouchers', { id: r.body.data.id })
 }
 
+const partnersFn = (eventId, body, session = owner) => callFn('organizer-partners', session, { eventId, ...body })
+
+/** A hidden partner through organizer-partners `create` (event partners, task 2): never on the public page. */
 async function createPartner(eventId, name = `Sklep ${rand()}`, note = null) {
-  const r = await vouchers(eventId, { action: 'partner_create', name, note })
+  const r = await partnersFn(eventId, { action: 'create', name, note, isPublic: false })
   assert.equal(r.status, 201, JSON.stringify(r.body))
   return { id: r.body.data.id, name, note }
 }
@@ -109,20 +112,24 @@ async function orderWithCode(event, code, email = runnerEmail('code')) {
 test('V-30 organizer-vouchers: a member, an outsider, another club\'s admin and a disabled club get 404; owner and admin 200', async () => {
   const event = await paidEvent()
   const reads = { action: 'list' }
-  const writes = { action: 'partner_create', name: `Sklep ${rand()}` }
+  const writes = { action: 'create', code: `KOD-${rand().toUpperCase()}`, percent: 15, maxUses: 1 }
   for (const [who, session] of [['member', member], ['outsider', outsider], ['innyAdmin', innyAdmin]]) {
     for (const body of [reads, writes, { action: 'export' }]) {
       const r = await vouchers(event.eventId, body, session)
       assert.equal(r.status, 404, `${who} ${body.action}: ${JSON.stringify(r.body)}`)
     }
   }
-  assert.deepEqual(await rows('registration_partners', { event_id: event.eventId }), [], 'no refused write landed')
+  assert.deepEqual(await rows('vouchers', { event_id: event.eventId }), [], 'no refused write landed')
   for (const [who, session] of [['owner', owner], ['admin', adminS]]) {
     const r = await vouchers(event.eventId, reads, session)
     assert.equal(r.status, 200, `${who}: ${JSON.stringify(r.body)}`)
     assert.deepEqual(r.body.data, { vouchers: [], partners: [] })
   }
-  assert.equal((await vouchers(event.eventId, { action: 'partner_create', name: `Sklep ${rand()}` }, adminS)).status, 201)
+  const byAdmin = await vouchers(event.eventId, { action: 'create', percent: 15, maxUses: 1 }, adminS)
+  assert.equal(byAdmin.status, 201, JSON.stringify(byAdmin.body))
+  vouchersMade.add(byAdmin.body.data.id)
+  // Partner actions moved to organizer-partners (event partners, task 2).
+  assert.deepEqual((await vouchers(event.eventId, { action: 'partner_create', name: `Sklep ${rand()}` })).body.code, 'invalid_action')
   // Another event's voucher id: 404, never a write on it.
   const other = await paidEvent()
   const foreign = await createVoucher(other.eventId)
@@ -316,17 +323,17 @@ test('V-33 a partner set by hand on an entry without a voucher → the B3 row na
   assert.equal(logged.length, 2)
   assert.deepEqual(logged.map((l) => l.payload.partnerId), [partner.id, partner.id])
   // A partner somebody carries cannot be deleted; cleared, then deleted.
-  const del = await vouchers(event.eventId, { action: 'partner_delete', id: partner.id })
+  const del = await partnersFn(event.eventId, { action: 'delete', id: partner.id })
   assert.deepEqual([del.status, del.body.code], [409, 'partner_referenced'])
   // The same name in another case is taken; a rename is logged.
-  const dup = await vouchers(event.eventId, { action: 'partner_create', name: partner.name.toUpperCase() })
+  const dup = await partnersFn(event.eventId, { action: 'create', name: partner.name.toUpperCase() })
   assert.deepEqual([dup.status, dup.body.code], [409, 'partner_taken'])
-  const ren = await vouchers(event.eventId, { action: 'partner_update', id: partner.id, name: `${partner.name} 2`, note: 'umowa' })
+  const ren = await partnersFn(event.eventId, { action: 'update', id: partner.id, name: `${partner.name} 2`, note: 'umowa' })
   assert.equal(ren.status, 200, JSON.stringify(ren.body))
   const clear = await callFn('organizer-entry-action', owner, { action: 'partner', registrationId: ra.id, partnerId: null })
   assert.deepEqual(clear.body.data, { partnerId: null, changed: true })
   const spare = await createPartner(event.eventId)
-  assert.equal((await vouchers(event.eventId, { action: 'partner_delete', id: spare.id })).status, 200)
+  assert.equal((await partnersFn(event.eventId, { action: 'delete', id: spare.id })).status, 200)
   for (const name of ['partner_created', 'partner_updated', 'partner_deleted']) {
     assert.ok((await actions(event.eventId, name)).length >= 1, name)
   }
@@ -632,14 +639,16 @@ test('V-35 another event\'s ids: update, delete and the partner actions 404, a f
   for (const body of [
     { action: 'update', id: foreign.id, percent: 50 },
     { action: 'delete', id: foreign.id },
-    { action: 'partner_update', id: foreignPartner.id, name: 'Przejęty' },
-    { action: 'partner_delete', id: foreignPartner.id },
   ]) {
     const r = await vouchers(event.eventId, body)
     assert.equal(r.status, 404, `${body.action}: ${JSON.stringify(r.body)}`)
   }
+  for (const body of [{ action: 'update', id: foreignPartner.id, name: 'Przejęty' }, { action: 'delete', id: foreignPartner.id }]) {
+    const r = await partnersFn(event.eventId, body)
+    assert.equal(r.status, 404, `partner ${body.action}: ${JSON.stringify(r.body)}`)
+  }
   assert.equal((await one('vouchers', { id: foreign.id })).percent, 15)
-  assert.equal((await one('registration_partners', { id: foreignPartner.id })).name, foreignPartner.name)
+  assert.equal((await one('event_partners', { id: foreignPartner.id })).name, foreignPartner.name)
   const fp = await vouchers(event.eventId, { action: 'update', id: mine.id, partnerId: foreignPartner.id })
   assert.deepEqual([fp.status, fp.body.code], [422, 'invalid_partner'])
   const fc = await vouchers(event.eventId, { action: 'update', id: mine.id, categoryIds: [other.categoryIds[0]] })

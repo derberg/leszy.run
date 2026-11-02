@@ -120,7 +120,7 @@ test('V-80 a partnered, discounted package across four audiences: the code and p
   await expect(codeRow).toContainText('0 / 10')
   await expect(codeRow).toContainText(PARTNER)
   const voucher = await one('vouchers', { event_id: e.eventId, code: CODE })
-  const partner = await one('registration_partners', { event_id: e.eventId, name: PARTNER })
+  const partner = await one('event_partners', { event_id: e.eventId, name: PARTNER })
   expect([voucher.percent, voucher.max_uses, voucher.used, voucher.partner_id]).toEqual([15, 10, 0, partner.id])
 
   // ---- runner: the code, a shirt M and +20 zł; RA4's line and total are cartAmounts'.

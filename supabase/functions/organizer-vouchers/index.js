@@ -9,7 +9,7 @@ import { generateCodes, MAX_GENERATED_CODES, validateVoucherInput } from '../_sh
 import { vouchersToCsv } from '../_shared/registration/entriesCsv.js'
 import { warsawToday } from '../_shared/registration/dates.js'
 
-// Codes and partners are the organizer's commercial data: never cached.
+// Codes are the organizer's commercial data: never cached.
 function json(body, status, req) {
   return new Response(JSON.stringify(body), {
     status,
@@ -19,18 +19,14 @@ function json(body, status, req) {
 
 const NOT_FOUND = { error: 'Not found' }
 const MANAGERS = ['owner', 'admin']
-const ACTIONS = ['list', 'create', 'generate', 'update', 'disable', 'delete', 'export',
-  'partner_create', 'partner_update', 'partner_delete']
+const ACTIONS = ['list', 'create', 'generate', 'update', 'disable', 'delete', 'export']
 const MAX_NOTE = 500
-const MAX_PARTNER_NAME = 80
 
 const REFUSALS = {
   code_taken: [409, 'Ten kod już istnieje.'],
   voucher_used: [409, 'Kodu, który już wykorzystano, nie można zmienić — wyłącz go.'],
   below_used: [409, 'Limit nie może być mniejszy niż liczba dotychczasowych użyć.'],
   voucher_referenced: [409, 'Kodu, który już wykorzystano, nie można usunąć — wyłącz go.'],
-  partner_taken: [409, 'Taki partner już istnieje.'],
-  partner_referenced: [409, 'Partnera przypisanego do kodów lub zgłoszeń nie można usunąć.'],
   invalid_partner: [422, 'Nieznany partner.'],
   invalid_category: [422, 'Nieznana konkurencja.'],
   invalid_code: [422, 'Kod: 4–32 znaki, litery A–Z, cyfry i „-”.'],
@@ -72,7 +68,7 @@ async function single(query) {
   return data
 }
 
-/** Every voucher and partner of the event, in the shape `list` answers. */
+/** Every voucher of the event and the partners a code may name, in the shape `list` answers. */
 async function loadVouchers(admin, eventId) {
   const [vouchers, links, partners] = await Promise.all([
     allRows(() => admin.from('vouchers')
@@ -80,7 +76,7 @@ async function loadVouchers(admin, eventId) {
       .eq('event_id', eventId).order('created_at').order('id')),
     allRows(() => admin.from('voucher_competitions').select('voucher_id, category_id, vouchers!inner(event_id)')
       .eq('vouchers.event_id', eventId).order('voucher_id').order('category_id')),
-    allRows(() => admin.from('registration_partners').select('id, name, note').eq('event_id', eventId).order('id')),
+    allRows(() => admin.from('event_partners').select('id, name, is_public').eq('event_id', eventId).order('id')),
   ])
   const partnerOf = new Map(partners.map((p) => [p.id, p]))
   const categoriesOf = new Map()
@@ -104,7 +100,7 @@ async function loadVouchers(admin, eventId) {
         disabled: v.disabled_at != null,
       }
     }),
-    partners: partners.map((p) => ({ id: p.id, name: p.name, note: p.note }))
+    partners: partners.map((p) => ({ id: p.id, name: p.name, isPublic: p.is_public }))
       .sort((a, b) => a.name.localeCompare(b.name, 'pl')),
   }
 }
@@ -115,22 +111,12 @@ async function voucherOf(admin, eventId, id) {
   return single(admin.from('vouchers').select('*').eq('id', id).eq('event_id', eventId).maybeSingle())
 }
 
-async function partnerOf(admin, eventId, id) {
-  if (!isUuid(id)) return null
-  return single(admin.from('registration_partners').select('*').eq('id', id).eq('event_id', eventId).maybeSingle())
-}
-
-/** A partner's name: trimmed, 1–80 characters, else null. */
-function partnerName(name) {
-  if (typeof name !== 'string') return null
-  const t = name.trim()
-  return t.length >= 1 && t.length <= MAX_PARTNER_NAME ? t : null
-}
-
-// POST { eventId, action, … } → the organizer's codes and partners (Płatności, A6). Ruling 11: they
+// POST { eventId, action, … } → the organizer's discount codes (Płatności, A6). Ruling 11: they
 // are not pending changes, so every write applies at once, in draft and after publish.
 //   list            → 200 { data: { vouchers: [{ id, code, percent, used, maxUses, validUntil,
-//                     partner: { id, name } | null, categoryIds, note, disabled }], partners: [{ id, name, note }] } }
+//                     partner: { id, name } | null, categoryIds, note, disabled }], partners: [{ id, name, isPublic }] } }
+//                   partners are every event_partners row of the event (hidden ones too), by name, for
+//                   the code dialog's select; they are managed by organizer-partners, outside the money switch
 //   create          { code?, percent, maxUses, validUntil?, categoryIds?, partnerId?, note? } → 201 { data: { id, code } }
 //                   no code → one is generated. 409 code_taken „Ten kod już istnieje.”
 //   generate        { n (1–200), percent, prefix?, validUntil?, categoryIds?, partnerId?, note? }
@@ -142,10 +128,7 @@ function partnerName(name) {
 //                   live or not, holds it („Wyłącz” instead)
 //   export          → 200 { data: { filename, csv } }: Kod;Rabat;Wykorzystano;Limit;Ważny do;Partner;Notatka,
 //                   entriesCsv's escaping
-//   partner_create  { name, note? } → 201 { data: { id } }; 409 partner_taken (same name, any case)
-//   partner_update  { id, name?, note? } → 200 { data: { id } }
-//   partner_delete  { id } → 200 { data: { deleted: true } }; 409 partner_referenced while a code or
-//                   an entry names it
+// Any other action, partner_create / partner_update / partner_delete included, is 400 invalid_action.
 // The owner and admins of the event's club only: a member, an outsider, another club and a disabled
 // club all get 404. Every write logs one organizer_actions row naming its target; no payload holds a
 // code (a code is a bearer discount).
@@ -169,7 +152,8 @@ Deno.serve(async (req) => {
     if (!MANAGERS.includes(loaded.role)) return json(NOT_FOUND, 404, req)
     const action = body.action
     if (!ACTIONS.includes(action)) return json({ error: 'Nieznana operacja.', code: 'invalid_action' }, 400, req)
-    // Codes and partners are Plan 7 money features: off while PAID_REGISTRATION_ENABLED is (flags.js).
+    // Codes are a Plan 7 money feature: off while PAID_REGISTRATION_ENABLED is (flags.js). Partners
+    // are not (organizer-partners).
     if (!moneyLiveFor(req)) return json(PAYMENTS_OFF_REFUSAL, 409, req)
 
     const { settings } = loaded
@@ -279,64 +263,16 @@ Deno.serve(async (req) => {
       return json({ data: { disabled: true } }, 200, req)
     }
 
-    if (action === 'delete') {
-      const voucher = await voucherOf(admin, eventId, body.id)
-      if (!voucher) return json(NOT_FOUND, 404, req)
-      // used = 0 in the statement: a claim landing meanwhile holds the row, and the registrations
-      // foreign key (on delete restrict) refuses one held by any entry, live or not.
-      const { data, error } = await admin.from('vouchers').delete().eq('id', voucher.id).eq('used', 0).select('id')
-      if (error?.code === '23503') return refuse(req, 'voucher_referenced')
-      if (error) throw error
-      if (!data?.length) return refuse(req, 'voucher_referenced')
-      await log('voucher_deleted', voucher.id)
-      return json({ data: { deleted: true } }, 200, req)
-    }
-
-    if (action === 'partner_create') {
-      const name = partnerName(body.name)
-      const note = cleanNote(body.note)
-      const errors = {}
-      if (!name) errors.name = 'Nazwa partnera: 1–80 znaków.'
-      if (note === undefined) errors.note = REFUSALS.invalid_note[1]
-      if (Object.keys(errors).length) return invalid(req, errors)
-      const { data, error } = await admin.from('registration_partners')
-        .insert({ event_id: eventId, name, note }).select('id').single()
-      if (error?.code === '23505') return refuse(req, 'partner_taken')
-      if (error) throw error
-      await log('partner_created', data.id)
-      return json({ data: { id: data.id } }, 201, req)
-    }
-
-    if (action === 'partner_update') {
-      const partner = await partnerOf(admin, eventId, body.id)
-      if (!partner) return json(NOT_FOUND, 404, req)
-      const patch = {}
-      const errors = {}
-      if ('name' in body) {
-        patch.name = partnerName(body.name)
-        if (!patch.name) errors.name = 'Nazwa partnera: 1–80 znaków.'
-      }
-      if ('note' in body) {
-        patch.note = cleanNote(body.note)
-        if (patch.note === undefined) errors.note = REFUSALS.invalid_note[1]
-      }
-      if (Object.keys(errors).length) return invalid(req, errors)
-      if (Object.keys(patch).length) {
-        const { error } = await admin.from('registration_partners').update(patch).eq('id', partner.id)
-        if (error?.code === '23505') return refuse(req, 'partner_taken')
-        if (error) throw error
-        await log('partner_updated', partner.id, { fields: Object.keys(patch) })
-      }
-      return json({ data: { id: partner.id } }, 200, req)
-    }
-
-    // partner_delete
-    const partner = await partnerOf(admin, eventId, body.id)
-    if (!partner) return json(NOT_FOUND, 404, req)
-    const { error } = await admin.from('registration_partners').delete().eq('id', partner.id)
-    if (error?.code === '23503') return refuse(req, 'partner_referenced')
+    // delete
+    const voucher = await voucherOf(admin, eventId, body.id)
+    if (!voucher) return json(NOT_FOUND, 404, req)
+    // used = 0 in the statement: a claim landing meanwhile holds the row, and the registrations
+    // foreign key (on delete restrict) refuses one held by any entry, live or not.
+    const { data, error } = await admin.from('vouchers').delete().eq('id', voucher.id).eq('used', 0).select('id')
+    if (error?.code === '23503') return refuse(req, 'voucher_referenced')
     if (error) throw error
-    await log('partner_deleted', partner.id)
+    if (!data?.length) return refuse(req, 'voucher_referenced')
+    await log('voucher_deleted', voucher.id)
     return json({ data: { deleted: true } }, 200, req)
   } catch (err) {
     console.error('organizer-vouchers error:', err?.message, err?.code)
