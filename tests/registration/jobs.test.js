@@ -743,7 +743,7 @@ test('I3 a hanging dpay: the run answers inside its budget, the operator digest 
     waiting.push({ orderId: o.orderId, email: reg.email })
   }
   const remind = await orderOk(event)
-  const created = Date.now() - 84 * HOUR - MIN
+  const created = Date.now() - 96 * HOUR - MIN
   await setOrder(remind.orderId, { created_at: new Date(created).toISOString(), expires_at: new Date(created + 168 * HOUR).toISOString() })
   const { data: remindReg } = await db().from('registrations').select('email').eq('order_id', remind.orderId).single()
   assert.ifError((await db().from('operator_alerts').insert({ kind: 'budget_probe', order_id: remind.orderId, payload: { probe: true } })).error)
