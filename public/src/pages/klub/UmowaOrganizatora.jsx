@@ -4,16 +4,67 @@ import useSeo from '../../hooks/useSeo.js'
 import useOrganizerStatus from '../../hooks/useOrganizerStatus.js'
 import { acceptOrganizerAgreement } from '../../lib/organizer.js'
 import { organizerAgreement } from '../../legal/organizerAgreement.js'
+import { agreementSections, draftNoteSegments } from '../../lib/agreementBlocks.js'
 import { organizerFeaturesShown } from '../../lib/organizerGate.js'
-import { primaryBtnClass } from '../profil/fields.jsx'
+import { actionBtnClass, primaryBtnClass } from '../profil/fields.jsx'
+import { printDocument } from '../../lib/printDocument.js'
 import { useKlub } from './context.js'
 
 const eyebrowClass = 'font-mono text-[10px] tracking-widest uppercase text-apex-muted'
 
 // The organizer agreement, readable by owner and admin; only the owner accepts.
-// The body is plain text: paragraphs separated by a blank line.
-function paragraphs(body) {
-  return (body || '').split(/\n\s*\n/).map((p) => p.trim()).filter(Boolean)
+// The body is plain text; agreementSections() finds its paragraphs and points.
+
+function Text({ text }) {
+  return draftNoteSegments(text).map((s, i) =>
+    s.note
+      ? <span key={i} className="block mt-1.5 border-l-2 border-apex-yellow-dim bg-apex-surface px-2 py-1 font-mono text-[11px] leading-snug text-apex-muted">{s.text}</span>
+      : <span key={i}>{s.text}</span>,
+  )
+}
+
+function Block({ block }) {
+  if (block.kind === 'point' || block.kind === 'sub') {
+    const sub = block.kind === 'sub'
+    return (
+      <div className={`flex gap-2 ${sub ? 'pl-7' : ''}`}>
+        <span className={`shrink-0 font-mono text-xs leading-6 text-apex-muted ${sub ? 'w-5' : 'w-7'}`}>{block.marker}</span>
+        <p className="min-w-0 flex-1"><Text text={block.text} /></p>
+      </div>
+    )
+  }
+  return <p className={block.kind === 'cont' ? 'pl-9' : ''}><Text text={block.text} /></p>
+}
+
+function Blocks({ blocks }) {
+  return (
+    <div className="space-y-2.5 font-sans text-[15px] leading-6 text-apex-text">
+      {blocks.map((b, i) => <Block key={i} block={b} />)}
+    </div>
+  )
+}
+
+export function AgreementText({ body }) {
+  const { preamble, sections } = agreementSections(body)
+  return (
+    <>
+      {preamble.length > 0 && (
+        // How the agreement is concluded in the Serwis, not a term of it: kept
+        // out of the PDF.
+        <div data-print-hide className="border border-apex-border bg-apex-surface px-4 py-3">
+          <Blocks blocks={preamble} />
+        </div>
+      )}
+      {sections.map((s) => (
+        <section key={s.number} className="space-y-3 border-t border-apex-border pt-5">
+          <h2 className="font-display font-extrabold text-lg uppercase tracking-wide text-apex-text-bright">
+            <span className="text-apex-yellow">{s.number}.</span> {s.title}
+          </h2>
+          <Blocks blocks={s.blocks} />
+        </section>
+      ))}
+    </>
+  )
 }
 
 export default function UmowaOrganizatora() {
@@ -46,17 +97,24 @@ export default function UmowaOrganizatora() {
   }
 
   return (
-    <article data-testid="organizer-agreement" className="space-y-4 max-w-3xl">
-      <div>
-        <div className={eyebrowClass}>Wersja <span className="normal-case">{organizerAgreement.version}</span></div>
-        <h1 className="font-display font-extrabold text-2xl uppercase text-apex-text-bright">{organizerAgreement.title}</h1>
+    <article data-testid="organizer-agreement" data-print-doc className="space-y-6 max-w-3xl">
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <div className={eyebrowClass}>Wersja <span className="normal-case">{organizerAgreement.version}</span></div>
+          <h1 className="font-display font-extrabold text-2xl uppercase text-apex-text-bright">{organizerAgreement.title}</h1>
+        </div>
+        <button
+          type="button"
+          data-print-hide
+          onClick={() => printDocument(`Umowa organizatora LESZY.RUN ${organizerAgreement.version}`)}
+          className={`${actionBtnClass} whitespace-nowrap border-apex-border-bright text-apex-text-bright hover:border-apex-yellow hover:text-apex-yellow`}
+        >
+          Pobierz PDF
+        </button>
       </div>
-      <div className="space-y-3">
-        {paragraphs(organizerAgreement.body).map((p, i) => (
-          <p key={i} className="font-sans text-sm text-apex-text whitespace-pre-line">{p}</p>
-        ))}
-      </div>
+      <AgreementText body={organizerAgreement.body} />
 
+      <div data-print-hide>
       {status.agreementAccepted ? (
         <p data-testid="agreement-accepted" className="font-sans text-sm font-semibold text-apex-yellow">Umowa zaakceptowana</p>
       ) : !isOwner ? (
@@ -67,6 +125,7 @@ export default function UmowaOrganizatora() {
           {acceptError && <p className="text-apex-red font-sans text-xs mt-1.5">{acceptError}</p>}
         </div>
       )}
+      </div>
     </article>
   )
 }
