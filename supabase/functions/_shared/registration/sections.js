@@ -413,8 +413,11 @@ function validateTiming(value, ctx, c) {
 // The switchable runner fields and their default mode. The phone is not one
 // of them: it is always required (P2-R32). A `phone` key from before that
 // ruling (a stored form_fields read back by the wizard) is accepted and
-// dropped, never stored. Nationality is off unless asked for (P2-R31).
-export const FORM_FIELD_DEFAULTS = Object.freeze({ city: 'optional', club: 'optional', ice: 'optional', nationality: 'off' })
+// dropped, never stored. Nationality is off unless asked for (P2-R31). City
+// and club start required, the emergency contact optional; the organizer can
+// change each. These apply to a new event (the column default holds the same
+// object); an event already created keeps the modes it stored.
+export const FORM_FIELD_DEFAULTS = Object.freeze({ city: 'required', club: 'required', ice: 'optional', nationality: 'off' })
 const FORM_FIELDS = Object.keys(FORM_FIELD_DEFAULTS)
 const RETIRED_FORM_FIELDS = ['phone']
 

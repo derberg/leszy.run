@@ -286,10 +286,10 @@ test('form: field modes and custom consents', () => {
   assert.ok(validateSection('form', { consents: [{ text: ' ' }] }, DRAFT).errors.text)
 })
 
-test('W-64 form: nationality defaults to off (Brak); the other switches to optional', () => {
+test('W-64 form: city and club default to required, ice to optional, nationality to off (Brak)', () => {
   const r = validateSection('form', { formFields: {} }, DRAFT)
   assert.equal(r.ok, true, JSON.stringify(r.errors))
-  assert.deepEqual(r.value.form_fields, { city: 'optional', club: 'optional', ice: 'optional', nationality: 'off' })
+  assert.deepEqual(r.value.form_fields, { city: 'required', club: 'required', ice: 'optional', nationality: 'off' })
 })
 
 test('W-65 form: phone is not a switch any more; a stored or sent phone mode is dropped, never stored', () => {

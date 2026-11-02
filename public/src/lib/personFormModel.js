@@ -46,8 +46,8 @@ export function mergePrefill(person, prefill, touched) {
 }
 
 /**
- * registration_settings.form_fields with the defaults filled in (missing =
- * optional, nationality missing = off). The phone is no switch: it is always
+ * registration_settings.form_fields with FORM_FIELD_DEFAULTS filled in (missing city/club =
+ * required, ice optional, nationality off). The phone is no switch: it is always
  * required (P2-R32), so a stored phone mode is left out.
  */
 export function fieldModes(formFields) {
