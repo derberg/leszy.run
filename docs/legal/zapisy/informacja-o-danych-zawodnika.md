@@ -1,6 +1,6 @@
 # Informacja o przetwarzaniu danych zawodnika
 
-**Wersja:** 2026-11-v8
+**Wersja:** 2026-11-v9
 **Status:** projekt do weryfikacji prawnej, nieobowiązujący
 **Zastosowanie:** domyślna treść dokumentu „Informacja o danych” (`event_consents.kind = 'data_info'`), tworzonego z każdym Wydarzeniem. Organizator może ją zastąpić własną. Pola w nawiasach klamrowych `{…}` Serwis wypełnia danymi Wydarzenia i Organizatora.
 
@@ -48,7 +48,7 @@ Podczas zawodów Organizator może utrwalać Twój wizerunek (zdjęcia, wideo) i
 - Numer telefonu i dane osoby do kontaktu w nagłych wypadkach: 30 dni po dniu zawodów.
 - Nazwa drużyny: 30 dni po dniu zawodów. Potem drużyna zostaje na liście startowej pod neutralną nazwą.
 - Zgłoszenie, które nie zostało opłacone w terminie: 30 dni po jego wygaśnięciu.
-- Pozostałe dane zgłoszenia: [DO UZUPEŁNIENIA: proponowane 12 miesięcy po dniu zawodów], a dłużej, jeżeli jest to potrzebne do obrony przed roszczeniami — do upływu terminu ich przedawnienia.
+- Pozostałe dane zgłoszenia: 5 lat od końca roku kalendarzowego, w którym odbyły się zawody, tak jak dane o płatnościach, aby można było ustalić, kogo dotyczy płatność, zwrot lub roszczenie. Wcześniej usuniemy je na Twoje żądanie, chyba że są potrzebne do obrony przed roszczeniami.
 - Dane o płatnościach: 5 lat od końca roku kalendarzowego, w którym dokonano płatności (przepisy podatkowe).
 - Wyniki zawodów: bezterminowo, w archiwum wyników. [DO WERYFIKACJI: zob. „Do weryfikacji”, pkt 1.]
 - Zdjęcia i nagrania z zawodów: przez czas publikacji relacji i wyników albo do uwzględnienia Twojego sprzeciwu.
@@ -97,6 +97,6 @@ Potwierdzając zapis kodem z e-maila, zakładasz konto w serwisie LESZY.RUN (alb
 2. **Kontakt w nagłych wypadkach.** Czy art. 6 ust. 1 lit. f jest właściwą podstawą zbierania danych osoby trzeciej, czy wystarczy lit. b (część organizacji bezpiecznych zawodów)? Czy obowiązek informacyjny wobec tej osoby (art. 14) można spełnić przez zobowiązanie zapisującego do przekazania informacji, czy LESZY.RUN powinien wysłać jej SMS?
 3. **Status płatności na liście startowej.** Przyjęto wariant ostrożny (decyzja P3-R14, wersja 2026-11-v3): zgłoszenia czekające na wpłatę są na liście publicznej tylko liczbą („+N czeka na wpłatę”), bez imienia i nazwiska; status osoby widzą tylko ona sama i Organizator. Użytkownik może tę decyzję złagodzić (pytanie otwarte Plan 4 Q3).
 4. **Miejscowość osób niepełnoletnich na liście startowej.** Przyjęto (P3-R14): miejscowość osoby, która w dniu zawodów nie ma 18 lat, nie jest publikowana. Skrót nazwiska pozostaje do rozważenia. Klub dziecka jest publikowany i jego nazwa może wskazywać miejscowość (przyjęte świadomie, zob. DPIA R2).
-5. **Okres 12 miesięcy** dla danych zgłoszenia — potwierdzić z Organizatorami i z terminami przedawnienia roszczeń z umowy o udział w zawodach (art. 118 KC).
+5. **Okres 5 lat** dla danych zgłoszenia (decyzja 2026-11-02, wersja 2026-11-v9): tyle co dane o płatnościach, żeby ustalić, kogo dotyczy płatność, zwrot lub roszczenie. Przy kontroli najtrudniej uzasadnić tym celem miejscowość, klub i narodowość.
 6. **Podstawa dla 16–17-latków.** Formularz traktuje każdą osobę poniżej 18 lat jako zapisywaną przez opiekuna, a Regulamin serwisu pozwala założyć konto od 16 lat. Ustalić, czy 16–17-latek może zapisać się sam (art. 17 i art. 20 KC — umowy w drobnych bieżących sprawach życia codziennego), czy zawsze przez opiekuna.
 7. **Zastępowanie treści przez Organizatora.** Jeżeli Organizator zastąpi tę informację własną, czy LESZY.RUN powinien wymuszać obecność sekcji o odbiorcach i o koncie LESZY.RUN?

@@ -9,7 +9,7 @@ describe('runnerDataInfo (ruling P2-R21)', () => {
   it('fills the event, organizer and contact address', () => {
     const t = text(runnerDataInfo(base))
     assert.ok(t.includes('Bieg Leszego') && t.includes('ZATYRANI') && t.includes('biuro@zatyrani.pl'))
-    assert.ok(t.includes('12 miesięcy'))
+    assert.ok(t.includes('5 lat od końca roku kalendarzowego, w którym odbyły się zawody'))
   })
 
   it('names the safeguard for processors in the USA', () => {
@@ -198,7 +198,7 @@ describe('runnerDataInfo transfers (Plan 7, task 10)', () => {
     const t = JSON.stringify(section())
     assert.ok(t.includes('Osoba zaproszona dostaje wtedy e-mail, że zaproszenie cofnięto, bez Twojego imienia.'))
     const { RUNNER_DATA_INFO_VERSION } = await import('../../src/legal/runnerDataInfo.js')
-    assert.equal(RUNNER_DATA_INFO_VERSION, '2026-11-v8')
+    assert.equal(RUNNER_DATA_INFO_VERSION, '2026-11-v9')
   })
 
   it('never mentions a partner or a discount code', () => {

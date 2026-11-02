@@ -1,6 +1,6 @@
 # Umowa organizatora LESZY.RUN
 
-**Wersja:** 2026-11-v3
+**Wersja:** 2026-11-v4
 **Status:** projekt do weryfikacji prawnej, nieobowiązujący
 
 Umowę zawiera się w Serwisie: właściciel klubu wybiera „Akceptuję umowę organizatora” na ekranie „Klub → Wydarzenia → Umowa”. Serwis zapisuje wersję umowy, nazwę klubu, konto osoby akceptującej, datę i godzinę, adres IP oraz identyfikator przeglądarki (tabela `organizer_agreements`). Bez akceptacji bieżącej wersji klub nie może utworzyć żadnego wydarzenia, płatnego ani bezpłatnego.
@@ -10,7 +10,7 @@ Umowę zawiera się w Serwisie: właściciel klubu wybiera „Akceptuję umowę 
 ## §1. Strony
 
 1. **Usługodawca:** Wookiee Łukasz Górnicki, ul. Wierzbowa 2, 44-144 Nieborowice, NIP 6292248418, REGON 385416140, prowadzący serwis LESZY.RUN pod adresem www.leszy.run, kontakt: lukasz@leszy.run.
-2. **Organizator:** podmiot wskazany w danych do wypłat klubu w Serwisie (nazwa, NIP, a jeżeli podmiot jest wpisany do KRS, także numer KRS, oraz adres), w imieniu którego działa osoba akceptująca umowę. [DO UZUPEŁNIENIA: czy dane Organizatora mają być wymagane przed akceptacją umowy, czy dopiero przed pierwszą wypłatą — obecnie dane do wypłat można uzupełnić później.]
+2. **Organizator:** podmiot wskazany w danych do wypłat klubu w Serwisie (nazwa, NIP, a jeżeli podmiot jest wpisany do KRS, także numer KRS, oraz adres), w imieniu którego działa osoba akceptująca umowę. Do czasu podania tych danych Organizatorem jest klub, w imieniu którego działa osoba akceptująca umowę. Dane Organizatora są wymagane przed opublikowaniem pierwszego płatnego Wydarzenia.
 3. Osoba akceptująca umowę oświadcza, że jest umocowana do zawarcia jej w imieniu Organizatora. Jeżeli nie jest, odpowiada na zasadach art. 103 Kodeksu cywilnego.
 
 ## §2. Definicje
@@ -46,30 +46,30 @@ Pojęcia pisane wielką literą, niezdefiniowane poniżej, mają znaczenie nadan
 
 ## §5. Przyjmowanie Opłat od Uczestników
 
-1. Opłaty od Uczestników są przyjmowane przez Operatora płatności na rachunek Usługodawcy prowadzony w serwisie dpay.pl na podstawie umowy Usługodawcy z Operatorem płatności [DO UZUPEŁNIENIA: numer i data umowy z Payments Lab sp. z o.o.; potwierdzenie, że umowa dopuszcza przyjmowanie płatności w imieniu osób trzecich].
+1. Opłaty od Uczestników są przyjmowane przez Operatora płatności na rachunek Usługodawcy prowadzony w serwisie dpay.pl na podstawie umowy Usługodawcy z Operatorem płatności.
 2. Zapłata dokonana przez Uczestnika na rzecz Usługodawcy jest zapłatą na rzecz Organizatora i zwalnia Uczestnika z zobowiązania wobec Organizatora w tej części.
 3. Usługodawca prowadzi dla każdego Wydarzenia ewidencję wpłat, zwrotów i wypłat, dostępną dla Organizatora w panelu Wydarzenia.
-4. Usługodawca przechowuje środki należne Organizatorowi do chwili wypłaty i nie wykorzystuje ich na własne cele. [DO UZUPEŁNIENIA: czy środki Organizatorów będą przechowywane na wydzielonym rachunku bankowym Usługodawcy — zob. „Do weryfikacji”, pkt 3.]
+4. Usługodawca przechowuje środki należne Organizatorowi do chwili wypłaty na wydzielonym rachunku bankowym, prowadzonym wyłącznie dla środków Organizatorów, i nie wykorzystuje ich na własne cele.
 5. Usługodawca nie przyjmuje płatności gotówkowych. Płatność w biurze zawodów, jeżeli Organizator ją dopuszcza, Organizator przyjmuje sam i na własny rachunek.
 
 ## §6. Zwroty
 
 1. Zasady rezygnacji i zwrotu opłaty startowej określa Organizator w regulaminie Wydarzenia. Uczestnikowi nie przysługuje ustawowe prawo odstąpienia od umowy o udział w Wydarzeniu (art. 38 ust. 1 pkt 12 ustawy z dnia 30 maja 2014 r. o prawach konsumenta).
 2. Zwrotu dokonuje Organizator w panelu Wydarzenia, dla jednego Zgłoszenia, w wybranej przez siebie kwocie, nie wyższej niż kwota zapłacona za to Zgłoszenie i niezwrócona wcześniej. Usługodawca realizuje zwrot przez Operatora płatności na rachunek lub instrument, z którego dokonano płatności.
-3. Zwroty są możliwe do Dnia zawodów włącznie [DO UZUPEŁNIENIA: „do końca dnia poprzedzającego Dzień zawodów” czy „do końca Dnia zawodów”]. Po tym terminie Usługodawca nie realizuje zwrotów, a ewentualne rozliczenia z Uczestnikami Organizator prowadzi sam, ze środków już wypłaconych.
+3. Zwroty są możliwe do końca dnia poprzedzającego Dzień zawodów (do godziny 24:00 czasu polskiego). Po tym terminie Usługodawca nie realizuje zwrotów, a ewentualne rozliczenia z Uczestnikami Organizator prowadzi sam, ze środków już wypłaconych.
 4. Usługodawca zwraca Uczestnikowi całą zapłaconą kwotę bez dyspozycji Organizatora i niezależnie od terminu z ust. 3, gdy:
    a) w chwili wpływu płatności nie można przyjąć Zgłoszenia: opłacone wcześniej Zgłoszenia innych osób wyczerpały limit miejsc w konkurencji, konkurencja została ukryta albo zapisy zostały zamknięte; zwrot obejmuje całe zamówienie, także gdy brak miejsca dotyczy tylko jednej z objętych nim konkurencji,
    b) ta sama osoba ma już opłacone Zgłoszenie w tym Wydarzeniu,
    c) płatność nie może zostać przypisana do Zgłoszenia z innych przyczyn technicznych.
 5. Pełny zwrot opłaty startowej anuluje Zgłoszenie. Zwrot opłaty za Zgłoszenie drużyny anuluje Zgłoszenie całej drużyny.
-6. Odwołanie Wydarzenia nie jest obsługiwane w Serwisie. Jeżeli Organizator odwoła Wydarzenie przed Dniem zawodów, niezwłocznie powiadamia Usługodawcę, a strony ustalają w formie dokumentowej, czy zwroty zrealizuje Usługodawca przed wypłatą, czy Organizator po wypłacie. [DO UZUPEŁNIENIA: domyślne rozstrzygnięcie.]
+6. Odwołanie Wydarzenia nie jest obsługiwane w Serwisie. Jeżeli Organizator odwoła Wydarzenie przed Dniem zawodów, niezwłocznie powiadamia Usługodawcę, a strony ustalają w formie dokumentowej, czy zwroty zrealizuje Usługodawca przed wypłatą, czy Organizator po wypłacie. Jeżeli strony nie ustalą inaczej, zwrotów dokonuje Usługodawca przed wypłatą: Uczestnicy otrzymują zwrot wpłaconych Opłat od Uczestników w pełnej wysokości, a wypłata Organizatora zmniejsza się o dokonane zwroty.
 
 ## §7. Wypłata
 
 1. Usługodawca wypłaca Organizatorowi, przelewem na Rachunek do wypłat, sumę opłat startowych, cen produktów dodatkowych i darowizn zapłaconych za Wydarzenie, pomniejszoną o zwroty. Organizator otrzymuje te kwoty w całości. Prowizję Operatora płatności ponosi Usługodawca. Wynagrodzenie Usługodawcy z §8 nie jest potrącane z wypłaty; Organizator płaci je osobno na podstawie faktury.
-2. Wypłata następuje jednorazowo, w terminie 7 dni od Dnia zawodów. [DO UZUPEŁNIENIA: czy Usługodawca dopuszcza wypłaty częściowe przed Dniem zawodów — Specyfikacja przewiduje wyłącznie wypłatę po zawodach.]
+2. Wypłata następuje jednorazowo, w terminie 7 dni od Dnia zawodów. Na wniosek Organizatora Usługodawca może, według własnej oceny, wypłacić część środków przed Dniem zawodów. Zwroty dokonane po takiej wypłacie zmniejszają kolejną wypłatę, a jeżeli jej nie wystarczy, Organizator zwraca Usługodawcy brakującą kwotę w terminie 7 dni od wezwania.
 3. Wraz z wypłatą Usługodawca udostępnia Organizatorowi zestawienie: liczba i kwota opłaconych Zgłoszeń, produktów i darowizn, zwroty, kwota wypłaty, Rachunek do wypłat.
-4. Rachunek do wypłat i dane odbiorcy może ustawić i zmienić wyłącznie właściciel klubu. Każda zmiana jest zapisywana w historii i potwierdzana wiadomością e-mail do właściciela klubu. Przed wypłatą Usługodawca sprawdza historię zmian i może wstrzymać wypłatę do czasu potwierdzenia rachunku przez właściciela klubu innym kanałem, jeżeli rachunek zmieniono w ciągu [DO UZUPEŁNIENIA: np. 7] dni przed wypłatą.
+4. Rachunek do wypłat i dane odbiorcy może ustawić i zmienić wyłącznie właściciel klubu. Każda zmiana jest zapisywana w historii i potwierdzana wiadomością e-mail do właściciela klubu. Przed wypłatą Usługodawca sprawdza historię zmian i może wstrzymać wypłatę do czasu potwierdzenia rachunku przez właściciela klubu innym kanałem, jeżeli rachunek zmieniono w ciągu 7 dni przed wypłatą.
 5. Wypłata na rachunek osoby trzeciej wskazanej przez Organizatora (np. beneficjenta zbiórki) jest wykonaniem zobowiązania wobec Organizatora.
 6. Jeżeli po wypłacie Uczestnik skutecznie zakwestionuje płatność u wydawcy karty lub Operatora płatności (chargeback), Organizator zwraca Usługodawcy zakwestionowaną kwotę w terminie 14 dni od wezwania. Usługodawca może potrącić ją z kolejnej wypłaty dla Organizatora.
 7. Usługodawca nie wystawia Uczestnikom dokumentów sprzedaży za opłaty należne Organizatorowi. Obowiązki podatkowe i ewidencyjne związane z tymi opłatami (w tym wystawienie faktury na żądanie Uczestnika) spoczywają na Organizatorze. [DO WERYFIKACJI: zob. „Do weryfikacji”, pkt 4.]
@@ -118,9 +118,9 @@ Organizator:
 
     | Podmiot | Zakres | Lokalizacja / podstawa transferu |
     |---|---|---|
-    | Supabase, Inc. | baza danych, funkcje serwerowe, pliki | UE (Irlandia, eu-west-1); podmiot z USA — [DO UZUPEŁNIENIA: SCC lub EU-US Data Privacy Framework] |
-    | Vercel, Inc. | hosting Serwisu, publiczna lista startowa i wyniki | UE (Irlandia, dub1) i globalny CDN; podmiot z USA — [DO UZUPEŁNIENIA: SCC / DPF] |
-    | Twilio Inc. (SendGrid) | wysyłka wiadomości e-mail | USA — [DO UZUPEŁNIENIA: SCC / DPF] |
+    | Supabase, Inc. | baza danych, funkcje serwerowe, pliki | UE (Irlandia, eu-west-1); podmiot z USA — standardowe klauzule umowne Komisji Europejskiej (art. 46 ust. 2 lit. c RODO) |
+    | Vercel, Inc. | hosting Serwisu, publiczna lista startowa i wyniki | UE (Irlandia, dub1) i globalny CDN; podmiot z USA — standardowe klauzule umowne Komisji Europejskiej (art. 46 ust. 2 lit. c RODO) |
+    | Twilio Inc. (SendGrid) | wysyłka wiadomości e-mail | USA — standardowe klauzule umowne Komisji Europejskiej (art. 46 ust. 2 lit. c RODO) |
     | SMSAPI sp. z o.o. | wysyłka SMS z linkiem do potwierdzenia obecności (tylko gdy Usługodawca mierzy czas i Organizator tego chce) | Polska |
     | Payments Lab sp. z o.o. (dpay.pl) | przeprowadzenie płatności i zwrotów | Polska |
 
@@ -133,10 +133,10 @@ Organizator:
 14. **Usunięcie danych.** Usługodawca usuwa lub anonimizuje dane Uczestników:
     a) numer telefonu i dane kontaktu w nagłych wypadkach — 30 dni po Dniu zawodów,
     b) dane osób, których Zgłoszenie wygasło bez płatności lub zostało anulowane przed płatnością — 30 dni po wygaśnięciu lub anulowaniu,
-    c) pozostałe dane Zgłoszenia — [DO UZUPEŁNIENIA: proponowane 12 miesięcy po Dniu zawodów],
+    c) pozostałe dane Zgłoszenia — 5 lat od końca roku kalendarzowego, w którym odbyło się Wydarzenie, tak jak dane o płatnościach, aby można było ustalić, kogo dotyczy płatność, zwrot lub roszczenie; wcześniej — na żądanie osoby, której dane dotyczą (art. 17 RODO), przekazane Usługodawcy zgodnie z ust. 12 lit. a,
     d) zdjęcia z kamery na mecie — 30 dni po Dniu zawodów,
     e) surowe odczyty bramek pomiarowych — 90 dni po Dniu zawodów.
-    Po rozwiązaniu umowy Usługodawca, według wyboru Organizatora zgłoszonego w ciągu 30 dni, zwraca dane w formacie CSV lub je usuwa, i usuwa istniejące kopie, chyba że prawo Unii lub państwa członkowskiego nakazuje ich przechowywanie (art. 28 ust. 3 lit. g RODO). Brak wyboru oznacza usunięcie. Kopie zapasowe są nadpisywane w cyklu [DO UZUPEŁNIENIA: okres retencji kopii zapasowych].
+    Po rozwiązaniu umowy Usługodawca, według wyboru Organizatora zgłoszonego w ciągu 30 dni, zwraca dane w formacie CSV lub je usuwa, i usuwa istniejące kopie, chyba że prawo Unii lub państwa członkowskiego nakazuje ich przechowywanie (art. 28 ust. 3 lit. g RODO). Brak wyboru oznacza usunięcie. Kopie zapasowe są nadpisywane w cyklu 14 dni.
 15. **Dane przetwarzane przez Usługodawcę jako administratora.** Powierzenie nie obejmuje danych, które Usługodawca przetwarza we własnych celach jako odrębny administrator, o czym informuje Uczestników w Polityce prywatności:
     a) dane konta w Serwisie, zakładanego przy zapisie (art. 6 ust. 1 lit. b RODO),
     b) dane o płatnościach, zwrotach i wypłatach, przechowywane w celu rozliczeń i obowiązków podatkowych Usługodawcy przez 5 lat od końca roku kalendarzowego, w którym dokonano płatności (art. 6 ust. 1 lit. c i f RODO),
@@ -154,7 +154,7 @@ Organizator:
 
 1. Usługodawca odpowiada za niewykonanie lub nienależyte wykonanie umowy na zasadach ogólnych, z zastrzeżeniem ust. 2–4.
 2. Usługodawca nie odpowiada za: przebieg, zmianę lub odwołanie Wydarzenia; treść regulaminu Wydarzenia i informacji podanych przez Organizatora; przerwy w działaniu Operatora płatności i innych dostawców niezależne od Usługodawcy; skutki nieprawdziwych danych podanych przez Organizatora lub Uczestników; dane pobrane przez Organizatora z Serwisu.
-3. Odpowiedzialność Usługodawcy wobec Organizatora jest ograniczona do szkody rzeczywistej i do kwoty [DO UZUPEŁNIENIA: np. sumy wynagrodzenia zapłaconego przez Organizatora w ostatnich 12 miesiącach, nie mniej niż X zł]. Ograniczenie nie dotyczy szkody wyrządzonej umyślnie (art. 473 § 2 Kodeksu cywilnego), obowiązku wypłaty środków należnych Organizatorowi ani odpowiedzialności wobec osób, których dane dotyczą (art. 82 RODO).
+3. Odpowiedzialność Usługodawcy wobec Organizatora jest ograniczona do szkody rzeczywistej i do kwoty sumy wynagrodzenia zapłaconego przez Organizatora Usługodawcy w ciągu 12 miesięcy przed zdarzeniem, z którego wynikła szkoda, nie mniej jednak niż 1000 zł. Ograniczenie nie dotyczy szkody wyrządzonej umyślnie (art. 473 § 2 Kodeksu cywilnego), obowiązku wypłaty środków należnych Organizatorowi ani odpowiedzialności wobec osób, których dane dotyczą (art. 82 RODO).
 4. Strona, która zapłaciła odszkodowanie Uczestnikowi za szkodę wyrządzoną przetwarzaniem danych, może dochodzić od drugiej strony zwrotu części odszkodowania odpowiadającej jej udziałowi w odpowiedzialności (art. 82 ust. 5 RODO).
 5. Organizator zwalnia Usługodawcę z odpowiedzialności wobec Uczestników i osób trzecich za roszczenia wynikające z przebiegu Wydarzenia lub z naruszenia przez Organizatora §9, i zwraca Usługodawcy uzasadnione koszty obrony.
 

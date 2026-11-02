@@ -24,7 +24,7 @@
 //
 // Keep in step with the source document when it changes.
 
-export const RUNNER_DATA_INFO_VERSION = '2026-11-v8'
+export const RUNNER_DATA_INFO_VERSION = '2026-11-v9'
 
 /**
  * @param {{ eventName: string, organizerName: string|null, contactEmail: string|null, paid?: boolean, teams?: boolean, nationality?: boolean }} p
@@ -95,7 +95,7 @@ export function runnerDataInfo({ eventName, organizerName, contactEmail, paid = 
             'Numer telefonu i dane osoby do kontaktu w nagłych wypadkach: 30 dni po dniu zawodów.',
             ...only(teams, 'Nazwa drużyny: 30 dni po dniu zawodów. Potem drużyna zostaje na liście startowej pod neutralną nazwą.'),
             ...only(paid, 'Zgłoszenie, które nie zostało opłacone w terminie: 30 dni po jego wygaśnięciu.'),
-            'Pozostałe dane zgłoszenia: 12 miesięcy po dniu zawodów, a dłużej, jeżeli jest to potrzebne do obrony przed roszczeniami — do upływu terminu ich przedawnienia.',
+            'Pozostałe dane zgłoszenia: 5 lat od końca roku kalendarzowego, w którym odbyły się zawody, tak jak dane o płatnościach, aby można było ustalić, kogo dotyczy płatność, zwrot lub roszczenie. Wcześniej usuniemy je na Twoje żądanie, chyba że są potrzebne do obrony przed roszczeniami.',
             ...only(paid, 'Dane o płatnościach: 5 lat od końca roku kalendarzowego, w którym dokonano płatności (przepisy podatkowe).'),
             'Wyniki zawodów: bezterminowo, w archiwum wyników.',
             'Zdjęcia i nagrania z zawodów: przez czas publikacji relacji i wyników albo do uwzględnienia Twojego sprzeciwu.',

@@ -650,9 +650,9 @@ survive (check-ins, participants, tag assignments, event config).
   `ORGANIZER_AGREEMENT_VERSION` in `supabase/functions/_shared/organizer.js` and `version` in that file.
   Bump both: `public/tests/unit/agreementVersion.test.js` fails otherwise. Only the club `owner` accepts;
   a stale version answers 409. `organizer_agreements` is UNIQUE (club_id, version); a concurrent second
-  accept gets the existing row. **Bump `ORGANIZER_AGREEMENT_VERSION` (both places) when the agreement
-  text is finalised** (it still carries `[DO UZUPEŁNIENIA]`/`[DO WERYFIKACJI]` markers): an acceptance
-  stored now points at the draft, and only a new version makes every owner re-accept the final text.
+  accept gets the existing row. **Bump `ORGANIZER_AGREEMENT_VERSION` (both places) on every change to the
+  agreement text**: an acceptance points at a version, and only a new version makes every owner re-accept.
+  Since `2026-11-v4` every `[DO UZUPEŁNIENIA]` is filled; four `[DO WERYFIKACJI]` markers await legal review.
 - **Organizer edge functions:** `organizer-status`, `join-registration-waitlist`,
   `accept-organizer-agreement`, `update-club-payout` (owner only; writes through the `save_club_payout`
   RPC, which takes a per-club advisory lock, updates the details and appends `club_payout_history` in one
