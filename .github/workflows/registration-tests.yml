@@ -6,9 +6,14 @@ on:
 permissions:
   contents: read
 
+# A new push to the pull request cancels the run still going for the previous one.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
 # Unit tests run on every pull request. The Supabase-backed suites run only when
 # the pull request touches something they can reach (`changes` below), and split
-# into the integration suite and three Playwright shards, each on its own stack,
+# into three integration shards and three Playwright shards, each on its own stack,
 # so they run side by side instead of one after the other.
 jobs:
   changes:
@@ -46,6 +51,7 @@ jobs:
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 24
+          cache: npm
 
       - run: npm ci
 
@@ -63,6 +69,10 @@ jobs:
     permissions:
       contents: read
       packages: read # authenticated ghcr.io pulls (see the login step)
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3]
     # The scratch timing host for tests/registration/helpers/hostPull.js: the backend's
     # pullConfig() runs against it, never against a real database.
     services:
@@ -94,8 +104,9 @@ jobs:
 
       - uses: ./.github/actions/registration-stack
 
-      - name: Registration integration tests
-        run: node --test --test-concurrency=1 "tests/registration/**/*.test.js"
+      # Files run one at a time within a shard (they share the shard's stack).
+      - name: Registration integration tests (shard ${{ matrix.shard }}/3)
+        run: node --test --test-concurrency=1 --test-shard=${{ matrix.shard }}/3 "tests/registration/**/*.test.js"
 
       - name: Functions log on failure
         if: failure()
@@ -141,8 +152,24 @@ jobs:
 
       - uses: ./.github/actions/registration-stack
 
+      - id: playwright
+        run: echo "version=$(node -p "require('@playwright/test/package.json').version")" >> "$GITHUB_OUTPUT"
+
+      - name: Cache Playwright browser
+        id: playwright-cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}
+
       - name: Install Playwright browser
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
         run: npx playwright install --with-deps chromium
+
+      # A cached browser still needs its system libraries on the fresh runner.
+      - name: Install Playwright system dependencies
+        if: steps.playwright-cache.outputs.cache-hit == 'true'
+        run: npx playwright install-deps chromium
 
       - name: Registration Playwright tests (shard ${{ matrix.shard }}/3)
         run: npx playwright test -c tests/registration/playwright.config.js --pass-with-no-tests --shard=${{ matrix.shard }}/3
