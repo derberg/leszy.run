@@ -21,8 +21,9 @@ import { issueOrderConsentRequests } from '../_shared/registration/consentReques
 // the amounts). A supportChoice from a page opened before 2026-10-31 is ignored. Every check before the RPC
 // is register-free's (prepareRegistration). create_order writes the order (409 full when the paid
 // entries fill a competition; an unpaid order claims no slot, P3-R15), then dpay registers the
-// transaction. An order that leaves this function without a redirect handed out (a dpay failure, a
-// refused attempt, any error) is cancelled (P3-R7). A resubmit that finds this buyer's own pending
+// transaction. An order that leaves this function without a redirect handed out (no dpay settings, a
+// refused attempt, any error) is cancelled (P3-R7). When dpay refuses the transaction the order stays
+// pending and the 502 names it, so the page sends the buyer to the order's „Zapłać”. A resubmit that finds this buyer's own pending
 // order answers 409 pending_order with its id (P3-R8; any person of the group, D4-27). No e-mail goes
 // out before payment: the consent requests to the group's added adults go out on confirmation
 // (settleConfirmOutcome), or here for a 0 zł order, which is confirmed at once.
@@ -110,11 +111,11 @@ Deno.serve(async (req) => {
       return answer({ data: { orderId, status: 'paid' } }, 201)
     }
 
-    // Unless a redirect is handed out, the order is cancelled (P3-R7).
+    // Unless a redirect is handed out, the order is cancelled (P3-R7), except when dpay refused it.
     const attempt = await startPaymentAttempt(admin, cfg, { orderId, total: created.total, cancelOnFailure: true })
     if (attempt.redirectUrl) return answer({ data: { orderId, redirectUrl: attempt.redirectUrl } }, 201)
     if (attempt.refused === 'dpay_unconfigured') return answer({ error: PAYMENTS_OFF }, 503)
-    if (attempt.refused === 'dpay_unavailable') return answer({ error: DPAY_DOWN, code: 'dpay_unavailable' }, 502)
+    if (attempt.refused === 'dpay_unavailable') return answer({ error: DPAY_DOWN, code: 'dpay_unavailable', orderId }, 502)
     if (attempt.refused === 'full') {
       const { data: comps } = await admin.from('competitions')
         .select('category_id, name, taken, capacity').in('category_id', [...competitions.keys()])

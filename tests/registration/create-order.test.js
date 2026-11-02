@@ -309,7 +309,7 @@ test('P-22 pay-order on an expired order → 409 expired; after closes_at → 40
 
 // ---------------------------------------------------------------- P-23 dpay down
 
-test('P-23 dpay register fails → 502, the order cancelled; a retry succeeds', async () => {
+test('P-23 dpay register fails → 502 naming the order, which stays pending; pay-order pays it once dpay answers', async () => {
   const event = await paidEvent()
   const email = runnerEmail('down')
   const runner = await sessionFor(email)
@@ -317,23 +317,32 @@ test('P-23 dpay register fails → 502, the order cancelled; a retry succeeds', 
   const r = await call('create-order', await orderBody(event, email), runner)
   assert.equal(r.status, 502, JSON.stringify(r.body))
   assert.equal(r.body.error, DPAY_DOWN)
+  assert.equal(r.body.code, 'dpay_unavailable')
 
   const [order] = await ordersOf(event.eventId)
-  assert.equal(order.status, 'cancelled')
-  assert.equal(order.cancelled_reason, 'dpay_register_failed')
-  assert.deepEqual((await registrationsOf(order.id)).map((x) => x.status), ['cancelled'])
+  assert.equal(r.body.orderId, order.id)
+  assert.equal(order.status, 'pending')
+  assert.equal(order.cancelled_reason, null)
+  assert.ok((await registrationsOf(order.id)).every((x) => x.status !== 'cancelled'))
   assert.equal((await competitionOf(event.categoryIds[0])).taken, 0)
 
-  // HTTP 200 with error:true is a failure too.
+  // A resubmit finds the kept order instead of making a second one.
   await dpayMode({ registerFails: false, registerErrorBody: true })
-  const r2 = await call('create-order', await orderBody(event, email), runner)
-  assert.equal(r2.status, 502)
-  assert.equal((await competitionOf(event.categoryIds[0])).taken, 0)
+  const again = await call('create-order', await orderBody(event, email), runner)
+  assert.equal(again.status, 409, JSON.stringify(again.body))
+  assert.equal(again.body.code, 'pending_order')
+  assert.equal(again.body.orderId, order.id)
+
+  // HTTP 200 with error:true is a failure too, and leaves it pending.
+  const down = await call('pay-order', { orderId: order.id }, runner)
+  assert.equal(down.status, 502, JSON.stringify(down.body))
+  assert.equal((await orderOf(order.id)).status, 'pending')
 
   await dpayMode({ registerErrorBody: false })
-  const ok = await call('create-order', await orderBody(event, email), runner)
-  assert.equal(ok.status, 201, JSON.stringify(ok.body))
-  assert.equal((await orderOf(ok.body.data.orderId)).status, 'pending')
+  const ok = await call('pay-order', { orderId: order.id }, runner)
+  assert.equal(ok.status, 200, JSON.stringify(ok.body))
+  assert.ok(ok.body.data.redirectUrl)
+  assert.equal((await orderOf(order.id)).status, 'pending')
   assert.equal((await competitionOf(event.categoryIds[0])).taken, 0)
 })
 

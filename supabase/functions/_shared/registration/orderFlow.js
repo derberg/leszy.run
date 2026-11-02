@@ -83,10 +83,13 @@ export const DPAY_DOWN = 'Nie udało się połączyć z operatorem płatności. 
  * Any other add_payment_attempt error is thrown.
  * `cancelOnFailure` is for an order made by this same request: unless a redirect was handed out,
  * for any reason including a throw, the order is cancelled (P3-R7), and a failed cancel raises
- * `cancel_failed`. pay-order leaves it off, because a pending order keeps its payment window.
+ * `cancel_failed`. A dpay refusal is the exception: the order stays pending and the buyer pays
+ * it from the order page (pay-order), because dpay failing is no reason to lose the signup.
+ * pay-order leaves it off, because a pending order keeps its payment window.
  */
 export async function startPaymentAttempt(admin, cfg, { orderId, total, cancelOnFailure = false }) {
   let handedOut = false
+  let keepPending = false
   let cancelReason = 'create_order_aborted'
   try {
     if (!cfg) {
@@ -102,7 +105,7 @@ export async function startPaymentAttempt(admin, cfg, { orderId, total, cancelOn
         kind: 'register', orderId,
         payload: { ok: false, httpStatus: err?.httpStatus ?? null, message: err?.message ?? null, grosze: total },
       })
-      cancelReason = 'dpay_register_failed'
+      keepPending = true
       return { refused: 'dpay_unavailable' }
     }
 
@@ -125,7 +128,7 @@ export async function startPaymentAttempt(admin, cfg, { orderId, total, cancelOn
     handedOut = true
     return { redirectUrl: txn.redirectUrl }
   } finally {
-    if (cancelOnFailure && !handedOut) {
+    if (cancelOnFailure && !handedOut && !keepPending) {
       try {
         const { error: cErr } = await admin.rpc('cancel_order', { p_order_id: orderId, p_reason: cancelReason })
         if (cErr) throw cErr

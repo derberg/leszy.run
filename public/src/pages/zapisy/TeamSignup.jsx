@@ -416,6 +416,12 @@ export default function TeamSignup({ raw: rawProp, categoryId, preview = false, 
         navigate(orderPath(err.orderId), { replace: true })
         return
       }
+      // dpay refused the payment: the order is kept, and its page pays it.
+      if (err.code === 'dpay_unavailable' && err.orderId) {
+        settled()
+        navigate(orderPath(err.orderId), { replace: true, state: { payError: err.message } })
+        return
+      }
       // A 0 zł fee that changed before „Zapisz”: keep the server's, or every retry sends 0 (L-1).
       const newFee = repricedFee(err)
       if (newFee != null) setFee(newFee)

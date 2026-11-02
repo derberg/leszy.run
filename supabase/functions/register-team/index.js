@@ -21,7 +21,8 @@ import { issueConsentRequests, issueOrderConsentRequests } from '../_shared/regi
 // one transaction; a paid team claims no slot until its fee lands (P3-R15). The status decides what
 // follows, never the orderId: a 0 zł team has an order and goes nowhere near dpay. No e-mail goes
 // out before payment: a paid team's confirmation and consent requests come from settleConfirmOutcome.
-// An order that leaves without a redirect is cancelled, which frees the name (P3-R7, D5-24). A resubmit
+// An order that leaves without a redirect is cancelled, which frees the name (P3-R7, D5-24), except when
+// dpay refused the transaction: then it stays pending and the 502 names it for the order page. A resubmit
 // while this captain's team waits for payment answers 409 pending_order with its id, also when
 // their own pending team is what holds the name.
 Deno.serve(async (req) => {
@@ -103,7 +104,8 @@ Deno.serve(async (req) => {
     const attempt = await startPaymentAttempt(admin, cfg, { orderId, total: created.total, cancelOnFailure: true })
     if (attempt.redirectUrl) return answer({ data: { orderId, teamId, redirectUrl: attempt.redirectUrl } }, 201)
     const [status, refusedBody] = teamAttemptRefusal(attempt.refused)
-    return answer(refusedBody, status)
+    // dpay refused: the order stays pending, and the page sends the captain to its „Zapłać”.
+    return answer(attempt.refused === 'dpay_unavailable' ? { ...refusedBody, orderId } : refusedBody, status)
   } catch (err) {
     console.error('register-team error:', err?.message, err?.code)
     return json({ error: 'Internal server error' }, 500, req, withCookie)
