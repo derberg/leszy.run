@@ -26,6 +26,16 @@ export const cardClass = 'border border-apex-border-mid bg-apex-surface p-4 sm:p
 export const cardTitle = 'font-display font-extrabold text-[22px] uppercase leading-none text-apex-text-bright'
 export const monoLabel = 'font-mono text-xs uppercase tracking-wide text-apex-muted'
 
+/** The tag of a link-only event („Widoczność: Tylko przez link”): published, on no public listing. */
+export function UnlistedBadge() {
+  return (
+    <span data-testid="unlisted-badge"
+      className="whitespace-nowrap font-mono text-xs px-2 py-0.5 border border-apex-cyan text-apex-cyan">
+      UKRYTE — TYLKO PRZEZ LINK
+    </span>
+  )
+}
+
 /** The „wkrótce” tag on a control that is not built yet. */
 export function Soon() {
   return <span className="font-mono text-[10px] uppercase tracking-wide text-apex-muted">wkrótce</span>

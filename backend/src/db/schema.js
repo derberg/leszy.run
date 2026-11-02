@@ -28,7 +28,7 @@ export const events = pgTable('events', {
   slug: text('slug').notNull().unique(),
   publicResultsUrl: text('public_results_url'),
   eventUrl: text('event_url'),
-  visibility: text('visibility').notNull().default('private'),  // 'private' | 'public'
+  visibility: text('visibility').notNull().default('private'),  // 'private' | 'public' | 'unlisted' (a registration event's „Tylko przez link”: published, on no listing)
   // Owning club. `clubs` lives only in Supabase, so there is no local foreign key.
   clubId: uuid('club_id'),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),

@@ -135,6 +135,11 @@ export async function createPublishedFreeEvent(owner, {
   // The runner fields as they were before city and club became required by default (migration
   // 20261105090000), so the suites' people need no town or club. A test of the form passes its own.
   formFields = { city: 'optional', club: 'optional', ice: 'optional', nationality: 'off' },
+  // „Widoczność”: false publishes the event link-only („Tylko przez link”). Left out, nothing is
+  // sent and the column default (listed) applies.
+  listed = undefined,
+  // false stops before publishing: → { eventId, categoryIds, … } of a draft ready to publish.
+  publish = true,
 } = {}) {
   const session = typeof owner === 'string' ? { cookie: owner } : owner
   const club = await clubBySlug(clubSlug)
@@ -150,6 +155,7 @@ export async function createPublishedFreeEvent(owner, {
     townLabel: 'Nieborowice', townArea: 'GM. PILCHOWICE · ŚLĄSKIE', lat: 50.2381, lng: 18.5412,
     regulaminKind: 'link', regulaminUrl: 'https://example.org/regulamin.pdf', contactEmail: 'zapisy@klub.example',
     ...(placeDetails ? { placeDetails } : {}),
+    ...(listed === undefined ? {} : { listed }),
   })
   if (office) await save('office', office)
   const course = gpx ? await uploadGpx(session, eventId, gpx) : null
@@ -161,6 +167,7 @@ export async function createPublishedFreeEvent(owner, {
   })
   if (timingMode !== 'leszyrun') await save('timing', { timingMode })
   if (formFields) await save('form', { formFields })
+  if (!publish) return { eventId, slug: null, categoryIds, gpx: course, eventDate, closesOn }
   const published = expect(await callFn('publish-registration-event', session, { eventId, action: 'publish' }), 200, 'publish')
   const slug = new URL(published.url).pathname.split('/').pop()
   return { eventId, slug, categoryIds, gpx: course, eventDate, closesOn }

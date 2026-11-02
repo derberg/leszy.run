@@ -7,6 +7,7 @@ import { createRegistrationEvent, joinRegistrationWaitlist } from '../../lib/org
 import { nextOrganizerStep, organizerFeaturesShown } from '../../lib/organizerGate.js'
 import { primaryBtnClass } from '../profil/fields.jsx'
 import { useKlub } from './context.js'
+import { UnlistedBadge } from './wydarzenia/wizardUi.jsx'
 import { btnGhost, fieldInput, fieldLabel } from './settingsUi.js'
 
 const cardClass = 'border border-apex-border bg-apex-surface p-5 space-y-3'
@@ -115,7 +116,10 @@ function EventCard({ club, event, canManage }) {
     <article data-testid="event-card" className={`border bg-apex-surface p-5 flex flex-col gap-2.5 ${draft ? 'border-apex-yellow-dim' : 'border-apex-border'}`}>
       <div className="flex flex-wrap items-start justify-between gap-2">
         <h2 className="min-w-0 font-display font-extrabold text-2xl uppercase leading-tight text-apex-text-bright break-words">{event.name}</h2>
-        <span className="whitespace-nowrap font-mono text-xs px-2 py-0.5 border border-apex-border-bright text-apex-text">{STATE_TAG[event.state] ?? event.state}</span>
+        <div className="flex flex-wrap items-center gap-2">
+          {event.listed === false && <UnlistedBadge />}
+          <span className="whitespace-nowrap font-mono text-xs px-2 py-0.5 border border-apex-border-bright text-apex-text">{STATE_TAG[event.state] ?? event.state}</span>
+        </div>
       </div>
       <span className="font-sans text-base text-apex-text">{parts.join(' · ')}</span>
       <Link to={to} className="self-start whitespace-nowrap font-sans font-bold text-base text-apex-yellow no-underline hover:underline">

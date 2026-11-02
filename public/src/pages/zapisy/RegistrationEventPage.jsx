@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom'
 import useSeo from '../../hooks/useSeo.js'
 import { eventPageModel, statParts } from '../../lib/eventPageModel.js'
+import { isUnlistedRegistration } from '../../lib/eventListing.js'
 import { orderableExtras, soldOut } from '../../lib/cartModel.js'
 import { linkParts } from '../../lib/linkify.js'
 import { labelCls, linkCls } from '../../components/registration/ui.js'
@@ -161,7 +162,8 @@ export default function RegistrationEventPage({ raw, now, preview = false, links
   useSeo({
     title: m.title,
     path: eventPath(raw.slug),
-    noindex: preview,
+    // A link-only event („Tylko przez link”) stays out of search, like the preview.
+    noindex: preview || isUnlistedRegistration(raw),
     description: `${m.title}${m.dateLabel ? ` — ${m.dateLabel}` : ''}${m.placeLabel ? `, ${m.placeLabel}` : ''}. Zapisy online: ${m.competitions.map((c) => c.name).join(', ')}.`,
     image: raw.posterUrl ?? undefined,
     jsonLd: preview ? undefined : jsonLd(raw, m, `https://www.leszy.run${eventPath(raw.slug)}`),

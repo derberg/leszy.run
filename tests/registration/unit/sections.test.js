@@ -647,3 +647,13 @@ test('W-78 basics: the share of the income for the cause is an optional whole pe
     assert.equal(res.errors.charityPercent, 'Podaj liczbę od 1 do 100.')
   }
 })
+
+test('W-79 basics: „Widoczność” is a boolean `listed`, anything else is refused', () => {
+  assert.deepEqual(validateSection('basics', { listed: false }, DRAFT), { ok: true, value: { listed: false } })
+  assert.deepEqual(validateSection('basics', { listed: true }, { state: 'published' }), { ok: true, value: { listed: true } })
+  for (const bad of ['nie', null, 0]) {
+    const r = validateSection('basics', { listed: bad }, DRAFT)
+    assert.equal(r.ok, false, String(bad))
+    assert.equal(r.errors.listed, 'Nieprawidłowa wartość.')
+  }
+})
