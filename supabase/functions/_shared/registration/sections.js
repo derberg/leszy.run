@@ -91,6 +91,21 @@ const rules = {
       return c.fail(field, 'Podaj adres zaczynający się od https://.')
     }
   },
+  // The charity cause's page: http or https, nothing else (a link on the public page).
+  webUrl: () => (v, field, c) => {
+    const message = 'Podaj adres zaczynający się od http:// albo https://.'
+    if (v === null || v === '') return null
+    if (typeof v !== 'string') return c.fail(field, message)
+    const t = v.trim()
+    if (!t) return null
+    if (t.length > 500 || !/^https?:\/\/\S+$/i.test(t)) return c.fail(field, message)
+    try {
+      const u = new URL(t)
+      return (u.protocol === 'https:' || u.protocol === 'http:') && u.hostname ? t : c.fail(field, message)
+    } catch {
+      return c.fail(field, message)
+    }
+  },
   email: () => (v, field, c) => {
     if (v === null || v === '') return null
     const t = typeof v === 'string' ? v.trim().toLowerCase() : ''
@@ -118,6 +133,9 @@ const BASICS = {
   firstStartTime: ['first_start_time', rules.time()],
   isCharity: ['is_charity', rules.bool()],
   charityGoal: ['charity_goal', rules.text(300)],
+  charityUrl: ['charity_url', rules.webUrl()],
+  // Plain text shown on the public event page; never rendered as HTML.
+  description: ['description', rules.text(5000)],
   donationsEnabled: ['donations_enabled', rules.bool()],
   townLabel: ['town_label', rules.text(120)],
   townArea: ['town_area', rules.text(200)],

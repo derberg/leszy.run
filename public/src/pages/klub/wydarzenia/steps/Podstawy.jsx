@@ -6,12 +6,14 @@ import { uploadDocument, uploadPoster } from '../../../../lib/organizer.js'
 import { resizePoster } from '../../../../lib/resizePoster.js'
 import { publicFileUrl } from '../../../../lib/registrationFiles.js'
 import { btnGhost, errorClass, fieldInput, fieldLabel } from '../../settingsUi.js'
-import { FieldError, MonoHint, sectionErrors } from '../wizardUi.jsx'
+import { FieldError, InfoTip, MonoHint, sectionErrors } from '../wizardUi.jsx'
 
 const DraggableMap = lazy(() => import('../../../../components/DraggableMap.jsx'))
 
 const REGULAMIN_MAX = 10 * 1024 * 1024
 const POSTER_MAX = 15 * 1024 * 1024
+const DESCRIPTION_MAX = 5000
+const DONATION_TIP = 'Przy zapisie zawodnik może dopłacić do opłaty startowej dowolną kwotę na cel zbiórki. Dopłata trafia do organizatora razem z opłatą startową.'
 
 function initialForm(s) {
   return {
@@ -28,6 +30,8 @@ function initialForm(s) {
     lng: s.lng == null ? null : Number(s.lng),
     isCharity: !!s.isCharity,
     charityGoal: s.charityGoal ?? '',
+    charityUrl: s.charityUrl ?? '',
+    description: s.description ?? '',
     donationsEnabled: !!s.donationsEnabled,
     regulaminKind: s.regulaminKind ?? 'pdf',
     regulaminUrl: s.regulaminUrl ?? '',
@@ -57,6 +61,8 @@ function basicsValue(f, { state, savedSlug, refusedSlug }) {
     lng: f.lng,
     isCharity: f.isCharity,
     charityGoal: orNull(f.charityGoal),
+    charityUrl: orNull(f.charityUrl.trim()),
+    description: orNull(f.description),
     donationsEnabled: f.donationsEnabled,
     regulaminKind: f.regulaminKind,
     regulaminUrl: orNull(f.regulaminUrl),
@@ -130,17 +136,18 @@ export default function Podstawy({ event, queue, saveState, readOnly, reload, re
       result = validateSection('basics', value, ctx)
     }
     // An address still being typed waits; everything else saves meanwhile.
-    let emailError = null
-    if (!result.ok && result.errors.contactEmail) {
-      emailError = result.errors.contactEmail
-      const { contactEmail: _dropped, ...rest } = value
+    const typing = {}
+    for (const field of ['contactEmail', 'charityUrl']) {
+      if (result.ok || !result.errors[field]) continue
+      typing[field] = result.errors[field]
+      const { [field]: _dropped, ...rest } = value
       value = rest
       result = validateSection('basics', value, ctx)
     }
     setLocalErrors({
       ...(result.ok ? {} : result.errors),
       ...(slugError ? { slug: slugError } : {}),
-      ...(emailError ? { contactEmail: emailError } : {}),
+      ...typing,
     })
     if (result.ok) queue('basics', value)
   }
@@ -222,7 +229,7 @@ export default function Podstawy({ event, queue, saveState, readOnly, reload, re
           <FieldError message={errors.slug} />
         </div>
         <div>
-          <label htmlFor="ev-date" className={fieldLabel}>Data</label>
+          <label htmlFor="ev-date" className={fieldLabel}>Data wydarzenia</label>
           <input id="ev-date" type="date" className={fieldInput} value={form.eventDate} onChange={set('eventDate')} />
           <FieldError message={errors.eventDate} />
         </div>
@@ -241,6 +248,14 @@ export default function Podstawy({ event, queue, saveState, readOnly, reload, re
           <input id="ev-closes" type="date" className={fieldInput} value={form.closesOn} onChange={set('closesOn')} />
           <FieldError message={errors.closesOn} />
         </div>
+      </div>
+
+      <div>
+        <label htmlFor="ev-description" className={fieldLabel}>Opis wydarzenia</label>
+        <textarea id="ev-description" rows={6} maxLength={DESCRIPTION_MAX} className={`${fieldInput} resize-y`}
+          value={form.description} onChange={set('description')} />
+        <MonoHint>{form.description.length} / {DESCRIPTION_MAX}</MonoHint>
+        <FieldError message={errors.description} />
       </div>
 
       <div className="grid gap-4 grid-cols-[repeat(auto-fit,minmax(min(100%,280px),1fr))] items-start">
@@ -274,13 +289,19 @@ export default function Podstawy({ event, queue, saveState, readOnly, reload, re
               <input id="ev-goal" className={fieldInput} value={form.charityGoal} onChange={set('charityGoal')} />
               <FieldError message={errors.charityGoal} />
             </div>
-            <label className="flex items-center gap-2.5 font-sans text-base text-apex-text-bright min-h-9">
-              <input type="checkbox" className="w-[18px] h-[18px] accent-apex-yellow" checked={form.donationsEnabled} onChange={set('donationsEnabled')} />
-              Pozwól dopłacić darowiznę przy zapisie
-              <span tabIndex={0} title="Zawodnik może dodać do opłaty startowej dowolną kwotę. Cała dopłata trafia na cel."
-                aria-label="Zawodnik może dodać do opłaty startowej dowolną kwotę. Cała dopłata trafia na cel."
-                className="inline-flex items-center justify-center w-5 h-5 border border-apex-border-bright font-mono text-xs text-apex-muted cursor-help">?</span>
-            </label>
+            <div>
+              <label htmlFor="ev-goal-url" className={fieldLabel}>Strona celu</label>
+              <input id="ev-goal-url" type="url" inputMode="url" autoComplete="off" placeholder="https://" className={fieldInput}
+                value={form.charityUrl} onChange={set('charityUrl')} />
+              <FieldError message={errors.charityUrl} />
+            </div>
+            <div className="flex flex-wrap items-center gap-2.5">
+              <label className="flex items-center gap-2.5 font-sans text-base text-apex-text-bright min-h-9">
+                <input type="checkbox" className="w-[18px] h-[18px] accent-apex-yellow" checked={form.donationsEnabled} onChange={set('donationsEnabled')} />
+                Pozwól dopłacić darowiznę przy zapisie
+              </label>
+              <InfoTip mark="?" label="Co oznacza darowizna przy zapisie" testId="donation-tip">{DONATION_TIP}</InfoTip>
+            </div>
           </div>
         )}
       </div>

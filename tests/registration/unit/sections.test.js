@@ -565,3 +565,33 @@ test('M-1 competitions: a fixed or free save carries no tiers key at all', () =>
     assert.equal('tiers' in r.value, false)
   }
 })
+
+test('W-72 basics: the description is plain text up to 5000 characters, line breaks kept', () => {
+  const text = '  Nocny bieg.\n\nTrasa leśna, <b>bez</b> asfaltu.\nZabierz czołówkę.  '
+  const r = validateSection('basics', { description: text }, DRAFT)
+  assert.equal(r.ok, true, JSON.stringify(r.errors))
+  assert.equal(r.value.description, 'Nocny bieg.\n\nTrasa leśna, <b>bez</b> asfaltu.\nZabierz czołówkę.')
+  assert.equal(validateSection('basics', { description: 'a'.repeat(5000) }, DRAFT).ok, true)
+  const long = validateSection('basics', { description: 'a'.repeat(5001) }, DRAFT)
+  assert.equal(long.ok, false)
+  assert.equal(long.errors.description, 'Najwyżej 5000 znaków.')
+  assert.deepEqual(validateSection('basics', { description: '   ' }, DRAFT).value, { description: null })
+  assert.deepEqual(validateSection('basics', { description: null }, DRAFT).value, { description: null })
+  assert.equal(validateSection('basics', { description: 5 }, DRAFT).ok, false)
+})
+
+test('W-73 basics: the cause page is an optional http(s) address', () => {
+  for (const url of ['https://example.org/zbiorka', 'http://zbiorka.example.pl/zosia?x=1']) {
+    const r = validateSection('basics', { charityUrl: url }, DRAFT)
+    assert.equal(r.ok, true, url)
+    assert.equal(r.value.charity_url, url)
+  }
+  assert.deepEqual(validateSection('basics', { charityUrl: '' }, DRAFT).value, { charity_url: null })
+  assert.deepEqual(validateSection('basics', { charityUrl: null }, DRAFT).value, { charity_url: null })
+  assert.equal(validateSection('basics', { charityUrl: ' https://example.org/a ' }, DRAFT).value.charity_url, 'https://example.org/a')
+  for (const bad of ['javascript:alert(1)', 'ftp://example.org/x', 'example.org', 'https://', 'https://exa mple.org', `https://e.org/${'a'.repeat(500)}`, 7]) {
+    const r = validateSection('basics', { charityUrl: bad }, DRAFT)
+    assert.equal(r.ok, false, String(bad))
+    assert.equal(r.errors.charityUrl, 'Podaj adres zaczynający się od http:// albo https://.')
+  }
+})

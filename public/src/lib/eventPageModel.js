@@ -237,6 +237,10 @@ export function eventPageModel(raw, now = new Date()) {
     registrationState: win,
     closesLabel: closesLabel(raw.closesAt),
     charityGoal: raw.isCharity ? (raw.charityGoal ?? null) : null,
+    // A link only to an http(s) address, whatever the stored value says.
+    charityUrl: raw.isCharity && /^https?:\/\//i.test(raw.charityUrl ?? '') ? raw.charityUrl : null,
+    // Plain text: the page keeps its line breaks and never renders it as HTML.
+    description: raw.description || null,
     stats: stats(competitions, win === 'closed' ? null : daysLeftLabel(raw, now)),
     office: (raw.office?.hours ?? []).map((h) => {
       const { d, m } = ymd(h.date)
@@ -355,7 +359,8 @@ export function mergePending(raw, pending, now = new Date()) {
     const b = payload.basics
     pick(out, b, {
       name: 'name', slug: 'slug', event_date: 'eventDate', first_start_time: 'firstStartTime', opens_at: 'opensAt', closes_at: 'closesAt',
-      is_charity: 'isCharity', charity_goal: 'charityGoal', donations_enabled: 'donationsEnabled',
+      is_charity: 'isCharity', charity_goal: 'charityGoal', charity_url: 'charityUrl', donations_enabled: 'donationsEnabled',
+      description: 'description',
       contact_email: 'contactEmail',
     })
     out.town = pick({ ...raw.town }, b, { town_label: 'label', town_area: 'area', place_details: 'placeDetails', lat: 'lat', lng: 'lng' })

@@ -29,7 +29,7 @@ const SETTINGS_LABELS = {
   basics: {
     name: 'Nazwa', event_date: 'Data zawodów', first_start_time: 'Godzina pierwszego startu',
     opens_at: 'Otwarcie zapisów', closes_at: 'Koniec zapisów', is_charity: 'Wydarzenie charytatywne',
-    charity_goal: 'Cel zbiórki', donations_enabled: 'Wpłaty na cel', town_label: 'Miejscowość',
+    charity_goal: 'Cel zbiórki', charity_url: 'Strona celu', description: 'Opis wydarzenia', donations_enabled: 'Wpłaty na cel', town_label: 'Miejscowość',
     town_area: 'Gmina i województwo', place_details: 'Miejsce startu', lat: 'Pinezka (szerokość)',
     lng: 'Pinezka (długość)', contact_email: 'Adres kontaktowy', regulamin_kind: 'Rodzaj regulaminu', regulamin_url: 'Regulamin (link)',
     regulamin_upload_id: 'Regulamin (PDF)', poster_upload_id: 'Plakat',

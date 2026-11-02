@@ -2,7 +2,7 @@ import { useRef, useState } from 'react'
 import { townCandidates, townSearchUrl } from '../../lib/townSearch.js'
 import { btnGhost, fieldInput, fieldLabel, errorClass } from '../../pages/klub/settingsUi.js'
 
-// „Miejscowość” with a Nominatim lookup on Enter, blur or „Szukaj” — never
+// „Miejscowość” with a Nominatim lookup on Enter, blur or „Pokaż na mapie” — never
 // per keystroke. Picking a candidate sets the town label, its area
 // („GM. PILCHOWICE · ŚLĄSKIE”) and the pin; one candidate is picked at once.
 export default function TownSearch({ id = 'town', townLabel, townArea, onPick, disabled = false }) {
@@ -56,8 +56,9 @@ export default function TownSearch({ id = 'town', townLabel, townArea, onPick, d
           onBlur={search}
           onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); search() } }}
         />
-        <button type="button" className={btnGhost} disabled={disabled || busy} onClick={search}>Szukaj</button>
+        <button type="button" className={`${btnGhost} whitespace-nowrap shrink-0`} disabled={disabled || busy} onClick={search}>Pokaż na mapie</button>
       </div>
+      <div className="font-mono text-xs text-apex-muted mt-1.5">Enter albo „Pokaż na mapie” stawia pinezkę. Możesz ją potem przesunąć.</div>
       {townArea && !candidates.length && (
         <div data-testid="town-area" className="font-mono text-xs text-apex-muted mt-1.5">{townArea}</div>
       )}

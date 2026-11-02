@@ -465,3 +465,23 @@ describe('mergePending: staged tiers and extras (Plan 7)', () => {
     assert.equal(raw.extras[0].variants.length, 1, 'input untouched')
   })
 })
+
+describe('W-72 W-73 description and cause page', () => {
+  it('the description is passed through as text; the cause page only on a charity event', () => {
+    const m = model({ ...RA1, description: 'Opis.\nDruga linia.', charityUrl: 'https://example.org/zuzia' })
+    assert.equal(m.description, 'Opis.\nDruga linia.')
+    assert.equal(m.charityUrl, 'https://example.org/zuzia')
+    const plain = model({ ...RA1, isCharity: false, description: null, charityUrl: 'https://example.org/zuzia' })
+    assert.equal(plain.description, null)
+    assert.equal(plain.charityUrl, null)
+    assert.equal(model(RA1).description, null)
+  })
+  it('a cause page that is not http(s) is never a link', () => {
+    assert.equal(model({ ...RA1, charityUrl: 'javascript:alert(1)' }).charityUrl, null)
+  })
+  it('mergePending shows a staged description and cause page in the preview', () => {
+    const out = mergePending(RA1, { payload: { basics: { description: 'Nowy opis', charity_url: 'https://example.org/c' } } })
+    assert.equal(out.description, 'Nowy opis')
+    assert.equal(out.charityUrl, 'https://example.org/c')
+  })
+})

@@ -1,5 +1,5 @@
 // Town lookup for the wizard's „Miejscowość” (Nominatim, Polish settlements).
-// TownSearch calls it on Enter, blur or „Szukaj”, never per keystroke:
+// TownSearch calls it on Enter, blur or „Pokaż na mapie”, never per keystroke:
 // Nominatim's usage policy allows about one request a second.
 
 const MAX = 5
