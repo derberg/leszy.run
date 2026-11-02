@@ -1,7 +1,8 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 // imagescript 1.2.15, as in upload-club-logo: decode → resize → encode(), which writes PNG only
-// (encodeWEBP does not exist). It decodes PNG and JPEG but has NO WebP decoder (no version up to
-// 1.3.0 has one), so a real WebP passes the header checks and is then refused as unreadable.
+// (encodeWEBP does not exist). It decodes PNG and JPEG but has no WebP decoder (no version up to
+// 1.3.0 has one), so the server takes PNG and JPEG only: the browser converts a WebP (and every
+// other pick) to PNG before upload (controller ruling, task 3 fix round 1).
 import { Image } from 'https://deno.land/x/imagescript@1.2.15/mod.ts'
 import { getCorsHeaders, guardRequest } from '../_shared/cors.js'
 import { getSession } from '../_shared/session.js'
@@ -17,8 +18,8 @@ import { imageHeader } from '../_shared/imageHeader.js'
 // logos itself. Not behind PAID_REGISTRATION_ENABLED: a logo moves no money.
 //
 // The input is never served as sent. In order, before anything decodes it: the data URL must say
-// PNG, JPEG or WebP; at most 2 MB once decoded; the magic bytes must be one of those three (the
-// data URL's MIME type is not trusted); the header's width and height at most 6000 each. Only then
+// PNG or JPEG; at most 2 MB once decoded; the magic bytes must be PNG or JPEG (the data URL's MIME
+// type is not trusted; a WebP is refused); the header's width and height at most 4096 each. Only then
 // imagescript decodes it, fits it inside 400×400 (never enlarged) and writes a PNG to
 // partner-logos/<uuid>.png. The row points at the new object before the old one is removed; a
 // row that cannot be updated takes its new object with it. A legacy row (logo_url, no logo_path:
@@ -35,15 +36,17 @@ const NOT_FOUND = { error: 'Not found' }
 const MANAGERS = ['owner', 'admin']
 const BUCKET = 'partner-logos'
 const MAX_BYTES = 2 * 1024 * 1024
-const MAX_HEADER_PX = 6000
+// Each side and the area, from the header, before decode: 4096×4096 RGBA is 64 MB decoded.
+const MAX_HEADER_PX = 4096
+const MAX_HEADER_AREA = 4096 * 4096
 const MAX_OUTPUT_PX = 400
-const TYPES = ['png', 'jpeg', 'webp']
-const DATA_URL_RE = /^data:image\/(png|jpe?g|webp);base64,/
+const TYPES = ['png', 'jpeg']
+const DATA_URL_RE = /^data:image\/(png|jpe?g);base64,/
 
 const REFUSALS = {
   invalid_type: [400, 'Dozwolone: PNG, JPG, WebP.'],
   too_big: [400, 'Plik jest za duży (limit 2 MB).'],
-  too_large: [400, 'Obraz jest za duży (maks. 6000×6000 px).'],
+  too_large: [400, 'Obraz jest za duży (maks. 4096×4096 px).'],
   unreadable: [400, 'Nie udało się odczytać obrazu.'],
   invalid_request: [400, 'Wyślij logo albo remove: true.'],
   logo_changed: [409, 'Logo właśnie się zmieniło — spróbuj ponownie.'],
@@ -71,7 +74,9 @@ function readImage(dataUrl) {
   if (bytes.length > MAX_BYTES) return { refusal: 'too_big' }
   const header = imageHeader(bytes)
   if (!header || !TYPES.includes(header.type)) return { refusal: 'invalid_type' }
-  if (header.width > MAX_HEADER_PX || header.height > MAX_HEADER_PX) return { refusal: 'too_large' }
+  if (header.width > MAX_HEADER_PX || header.height > MAX_HEADER_PX || header.width * header.height > MAX_HEADER_AREA) {
+    return { refusal: 'too_large' }
+  }
   return { bytes }
 }
 

@@ -13,7 +13,7 @@ import { imageHeader } from '../../supabase/functions/_shared/imageHeader.js'
 
 const TYPES = 'Dozwolone: PNG, JPG, WebP.'
 const TOO_BIG = 'Plik jest za duży (limit 2 MB).'
-const TOO_LARGE = 'Obraz jest za duży (maks. 6000×6000 px).'
+const TOO_LARGE = 'Obraz jest za duży (maks. 4096×4096 px).'
 const UNREADABLE = 'Nie udało się odczytać obrazu.'
 const UUID_PNG = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.png$/
 
@@ -84,18 +84,27 @@ async function assertReencoded(eventId, id, mime, bytes, size) {
   assert.ok(Math.abs(h.width - size[0]) <= 1 && Math.abs(h.height - size[1]) <= 1, `${mime}: ${JSON.stringify(h)}`)
 }
 
-// The requirement (Global Constraints: PNG, JPEG and WebP in) that imagescript 1.2.15 cannot meet:
-// it has no WebP decoder, so a real WebP is refused as unreadable. A todo until a decoder is chosen.
-test('EP-12 a real WebP is re-encoded to PNG', { todo: 'imagescript 1.2.15 has no WebP decoder' }, async () => {
+// The server takes PNG and JPEG only (imagescript 1.2.15 has no WebP decoder): the browser converts
+// a WebP to PNG before upload. A real WebP is refused whatever its data URL says; nothing is stored.
+test('EP-12 a real WebP is refused 400, under an image/webp or an image/png data URL; nothing stored', async () => {
   const event = await createPublishedPaidEvent(owner)
   const id = await partner(event.eventId)
-  await assertReencoded(event.eventId, id, 'image/webp',
-    await sharp({ create: { width: 900, height: 300, channels: 3, background: '#0c3' } }).webp().toBuffer(), [400, 133])
+  const webp = await sharp({ create: { width: 90, height: 30, channels: 3, background: '#0c3' } }).webp().toBuffer()
+  assert.equal(imageHeader(new Uint8Array(webp)).type, 'webp')
+  const before = await objectNames()
+  for (const mime of ['image/webp', 'image/png']) {
+    const r = await upload(event.eventId, id, { dataUrl: dataUrl(mime, webp) })
+    assert.equal(r.status, 400, `${mime}: ${JSON.stringify(r.body)}`)
+    assert.equal(r.body.error, TYPES, mime)
+  }
+  const row = await one('event_partners', { id })
+  assert.deepEqual([row.logo_url, row.logo_path], [null, null])
+  assert.deepEqual([...(await objectNames())].filter((n) => !before.has(n)), [], 'no object written')
 })
 
 // ---------------------------------------------------------------- EP-13
 
-test('EP-13 refusals before decode: SVG, SVG bytes behind a PNG prefix, GIF, garbage, a 50000×50000 header, 2 MB + 1 byte; nothing written', async () => {
+test('EP-13 refusals before decode: SVG, SVG bytes behind a PNG prefix, GIF, garbage, a 50000×50000, 4097-wide or 5000×100 header, 2 MB + 1 byte; nothing written', async () => {
   const event = await createPublishedPaidEvent(owner)
   const id = await partner(event.eventId)
   const svg = Buffer.from('<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10"><script>alert(1)</script></svg>')
@@ -108,7 +117,9 @@ test('EP-13 refusals before decode: SVG, SVG bytes behind a PNG prefix, GIF, gar
     ['not base64', { dataUrl: 'data:image/png;base64,@@@@' }, TYPES],
     ['no data url', { dataUrl: 42 }, TYPES],
     ['bomb header', { dataUrl: dataUrl('image/png', pngHeaderOnly(50000, 50000)) }, TOO_LARGE],
-    ['6001 wide', { dataUrl: dataUrl('image/png', pngHeaderOnly(6001, 10)) }, TOO_LARGE],
+    ['4097 wide', { dataUrl: dataUrl('image/png', pngHeaderOnly(4097, 10)) }, TOO_LARGE],
+    ['5000×100', { dataUrl: dataUrl('image/png', pngHeaderOnly(5000, 100)) }, TOO_LARGE],
+    ['4096×4097', { dataUrl: dataUrl('image/png', pngHeaderOnly(4096, 4097)) }, TOO_LARGE],
     ['2 MB + 1', { dataUrl: dataUrl('image/png', Buffer.concat([pngBytes(1, 1), Buffer.alloc(2 * 1024 * 1024 + 1 - pngBytes(1, 1).length)])) }, TOO_BIG],
     ['valid header, corrupt body', { dataUrl: dataUrl('image/png', pngHeaderOnly(10, 10)) }, UNREADABLE],
   ]
@@ -132,7 +143,7 @@ test('EP-14 a second upload removes the first object; remove: true clears both c
   assert.equal((await upload(event.eventId, id, { dataUrl: dataUrl('image/png', pngBytes(20, 20)) })).status, 200)
   const first = (await one('event_partners', { id })).logo_path
   assert.ok(await stored(first))
-  const second = await upload(event.eventId, id, { dataUrl: dataUrl('image/webp', pngBytes(30, 30)) }, adminS)
+  const second = await upload(event.eventId, id, { dataUrl: dataUrl('image/png', pngBytes(30, 30)) }, adminS)
   assert.equal(second.status, 200, JSON.stringify(second.body))
   const secondPath = (await one('event_partners', { id })).logo_path
   assert.notEqual(secondPath, first)
