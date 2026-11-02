@@ -138,12 +138,19 @@ export function paymentReminderEmail({ event, order, payUrl }) {
   return { subject: `Zgłoszenie czeka na wpłatę — ${event.name}`, text, html }
 }
 
-/** The payment window passed without a payment. The order never held a place (P3-R15), so nothing is said about one. */
+/**
+ * The payment window passed without a payment. The order never held a place (P3-R15), so nothing is
+ * said about one; places may still be free, so the runner is pointed back to the sign-up.
+ */
+const AGAIN_NOTE = 'Jeśli są jeszcze wolne miejsca, możesz zapisać się ponownie i od razu opłacić zgłoszenie.'
+
 export function orderExpiredEmail({ event, order, eventUrl }) {
   const text = [
     'Cześć,',
     '',
     `Twoje zgłoszenie na zawody ${event.name} wygasło, bo nie zostało opłacone w terminie (${formatPln(order.total)}).`,
+    '',
+    AGAIN_NOTE,
     '',
     `Zapisz się ponownie: ${eventUrl}`,
     '',
@@ -152,6 +159,7 @@ export function orderExpiredEmail({ event, order, eventUrl }) {
   const html = [
     '<p>Cześć,</p>',
     `<p>Twoje zgłoszenie na zawody <strong>${escapeHtml(event.name)}</strong> wygasło, bo nie zostało opłacone w terminie (${escapeHtml(formatPln(order.total))}).</p>`,
+    `<p>${escapeHtml(AGAIN_NOTE)}</p>`,
     link(eventUrl, 'Zapisz się ponownie'),
     '<p>LESZY.RUN</p>',
   ].join('')

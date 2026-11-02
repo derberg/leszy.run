@@ -107,7 +107,7 @@ test('P-43 Płatności renders A6; the payout checklist item opens it; the owner
   const tip = page.getByTestId('payment-window-tip')
   await expect(tip).toHaveCount(0)
   await page.getByRole('button', { name: 'Co oznacza czas na opłacenie' }).click()
-  await expect(tip).toHaveText('Jeśli zgłoszenie nie zostanie opłacone w tym czasie, wygasa i znika z listy zapisanych. Nieopłacone zgłoszenie nie zajmuje miejsca — limit liczy tylko opłacone.')
+  await expect(tip).toHaveText('Jeśli zgłoszenie nie zostanie opłacone w tym czasie, wygasa i znika z listy zapisanych. Nieopłacone zgłoszenie nie zajmuje miejsca — limit liczy tylko opłacone. 3 dni przed wygaśnięciem uczestnik dostaje przypomnienie e-mailem (przy 24 godzinach nie), a po wygaśnięciu link do ponownego zapisu, jeśli są jeszcze wolne miejsca.')
   for (const width of [1440, 390]) {
     await page.setViewportSize({ width, height: 844 })
     // Every choice on one line: a wrapped label would make its button taller than the others.

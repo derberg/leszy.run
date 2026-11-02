@@ -293,17 +293,17 @@ test('P3-R7 an orphan whose release fails stays pending with one orphan_release_
 
 // ---------------------------------------------------------------- P-37 reminders
 
-test('P-37 a 168 h window: no reminder at 83 h, one at 84 h, none on the next run; a 4 h window never gets one', async () => {
+test('P-37 a 168 h window: no reminder 73 h before expiry, one 72 h before, none on the next run; a 24 h window never gets one', async () => {
   const event = await paidEvent()
   const { orderId, email } = await pendingOrder({ event, tag: 'remind' })
-  const created = Date.now() - 83 * HOUR
+  const created = Date.now() - 95 * HOUR
   await setOrder(orderId, { created_at: new Date(created).toISOString(), expires_at: new Date(created + 168 * HOUR).toISOString() })
   await jobsOk()
   assert.equal((await orderOf(orderId)).reminder_sent_at, null)
   assert.deepEqual(await messagesTo(email), [])
 
-  const created84 = Date.now() - 84 * HOUR - MIN
-  await setOrder(orderId, { created_at: new Date(created84).toISOString(), expires_at: new Date(created84 + 168 * HOUR).toISOString() })
+  const created96 = Date.now() - 96 * HOUR - MIN
+  await setOrder(orderId, { created_at: new Date(created96).toISOString(), expires_at: new Date(created96 + 168 * HOUR).toISOString() })
   await Promise.all([jobsOk(), jobsOk()])
   await jobsOk()
   const msgs = await waitForMail(email)
@@ -312,12 +312,12 @@ test('P-37 a 168 h window: no reminder at 83 h, one at 84 h, none on the next ru
   assert.match(msgs[0].text, new RegExp(`/zamowienie/${orderId}`))
   assert.ok((await orderOf(orderId)).reminder_sent_at)
 
-  const short = await pendingOrder({ event: await paidEvent(50, 4), tag: 'short' })
-  const c4 = Date.now() - 3 * HOUR - 50 * MIN
-  await setOrder(short.orderId, { created_at: new Date(c4).toISOString(), expires_at: new Date(c4 + 4 * HOUR).toISOString() })
+  const day = await pendingOrder({ event: await paidEvent(50, 24), tag: 'day' })
+  const c24 = Date.now() - 23 * HOUR - 50 * MIN
+  await setOrder(day.orderId, { created_at: new Date(c24).toISOString(), expires_at: new Date(c24 + 24 * HOUR).toISOString() })
   await jobsOk()
-  assert.equal((await orderOf(short.orderId)).reminder_sent_at, null)
-  assert.deepEqual(await messagesTo(short.email), [])
+  assert.equal((await orderOf(day.orderId)).reminder_sent_at, null)
+  assert.deepEqual(await messagesTo(day.email), [])
 })
 
 // ---------------------------------------------------------------- P-38 expired notices
@@ -743,7 +743,7 @@ test('I3 a hanging dpay: the run answers inside its budget, the operator digest 
     waiting.push({ orderId: o.orderId, email: reg.email })
   }
   const remind = await orderOk(event)
-  const created = Date.now() - 84 * HOUR - MIN
+  const created = Date.now() - 96 * HOUR - MIN
   await setOrder(remind.orderId, { created_at: new Date(created).toISOString(), expires_at: new Date(created + 168 * HOUR).toISOString() })
   const { data: remindReg } = await db().from('registrations').select('email').eq('order_id', remind.orderId).single()
   assert.ifError((await db().from('operator_alerts').insert({ kind: 'budget_probe', order_id: remind.orderId, payload: { probe: true } })).error)

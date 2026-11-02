@@ -9,7 +9,7 @@ import { FieldError, InfoTip, Seg, cardClass, cardTitle, monoLabel, sectionError
 import Vouchers from './Vouchers.jsx'
 
 // A6: the payment window (24 h, 7 or 14 days, or „do końca zapisów”, with an ⓘ saying an unpaid
-// entry expires and holds no place; the `payments` section: autosaved in a draft,
+// entry expires and holds no place, and which e-mails the runner gets; the `payments` section: autosaved in a draft,
 // staged after publish), the payout account, the package transfer (Plan 7: allowed or not and
 // „Możliwe do”, at the latest the day before the race; part of `payments`, so every save sends the
 // window and the transfer together, and a quick edit of one never drops the other), and the codes
@@ -21,7 +21,7 @@ import Vouchers from './Vouchers.jsx'
 // „do końca zapisów” is its own column (payment_window_until_close): the hours stay stored.
 const UNTIL_CLOSE = 'close'
 const WINDOWS = [[24, '24 godziny'], [168, '7 dni'], [336, '14 dni'], [UNTIL_CLOSE, 'do końca zapisów']]
-const WINDOW_TIP = 'Jeśli zgłoszenie nie zostanie opłacone w tym czasie, wygasa i znika z listy zapisanych. Nieopłacone zgłoszenie nie zajmuje miejsca — limit liczy tylko opłacone.'
+const WINDOW_TIP = 'Jeśli zgłoszenie nie zostanie opłacone w tym czasie, wygasa i znika z listy zapisanych. Nieopłacone zgłoszenie nie zajmuje miejsca — limit liczy tylko opłacone. 3 dni przed wygaśnięciem uczestnik dostaje przypomnienie e-mailem (przy 24 godzinach nie), a po wygaśnięciu link do ponownego zapisu, jeśli są jeszcze wolne miejsca.'
 const EMPTY = { recipient: '', taxId: '', iban: '', title: '' }
 const FIELDS = [
   { key: 'recipient', id: 'event-payout-recipient', label: 'Odbiorca', maxLength: 200, wide: true },

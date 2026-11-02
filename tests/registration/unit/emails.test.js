@@ -162,6 +162,7 @@ test('P-58 the reminder and the expiry notice never say an unpaid entry holds or
   }
   assert.ok(reminder.text.includes('Bez wpłaty do 05.11.2026, 11:15 zgłoszenie wygaśnie.'), reminder.text)
   for (const part of [expired.text, expired.html]) assert.match(part, /wygasło, bo nie zostało opłacone w terminie/)
+  for (const part of [expired.text, expired.html]) assert.ok(part.includes('Jeśli są jeszcze wolne miejsca, możesz zapisać się ponownie'), part)
 })
 
 // ---------------------------------------------------------------- Plan 4: groups (G-28)
