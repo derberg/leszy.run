@@ -334,7 +334,7 @@ export async function renderLeszyrunEventOg(event, { footer = 'leszy.run', signe
   }
 
   if (charity) {
-    const label = event.charity ? `CHARYTATYWNIE  ·  ${truncate(event.charity, fit(56))}` : 'BIEG CHARYTATYWNY'
+    const label = event.charity ? `CHARYTATYWNIE  ·  ${truncate(event.charity, format === 'story' ? 48 : 56)}` : 'BIEG CHARYTATYWNY'
     const w = label.length * 9.4 * k + 62 * k
     const x = cx - w / 2
     y += 22 * k
