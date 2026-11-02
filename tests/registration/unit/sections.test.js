@@ -623,3 +623,16 @@ test('W-73 basics: the cause page is an optional http(s) address', () => {
     assert.equal(r.errors.charityUrl, 'Podaj adres zaczynający się od http:// albo https://.')
   }
 })
+
+test('W-77 basics: the event page („Więcej informacji”) is an optional http(s) address', () => {
+  const r = validateSection('basics', { websiteUrl: 'https://wilczypolmaraton.pl/' }, DRAFT)
+  assert.equal(r.ok, true)
+  assert.equal(r.value.website_url, 'https://wilczypolmaraton.pl/')
+  assert.deepEqual(validateSection('basics', { websiteUrl: '' }, DRAFT).value, { website_url: null })
+  assert.equal(validateSection('basics', { websiteUrl: ' https://example.org/a ' }, DRAFT).value.website_url, 'https://example.org/a')
+  for (const bad of ['javascript:alert(1)', 'example.org', `https://e.org/${'a'.repeat(500)}`]) {
+    const res = validateSection('basics', { websiteUrl: bad }, DRAFT)
+    assert.equal(res.ok, false, String(bad))
+    assert.equal(res.errors.websiteUrl, 'Podaj adres zaczynający się od http:// albo https://.')
+  }
+})
