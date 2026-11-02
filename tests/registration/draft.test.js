@@ -237,7 +237,7 @@ test('W-10 list-club-registration-events: members see the club\'s events with co
   const r = await callFn('list-club-registration-events', member, { clubId: ZT })
   assert.equal(r.status, 200)
   const row = r.body.data.find((e) => e.eventId === eventId)
-  assert.deepEqual(row, { eventId, name, state: 'draft', eventDate: null, taken: 0, capacity: 50, hasPending: false })
+  assert.deepEqual(row, { eventId, name, state: 'draft', eventDate: null, taken: 0, capacity: 50, hasPending: false, listed: true })
   assert.equal((await callFn('list-club-registration-events', ikMember, { clubId: ZT })).status, 403)
 })
 
