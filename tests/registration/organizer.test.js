@@ -33,7 +33,7 @@ test('F-17 status of a disabled club for a member: enabled false', async () => {
   const r = await call('organizer-status', s, { clubId: IK })
   assert.equal(r.status, 200)
   assert.deepEqual(r.body.data, {
-    enabled: false, waitlisted: false, agreementAccepted: false, version: VERSION, payoutConfigured: false, role: 'member',
+    enabled: false, waitlisted: false, agreementAccepted: false, agreementAcceptedAt: null, version: VERSION, payoutConfigured: false, role: 'member',
   })
 })
 
