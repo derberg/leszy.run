@@ -340,7 +340,7 @@ test('W-25 owner creates an event, fills every step, reloads, previews as a runn
     { city: 'required', club: 'off', ice: 'optional', nationality: 'required' },
     ['Akceptuję regulamin zawodów.', 'Znam informację o danych osobowych.',
       'Akceptuję, że mój wizerunek utrwalony podczas zawodów (zdjęcia, wideo) może zostać opublikowany w relacjach i wynikach zawodów, zgodnie z regulaminem.',
-      'Startuję na własną odpowiedzialność.', 'Zgadzam się na pomiar czasu chipem.'],
+      'Startuję na własną odpowiedzialność. Oświadczam, że mój stan zdrowia pozwala na udział w zawodach i nie mam przeciwwskazań lekarskich. Wiem, że udział w wydarzeniu wiąże się z ryzykiem urazu lub pogorszenia zdrowia.', 'Zgadzam się na pomiar czasu chipem.'],
   ])
   await page.reload()
   await expect(page.getByRole('group', { name: 'Narodowość' }).getByRole('button', { name: 'Wymagane' })).toHaveAttribute('aria-pressed', 'true')
@@ -637,7 +637,7 @@ test('W-63 after publish a consent somebody accepted is read-only with no delete
     const { error } = await admin().from('event_consents').insert({ event_id: eventId, kind: 'custom', text, sort_order: sortOrder })
     if (error) throw error
   }
-  await insert('Startuję na własną odpowiedzialność.', 2)
+  await insert('Startuję na własną odpowiedzialność. Oświadczam, że mój stan zdrowia pozwala na udział w zawodach i nie mam przeciwwskazań lekarskich. Wiem, że udział w wydarzeniu wiąże się z ryzykiem urazu lub pogorszenia zdrowia.', 2)
   await insert('Zgadzam się na pomiar czasu chipem.', 3)
   await registerRunner(eventId, categoryIds[0], `w63-${crypto.randomBytes(4).toString('hex')}@test.local`)
   await insert('Zgoda dodana po zapisie.', 4)
@@ -659,7 +659,7 @@ test('W-63 after publish a consent somebody accepted is read-only with no delete
   // Deleting the one nobody accepted stages a list that still holds the accepted two.
   await rows.nth(1).getByRole('button', { name: /Usuń zgodę/ }).click()
   await expect.poll(async () => ((await pendingPayload(eventId))?.form?.consents ?? []).map((k) => k.text), { timeout: 15_000 })
-    .toEqual(['Startuję na własną odpowiedzialność.', 'Zgadzam się na pomiar czasu chipem.'])
+    .toEqual(['Startuję na własną odpowiedzialność. Oświadczam, że mój stan zdrowia pozwala na udział w zawodach i nie mam przeciwwskazań lekarskich. Wiem, że udział w wydarzeniu wiąże się z ryzykiem urazu lub pogorszenia zdrowia.', 'Zgadzam się na pomiar czasu chipem.'])
 })
 
 test('W-27 after publish the owner moves Bieg 9 km to 10:15, sees the pending bar, publishes from A8a with the box unchecked; a notice reports whom it reached', async ({ actors }) => {
