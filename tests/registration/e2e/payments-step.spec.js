@@ -134,6 +134,15 @@ test('P-43 Płatności renders A6; the payout checklist item opens it; the owner
   await expect(page.getByLabel('Numer rachunku')).toHaveValue(IBAN_GROUPED)
   await shoot(page, 'platnosci-custom-owner')
 
+  // A fresh club (agreement v6 §1 ust. 2, P-42a): the other account alone is not
+  // enough, the club's own details name the Organizer.
+  await page.goto(`${base}/publikacja`)
+  await expect(page.getByTestId('blocking-item')).toHaveText(/Uzupełnij dane do wypłat w ustawieniach klubu/)
+  const { error: cpErr } = await admin().from('club_payout_details').insert({
+    club_id: club.clubId, legal_name: 'Klub', nip: '5260250274', iban: 'PL61109010140000071219812874', address: 'ul. Leśna 1',
+  })
+  if (cpErr) throw cpErr
+
   // The checklist no longer asks for the payout, and nothing else holds a paid event.
   await page.goto(`${base}/publikacja`)
   await expect(page.getByTestId('checklist')).toBeVisible()
