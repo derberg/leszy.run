@@ -36,7 +36,8 @@ async function rows(query) {
 // grosze }) beside the fixed `priceGrosze`. `tiers` lists the price tiers in registration_raw's
 // order (Warsaw days), and `extras` the extras with their competitions and variants (stock and
 // sold, so the wizard can lock what sold). Any active member of the owning club may read it.
-// Vouchers and partners are not here: organizer-vouchers serves them.
+// Vouchers and partners are not here: organizer-vouchers serves the codes, organizer-partners
+// the partners (event_partners).
 Deno.serve(async (req) => {
   const guard = guardRequest(req)
   if (guard) return guard
@@ -145,7 +146,8 @@ Deno.serve(async (req) => {
       // Only the checklist sees the payout, as { mode, ready }; the account
       // itself is get-event-payout's alone (ruling P3-R1).
       checklist: publishChecklist({ ...event, hasAgreement, payout, moneyLive }),
-      // Plan 7's money features (flags.js): the wizard shows Dodatki, codes and partners only when live.
+      // Plan 7's money features (flags.js): the wizard shows Dodatki and the codes only when live.
+      // Partnerzy moves no money and is shown either way (EP-11).
       moneyLive,
     } }, 200, req)
   } catch (err) {

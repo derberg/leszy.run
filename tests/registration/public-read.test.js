@@ -264,3 +264,50 @@ test('W-20 the raw of a draft: current and next price tier, course from the GPX 
   assert.equal(c.minAge, 16)
   assert.equal(r.body.data.raw.pricingMode, 'fixed')
 })
+
+test('EP-16 /api/event carries the public partners only, in camelCase, and the version follows them', async () => {
+  const event = await createPublishedFreeEvent(owner)
+  const ins = await db().from('event_partners').insert([
+    { event_id: event.eventId, name: 'Widoczny', website_url: 'https://widoczny.pl', sort_order: 0, is_public: true, note: 'tajna notatka' },
+    { event_id: event.eventId, name: 'Ukryty', sort_order: 1, is_public: false },
+  ]).select('id')
+  assert.equal(ins.error, null, JSON.stringify(ins.error))
+  const a = await getEvent(`?slug=${event.slug}`)
+  assert.equal(a.status, 200, JSON.stringify(a.body))
+  assert.deepEqual(a.body.partners.map((p) => ({ name: p.name, websiteUrl: p.websiteUrl, logoUrl: p.logoUrl })),
+    [{ name: 'Widoczny', websiteUrl: 'https://widoczny.pl', logoUrl: null }])
+  assert.deepEqual(Object.keys(a.body.partners[0]).sort(), ['id', 'logoUrl', 'name', 'websiteUrl'])
+  assert.ok(!JSON.stringify(a.body).includes('Ukryty') && !JSON.stringify(a.body).includes('tajna notatka'))
+
+  const upd = await db().from('event_partners').update({ is_public: true }).eq('event_id', event.eventId).eq('name', 'Ukryty')
+  assert.equal(upd.error, null)
+  const b = await getEvent(`?slug=${event.slug}`)
+  assert.deepEqual(b.body.partners.map((p) => p.name), ['Widoczny', 'Ukryty'])
+  assert.notEqual(b.body.version, a.body.version)
+})
+
+test('EP-17 the organizer preview carries the public partners only, as /api/event does', async () => {
+  const event = await createPublishedFreeEvent(owner)
+  const ins = await db().from('event_partners').insert([
+    { event_id: event.eventId, name: 'Drugi', website_url: 'https://drugi.pl', sort_order: 1, is_public: true },
+    { event_id: event.eventId, name: 'Ukryty', sort_order: 0, is_public: false, note: 'tajna notatka' },
+    { event_id: event.eventId, name: 'Pierwszy', logo_url: 'https://cdn.example/p.png', sort_order: 0, is_public: true, note: 'inna notatka' },
+  ]).select('id')
+  assert.equal(ins.error, null, JSON.stringify(ins.error))
+  const r = await callFn('preview-registration-event', member, { eventId: event.eventId, withPending: true })
+  assert.equal(r.status, 200, JSON.stringify(r.body))
+  assert.deepEqual(r.body.data.raw.partners.map(({ name, logoUrl, websiteUrl }) => ({ name, logoUrl, websiteUrl })), [
+    { name: 'Pierwszy', logoUrl: 'https://cdn.example/p.png', websiteUrl: null },
+    { name: 'Drugi', logoUrl: null, websiteUrl: 'https://drugi.pl' },
+  ])
+  assert.deepEqual(Object.keys(r.body.data.raw.partners[0]).sort(), ['id', 'logoUrl', 'name', 'websiteUrl'])
+  const text = JSON.stringify(r.body)
+  assert.ok(!text.includes('Ukryty') && !text.includes('notatka'), 'no hidden partner, no note')
+  // The same list and order as the public page.
+  const pub = await getEvent(`?slug=${event.slug}`)
+  assert.deepEqual(r.body.data.raw.partners, pub.body.partners)
+
+  const draft = await draftEvent()
+  const d = await callFn('preview-registration-event', member, { eventId: draft.eventId })
+  assert.deepEqual(d.body.data.raw.partners, [], 'a draft with no partners previews an empty list')
+})

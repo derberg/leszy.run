@@ -1037,6 +1037,20 @@ function DocumentsManager({ eventId }) {
   )
 }
 
+function PartnerNote({ value, onCommit }) {
+  const [text, setText] = useState(value)
+  return (
+    <Input
+      className="mt-1.5 h-8 text-xs"
+      value={text}
+      placeholder="Notatka"
+      onChange={e => setText(e.target.value)}
+      onBlur={() => { if (text !== value) onCommit(text.trim()) }}
+      onKeyDown={e => { if (e.key === 'Enter') e.currentTarget.blur() }}
+    />
+  )
+}
+
 function PartnersManager({ eventId }) {
   const qc = useQueryClient()
   const [addOpen, setAddOpen] = useState(false)
@@ -1059,9 +1073,31 @@ function PartnersManager({ eventId }) {
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['partners', eventId] }); closeDialog() },
   })
 
+  const [logoErrors, setLogoErrors] = useState({})
+  const [patchErrors, setPatchErrors] = useState({})
+  const [deleteErrors, setDeleteErrors] = useState({})
+
   const deletePartner = useMutation({
     mutationFn: api.partners.delete,
+    onMutate: (id) => setDeleteErrors(e => ({ ...e, [id]: null })),
+    onError: (err, id) => setDeleteErrors(e => ({ ...e, [id]: err.message })),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['partners', eventId] }),
+  })
+
+  const patchPartner = useMutation({
+    mutationFn: ({ id, ...body }) => api.partners.update(id, body),
+    onMutate: async ({ id, ...body }) => {
+      await qc.cancelQueries({ queryKey: ['partners', eventId] })
+      const prev = qc.getQueryData(['partners', eventId])
+      qc.setQueryData(['partners', eventId], (old = []) => old.map(x => x.id === id ? { ...x, ...body } : x))
+      setPatchErrors(e => ({ ...e, [id]: null }))
+      return { prev }
+    },
+    onError: (err, vars, ctx) => {
+      if (ctx?.prev) qc.setQueryData(['partners', eventId], ctx.prev)
+      setPatchErrors(e => ({ ...e, [vars.id]: err.message }))
+    },
+    onSettled: () => qc.invalidateQueries({ queryKey: ['partners', eventId] }),
   })
 
   const uploadLogo = useMutation({
@@ -1070,6 +1106,8 @@ function PartnersManager({ eventId }) {
       fd.append('file', file)
       return api.partners.uploadLogo(id, fd)
     },
+    onMutate: ({ id }) => setLogoErrors(e => ({ ...e, [id]: null })),
+    onError: (err, { id }) => setLogoErrors(e => ({ ...e, [id]: err.message })),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['partners', eventId] }),
   })
 
@@ -1109,15 +1147,16 @@ function PartnersManager({ eventId }) {
       </div>
 
       {partners.length === 0 && (
-        <p className="text-sm text-apex-muted py-4">Brak partnerów. Dodaj partnerów i ich logotypy — będą widoczne na wynikach na żywo.</p>
+        <p className="text-sm text-apex-muted py-4">Brak partnerów. Dodaj partnerów i ich logotypy — będą widoczne na stronie wydarzenia i wynikach.</p>
       )}
 
       <div className="grid gap-3">
         {partners.map(p => (
           <div key={p.id} className="border border-apex-border bg-apex-surface p-4 flex items-center gap-4 group hover:bg-apex-surface-2">
+            <div className="shrink-0 w-24">
             {/* Logo */}
             <div
-              className={`shrink-0 w-24 h-16 border bg-apex-bg flex items-center justify-center overflow-hidden relative transition-colors ${
+              className={`w-24 h-16 border bg-apex-bg flex items-center justify-center overflow-hidden relative transition-colors ${
                 p._dragging ? 'border-apex-yellow border-dashed' : 'border-apex-border'
               }`}
               onDragOver={(e) => { e.preventDefault(); e.currentTarget.classList.add('border-apex-yellow', 'border-dashed'); e.currentTarget.classList.remove('border-apex-border') }}
@@ -1147,7 +1186,7 @@ function PartnersManager({ eventId }) {
                   <span className="text-[9px] mt-0.5 uppercase tracking-wide">Logo</span>
                   <input
                     type="file"
-                    accept="image/png,image/jpeg,image/svg+xml,image/webp"
+                    accept="image/png,image/jpeg,image/webp"
                     className="hidden"
                     onChange={(e) => {
                       if (e.target.files[0]) uploadLogo.mutate({ id: p.id, file: e.target.files[0] })
@@ -1156,14 +1195,36 @@ function PartnersManager({ eventId }) {
                 </label>
               )}
             </div>
+            {logoErrors[p.id] && <p className="text-[11px] text-apex-red mt-1 leading-tight">{logoErrors[p.id]}</p>}
+            </div>
 
             {/* Info */}
             <div className="flex-1 min-w-0">
-              <div className="font-semibold text-sm text-apex-text-bright">{p.name}</div>
+              <div className="flex items-center gap-2">
+                <span className="font-semibold text-sm text-apex-text-bright">{p.name}</span>
+                {p.is_public === false && (
+                  <span className="border border-apex-border text-apex-muted text-[10px] uppercase tracking-wide px-1.5 py-0.5 whitespace-nowrap">Ukryty</span>
+                )}
+              </div>
               {p.website_url && (
                 <a href={p.website_url} target="_blank" rel="noopener" className="text-xs text-apex-cyan hover:underline font-mono truncate block">{p.website_url}</a>
               )}
               <div className="text-[10px] text-apex-muted font-mono mt-0.5">kolejność: {p.sort_order}</div>
+              <PartnerNote
+                key={`${p.id}:${p.note ?? ''}`}
+                value={p.note ?? ''}
+                onCommit={(note) => patchPartner.mutate({ id: p.id, note: note || null })}
+              />
+              <label className="inline-flex items-center gap-2 mt-2 text-xs text-apex-text cursor-pointer whitespace-nowrap">
+                <input
+                  type="checkbox"
+                  checked={p.is_public !== false}
+                  onChange={(e) => patchPartner.mutate({ id: p.id, is_public: e.target.checked })}
+                />
+                Publiczny
+              </label>
+              {patchErrors[p.id] && <p className="text-[11px] text-apex-red mt-1">{patchErrors[p.id]}</p>}
+              {deleteErrors[p.id] && <p className="text-[11px] text-apex-red mt-1">{deleteErrors[p.id]}</p>}
             </div>
 
             {/* Replace logo when one exists */}
@@ -1174,7 +1235,7 @@ function PartnersManager({ eventId }) {
                 </Button>
                 <input
                   type="file"
-                  accept="image/png,image/jpeg,image/svg+xml,image/webp"
+                  accept="image/png,image/jpeg,image/webp"
                   className="hidden"
                   onChange={(e) => {
                     if (e.target.files[0]) uploadLogo.mutate({ id: p.id, file: e.target.files[0] })

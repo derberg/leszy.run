@@ -347,12 +347,16 @@ test('W-25 owner creates an event, fills every step, reloads, previews as a runn
   await expect(page.getByRole('group', { name: 'Start na własną odpowiedzialność' }).getByRole('button', { name: 'Dodaj' })).toHaveAttribute('aria-pressed', 'true')
   await expect(page.getByLabel('Treść zgody 1')).toHaveValue('Zgadzam się na pomiar czasu chipem.')
 
-  // A5b: Dodatki is a step of its own (Plan 7); with no extras „Dalej” goes on to Publikacja.
+  // A5b: Dodatki is a step of its own (Plan 7); with no extras „Dalej” goes on to Partnerzy.
   const steps = page.getByRole('navigation', { name: 'Kroki' })
   await expect(steps.getByRole('link', { name: /Dodatki/ })).toBeVisible()
   await page.getByRole('button', { name: 'Dalej: dodatki' }).click()
   await expect(page.getByTestId('dodatki-step')).toBeVisible()
   await expect(page.getByTestId('soon')).toHaveCount(0)
+
+  // Partnerzy (event partners) follows Dodatki: nothing there blocks publishing.
+  await page.getByRole('button', { name: 'Dalej: partnerzy' }).click()
+  await expect(page.getByTestId('partners-empty')).toBeVisible()
 
   // A7: Publikacja. Nothing blocks; the kids' course is worth adding.
   await page.getByRole('button', { name: 'Dalej: publikacja' }).click()

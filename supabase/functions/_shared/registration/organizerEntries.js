@@ -82,7 +82,7 @@ const groupBy = (items, key) => {
  *   refundUnconfirmed   grosze of organizer refunds dpay has not confirmed (in `refunded` too)
  *   statusKey           entryStatusKey, from this row's own refunds and participant
  *   autoRefundReason    'full' when the order was refunded automatically for a full competition
- *   partnerId, partnerName  the entry's partner (registration_partners), null when none
+ *   partnerId, partnerName  the entry's partner (event_partners, hidden ones too), null when none
  *   refundPending           a refund of the entry waits for dpay (V-87): no transfer is offered
  *   transferTo          the competitions an organizer transfer may move the entry to (same price
  *                       in its frozen tier, visible, individual; a captain's own), [] when none
@@ -110,7 +110,7 @@ export async function loadEntries(admin, settings, { guardianEmail = false, now 
       .eq('orders.event_id', eventId).order('id')),
     allRows(() => admin.from('participants').select('id, registration_id, bib_number, removed_at, withdrawn_at')
       .eq('event_id', eventId).not('registration_id', 'is', null).order('id')),
-    allRows(() => admin.from('registration_partners').select('id, name').eq('event_id', eventId).order('id')),
+    allRows(() => admin.from('event_partners').select('id, name').eq('event_id', eventId).order('id')),
     allRows(() => admin.from('vouchers').select('id, code').eq('event_id', eventId).order('id')),
     allRows(() => admin.from('competition_prices').select('category_id, tier_id, amount, competitions!inner(event_id)')
       .eq('competitions.event_id', eventId).order('category_id').order('tier_id')),

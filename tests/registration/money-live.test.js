@@ -89,9 +89,12 @@ test('V-90 flag on: check-voucher answers the price and organizer-vouchers write
   const checked = await call('check-voucher', { slug: event.slug, categoryId: event.categoryIds[0], code: v.code })
   assert.equal(checked.status, 200, checked.text)
   assert.deepEqual(checked.body, { data: { percent: 15, price: 5100 } })
-  const created = await call('organizer-vouchers', { eventId: event.eventId, action: 'partner_create', name: 'Sklep' }, owner)
+  const created = await call('organizer-vouchers', { eventId: event.eventId, action: 'create', percent: 10, maxUses: 1 }, owner)
   assert.equal(created.status, 201, created.text)
-  assert.equal((await db().from('registration_partners').select('id').eq('event_id', event.eventId)).data.length, 1)
+  // Partners moved to organizer-partners, which is outside the switch whatever the flag (EP-11).
+  const partner = await call('organizer-partners', { eventId: event.eventId, action: 'create', name: 'Sklep' }, owner)
+  assert.equal(partner.status, 201, partner.text)
+  assert.equal((await db().from('event_partners').select('id').eq('event_id', event.eventId)).data.length, 1)
 })
 
 test('V-90 flag on: „Opublikuj zmiany” on a charity event with donations and a priced extra needs only a payout account; get-registration-event says moneyLive true with no payments item', async () => {

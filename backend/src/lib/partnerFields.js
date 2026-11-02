@@ -1,0 +1,34 @@
+// An event partner's field rules for the admin backend. A COPY of the validators in
+// supabase/functions/_shared/registration/partners.js (that file imports edge plumbing, so it
+// cannot be imported here); test/eventPartners.test.js asserts the two answer identically.
+// null means "no value", undefined means "invalid".
+
+export const MAX_PARTNER_NAME = 80
+export const MAX_PARTNER_NOTE = 500
+const MAX_PARTNER_URL = 500
+
+/** A partner's name: trimmed, 1–80 characters, else null. */
+export function partnerName(v) {
+  if (typeof v !== 'string') return null
+  const t = v.trim()
+  return t.length >= 1 && t.length <= MAX_PARTNER_NAME ? t : null
+}
+
+/** A note: absent or blank → null; a string of at most 500 → trimmed; anything else → undefined. */
+export function partnerNote(v) {
+  if (v == null) return null
+  if (typeof v !== 'string') return undefined
+  const t = v.trim()
+  if (t.length > MAX_PARTNER_NOTE) return undefined
+  return t || null
+}
+
+/** A website: absent or blank → null; an http(s) address of at most 500 → trimmed; else undefined. */
+export function partnerUrl(v) {
+  if (v == null) return null
+  if (typeof v !== 'string') return undefined
+  const t = v.trim()
+  if (!t) return null
+  if (t.length > MAX_PARTNER_URL || !/^https?:\/\/\S+$/i.test(t)) return undefined
+  return t
+}
