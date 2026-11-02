@@ -66,12 +66,12 @@ function checkKeys(obj, allowed, c) {
 }
 
 const rules = {
-  text: (max, { required = false, emptyMsg } = {}) => (v, field, c) => {
+  text: (max, { required = false, emptyMsg, tooLongMsg } = {}) => (v, field, c) => {
     if (v === null || v === undefined) return required ? (c.fail(field, emptyMsg), undefined) : null
     if (typeof v !== 'string') return c.fail(field, 'Nieprawidłowa wartość.')
     const t = v.trim()
     if (!t) return required ? c.fail(field, emptyMsg) : null
-    if (t.length > max) return c.fail(field, `Najwyżej ${max} znaków.`)
+    if (t.length > max) return c.fail(field, tooLongMsg ?? `Najwyżej ${max} znaków.`)
     return t
   },
   bool: () => (v, field, c) => (typeof v === 'boolean' ? v : c.fail(field, 'Nieprawidłowa wartość.')),
@@ -538,6 +538,7 @@ function validatePayments(value, ctx, c) {
 // every extra. After publish the locks (sold variants, ruling 10) are the database's.
 export const MAX_EXTRAS = 20
 export const MAX_VARIANTS = 20
+export const EXTRA_DESCRIPTION_MAX = 500
 export const MAX_STOCK = 100000
 const STOCK_MESSAGE = `Limit sztuk: od 0 do ${MAX_STOCK.toLocaleString('pl-PL')}.`
 
@@ -553,7 +554,7 @@ function validateVariant(v, c) {
 
 function validateExtra(x, ctx, c) {
   if (!isPlainObject(x)) return c.fail('items', 'Nieprawidłowy dodatek.')
-  checkKeys(x, ['id', 'name', 'imageUploadId', 'price', 'orderUntil', 'categoryIds', 'variants'], c)
+  checkKeys(x, ['id', 'name', 'description', 'imageUploadId', 'price', 'orderUntil', 'categoryIds', 'variants'], c)
   const price = parsePriceGrosze(x.price)
   if (price === null) c.fail('price', PRICE_MESSAGE)
   let orderUntil = null
@@ -578,6 +579,8 @@ function validateExtra(x, ctx, c) {
   return {
     id: rules.uuid()(x.id, 'id', c) ?? null,
     name: rules.text(80, { required: true, emptyMsg: 'Podaj nazwę dodatku.' })(x.name, 'name', c) ?? null,
+    // What the runner reads under the name, e.g. which part of a charity T-shirt's price is its cost.
+    description: rules.text(EXTRA_DESCRIPTION_MAX, { tooLongMsg: `Opis może mieć najwyżej ${EXTRA_DESCRIPTION_MAX} znaków.` })(x.description, 'description', c) ?? null,
     image_upload_id: rules.uuid()(x.imageUploadId, 'imageUploadId', c) ?? null,
     price,
     order_until: orderUntil,

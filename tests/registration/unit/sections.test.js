@@ -531,9 +531,19 @@ test('V-15 extras: one extra with two variants passes as snake_case, prices in g
   const r = validateSection('extras', { items: [EXTRA({ categoryIds: [CAT, CAT.toUpperCase()] })] }, EXTRA_CTX)
   assert.equal(r.ok, true, JSON.stringify(r))
   assert.deepEqual(r.value, { items: [{
-    id: null, name: 'Koszulka techniczna', image_upload_id: null, price: 4500, order_until: '2026-11-25',
+    id: null, name: 'Koszulka techniczna', description: null, image_upload_id: null, price: 4500, order_until: '2026-11-25',
     category_ids: [CAT], variants: [{ id: null, label: 'M', stock: 30 }, { id: null, label: 'L', stock: 100000 }],
   }] })
+})
+
+test('W-86 extras: an optional description, trimmed, empty is none, at most 500 characters', () => {
+  const desc = (description) => validateSection('extras', { items: [EXTRA({ description })] }, EXTRA_CTX)
+  assert.equal(desc('  35 zł pokrywa koszt koszulki,\npozostałe 25 zł trafia na cel.  ').value.items[0].description,
+    '35 zł pokrywa koszt koszulki,\npozostałe 25 zł trafia na cel.')
+  for (const v of ['', '   ', null, undefined]) assert.equal(desc(v).value.items[0].description, null, String(v))
+  assert.equal(desc('x'.repeat(500)).ok, true)
+  assert.equal(desc('x'.repeat(501)).errors.description, 'Opis może mieć najwyżej 500 znaków.')
+  assert.equal(desc(12).ok, false)
 })
 
 test('V-15 extras: orderUntil may be the race day, not later', () => {

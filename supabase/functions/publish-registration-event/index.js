@@ -51,10 +51,10 @@ async function checklistInput(admin, settings) {
 // The live extras in the extras section's staged shape, for changeDiff and the checklist.
 async function liveExtras(admin, eventId) {
   const extras = await allRows(() => admin.from('extras')
-    .select('id, name, image_upload_id, price, order_until, sort_order, extra_competitions(category_id), extra_variants(id, label, stock, sort_order)')
+    .select('id, name, description, image_upload_id, price, order_until, sort_order, extra_competitions(category_id), extra_variants(id, label, stock, sort_order)')
     .eq('event_id', eventId).order('sort_order').order('id'))
   return extras.map((x) => ({
-    id: x.id, name: x.name, image_upload_id: x.image_upload_id, price: x.price, order_until: x.order_until,
+    id: x.id, name: x.name, description: x.description, image_upload_id: x.image_upload_id, price: x.price, order_until: x.order_until,
     category_ids: (x.extra_competitions ?? []).map((l) => l.category_id).sort(),
     variants: [...(x.extra_variants ?? [])].sort((a, b) => a.sort_order - b.sort_order || (a.id < b.id ? -1 : 1))
       .map((v) => ({ id: v.id, label: v.label, stock: v.stock })),

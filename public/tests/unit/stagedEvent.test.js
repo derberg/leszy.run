@@ -128,11 +128,11 @@ test('V-71 staged extras keep each live variant\'s `sold`: a staged list cannot 
   const e = stagedEvent({ ...live,
     extras: [{ id: X1, name: 'Koszulka', price: 4500, orderUntil: '2026-12-01', categoryIds: [], variants: [{ id: V1, label: 'M', stock: 10, sold: 2 }] }],
     pending: { payload: { extras: { items: [{
-      id: X1, name: 'Koszulka tech', image_upload_id: null, price: 4500, order_until: '2026-12-02', category_ids: [C1],
+      id: X1, name: 'Koszulka tech', description: '35 zł to koszt koszulki.', image_upload_id: null, price: 4500, order_until: '2026-12-02', category_ids: [C1],
       variants: [{ id: V1, label: 'M', stock: 12 }, { id: null, label: 'L', stock: 100000 }],
     }] } } } })
   assert.deepEqual(e.extras, [{
-    id: X1, name: 'Koszulka tech', imageUploadId: null, price: 4500, orderUntil: '2026-12-02', categoryIds: [C1],
+    id: X1, name: 'Koszulka tech', description: '35 zł to koszt koszulki.', imageUploadId: null, price: 4500, orderUntil: '2026-12-02', categoryIds: [C1],
     variants: [{ id: V1, label: 'M', stock: 12, sold: 2 }, { id: null, label: 'L', stock: 100000, sold: 0 }],
   }])
 })

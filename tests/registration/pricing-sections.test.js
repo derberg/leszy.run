@@ -525,7 +525,7 @@ test('V-19 registration_raw carries extras (a sold-out variant kept with left 0)
   if (error) throw error
   assert.deepEqual(raw.transfer, { enabled: true, until: day(39) })
   assert.deepEqual(raw.extras, [{
-    id: x.body.data.extraIds[0], name: 'Koszulka', imagePath: null, price: 4500, orderUntil: EVENT_DATE, categoryIds: [event.categoryIds[1]],
+    id: x.body.data.extraIds[0], name: 'Koszulka', description: null, imagePath: null, price: 4500, orderUntil: EVENT_DATE, categoryIds: [event.categoryIds[1]],
     variants: [{ id: variantM.id, label: 'M', left: 1 }, { id: raw.extras[0].variants[1].id, label: 'L', left: 0 }],
   }])
   const keys = keysDeep(raw)

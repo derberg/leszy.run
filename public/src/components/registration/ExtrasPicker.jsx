@@ -29,6 +29,7 @@ export default function ExtrasPicker({ idPrefix, extras, picks, onPick, error, d
           const invalid = !!error && qty > 0
           const single = x.variants.length === 1
           const singleLabel = single && x.variants[0].label !== x.name ? x.variants[0].label : null
+          const describedBy = x.description ? `${id}-name ${id}-description` : `${id}-name`
           return (
             <li key={x.id} className="border border-apex-border bg-apex-surface px-3 py-2.5 flex flex-col gap-2" data-testid="extra">
               <div className="flex items-center gap-3">
@@ -38,6 +39,10 @@ export default function ExtrasPicker({ idPrefix, extras, picks, onPick, error, d
                 </span>
                 <span className="font-mono text-apex-yellow whitespace-nowrap">{x.priceLabel}</span>
               </div>
+              {x.description && (
+                <p id={`${id}-description`} className="text-sm font-medium text-apex-muted whitespace-pre-line [overflow-wrap:anywhere]"
+                  data-testid="extra-description">{x.description}</p>
+              )}
               {gone
                 ? <span className="font-mono text-sm uppercase text-apex-muted" data-testid="extra-sold-out">brak</span>
                 : (
@@ -45,7 +50,7 @@ export default function ExtrasPicker({ idPrefix, extras, picks, onPick, error, d
                     {!single && <div className="flex flex-col gap-1.5 min-w-0">
                       <label htmlFor={`${id}-variant`} className={labelCls}>Wariant</label>
                       <select id={`${id}-variant`} className={inputCls} value={variantId ?? ''} disabled={disabled}
-                        aria-describedby={`${id}-name`}
+                        aria-describedby={describedBy}
                         onChange={(e) => onPick(x.id, { variantId: e.target.value })}>
                         {x.variants.map((v) => (
                           <option key={v.id} value={v.id} disabled={v.soldOut}>{v.soldOut ? `${v.label} · brak` : v.label}</option>
@@ -56,7 +61,7 @@ export default function ExtrasPicker({ idPrefix, extras, picks, onPick, error, d
                       <label htmlFor={`${id}-qty`} className={labelCls}>Ilość</label>
                       <select id={`${id}-qty`} className={`${inputCls} font-mono ${invalid ? 'border-apex-red' : ''}`} value={qty} disabled={disabled}
                         data-testid="extra-qty" aria-invalid={invalid ? 'true' : undefined}
-                        aria-describedby={invalid ? errorId : `${id}-name`}
+                        aria-describedby={invalid ? errorId : describedBy}
                         onChange={(e) => onPick(x.id, { variantId, qty: Number(e.target.value) })}>
                         {QTYS.map((n) => <option key={n} value={n}>{n}</option>)}
                       </select>

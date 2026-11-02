@@ -61,7 +61,7 @@ export function stagedEvent(event) {
     // `sold` is the live variant's: a staged list cannot unlock what sold.
     const sold = new Map((event.extras ?? []).flatMap((x) => x.variants ?? []).map((v) => [v.id, v.sold ?? 0]))
     out.extras = payload.extras.items.map((x) => ({
-      id: x.id ?? null, name: x.name, imageUploadId: x.image_upload_id ?? null, price: x.price, orderUntil: x.order_until,
+      id: x.id ?? null, name: x.name, description: x.description ?? null, imageUploadId: x.image_upload_id ?? null, price: x.price, orderUntil: x.order_until,
       categoryIds: x.category_ids ?? [],
       variants: (x.variants ?? []).map((v) => ({ id: v.id ?? null, label: v.label, stock: v.stock, sold: (v.id && sold.get(v.id)) || 0 })),
     }))

@@ -70,7 +70,7 @@ Deno.serve(async (req) => {
       rows(admin.from('price_tiers').select('id, ends_on, sort_order').eq('event_id', eventId)
         .order('ends_on', { ascending: true, nullsFirst: false }).order('sort_order').order('id')),
       rows(admin.from('extras')
-        .select('id, name, image_upload_id, price, order_until, sort_order, extra_competitions(category_id), extra_variants(id, label, stock, sold, sort_order)')
+        .select('id, name, description, image_upload_id, price, order_until, sort_order, extra_competitions(category_id), extra_variants(id, label, stock, sold, sort_order)')
         .eq('event_id', eventId).order('sort_order').order('id')),
     ])
     if (registered.error) throw registered.error
@@ -121,7 +121,7 @@ Deno.serve(async (req) => {
       })),
       tiers: tiers.map((t) => ({ id: t.id, endsOn: t.ends_on, sortOrder: t.sort_order })),
       extras: extras.map((x) => ({
-        id: x.id, name: x.name, imageUploadId: x.image_upload_id, price: x.price, orderUntil: x.order_until,
+        id: x.id, name: x.name, description: x.description, imageUploadId: x.image_upload_id, price: x.price, orderUntil: x.order_until,
         categoryIds: (x.extra_competitions ?? []).map((l) => l.category_id).sort(),
         variants: [...(x.extra_variants ?? [])].sort((a, b) => a.sort_order - b.sort_order || (a.id < b.id ? -1 : 1))
           .map((v) => ({ id: v.id, label: v.label, stock: v.stock, sold: v.sold })),
