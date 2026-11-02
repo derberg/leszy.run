@@ -475,7 +475,13 @@ test('V-38 a partnered code on a confirmed entry: no runner-facing answer or e-m
   assert.ifError(startList.error)
   const answers = {
     start_list: startList.data,
-    '/api/event': await getEvent(slug),
+    '/api/event': await (async () => {
+      // The event page lists public partners on purpose (event partners): the hidden one is not
+      // among them, and the rest of the document is walked like every other answer.
+      const { partners, ...doc } = await getEvent(slug)
+      assert.deepEqual(partners, [], 'a hidden partner is not on /api/event')
+      return doc
+    })(),
     'order-status': (await call('order-status', { orderId }, runner)).body,
     'my-event-registrations': (await call('my-event-registrations', { slug }, runner)).body,
     'export-my-data': (await call('export-my-data', {}, runner)).body,
