@@ -159,9 +159,10 @@ test('EP-14 a second upload removes the first object; remove: true clears both c
   const logged = (await rows('organizer_actions', { event_id: event.eventId })).filter((l) => l.action === 'partner_logo_changed')
   assert.deepEqual(logged.map((l) => JSON.stringify(l.payload)).sort(), ['null', 'null', '{"removed":true}'])
 
-  // A legacy row (an old SVG, logo_url with no logo_path): its object is the admin backend's.
-  const legacyPath = `legacy-${rand()}.svg`
-  assert.equal((await bucket().upload(legacyPath, Buffer.from('<svg/>'), { contentType: 'image/svg+xml' })).error, null)
+  // A legacy row (logo_url with no logo_path): its object is the admin backend's. Old ones are SVGs,
+  // but the bucket now accepts PNG and JPEG only, so the stand-in is a PNG; its type is not the point.
+  const legacyPath = `legacy-${rand()}.png`
+  assert.equal((await bucket().upload(legacyPath, pngBytes(10, 10), { contentType: 'image/png' })).error, null)
   const legacyUrl = bucket().getPublicUrl(legacyPath).data.publicUrl
   const legacy = await partner(event.eventId)
   await db().from('event_partners').update({ logo_url: legacyUrl }).eq('id', legacy)
