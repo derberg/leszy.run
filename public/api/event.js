@@ -9,6 +9,7 @@
 import { createHash } from 'node:crypto'
 import { createClient } from '@supabase/supabase-js'
 import { withFileUrls } from '../src/lib/eventFiles.js'
+import { readPublicPartners } from '../src/lib/publicPartners.js'
 import { moneyLiveForApi, withoutMoneyFeatures } from '../src/lib/moneyFeatures.js'
 
 // Same rule as isValidSlug() in _shared/registration/slug.js and the
@@ -64,9 +65,12 @@ export default async function handler(req, res) {
     const live = moneyLiveForApi(process.env, req.headers?.['x-registration-money'] ?? null)
     // Plan 7's donations and extras only once paid registration is on (moneyFeatures.js).
     const raw = withFileUrls(live ? data : withoutMoneyFeatures(data), process.env.VITE_SUPABASE_URL.trim())
+    // A read error fails the build like the RPC's: partners are never silently dropped.
+    const partners = await readPublicPartners(client(), raw.eventId)
+    const doc = { ...raw, partners }
     // Changes only when the data does, so a page can skip a re-render.
-    const version = createHash('sha1').update(JSON.stringify(raw)).digest('hex')
-    send(res, 200, { version, generatedAt: new Date().toISOString(), ...raw }, { ...CACHED, ETag: `"${version}"` })
+    const version = createHash('sha1').update(JSON.stringify(doc)).digest('hex')
+    send(res, 200, { version, generatedAt: new Date().toISOString(), ...doc }, { ...CACHED, ETag: `"${version}"` })
   } catch (err) {
     console.error(`[api/event] ${slug}: ${err.message}`)
     send(res, 502, { error: 'event unavailable' }, NO_STORE)

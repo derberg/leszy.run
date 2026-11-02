@@ -2,6 +2,8 @@
 // `api/results.js` builds it on Vercel, the CDN serves it to every viewer, and
 // the views below cut it into what each part of the page reads.
 
+import { readPublicPartners } from './publicPartners.js'
+
 const PAGE = 1000
 
 // A run that has started. A cancelled restart keeps its rows, and they must not
@@ -29,12 +31,13 @@ async function readAll(query) {
  * @param {string} eventId
  */
 export async function buildResultsSnapshot(supabase, eventId) {
-  const [allCategories, allCheckpoints] = await Promise.all([
+  const [allCategories, allCheckpoints, partners] = await Promise.all([
     // The tabs follow the order the organizer created the categories in.
     readAll(() => supabase.from('categories').select('id, name, untimed')
       .eq('event_id', eventId).order('created_at').order('id')),
     readAll(() => supabase.from('checkpoints').select('id, name, km_marker, private, is_near_finish')
       .eq('event_id', eventId).order('id')),
+    readPublicPartners(supabase, eventId),
   ])
   // An untimed category has no times or places, so the results page has
   // nothing to show for it. A timed kids' category shows like any other.
@@ -74,7 +77,7 @@ export async function buildResultsSnapshot(supabase, eventId) {
   const observations = firstGun === null ? []
     : allObservations.filter(o => Date.parse(o.observed_at) >= firstGun)
 
-  return { categories, checkpoints, checkpointCategories, raceRuns, participants, results, observations }
+  return { categories, checkpoints, checkpointCategories, raceRuns, participants, results, observations, partners }
 }
 
 /** Whether a run of the event is under way, so the page needs fresh data often. */

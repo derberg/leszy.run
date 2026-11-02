@@ -1,22 +1,23 @@
-import { useCallback, useEffect, useId, useRef, useState } from 'react'
+import { useCallback, useEffect, useId, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { warsawToday } from '@registration/dates.js'
 import { callFunction } from '../../../../lib/auth.js'
 import { downloadCsv } from '../../../../lib/csvDownload.js'
 import { competitionOn, toggleCompetition } from '../../../../lib/extraRows.js'
 import { voucherRequest, voucherView } from '../../../../lib/vouchersModel.js'
-import { btnDanger, btnGhost, btnPrimary } from '../../settingsUi.js'
+import { partnerOptionLabel } from '../../../../lib/partnersModel.js'
+import { btnGhost, btnPrimary } from '../../settingsUi.js'
 import EntryDialog, { FieldMessage, dialogInput, dialogLabel } from '../entries/EntryDialog.jsx'
-import { Seg, cardClass, cardTitle, monoLabel, tdClass, thClass } from '../wizardUi.jsx'
+import { Seg, cardClass, cardTitle, dangerSmall, ghostSmall, monoLabel, tdClass, thClass } from '../wizardUi.jsx'
+import ConfirmDelete from './ConfirmDelete.jsx'
 
-// Płatności „Kody rabatowe” and „Partnerzy” (A6, Plan 7). Both go through organizer-vouchers and,
-// unlike the sections, apply at once, in a draft and after publish alike (ruling 11). Owner and
-// admins only: the function answers a member 404, and Płatności renders this for writers only.
+// Płatności „Kody rabatowe” (A6, Plan 7). It goes through organizer-vouchers and, unlike the
+// sections, applies at once, in a draft and after publish alike (ruling 11). Owner and admins only:
+// the function answers a member 404, and Płatności renders this for writers only. Partners have
+// their own step („Partnerzy”, organizer-partners); the code dialog picks from the same list,
+// which organizer-vouchers' `list` carries, hidden partners marked „(ukryty)”.
 // A dialog keeps the dialogs of the entries panel (EntryDialog): a 422 marks its fields, any other
 // refusal reads next to the buttons. A row action's refusal reads under its card.
-
-const smallBtn = 'min-h-9 px-2.5 border font-sans font-bold text-sm whitespace-nowrap disabled:opacity-40 disabled:cursor-not-allowed'
-const ghostSmall = `${smallBtn} border-apex-border-bright text-apex-text-bright hover:border-apex-yellow-dim`
-const dangerSmall = `${smallBtn} border-apex-red text-apex-red hover:bg-apex-red hover:text-white`
 
 const vouchersCall = (eventId, body) => callFunction('organizer-vouchers', { eventId, ...body })
 const failure = (err) => (err.status == null ? 'Brak połączenia.' : err.message)
@@ -84,13 +85,23 @@ function CodeDialog({ eventId, generate, partners, competitions, onClose, onDone
         {input('percent', 'Rabat (%)', { inputMode: 'numeric' })}
         {!generate && input('maxUses', 'Limit użyć', { inputMode: 'numeric' })}
         {input('validUntil', 'Ważny do · opcjonalnie', { type: 'date' })}
-        <Field id={id('partnerId')} label="Partner" error={fields.partnerId}>
-          <select id={id('partnerId')} value={form.partnerId} onChange={set('partnerId')} disabled={busy}
-            {...invalidProps(id('partnerId'), fields.partnerId)} className={`${dialogInput} ${fields.partnerId ? 'border-apex-red' : ''}`}>
-            <option value="">—</option>
-            {partners.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-          </select>
-        </Field>
+        {partners.length > 0 ? (
+          <Field id={id('partnerId')} label="Partner" error={fields.partnerId}>
+            <select id={id('partnerId')} value={form.partnerId} onChange={set('partnerId')} disabled={busy}
+              {...invalidProps(id('partnerId'), fields.partnerId)} className={`${dialogInput} ${fields.partnerId ? 'border-apex-red' : ''}`}>
+              <option value="">—</option>
+              {partners.map((p) => <option key={p.id} value={p.id}>{partnerOptionLabel(p)}</option>)}
+            </select>
+          </Field>
+        ) : (
+          <div className="min-w-0">
+            <span className={dialogLabel}>Partner</span>
+            <Link to="../partnerzy" relative="path" data-testid="add-partners-link"
+              className="inline-flex items-center min-h-10 font-sans font-semibold text-base text-apex-yellow hover:text-apex-yellow-bright">
+              Dodaj partnerów
+            </Link>
+          </div>
+        )}
       </div>
       {competitions.length > 1 && (
         <div className="flex flex-col gap-1.5">
@@ -110,77 +121,6 @@ function CodeDialog({ eventId, generate, partners, competitions, onClose, onDone
   )
 }
 
-/** „+ Partner” and a partner's edit: the name and a note only the club sees. */
-function PartnerForm({ eventId, partner, onClose, onDone }) {
-  const ids = useId()
-  const [form, setForm] = useState({ name: partner?.name ?? '', note: partner?.note ?? '' })
-  const [busy, setBusy] = useState(false)
-  const [error, setError] = useState(null)
-  const [fields, setFields] = useState({})
-  const id = (k) => `${ids}-${k}`
-
-  async function submit() {
-    setBusy(true)
-    setError(null)
-    setFields({})
-    try {
-      const note = form.note.trim() || null
-      await vouchersCall(eventId, partner
-        ? { action: 'partner_update', id: partner.id, name: form.name, note }
-        : { action: 'partner_create', name: form.name, note })
-      onDone(partner ? `Zapisano — ${form.name.trim()}.` : `Dodano partnera ${form.name.trim()}.`)
-    } catch (err) {
-      // The panel dialogs' contract: a 422 names its fields under them; the message by the button
-      // only when no field is named (9b M-3).
-      const named = err.fields && Object.keys(err.fields).length ? err.fields : null
-      setFields(named ?? {})
-      setError(named ? null : failure(err))
-      setBusy(false)
-    }
-  }
-
-  return (
-    <EntryDialog testId="partner-form" title={partner ? 'Partner' : 'Nowy partner'} subtitle={partner?.name} busy={busy}
-      onClose={onClose} error={error}
-      actions={<button type="button" className={btnPrimary} disabled={busy} onClick={submit}>{partner ? 'Zapisz' : 'Dodaj partnera'}</button>}>
-      <Field id={id('name')} label="Nazwa" error={fields.name}>
-        <input id={id('name')} value={form.name} maxLength={80} autoComplete="off" disabled={busy}
-          onChange={(e) => setForm({ ...form, name: e.target.value })} {...invalidProps(id('name'), fields.name)}
-          className={`${dialogInput} ${fields.name ? 'border-apex-red' : ''}`} />
-      </Field>
-      <Field id={id('note')} label="Notatka · opcjonalnie" error={fields.note}>
-        <textarea id={id('note')} value={form.note} maxLength={500} rows={3} disabled={busy}
-          onChange={(e) => setForm({ ...form, note: e.target.value })} {...invalidProps(id('note'), fields.note)}
-          className={`${dialogInput} resize-y`} />
-      </Field>
-    </EntryDialog>
-  )
-}
-
-/** Asks before a delete, as the panel asks before „Podpisany w biurze”: a deleted code or partner is gone (9b M-2). */
-function ConfirmDelete({ question, busy, onYes, onNo }) {
-  const titleId = useId()
-  const no = useRef(null)
-  useEffect(() => { no.current?.focus() }, [])
-  useEffect(() => {
-    const onKey = (e) => { if (e.key === 'Escape' && !busy) onNo() }
-    document.addEventListener('keydown', onKey)
-    return () => document.removeEventListener('keydown', onKey)
-  }, [busy, onNo])
-  return (
-    <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/60 px-4">
-      <div role="alertdialog" aria-modal="true" aria-labelledby={titleId} data-testid="confirm-delete"
-        className="w-full max-w-[420px] border border-apex-border-bright bg-apex-surface p-5 flex flex-col gap-4">
-        <p id={titleId} className="font-sans font-semibold text-base text-apex-text-bright break-words">{question}</p>
-        <div className="flex gap-2 justify-end">
-          <button type="button" ref={no} className={btnGhost} disabled={busy} onClick={onNo}>Nie</button>
-          <button type="button" className={btnDanger} disabled={busy} onClick={onYes}>Usuń</button>
-        </div>
-      </div>
-    </div>
-  )
-}
-
 const EMPTY = { status: 'loading', vouchers: [], partners: [] }
 
 /**
@@ -188,8 +128,8 @@ const EMPTY = { status: 'loading', vouchers: [], partners: [] }
  */
 export default function Vouchers({ eventId, competitions }) {
   const [state, setState] = useState(EMPTY)
-  const [dialog, setDialog] = useState(null) // { kind: 'code' | 'generate' | 'partner', partner?, trigger }
-  const [notice, setNotice] = useState(null) // { text, error, card: 'codes' | 'partners' }
+  const [dialog, setDialog] = useState(null) // { kind: 'code' | 'generate', trigger }
+  const [notice, setNotice] = useState(null) // { text, error, card: 'codes' }
   const [busyRow, setBusyRow] = useState(null)
   const [exporting, setExporting] = useState(false)
   const [confirm, setConfirm] = useState(null) // { question, card, rowId, body, text, trigger }
@@ -246,7 +186,7 @@ export default function Vouchers({ eventId, competitions }) {
   }
 
   // Closing a dialog gives the focus back to the button that opened it.
-  const open = (kind, e, partner = null) => setDialog({ kind, partner, trigger: e.currentTarget })
+  const open = (kind, e) => setDialog({ kind, trigger: e.currentTarget })
   function close() {
     const back = dialog?.trigger
     setDialog(null)
@@ -346,41 +286,11 @@ export default function Vouchers({ eventId, competitions }) {
         )}
       </section>
 
-      <section className={cardClass} data-testid="partners">
-        <div className="flex flex-wrap items-center justify-between gap-2.5">
-          <h2 className={cardTitle}>Partnerzy</h2>
-          <button type="button" className={btnGhost} onClick={(e) => open('partner', e)}>+ Partner</button>
-        </div>
-        <Notice card="partners" />
-        {state.partners.length === 0 ? <p className="text-apex-muted text-sm" data-testid="partners-empty">Brak partnerów.</p> : (
-          <ul className="flex flex-col border border-apex-border">
-            {state.partners.map((p) => (
-              <li key={p.id} data-testid="partner-row"
-                className="flex flex-wrap items-start justify-between gap-x-3 gap-y-1.5 px-3 py-2.5 border-b border-apex-border last:border-b-0">
-                <span className="min-w-0">
-                  <span className="block font-sans font-semibold text-base text-apex-text-bright [overflow-wrap:anywhere]">{p.name}</span>
-                  {p.note && <span className="block font-sans text-sm text-apex-muted [overflow-wrap:anywhere]">{p.note}</span>}
-                </span>
-                <span className="inline-flex gap-1.5 shrink-0">
-                  <button type="button" aria-label={`Zmień — ${p.name}`} className={ghostSmall} disabled={busyRow === p.id}
-                    onClick={(e) => open('partner', e, p)}>Zmień</button>
-                  <button type="button" aria-label={`Usuń — ${p.name}`} className={dangerSmall} disabled={busyRow === p.id}
-                    onClick={(e) => ask(e, { question: `Usunąć partnera ${p.name}?`, card: 'partners', rowId: p.id, body: { action: 'partner_delete', id: p.id }, text: `Usunięto partnera ${p.name}.` })}>Usuń</button>
-                </span>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
-
       {(dialog?.kind === 'code' || dialog?.kind === 'generate') && (
         <CodeDialog eventId={eventId} generate={dialog.kind === 'generate'} partners={state.partners} competitions={shown}
           onClose={close} onDone={(text) => done('codes', text)} />
       )}
       {confirm && <ConfirmDelete question={confirm.question} busy={busyRow === confirm.rowId} onYes={confirmed} onNo={closeConfirm} />}
-      {dialog?.kind === 'partner' && (
-        <PartnerForm eventId={eventId} partner={dialog.partner ?? null} onClose={close} onDone={(text) => done('partners', text)} />
-      )}
     </>
   )
 }

@@ -518,7 +518,7 @@ test('V-19 registration_raw carries extras (a sold-out variant kept with left 0)
   const [variantM] = await rows('extra_variants', { extra_id: x.body.data.extraIds[0], label: 'M' })
   await db().from('extra_variants').update({ sold: 1 }).eq('id', variantM.id).throwOnError()
   // A partner and a voucher with a note exist, and must not show.
-  const { data: p } = await db().from('registration_partners').insert({ event_id: event.eventId, name: `Sklep ${rand()}`, note: 'tajne' }).select('id').single()
+  const { data: p } = await db().from('event_partners').insert({ event_id: event.eventId, name: `Sklep ${rand()}`, note: 'tajne', is_public: false }).select('id').single()
   await db().from('vouchers').insert({ event_id: event.eventId, code: `P-${rand().toUpperCase()}`, percent: 15, max_uses: 3, partner_id: p.id, note: 'dla sklepu' }).throwOnError()
 
   const { data: raw, error } = await db().rpc('registration_raw', { p_event_id: event.eventId })

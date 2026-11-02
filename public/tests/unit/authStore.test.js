@@ -95,3 +95,30 @@ describe('createAuthStore', () => {
     assert.equal(stale.knownUser(), undefined)
   })
 })
+
+describe('createAuthStore subscribe', () => {
+  it('tells every subscriber about a clear, and stops after unsubscribe', () => {
+    const store = storeWith([])
+    let a = 0, b = 0
+    const offA = store.subscribe(() => { a += 1 })
+    store.subscribe(() => { b += 1 })
+    store.clear()
+    offA()
+    store.clear()
+    assert.equal(a, 1)
+    assert.equal(b, 2)
+  })
+
+  it('a subscriber reloading on clear gets the session opened since (code step login)', async () => {
+    const calls = []
+    const store = storeWith(calls)
+    const seen = []
+    store.subscribe(() => { store.load().then((u) => seen.push(u)) })
+    store.clear()
+    assert.equal(calls.length, 1)
+    calls[0].resolve({ email: 'runner@test.local' })
+    await calls[0].promise
+    await new Promise((r) => setImmediate(r))
+    assert.deepEqual(seen, [{ email: 'runner@test.local' }])
+  })
+})

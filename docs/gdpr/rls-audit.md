@@ -18,6 +18,15 @@
 > `dismissed_duplicates`, the `partner-logos` storage write policies (`TO public`) were dropped,
 > and TRUNCATE was revoked from anon and authenticated on every public table.
 
+> **Superseded in part on 2026-11-02** (migration `20261109200000_event_partners_unified.sql`).
+> `event_partners` now also holds Plan 7's discount-code partners (`registration_partners` was
+> merged into it and dropped), with an organizer-only `note` and an `is_public` switch. anon and
+> authenticated hold SELECT on `id, event_id, name, logo_url, website_url, sort_order` only (a
+> column grant), and the `Public partners` policy (`USING (is_public)`) shows them only public
+> partners; `note`, `is_public` and `logo_path` are never theirs, and they write nothing. The
+> `partner-logos` bucket's public SELECT policy on `storage.objects` was dropped, so the bucket
+> has no client policies: an object is served by its public URL, and nobody can list the bucket.
+
 ## Supabase Security Advisor findings
 
 Total lints: **97** across 8 categories.
@@ -43,7 +52,8 @@ These tables have no RLS at all. 40 are scraper tables or internal pipeline tabl
 | `public.participants` | **YES** — first_name, last_name, phone in local DB; mirrored to Supabase without phone | URGENT — see §Per-table review |
 | `public.gate_events` | low | Raw RFID pings; EPC tags are not personal by themselves |
 | `public.checkpoint_imports`, `public.checkpoint_readings` | no | Internal import staging |
-| `public.dismissed_duplicates`, `public.event_partners` | no | Pipeline metadata |
+| `public.dismissed_duplicates` | no | Pipeline metadata |
+| `public.event_partners` | no (organizer's commercial note) | Column grant `id, event_id, name, logo_url, website_url, sort_order` to anon/authenticated, policy `Public partners` `USING (is_public)`; note, is_public, logo_path service_role only (2026-11-02) |
 | `public.badge_definitions` | no | Static badge catalogue |
 | 34× `public.scraper_*` | no | Raw scraper dumps, no personal data |
 
@@ -100,7 +110,7 @@ HaveIBeenPwned integration in Supabase Auth. This project uses **magic-link / OT
 
 ### WARN — public_bucket_allows_listing (1)
 
-`partner-logos` bucket has a broad SELECT policy allowing clients to list all objects. Not a GDPR issue (logos are non-personal). **Deferred.**
+`partner-logos` bucket has a broad SELECT policy allowing clients to list all objects. Not a GDPR issue (logos are non-personal). **Resolved 2026-11-02**: the policy was dropped (`20261109200000_event_partners_unified.sql`), because a hidden partner's logo must not be findable by listing.
 
 ---
 
@@ -385,7 +395,6 @@ After enabling RLS on the five T2 tables, confirmed all pre-existing "anon read"
 | `function_search_path_mutable` — 10 functions | Low practical risk; high remediation effort (recreate all functions with SET search_path). Deferred to a dedicated hardening pass. |
 | `extension_in_public` — pg_trgm | Minor hygiene; moving requires recreating dependent indexes. Not GDPR-relevant. |
 | RLS on 37 scraper/pipeline tables | No PII in scraper tables; backend (service_role) is the only writer/reader. Enabling RLS would require adding `USING (true)` policies to avoid breaking backend queries. Low-priority. |
-| `public_bucket_allows_listing` (partner-logos) | Non-personal data, cosmetic issue. |
 | `notification_preferences` — no INSERT/UPDATE policy | Backend API handles writes via service_role; this is likely intentional. |
 | `user_badges` — public SELECT includes user_id | Minor; UUIDs not directly identifying without join. Flag for review if sensitive badges introduced. |
 | `calendar_events` public_read shows pending/rejected rows | No PII; accepted trade-off for public calendar feature. |
@@ -436,5 +445,5 @@ We do NOT use SRI on the Google Analytics gtag.js script because Google rotates 
 - `anon/authenticated_security_definer_function_executable` ×20 — accepted trade-off, PIN-gated or non-sensitive
 - `auth_leaked_password_protection` ×1 — not applicable (magic-link/OTP only, no passwords)
 - `extension_in_public` ×1 — pg_trgm, deferred
-- `public_bucket_allows_listing` ×1 — partner-logos, non-personal
+- `public_bucket_allows_listing` ×1 — partner-logos, resolved 2026-11-02 (policy dropped)
 - `rls_policy_always_true` ×3 — calendar_event_reports, checkpoint_observations, website_feedback; all documented as accepted trade-offs above

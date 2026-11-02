@@ -15,10 +15,13 @@ function PartnerLink({ partner }) {
 }
 
 export default function PartnerLogosBanner({ eventId }) {
+  // The admin list holds hidden partners too; the podium is shown publicly at the race,
+  // so it shows the public ones only.
   const { data: partners = [] } = useQuery({
     queryKey: ['partners', eventId],
     queryFn: () => api.partners.list(eventId),
     enabled: !!eventId,
+    select: (list) => (list ?? []).filter((p) => p.is_public !== false),
   })
 
   if (partners.length === 0) return null

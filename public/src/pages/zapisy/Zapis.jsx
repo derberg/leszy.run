@@ -6,6 +6,7 @@ import { clearNotificationsCache } from '../../hooks/useNotifications.js'
 import useSeo from '../../hooks/useSeo.js'
 import { forgetPublicRegistrationEvent, reloadPublicRegistrationEvent } from '../../hooks/usePublicRegistrationEvent.js'
 import { callFunction, requestCode, verifyCode } from '../../lib/auth.js'
+import { welcomeBackText } from '../../lib/welcomeBack.js'
 import { afterRegistrationPath } from '../../lib/inviteLink.js'
 import { eventPageModel } from '../../lib/eventPageModel.js'
 import {
@@ -96,6 +97,8 @@ function PersonSignup({ raw: rawProp, categoryId, preview = false, backTo }) {
   const [serviceAccepted, setServiceAccepted] = useState(false)
   const [honeypot, setHoneypot] = useState('')
   const [code, setCode] = useState('')
+  // „Witaj ponownie” for the summary, when the code step signed in an existing account.
+  const [welcome, setWelcome] = useState(null)
   const [sentTo, setSentTo] = useState(null)
   const [resent, setResent] = useState(false)
   const [busy, setBusy] = useState(false)
@@ -335,9 +338,11 @@ function PersonSignup({ raw: rawProp, categoryId, preview = false, backTo }) {
   async function verifyThenSummary() {
     setBusy(true)
     try {
-      await verifyCode(sentTo ?? email, code)
+      const verified = await verifyCode(sentTo ?? email, code)
       setVerifiedEmail(sentTo ?? email)
       clearAuthCache()
+      // An address that already had an account: say so on the summary once the session is read.
+      if (verified?.existing) resolveUser().then((u) => setWelcome(welcomeBackText(u)))
       clearFavoritesCache()
       clearNotificationsCache()
       toSummary()
@@ -512,7 +517,7 @@ function PersonSignup({ raw: rawProp, categoryId, preview = false, backTo }) {
     // A free event whose RA4 total stays 0 (no extra, no donation) registers free from there.
     const freeFromSummary = !paid && !ordersExtras
     return (
-      <Podsumowanie raw={raw} open={open} lines={lines} body={toRequest(draft, { consents, today, extrasOf })}
+      <Podsumowanie raw={raw} open={open} welcome={welcome} lines={lines} body={toRequest(draft, { consents, today, extrasOf })}
         addedCategoryIds={draft.cards.slice(1).map((c) => c.categoryId)}
         donation={donationsOffered(raw) ? { goal: raw.charityGoal ?? null, percent: Number.isInteger(raw.charityPercent) ? raw.charityPercent : null } : null}
         onRegisterFree={freeFromSummary ? () => register(null) : null}

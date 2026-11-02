@@ -2,8 +2,8 @@
 
 **Administrator:** Wookiee Łukasz Górnicki, ul. Wierzbowa 2, 44-144 Nieborowice, NIP 6292248418, REGON 385416140, prowadzący serwis Leszy.run
 **Kontakt:** lukasz@leszy.run
-**Data ostatniej aktualizacji:** 2026-11-01
-**Wersja:** 1.10
+**Data ostatniej aktualizacji:** 2026-11-02
+**Wersja:** 1.11
 
 ## Rola Leszy.run
 
@@ -209,14 +209,14 @@ Leszy.run / Łukasz Górnicki jest **jedynym administratorem (controller)** dla 
 - **Cel:** obniżenie opłaty kodem rabatowym i przypisanie zgłoszenia partnerowi Organizatora (np. sklepowi, który rozdał kod) na potrzeby rozliczeń Organizatora; przekazanie opłaconego pakietu startowego innej osobie przez zawodnika (zaproszenie e-mailem) albo przez Organizatora w panelu.
 - **Podstawa prawna:** art. 6(1)(b) RODO — umowa o udział w zawodach (przekazanie pakietu jest jej wykonaniem na żądanie zawodnika); art. 6(1)(f) — prawnie uzasadniony interes Organizatora w rozliczeniu z partnerami i ochrona formularza przed nadużyciem (limity zapytań).
 - **Kategorie danych:**
-  - `registrations.voucher_id`, `registrations.partner_id` — kod użyty przy zgłoszeniu i partner przypisany do zgłoszenia; `vouchers.note` i `registration_partners.note` to notatki Organizatora, nie dane zawodnika;
+  - `registrations.voucher_id`, `registrations.partner_id` — kod użyty przy zgłoszeniu i partner przypisany do zgłoszenia; `vouchers.note` i `event_partners.note` to notatki Organizatora, nie dane zawodnika;
   - `transfers.to_email` — adres osoby zaproszonej do przejęcia pakietu, podany przez zawodnika przekazującego (źródło danych w rozumieniu art. 14 ust. 2 lit. f) albo wpisany przez Organizatora;
   - `transfers.token_hash` — wyłącznie skrót SHA-256 tokenu z linku; sam token jest tylko we fragmencie adresu (`/przekazanie#…`) i nie trafia do bazy, logów ani odpowiedzi;
   - `transfers.from_profile_id`, `transfers.accepted_by_profile_id`, `registration_id`, `new_registration_id` i daty (utworzenie, ważność, przyjęcie, cofnięcie);
   - dane nowego zgłoszenia osoby przejmującej — jak w pkt 10 (osoba przyjmująca sama wypełnia formularz i akceptuje regulamin; przy przekazaniu przez Organizatora dostaje prośbę o akceptację jak w pkt 11, a jako źródło jej danych wskazany jest Organizator).
 - **Kategorie osób:** zawodnicy przekazujący pakiet, osoby zaproszone i osoby przejmujące pakiet (także z przekazanego dalej linku).
 - **Odbiorcy:**
-  - partner, kod i notatki są widoczne wyłącznie dla Organizatora (panel zgłoszeń, eksport CSV); nie trafiają na listę startową, stronę zawodów, stronę zamówienia, stronę przekazania, do eksportu zawodnika ani do żadnego e-maila do zawodnika;
+  - partner przypisany do zgłoszenia, kod i notatki są widoczne wyłącznie dla Organizatora (panel zgłoszeń, eksport CSV); nie trafiają na listę startową, stronę zawodów, stronę zamówienia, stronę przekazania, do eksportu zawodnika ani do żadnego e-maila do zawodnika;
   - osoba zaproszona widzi tylko imię przekazującego (bez nazwiska, adresu, telefonu i daty urodzenia), zawody, konkurencję i cenę pakietu;
   - przekazujący dostaje e-mail z imieniem i nazwiskiem osoby, która przejęła pakiet, nigdy z jej adresem (osoba z przekazanego dalej linku jest nazwana tak samo);
   - przy przekazaniu przez Organizatora dotychczasowy zawodnik dostaje tylko informację, że pakiet przekazano innej osobie, bez jej imienia, nazwiska i adresu (minimalizacja danych: nie on wybrał tę osobę) — tak samo na stronie zamówienia, w ponownie wysłanym potwierdzeniu i w e-mailu o zwrocie z tego pakietu; osoba, która przejęła pakiet, dostaje własną kopię e-maila o zwrocie, z informacją, że pieniądze wracają do osoby, która zapłaciła;
@@ -227,7 +227,7 @@ Leszy.run / Łukasz Górnicki jest **jedynym administratorem (controller)** dla 
   - eksport (`export-my-data`) zawiera `transfers.sent` (przekazania pakietów tej osoby: rodzaj, stan, daty, wydarzenie; adres, który sama wpisała — przy przekazaniu przez Organizatora bez danych osoby przejmującej) i `transfers.received` (zaproszenia na jej adres i pakiety przez nią przejęte, z `from_name` — imieniem przekazującego albo nazwą klubu Organizatora — jako źródłem jej adresu; adres zaproszenia tylko wtedy, gdy jest jej własny). Skrót tokenu, partner, kod i notatki nie są eksportowane;
   - usunięcie konta (`delete-my-account`, funkcja `forget_transfer_parties`): jako przekazujący — otwarte zaproszenia zgłoszeń, które są anonimizowane, są cofane, a ich linki przestają działać; osoba zaproszona dostaje jeden e-mail „Zaproszenie cofnięte”, który nie wskazuje przekazującego (nieudana wysyłka nie wstrzymuje usunięcia konta); jako osoba zaproszona — otwarte zaproszenia na jej adres są cofane, a potem `to_email` jest usuwany ze wszystkich przekazań na ten adres. Wiersze przekazań zostają bez adresu.
 - **Środki bezpieczeństwa:**
-  - tabele `vouchers`, `registration_partners` i `transfers` z RLS i `REVOKE ALL … FROM anon, authenticated`, dostęp tylko przez funkcje brzegowe i funkcje bazy dla service_role;
+  - tabele `vouchers` i `transfers` z RLS i `REVOKE ALL … FROM anon, authenticated`, dostęp tylko przez funkcje brzegowe i funkcje bazy dla service_role; w `event_partners` anon i authenticated czytają tylko partnerów publicznych i tylko kolumny `id, event_id, name, logo_url, website_url, sort_order` (nazwa, logo i link partnera publicznego są jawne celowo), notatka i partner ukryty są dostępne wyłącznie dla Organizatora;
   - jedno przekazanie oczekujące na zgłoszenie; przyjęcie w jednej transakcji, warunkowane `UPDATE … WHERE status = 'pending' AND expires_at > now()`;
   - osoba przyjmująca potwierdza swój adres kodem wysłanym e-mailem (albo sesją na ten adres); limity: 10 wywołań na token i 30 na adres IP na godzinę, 5 zaproszeń na zgłoszenie na dobę;
   - e-maile z linkiem z tokenem bez śledzenia kliknięć (link nie jest przepisywany).
@@ -236,6 +236,7 @@ Leszy.run / Łukasz Górnicki jest **jedynym administratorem (controller)** dla 
 
 | Wersja | Data | Opis |
 |---|---|---|
+| 1.11 | 2026-11-02 | Sekcja 14: partnerzy w jednej tabeli `event_partners` (zamiast `registration_partners`); partner publiczny (nazwa, logo, link) jest jawny na stronie zawodów, partner ukryty, notatki i partner przypisany do zgłoszenia pozostają wyłącznie dla Organizatora. |
 | 1.10 | 2026-11-01 | Sekcja 14: adres osoby zaproszonej usuwany przy przyjęciu przez nią zaproszenia, niezapisywany przy przekazaniu przez Organizatora, a w pozostałych przypadkach 30 dni po zawodach; dane osoby przejmującej po przekazaniu przez Organizatora nie trafiają do dotychczasowego zawodnika także na stronie zamówienia, w ponownie wysłanym potwierdzeniu i w e-mailu o zwrocie. |
 | 1.9 | 2026-11-01 | Sekcja 14: przy usunięciu konta przekazującego osoba zaproszona dostaje e-mail o cofnięciu zaproszenia, bez danych przekazującego. |
 | 1.8 | 2026-11-01 | Dodano sekcję 14 (kody rabatowe i partnerzy widoczni tylko dla Organizatora; przekazanie pakietu: adres osoby zaproszonej podany przez przekazującego, przekazujący widzi imię i nazwisko osoby przejmującej, przy przekazaniu przez Organizatora dotychczasowy zawodnik nie dostaje danych osoby przejmującej; eksport i usuwanie konta). |

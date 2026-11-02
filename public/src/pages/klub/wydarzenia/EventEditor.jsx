@@ -16,6 +16,7 @@ import Kategorie from './steps/Kategorie.jsx'
 import Pomiar from './steps/Pomiar.jsx'
 import Formularz from './steps/Formularz.jsx'
 import Dodatki from './steps/Dodatki.jsx'
+import Partnerzy from './steps/Partnerzy.jsx'
 import Platnosci from './steps/Platnosci.jsx'
 import Publikacja from './steps/Publikacja.jsx'
 import Zgloszenia from './Zgloszenia.jsx'
@@ -31,10 +32,10 @@ import { UnlistedBadge } from './wizardUi.jsx'
 
 const STEP_COMPONENTS = {
   podstawy: Podstawy, biuro: Biuro, konkurencje: Konkurencje, kategorie: Kategorie, pomiar: Pomiar,
-  formularz: Formularz, dodatki: Dodatki, platnosci: Platnosci, publikacja: Publikacja,
+  formularz: Formularz, dodatki: Dodatki, partnerzy: Partnerzy, platnosci: Platnosci, publikacja: Publikacja,
 }
 
-// The section each step saves.
+// The section each step saves. Partnerzy saves none: organizer-partners applies its changes at once.
 const SECTIONS_OF = { podstawy: 'basics', biuro: 'office', konkurencje: 'competitions', kategorie: 'categories', pomiar: 'timing', formularz: 'form', dodatki: 'extras', platnosci: 'payments' }
 
 const SECTION_STEP = {

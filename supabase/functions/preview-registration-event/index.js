@@ -3,12 +3,26 @@ import { getCorsHeaders, guardRequest } from '../_shared/cors.js'
 import { getSession } from '../_shared/session.js'
 import { loadOrganizerEvent } from '../_shared/registration/organizerEvent.js'
 import { moneyLiveFor, payloadWithoutMoneyFeatures, rawWithoutMoneyFeatures } from '../_shared/registration/moneyLive.js'
+import { allRows } from '../_shared/registration/allRows.js'
 
 function json(body, status, req) {
   return new Response(JSON.stringify(body), {
     status,
     headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' },
   })
+}
+
+/**
+ * The event's public partners as /api/event serves them (public/src/lib/publicPartners.js): the
+ * service role sees every row, so `is_public` is filtered here, and only the four columns a runner
+ * may see leave. Partners apply at once (organizer-partners), so there is nothing staged to merge.
+ */
+async function publicPartners(admin, eventId) {
+  const rows = await allRows(() => admin.from('event_partners')
+    .select('id, name, logo_url, website_url')
+    .eq('event_id', eventId).eq('is_public', true)
+    .order('sort_order').order('id'))
+  return rows.map((p) => ({ id: p.id, name: p.name, logoUrl: p.logo_url ?? null, websiteUrl: p.website_url ?? null }))
 }
 
 // Upload ids a staged section names (basics: regulamin, poster; competitions: GPX; extras: images).
@@ -27,7 +41,7 @@ function stagedUploadIds(payload) {
 // else, anonymous included, gets 404: the preview must not reveal that a draft
 // exists. With Plan 7's money features off (moneyLiveFor), both are stripped of donations and
 // extras exactly as /api/event strips the public page, so the preview never shows what a runner
-// cannot see (NB-3).
+// cannot see (NB-3). `raw.partners` is the event's public partners, as /api/event adds them.
 Deno.serve(async (req) => {
   const guard = guardRequest(req)
   if (guard) return guard
@@ -48,7 +62,7 @@ Deno.serve(async (req) => {
     const moneyLive = moneyLiveFor(req)
     const { data: liveRaw, error } = await admin.rpc('registration_raw', { p_event_id: eventId })
     if (error) throw error
-    const raw = moneyLive ? liveRaw : rawWithoutMoneyFeatures(liveRaw)
+    const raw = { ...(moneyLive ? liveRaw : rawWithoutMoneyFeatures(liveRaw)), partners: await publicPartners(admin, eventId) }
 
     let pending = null
     if (body?.withPending === true) {

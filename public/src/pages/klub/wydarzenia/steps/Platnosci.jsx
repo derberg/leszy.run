@@ -13,7 +13,8 @@ import Vouchers from './Vouchers.jsx'
 // staged after publish), the payout account, the package transfer (Plan 7: allowed or not and
 // „Możliwe do”, at the latest the day before the race; part of `payments`, so every save sends the
 // window and the transfer together, and a quick edit of one never drops the other), and the codes
-// and partners (Vouchers.jsx, organizer-vouchers, applied at once). No transfer fee: ruling 1.
+// (Vouchers.jsx, organizer-vouchers, applied at once; partners have their own step, Partnerzy).
+// No transfer fee: ruling 1.
 // The payout is not a section (ruling P3-R1): the club owner sets it through
 // update-event-payout and it applies at once; an admin sees it masked
 // (get-event-payout); a member never loads it.
