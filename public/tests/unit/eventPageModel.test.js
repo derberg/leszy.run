@@ -121,10 +121,11 @@ describe('eventPageModel organizer and places (RA1, RA2, RA5)', () => {
     assert.equal(model({ ...RA1, contactEmail: undefined }).contactEmail, null)
   })
 
-  it('office place: its own address and pin, with an OpenStreetMap link', () => {
+  it('office place: its own address and pin, with OpenStreetMap and Google Maps links', () => {
     assert.deepEqual(model().officePlace, {
       label: 'Szkoła Podstawowa, ul. Szkolna 4',
       mapUrl: 'https://www.openstreetmap.org/?mlat=50.24&mlon=18.54#map=17/50.24/18.54',
+      googleMapsUrl: 'https://www.google.com/maps/search/?api=1&query=50.24,18.54',
     })
   })
 
@@ -133,6 +134,7 @@ describe('eventPageModel organizer and places (RA1, RA2, RA5)', () => {
     assert.deepEqual(same.officePlace, {
       label: 'Nieborowice, Boisko przy szkole',
       mapUrl: 'https://www.openstreetmap.org/?mlat=50.2381&mlon=18.5412#map=17/50.2381/18.5412',
+      googleMapsUrl: 'https://www.google.com/maps/search/?api=1&query=50.2381,18.5412',
     })
     assert.equal(model({ ...RA1, office: { sameAsEvent: false, hours: [] } }).officePlace, null)
     assert.equal(same.eventPlace, 'Nieborowice, Boisko przy szkole')
@@ -297,10 +299,11 @@ describe('mergePending contact address', () => {
 })
 
 describe('eventPageModel start place and deadline (W-67, W-68)', () => {
-  it('W-67 start: the event place and pin from Podstawy, with an OpenStreetMap link', () => {
+  it('W-67 start: the event place and pin from Podstawy, with OpenStreetMap and Google Maps links', () => {
     assert.deepEqual(model().startPlace, {
       label: 'Nieborowice, Boisko przy szkole',
       mapUrl: 'https://www.openstreetmap.org/?mlat=50.2381&mlon=18.5412#map=17/50.2381/18.5412',
+      googleMapsUrl: 'https://www.google.com/maps/search/?api=1&query=50.2381,18.5412',
     })
     assert.equal(model().officeAtStart, false)
   })
@@ -308,7 +311,7 @@ describe('eventPageModel start place and deadline (W-67, W-68)', () => {
   it('W-67 an office at the event is flagged as at the start; no town and no pin → no start place', () => {
     const same = model({ ...RA1, office: { ...RA1.office, sameAsEvent: true } })
     assert.equal(same.officeAtStart, true)
-    assert.deepEqual(model({ ...RA1, town: { label: 'Nieborowice', lat: null, lng: null } }).startPlace, { label: 'Nieborowice', mapUrl: null })
+    assert.deepEqual(model({ ...RA1, town: { label: 'Nieborowice', lat: null, lng: null } }).startPlace, { label: 'Nieborowice', mapUrl: null, googleMapsUrl: null })
     assert.equal(model({ ...RA1, town: null }).startPlace, null)
   })
 

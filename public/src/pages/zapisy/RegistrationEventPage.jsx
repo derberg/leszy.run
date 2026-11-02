@@ -42,10 +42,15 @@ function Stat({ label, value, sub, accent, testId }) {
 function PlaceLine({ place, testId }) {
   if (!place) return null
   if (!place.mapUrl) return <span className="text-[15px] break-words" data-testid={testId}>{place.label}</span>
+  const mapLink = (href, text, id) => (
+    <a href={href} target="_blank" rel="noopener noreferrer" className={`whitespace-nowrap ${linkCls}`} data-testid={`${testId}-${id}`}>{text} ↗</a>
+  )
   return (
-    <a href={place.mapUrl} target="_blank" rel="noopener noreferrer" className={`text-[15px] break-words ${linkCls}`} data-testid={testId}>
-      {place.label ? `${place.label} · ` : ''}mapa ↗
-    </a>
+    <span className="text-[15px] break-words" data-testid={testId}>
+      {place.label ? `${place.label} · ` : ''}
+      {mapLink(place.mapUrl, 'OpenStreetMap', 'osm')}
+      {place.googleMapsUrl && <> · {mapLink(place.googleMapsUrl, 'Google Maps', 'google')}</>}
+    </span>
   )
 }
 
