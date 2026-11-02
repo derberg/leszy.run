@@ -1303,15 +1303,17 @@ function EventSettings({ eventId, event, updateEvent }) {
               variant={event.visibility === 'public' ? 'default' : 'outline'}
               size="sm"
               onClick={() => updateEvent.mutate({ visibility: event.visibility === 'public' ? 'private' : 'public' })}
-              disabled={updateEvent.isPending}
+              disabled={updateEvent.isPending || event.visibility === 'unlisted'}
             >
               {event.visibility === 'public' ? <Eye size={14} className="mr-1.5" /> : <EyeOff size={14} className="mr-1.5" />}
-              {event.visibility === 'public' ? 'Publiczne' : 'Prywatne'}
+              {event.visibility === 'public' ? 'Publiczne' : event.visibility === 'unlisted' ? 'Tylko przez link' : 'Prywatne'}
             </Button>
             <span className="text-xs text-apex-muted">
               {event.visibility === 'public'
                 ? 'Wydarzenie widoczne na stronie publicznej leszy.run'
-                : 'Wydarzenie ukryte — widoczne tylko w panelu admina'}
+                : event.visibility === 'unlisted'
+                  ? 'Poza listami — strona działa pod swoim adresem; zmienia organizator'
+                  : 'Wydarzenie ukryte — widoczne tylko w panelu admina'}
             </span>
           </div>
         </CardContent>

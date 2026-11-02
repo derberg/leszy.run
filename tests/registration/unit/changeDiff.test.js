@@ -324,3 +324,12 @@ test('W-78 the share for the cause is a diff row „Procent dochodu na cel”', 
   assert.deepEqual(out, [{ field: 'basics.charity_percent', label: 'Procent dochodu na cel', before: null, after: 50 }])
   assert.deepEqual(noticeAudience(out), { all: false, categoryIds: [] })
 })
+
+test('W-81 „Widoczność” is a diff row in words, and no notice to runners', () => {
+  const out = changeDiff({ ...live, settings: { ...live.settings, listed: true } }, { basics: { listed: false } })
+  assert.deepEqual(out, [{ field: 'basics.listed', label: 'Widoczność', before: 'Publiczne', after: 'Tylko przez link' }])
+  assert.deepEqual(noticeAudience(out), { all: false, categoryIds: [] })
+  const back = changeDiff({ ...live, settings: { ...live.settings, listed: false } }, { basics: { listed: true } })
+  assert.deepEqual(back, [{ field: 'basics.listed', label: 'Widoczność', before: 'Tylko przez link', after: 'Publiczne' }])
+  assert.deepEqual(changeDiff({ ...live, settings: { ...live.settings, listed: true } }, { basics: { listed: true } }), [])
+})

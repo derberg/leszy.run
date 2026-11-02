@@ -9,6 +9,7 @@ import { nearFinishTabVisible } from '../lib/nearFinish.js'
 import PartnerLogos from '../components/PartnerLogos.jsx'
 import BibFinder from '../components/BibFinder.jsx'
 import Navbar from '../components/Navbar.jsx'
+import { isUnlistedEvent } from '../lib/eventListing.js'
 
 export default function Results() {
   const { slug, categoryId } = useParams()
@@ -43,6 +44,7 @@ export default function Results() {
   useSeo({
     title: seoTitle,
     description: event ? `Wyniki ${isLiveView ? 'blisko mety' : ''} — ${event.name}${event.location ? `, ${event.location}` : ''}. Pozycje, czasy, podium.` : undefined,
+    noindex: isUnlistedEvent(event),
   })
 
   // Scroll active tab into view

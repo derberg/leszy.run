@@ -5,6 +5,7 @@ import useSeo from '../hooks/useSeo.js'
 import Navbar from '../components/Navbar.jsx'
 import usePublicRegistrationEvent from '../hooks/usePublicRegistrationEvent.js'
 import RegistrationEventPage from './zapisy/RegistrationEventPage.jsx'
+import { isUnlistedEvent } from '../lib/eventListing.js'
 
 // Read the static page's embedded stats (baked by generate-leszyrun-event-pages.js).
 // Returns the manifest entry ({ ...event, stats }) or null on a plain SPA hit.
@@ -136,6 +137,7 @@ function OrdinaryEventHub({ embedded }) {
 
   useSeo({
     title: event?.name || 'Wydarzenie',
+    noindex: isUnlistedEvent(event),
     description: event ? `${event.name}${event.location ? ` — ${event.location}` : ''}${event.date ? ` — ${event.date}` : ''}.${isPast ? ' Wyniki i statystyki wydarzenia.' : ' Wyniki na żywo, lista startowa i informacje o wydarzeniu.'}` : undefined,
     jsonLd: event ? {
       '@context': 'https://schema.org',

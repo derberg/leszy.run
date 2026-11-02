@@ -1,11 +1,11 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { publishRegistrationEvent } from '../../../../lib/organizer.js'
+import { publishRegistrationEvent, saveRegistrationSection } from '../../../../lib/organizer.js'
 import { stepForBlocking } from '../../../../lib/wizardSteps.js'
 import { countLabel } from '../../../../lib/categoryRows.js'
 import { btnGhost, btnPrimary } from '../../settingsUi.js'
 import { useKlub } from '../../context.js'
-import { cardClass, cardTitle } from '../wizardUi.jsx'
+import { Seg, cardClass, cardTitle, monoLabel } from '../wizardUi.jsx'
 
 // A7: the checklist (blocking items stop publishing, missing ones do not),
 // the runner preview for club members, and publish.
@@ -27,11 +27,49 @@ function Check({ label, mark, tone, to, testId }) {
   )
 }
 
+// „Widoczność”: a basics field, saved at once in a draft and staged after publish (the
+// „Opublikuj zmiany” bar picks it up). „Tylko przez link” keeps the event off every listing.
+function Visibility({ eventId, listed, readOnly, busy, setBusy, reload }) {
+  const [value, setValue] = useState(listed)
+  const [error, setError] = useState(null)
+
+  async function choose(next) {
+    if (next === value) return
+    setValue(next)
+    setError(null)
+    setBusy(true)
+    try {
+      await saveRegistrationSection(eventId, 'basics', { listed: next })
+      await reload()
+    } catch (err) {
+      setValue(!next)
+      setError(err.message)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <section className={`${cardClass} max-w-[720px]`} data-testid="visibility">
+      <h2 className={cardTitle}>Widoczność</h2>
+      <fieldset disabled={readOnly || busy} className="flex flex-wrap gap-2 min-w-0" role="radiogroup" aria-label="Widoczność">
+        <Seg on={value} role="radio" aria-checked={value} onClick={() => choose(true)}>Publiczne</Seg>
+        <Seg on={!value} role="radio" aria-checked={!value} onClick={() => choose(false)}>Tylko przez link</Seg>
+      </fieldset>
+      <span className={monoLabel} data-testid="visibility-hint">
+        {value ? 'Na liście wydarzeń, w kalendarzu i w Google' : 'Poza listami i Google · zapisy dla każdego z linkiem'}
+      </span>
+      {error && <p role="alert" className="text-apex-red font-sans text-sm">{error}</p>}
+    </section>
+  )
+}
+
 export default function Publikacja({ event, readOnly, reload, base }) {
   const { club } = useKlub()
   const s = event.settings
   const { blocking, missing } = event.checklist ?? { blocking: [], missing: [] }
   const [busy, setBusy] = useState(false)
+  const [saving, setSaving] = useState(false) // „Widoczność” being saved: publish waits for it
   const [error, setError] = useState(null)
   const [copied, setCopied] = useState(false)
   const previewPath = `${base}/podglad`
@@ -96,6 +134,8 @@ export default function Publikacja({ event, readOnly, reload, base }) {
         <span className="font-mono text-xs text-apex-muted uppercase -mt-1">Link działa tylko dla członków {club.name}</span>
       </section>
 
+      <Visibility eventId={s.eventId} listed={s.listed !== false} readOnly={readOnly} busy={busy || saving} setBusy={setSaving} reload={reload} />
+
       {published && (
         <p className="font-mono text-sm text-apex-yellow" data-testid="published">
           OPUBLIKOWANE · <a href={`/events/${s.slug}`} target="_blank" rel="noreferrer" className="underline">Strona zawodów ↗</a>
@@ -104,7 +144,7 @@ export default function Publikacja({ event, readOnly, reload, base }) {
       {error && <p role="alert" className="text-apex-red font-sans text-sm">{error}</p>}
       {!readOnly && !published && (
         <div className="flex justify-end">
-          <button type="button" className={btnPrimary} disabled={busy || blocking.length > 0} onClick={publish}>
+          <button type="button" className={btnPrimary} disabled={busy || saving || blocking.length > 0} onClick={publish}>
             {busy ? 'Publikowanie…' : opensLabel ? `Opublikuj · zapisy od ${opensLabel}` : 'Opublikuj'}
           </button>
         </div>

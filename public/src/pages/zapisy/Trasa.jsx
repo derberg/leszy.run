@@ -1,6 +1,7 @@
 import { useParams } from 'react-router-dom'
 import useSeo from '../../hooks/useSeo.js'
 import { eventPageModel } from '../../lib/eventPageModel.js'
+import { isUnlistedRegistration } from '../../lib/eventListing.js'
 import CoursePanel from '../../components/registration/CoursePanel.jsx'
 import PageTop from '../../components/registration/PageTop.jsx'
 import RegistrationShell from './RegistrationShell.jsx'
@@ -24,7 +25,7 @@ export function CourseView({ raw, backTo }) {
 }
 
 function Seo({ raw }) {
-  useSeo({ title: `Trasa — ${raw.name}`, path: `/events/${raw.slug}/trasa`, description: `Trasa zawodów ${raw.name}: mapa, profil wysokości i plik GPX.` })
+  useSeo({ title: `Trasa — ${raw.name}`, path: `/events/${raw.slug}/trasa`, description: `Trasa zawodów ${raw.name}: mapa, profil wysokości i plik GPX.`, noindex: isUnlistedRegistration(raw) })
   return null
 }
 

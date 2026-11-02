@@ -31,7 +31,7 @@ async function byEventIds(ids, build) {
   return out
 }
 
-// POST { clubId } → { data: [{ eventId, name, state, eventDate, taken, capacity, hasPending }] },
+// POST { clubId } → { data: [{ eventId, name, state, eventDate, listed, taken, capacity, hasPending }] },
 // newest first. Any active member; Plan 1's order for a club-scoped call.
 Deno.serve(async (req) => {
   const guard = guardRequest(req)
@@ -52,7 +52,7 @@ Deno.serve(async (req) => {
     if (club instanceof Response) return club
 
     const events = await allRows(() => admin.from('registration_settings')
-      .select('event_id, name, state, event_date').eq('club_id', clubId)
+      .select('event_id, name, state, event_date, listed').eq('club_id', clubId)
       .order('created_at', { ascending: false }).order('event_id'))
     const ids = events.map((e) => e.event_id)
     const [competitions, pending] = await Promise.all([
@@ -77,6 +77,8 @@ Deno.serve(async (req) => {
       name: e.name,
       state: e.state,
       eventDate: e.event_date,
+      // false: „Tylko przez link”, on no public listing
+      listed: e.listed !== false,
       taken: totals.get(e.event_id)?.taken ?? 0,
       capacity: totals.get(e.event_id)?.capacity ?? 0,
       hasPending: pendingIds.has(e.event_id),

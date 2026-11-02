@@ -21,6 +21,7 @@ import Publikacja from './steps/Publikacja.jsx'
 import Zgloszenia from './Zgloszenia.jsx'
 import PendingChangesBar from './PendingChangesBar.jsx'
 import PublishChangesDialog from './PublishChangesDialog.jsx'
+import { UnlistedBadge } from './wizardUi.jsx'
 
 // A registration event in the organizer's hands. A draft (A2–A7) is the
 // wizard with its stepper and autosave. A published event (A8) is the same
@@ -157,7 +158,7 @@ function MissingBanner({ missing, onFill }) {
   )
 }
 
-function PublishedHeader({ event, onCopy, copied }) {
+function PublishedHeader({ event, onCopy, copied, visibility }) {
   const s = event.settings
   const line = [eventDay(s.eventDate), s.townLabel].filter(Boolean).join(' · ')
   const registered = registeredParts(event.registeredCount ?? 0, event.competitions ?? [])
@@ -177,6 +178,10 @@ function PublishedHeader({ event, onCopy, copied }) {
       <div className="flex flex-wrap gap-2">
         <a href={`/events/${s.slug}`} target="_blank" rel="noreferrer" className={`${btnGhost} no-underline inline-block`}>Strona zawodów ↗</a>
         <button type="button" className={btnGhost} onClick={onCopy}>{copied ? 'Skopiowano' : 'Kopiuj link'}</button>
+        {visibility && (
+          <Link to={visibility.href} onClick={(e) => { e.preventDefault(); visibility.go() }}
+            className={`${btnGhost} no-underline inline-block`}>Widoczność</Link>
+        )}
       </div>
     </div>
   )
@@ -349,7 +354,10 @@ function Editor({ eventId, stepParam }) {
           <span> / </span>
           <span className="text-apex-text-bright">{event.settings.name}</span>
         </div>
-        <SaveStatus settings={event.settings} saveState={saveState} />
+        <div className="flex flex-wrap items-center gap-2.5">
+          {event.settings.listed === false && <UnlistedBadge />}
+          <SaveStatus settings={event.settings} saveState={saveState} />
+        </div>
       </div>
       {stillBad && !saveState.error && (
         <p role="alert" data-testid="unsaved" className="border border-apex-red px-3.5 py-2.5 text-apex-red font-sans text-sm">
@@ -364,7 +372,8 @@ function Editor({ eventId, stepParam }) {
 
       {published ? (
         <>
-          <PublishedHeader event={event} onCopy={copyLink} copied={copied} />
+          <PublishedHeader event={event} onCopy={copyLink} copied={copied}
+            visibility={writer ? { href: `${base}/publikacja`, go: () => go('publikacja') } : null} />
           {missing.length > 0 && (
             <MissingBanner missing={missing}
               onFill={writer ? { href: `${base}/${missing[0].step}`, go: () => go(missing[0].step) } : null} />

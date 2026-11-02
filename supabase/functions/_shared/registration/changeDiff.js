@@ -32,7 +32,7 @@ const SETTINGS_LABELS = {
     charity_goal: 'Cel zbiórki', charity_url: 'Strona celu', charity_percent: 'Procent dochodu na cel', description: 'Opis wydarzenia', website_url: 'Strona wydarzenia', donations_enabled: 'Wpłaty na cel', town_label: 'Miejscowość',
     town_area: 'Gmina i województwo', place_details: 'Miejsce startu', lat: 'Pinezka (szerokość)',
     lng: 'Pinezka (długość)', contact_email: 'Adres kontaktowy', regulamin_kind: 'Rodzaj regulaminu', regulamin_url: 'Regulamin (link)',
-    regulamin_upload_id: 'Regulamin (PDF)', poster_upload_id: 'Plakat',
+    regulamin_upload_id: 'Regulamin (PDF)', poster_upload_id: 'Plakat', listed: 'Widoczność',
   },
   office: {
     office_same_as_event: 'Biuro w miejscu startu', office_address: 'Adres biura', office_notes: 'Uwagi do biura',
@@ -53,6 +53,7 @@ const WINDOW_WORDS = { 24: '24 godziny', 168: '7 dni', 336: '14 dni' }
 const VALUE_WORDS = {
   'payments.payment_window_hours': (v) => WINDOW_WORDS[v] ?? (v == null ? null : `${v} godz.`),
   'payments.transfer_enabled': (v) => (v === true ? 'tak' : 'nie'),
+  'basics.listed': (v) => (v === false ? 'Tylko przez link' : 'Publiczne'),
 }
 // The payment window as the organizer chose it: „do końca zapisów” hides the hours behind it.
 const windowWords = (s) => (s.payment_window_until_close === true

@@ -151,6 +151,8 @@ const BASICS = {
   regulaminUploadId: ['regulamin_upload_id', rules.uuid()],
   posterUploadId: ['poster_upload_id', rules.uuid()],
   contactEmail: ['contact_email', rules.email()],
+  // „Widoczność” (Publikacja): false is „Tylko przez link”, published but on no listing.
+  listed: ['listed', rules.bool()],
 }
 
 function validateBasics(value, ctx, c) {
