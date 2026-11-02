@@ -51,12 +51,13 @@ UPDATE public.event_partners
    SET name = coalesce(nullif(btrim(left(btrim(name), 80)), ''), 'Partner')
  WHERE NOT (char_length(name) BETWEEN 1 AND 80 AND name = btrim(name));
 
--- The admin app accepted any text as a link. „sklep.pl” is kept as https://sklep.pl; anything
--- else that is not an http(s) address of at most 500 characters is dropped.
+-- The admin app accepted any text as a link. „sklep.pl” is kept as https://sklep.pl (an
+-- internationalised domain such as „sklep-łódź.pl” too: a label is anything but whitespace, „/”,
+-- „:”, „.” and „@”); anything else that is not an http(s) address of at most 500 characters is dropped.
 UPDATE public.event_partners
    SET website_url = CASE
          WHEN btrim(website_url) ~* '^https?://' AND char_length(btrim(website_url)) <= 500 THEN btrim(website_url)
-         WHEN btrim(website_url) ~ '^[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)+(/\S*)?$'
+         WHEN btrim(website_url) ~ '^[^\s/:.@]+(\.[^\s/:.@]+)+(/\S*)?$'
               AND char_length(btrim(website_url)) <= 492 THEN 'https://' || btrim(website_url)
          ELSE NULL
        END
@@ -69,7 +70,8 @@ ALTER TABLE public.event_partners VALIDATE CONSTRAINT event_partners_website_url
 -- ---------------------------------------------------------------- 2. one name per event
 
 -- A later duplicate (created_at, id) is renamed „<name> (2)”, „(3)”, … skipping a name that is
--- already taken, so the unique index below never fails the release.
+-- already taken, here or by a registration partner of the same event (which section 3 would
+-- otherwise merge into the renamed row), so the unique index below never fails the release.
 DO $$
 DECLARE
   r    record;
@@ -84,7 +86,9 @@ BEGIN
     LOOP
       cand := rtrim(left(r.name, 80 - char_length(' (' || k || ')'))) || ' (' || k || ')';
       EXIT WHEN NOT EXISTS (SELECT 1 FROM public.event_partners x
-                             WHERE x.event_id = r.event_id AND lower(x.name) = lower(cand));
+                             WHERE x.event_id = r.event_id AND lower(x.name) = lower(cand))
+            AND NOT EXISTS (SELECT 1 FROM public.registration_partners rp
+                             WHERE rp.event_id = r.event_id AND lower(rp.name) = lower(cand));
       k := k + 1;
     END LOOP;
     UPDATE public.event_partners SET name = cand WHERE id = r.id;
