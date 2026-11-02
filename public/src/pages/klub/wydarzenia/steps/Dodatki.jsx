@@ -40,11 +40,24 @@ function Field({ label, error, className = '', children }) {
   )
 }
 
+// An error shows once its field has been left, or the whole card has: typing the first letter of
+// a name must not light up the price and date the organizer has not reached yet.
+const shownFields = (errors, seen) => Object.fromEntries(Object.entries(errors).filter(([k]) => seen.has('*') || seen.has(k)))
+
 function ExtraCard({ row, n, competitions, imageUrl, errors, published, readOnly, uploading, onChange, onImage, onRemove }) {
   const pick = useRef(null)
+  const [seen, setSeen] = useState(() => new Set(row.id ? ['*'] : []))
   const sold = published && extraSold(row)
-  const fields = errors?.fields ?? {}
-  const variantErrors = errors?.variants ?? {}
+  const fields = shownFields(errors?.fields ?? {}, seen)
+  const variantErrors = Object.fromEntries(Object.entries(errors?.variants ?? {})
+    .map(([key, e]) => [key, Object.fromEntries(Object.entries(e).filter(([f]) => seen.has('*') || seen.has(`v-${key}-${f}`)))]))
+  const see = (...names) => setSeen((s) => (names.every((x) => s.has(x)) ? s : new Set([...s, ...names])))
+  // Inputs carry a name; leaving one marks it, leaving the card marks everything.
+  const onBlur = (e) => {
+    const names = e.target.name ? [e.target.name] : []
+    if (!e.currentTarget.contains(e.relatedTarget)) names.push('*')
+    if (names.length) see(...names)
+  }
   const allIds = competitions.map((c) => c.categoryId)
   const set = (field) => (e) => onChange({ ...row, [field]: e.target.value })
   const setVariant = (key, field) => (e) => onChange({ ...row, variants: row.variants.map((v) => (v.key === key ? { ...v, [field]: e.target.value } : v)) })
@@ -52,7 +65,7 @@ function ExtraCard({ row, n, competitions, imageUrl, errors, published, readOnly
   const groupId = useId()
 
   return (
-    <section data-testid="extra" aria-label={row.name || `Dodatek ${n}`} className={`${cardClass} sm:grid sm:grid-cols-[180px_minmax(0,1fr)] sm:gap-5`}>
+    <section data-testid="extra" onBlur={onBlur} aria-label={row.name || `Dodatek ${n}`} className={`${cardClass} sm:grid sm:grid-cols-[180px_minmax(0,1fr)] sm:gap-5`}>
       <div className="flex flex-col gap-1.5">
         {imageUrl ? (
           <img src={imageUrl} alt={row.name || `Dodatek ${n}`} className="w-full h-[140px] object-cover border border-apex-border-mid" />
@@ -72,21 +85,21 @@ function ExtraCard({ row, n, competitions, imageUrl, errors, published, readOnly
       </div>
 
       <div className="flex flex-col gap-3.5 min-w-0">
-        <div className="grid grid-cols-2 sm:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)] gap-3 items-end">
+        <div className="grid grid-cols-2 sm:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)] gap-3 items-start">
           <Field label="Nazwa" error={fields.name} className="col-span-2 sm:col-span-1">
-            {(p) => <input {...p} className={`${cellInput} w-full`} value={row.name} onChange={set('name')} />}
+            {(p) => <input {...p} name="name" className={`${cellInput} w-full`} value={row.name} onChange={set('name')} />}
           </Field>
           <Field label="Cena" error={fields.price}>
             {(p) => (
               <div className="flex items-center gap-1.5">
-                <input {...p} inputMode="decimal" className={`${cellInput} w-full`} value={row.price} disabled={sold} onChange={set('price')} />
+                <input {...p} name="price" inputMode="decimal" className={`${cellInput} w-full`} value={row.price} disabled={sold} onChange={set('price')} />
                 <span className="font-mono text-sm text-apex-muted">zł</span>
                 {sold && <Lock title="Są zamówienia: ceny nie można zmienić" />}
               </div>
             )}
           </Field>
           <Field label="Zamówienia do" error={fields.orderUntil}>
-            {(p) => <input {...p} type="date" className={`${cellInput} w-full`} value={row.orderUntil} onChange={set('orderUntil')} />}
+            {(p) => <input {...p} name="orderUntil" type="date" className={`${cellInput} w-full`} value={row.orderUntil} onChange={set('orderUntil')} />}
           </Field>
         </div>
 
@@ -101,10 +114,10 @@ function ExtraCard({ row, n, competitions, imageUrl, errors, published, readOnly
               return (
                 <li key={v.key} className="flex flex-col gap-1">
                   <div className="flex flex-wrap items-center gap-1.5">
-                    <input aria-label={`Wariant ${k}`} placeholder="np. M" className={`${cellInput} w-[140px]`} value={v.label}
+                    <input aria-label={`Wariant ${k}`} name={`v-${v.key}-label`} placeholder="np. M" className={`${cellInput} w-[140px]`} value={v.label}
                       aria-invalid={e.label ? true : undefined} aria-describedby={e.label || e.stock ? errId : undefined} onChange={setVariant(v.key, 'label')} />
                     <span className="text-apex-muted">·</span>
-                    <input aria-label={`Limit sztuk ${k}`} inputMode="numeric" placeholder="bez limitu" className={`${cellInput} w-[110px]`} value={v.stock}
+                    <input aria-label={`Limit sztuk ${k}`} name={`v-${v.key}-stock`} inputMode="numeric" placeholder="bez limitu" className={`${cellInput} w-[110px]`} value={v.stock}
                       aria-invalid={e.stock ? true : undefined} aria-describedby={e.label || e.stock ? errId : undefined} onChange={setVariant(v.key, 'stock')} />
                     {locked && (
                       <span className="flex items-center gap-1.5">
@@ -132,7 +145,7 @@ function ExtraCard({ row, n, competitions, imageUrl, errors, published, readOnly
           <span id={`${groupId}-c`} className={monoLabel}>Dostępne w konkurencjach</span>
           <div role="group" aria-labelledby={`${groupId}-c`} className="flex flex-wrap gap-1.5">
             {competitions.map((c) => (
-              <Seg key={c.categoryId} on={competitionOn(row.categoryIds, c.categoryId)}
+              <Seg key={c.categoryId} check on={competitionOn(row.categoryIds, c.categoryId)}
                 onClick={() => onChange({ ...row, categoryIds: toggleCompetition(row.categoryIds, allIds, c.categoryId) })}>
                 {c.name}
               </Seg>
