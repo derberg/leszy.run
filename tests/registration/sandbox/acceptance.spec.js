@@ -33,19 +33,49 @@ async function waitFor(fn, { what, timeout = 120_000, every = 2000 }) {
   }
 }
 
+// The real app code (dpay.js, money.js) runs in a child Node process: see bridge.mjs.
+const bridge = (op, req = {}) => {
+  const out = execFileSync('node', [path.join(here, 'bridge.mjs'), op], { input: JSON.stringify(req), encoding: 'utf8', env: { ...process.env, NODE_NO_WARNINGS: '1' } })
+  const res = JSON.parse(out.trim().split('\n').pop())
+  if (res.err) throw Object.assign(new Error(`${op}: ${res.err.message}`), res.err)
+  return res.ok
+}
+
+// dpay's payment page. Its markup is not documented: the locators below are the first guess and are the
+// part most likely to need adjusting on the first sandbox run (screenshots and a trace are kept on failure).
+// dpay rate-limits its payment page per client: after a few payments in a row it answers „Błąd 429 Za dużo
+// zapytań … spróbuj ponownie za minutę” (run 41348875854, S-05). Wait it out, at most three times.
+async function openGateway(page, redirectUrl) {
+  for (let attempt = 0; ; attempt++) {
+    const res = await page.goto(redirectUrl, { waitUntil: 'domcontentloaded' })
+    const limited = res?.status() === 429 || await page.getByText(/za dużo zapytań/i).count() > 0
+    if (!limited) return
+    if (attempt === 3) throw new Error('dpay answered 429 four times in a row')
+    record('gateway', 'dpay 429, waiting a minute', { attempt })
+    await wait(65_000)
+  }
+}
+// A dpay service in test mode („Tryb testowy”) shows no payment form: one page with „Symuluj sukces
+// (przekierowanie na url_success)” and „Symuluj niepowodzenie (przekierowanie na url_fail)”, seen on the
+// first sandbox run (2026-11-01, run 41348191102). With it, BLIK and card are the same click, and a decline
+// is the failure button. The real form below is kept for a service that is not in test mode.
+async function simulator(page) {
+  const success = page.getByRole('button', { name: /symuluj sukces/i })
+  const form = page.getByText(/blik|kart/i).first()
+  await success.or(form).first().waitFor({ timeout: 60_000 })
+  return (await success.count()) > 0
+}
+async function simulate(page, outcome) {
+  const name = outcome === 'success' ? /symuluj sukces/i : /symuluj niepowodzenie/i
+  await page.getByRole('button', { name }).first().click()
+}
+
 test.describe('dpay sandbox acceptance', () => {
   test.skip(!enabled, 'DPAY_ENV is not "sandbox": this suite talks to the dpay sandbox and is run by hand or nightly')
   test.describe.configure({ mode: 'serial' })
 
   let cfg, h, event, owner
 
-  // The real app code (dpay.js, money.js) runs in a child Node process: see bridge.mjs.
-  const bridge = (op, req = {}) => {
-    const out = execFileSync('node', [path.join(here, 'bridge.mjs'), op], { input: JSON.stringify(req), encoding: 'utf8', env: { ...process.env, NODE_NO_WARNINGS: '1' } })
-    const res = JSON.parse(out.trim().split('\n').pop())
-    if (res.err) throw Object.assign(new Error(`${op}: ${res.err.message}`), res.err)
-    return res.ok
-  }
   const rows = async (table, filter) => {
     let q = h.stack.admin().from(table).select('*')
     for (const [k, v] of Object.entries(filter)) q = q.eq(k, v)
@@ -96,34 +126,6 @@ test.describe('dpay sandbox acceptance', () => {
     return { email, runner, ...res.body.data }
   }
 
-  // dpay's payment page. Its markup is not documented: the locators below are the first guess and are the
-  // part most likely to need adjusting on the first sandbox run (screenshots and a trace are kept on failure).
-  // dpay rate-limits its payment page per client: after a few payments in a row it answers „Błąd 429 Za dużo
-  // zapytań … spróbuj ponownie za minutę” (run 41348875854, S-05). Wait it out, at most three times.
-  async function openGateway(page, redirectUrl) {
-    for (let attempt = 0; ; attempt++) {
-      const res = await page.goto(redirectUrl, { waitUntil: 'domcontentloaded' })
-      const limited = res?.status() === 429 || await page.getByText(/za dużo zapytań/i).count() > 0
-      if (!limited) return
-      if (attempt === 3) throw new Error('dpay answered 429 four times in a row')
-      record('gateway', 'dpay 429, waiting a minute', { attempt })
-      await wait(65_000)
-    }
-  }
-  // A dpay service in test mode („Tryb testowy”) shows no payment form: one page with „Symuluj sukces
-  // (przekierowanie na url_success)” and „Symuluj niepowodzenie (przekierowanie na url_fail)”, seen on the
-  // first sandbox run (2026-11-01, run 41348191102). With it, BLIK and card are the same click, and a decline
-  // is the failure button. The real form below is kept for a service that is not in test mode.
-  async function simulator(page) {
-    const success = page.getByRole('button', { name: /symuluj sukces/i })
-    const form = page.getByText(/blik|kart/i).first()
-    await success.or(form).first().waitFor({ timeout: 60_000 })
-    return (await success.count()) > 0
-  }
-  async function simulate(page, outcome) {
-    const name = outcome === 'success' ? /symuluj sukces/i : /symuluj niepowodzenie/i
-    await page.getByRole('button', { name }).first().click()
-  }
   async function payBlik(page) {
     if (await simulator(page)) return simulate(page, 'success')
     await page.getByText(/blik/i).first().click()
@@ -365,5 +367,57 @@ test.describe('dpay sandbox acceptance', () => {
     expect(refund.body.data.cancelled).toEqual([])
     const [reg] = await rows('registrations', { order_id: orderId })
     expect(reg.status).toBe('confirmed')
+  })
+})
+
+// S-09: dpay's minimum transaction amount (the open item in README.md). Registers bare dpay transactions,
+// no order behind them, for the smallest amounts an organizer can type, and records which ones dpay
+// accepts: at registration, on the payment page, and as `paid` in /pbl/details after a simulated success.
+// Its own describe, so a failure in S-01…S-08 (serial) does not skip it. It measures; it asserts only
+// that the 1,00 zł control is accepted, so a broken configuration cannot pass for a refusal.
+test.describe('dpay sandbox: minimum amount', () => {
+  test.skip(!enabled, 'DPAY_ENV is not "sandbox": this suite talks to the dpay sandbox and is run by hand or nightly')
+
+  test('S-09 which small amounts dpay accepts: 0,01 zł, 0,50 zł, 0,99 zł, 1,00 zł', async ({ context }) => {
+    sandboxConfig() // refuses a non-test service or a non-dpay base URL
+    const results = {}
+    for (const grosze of [1, 50, 99, 100]) {
+      const r = { grosze }
+      const reg = bridge('register', { grosze, orderId: crypto.randomUUID() })
+      r.registered = reg.accepted
+      if (!reg.accepted) {
+        Object.assign(r, { httpStatus: reg.httpStatus, message: reg.message })
+      } else {
+        // A fresh page per amount: a simulated success redirects to url_success (localhost, which fails in
+        // CI), and on a shared page that redirect interrupted the next amount's navigation (run 41385808122).
+        const page = await context.newPage()
+        try {
+          await openGateway(page, reg.redirectUrl)
+          r.simulatorShown = await simulator(page).catch(() => false)
+          if (!r.simulatorShown) {
+            r.pageText = (await page.locator('body').innerText()).replace(/\s+/g, ' ').slice(0, 300)
+          } else {
+            await simulate(page, 'success')
+            const d = await waitFor(async () => {
+              const x = await bridge('details', { txn: reg.transactionId })
+              return ['paid', 'captured'].includes(x.status) ? x : null
+            }, { what: `dpay to report ${grosze} gr paid`, timeout: 90_000, every: 5000 }).catch(() => null)
+            const last = d ?? await bridge('details', { txn: reg.transactionId })
+            Object.assign(r, { detailsStatus: last.status, detailsGrosze: last.grosze })
+          }
+        } catch (e) {
+          r.gatewayError = e.message
+        } finally {
+          await page.close()
+        }
+      }
+      r.accepted = r.registered && (r.detailsStatus === 'paid' || r.detailsStatus === 'captured')
+      results[grosze] = r
+      record('S-09', `dpay with ${grosze} gr`, r)
+    }
+    const accepted = Object.values(results).filter((r) => r.accepted).map((r) => r.grosze)
+    record('S-09', 'summary: amounts dpay registered and reported paid', { accepted, smallest: accepted[0] ?? null })
+    test.info().annotations.push({ type: 'S-09', description: `accepted (grosze): ${accepted.join(', ') || 'none'}` })
+    expect(results[100].registered, `1,00 zł control: ${JSON.stringify(results[100])}`).toBe(true)
   })
 })

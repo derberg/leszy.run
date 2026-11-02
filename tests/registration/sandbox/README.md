@@ -17,12 +17,20 @@ Without `DPAY_ENV=sandbox` every test is skipped ("DPAY_ENV is not sandbox").
 | S-06 | records the real `details` shape before and after a partial refund, the refund response, and whether a repeated `DigitalPayments-PSP-Message-ID` refunds twice |
 | S-07 | the organizer's refunds through `organizer-refund` (Plan 6): 10,00 zł accepted, the rest accepted and the entry cancelled, a third request 409 `exceeds` with no dpay call; `details` shows the refunded sum |
 | S-08 | a cart (Plan 7): a 15 % code, a shirt and a donation; the real IPN `amount` equals `orders.total`; an organizer refund of the extra line alone is `accepted` |
+| S-09 | dpay's minimum: bare transactions of 0,01 zł, 0,50 zł, 0,99 zł and 1,00 zł each register, show the payment page and are `paid` in `details` after a simulated success (run log; only the 1,00 zł control is asserted) |
 
 Until S-05 and S-06 pass against the sandbox, the poll path is unproven against dpay.
 
-**Before `PAID_REGISTRATION_ENABLED` flips:** confirm dpay's minimum transaction amount here. The total is
-now the entry prices alone, so an organizer's 0,01 zł price (`sections.js` accepts it) reaches dpay as 0,01 zł,
-where it used to be at least 0,21 zł. No document in this repo states dpay's minimum, and no test covers it yet.
+**dpay's minimum transaction amount is 0,01 zł** (closed 2026-11-02). An organizer's price can be 0,01 zł
+(`sections.js` accepts it), and the total is the entry prices alone, so 0,01 zł can reach dpay. S-09 measured
+it (run 41386335201): transactions of 0,01 zł, 0,50 zł, 0,99 zł and 1,00 zł each registered, showed the payment
+page and were reported `paid` by `/pbl/details` at exactly that amount. dpay's documentation states the same range for `value`, `0.01-999999.99`,
+with the error „Amount is less than 0.01 PLN” below it
+([docs.dpay.pl: Rejestracja transakcji](https://docs.dpay.pl/docs/cykl-platnosci/rejestracja-transakcji/)).
+No minimum is enforced in our code, because any total from 1 grosz up is valid for dpay. One limit the sandbox
+cannot show: test mode skips the payment form, so a real channel (a bank, BLIK, a card) may have a minimum
+of its own that the `transfers` registration does not. The payer would see that on dpay's page as a channel
+they cannot use, and could pick another.
 The run log is `tests/registration/test-results/sandbox-run-log.json` (field names, types and lengths only).
 
 ## Test mode

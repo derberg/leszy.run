@@ -23,6 +23,16 @@ const ops = {
   // cartAmounts (pricing.js), the function create-order prices with (S-08).
   cart: async ({ cart }) => (await import('../../../supabase/functions/_shared/registration/pricing.js')).cartAmounts(cart),
   details: ({ txn }) => transactionDetails(cfg(), txn),
+  // A bare dpay registration for `grosze`, no order behind it (S-09: dpay's minimum). The IPN URL is
+  // unreachable on purpose: nothing on our side should react to these transactions.
+  register: async ({ grosze, orderId }) => {
+    try {
+      const reg = await registerTransaction(cfg({ ipnUrl: 'https://ipn-unreachable.invalid/dpay-ipn' }), { orderId, grosze })
+      return { accepted: true, transactionId: reg.transactionId, redirectUrl: reg.redirectUrl }
+    } catch (e) {
+      return { accepted: false, name: e.name, httpStatus: e.httpStatus ?? e.status ?? null, message: e.message }
+    }
+  },
   refund: ({ txn, grosze, messageId }) => refundTransaction(cfg(), { transactionId: txn, grosze, messageId }),
   // An order whose dpay transaction was registered with an unreachable IPN URL (S-05).
   brokenIpnOrder: async ({ event, email, price }) => {
