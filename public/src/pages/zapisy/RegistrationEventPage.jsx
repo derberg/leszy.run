@@ -29,6 +29,15 @@ function StatLines({ parts }) {
   ))
 }
 
+// An inline SVG, not the emoji: an emoji is drawn differently on every phone.
+function HeartIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor" aria-hidden="true">
+      <path d="M12 21s-7.5-4.6-9.6-9.3C.9 8.3 3 4.5 6.6 4.5c2.1 0 3.6 1.2 5.4 3.2 1.8-2 3.3-3.2 5.4-3.2 3.6 0 5.7 3.8 4.2 7.2C19.5 16.4 12 21 12 21z" />
+    </svg>
+  )
+}
+
 function Stat({ label, value, sub, accent, testId }) {
   return (
     <div className="p-2.5 border-r last:border-r-0 border-apex-border min-w-0" data-testid={testId}>
@@ -171,16 +180,24 @@ export default function RegistrationEventPage({ raw, now, preview = false, links
             {m.organizerName && <span className="font-mono text-xs text-apex-muted uppercase text-right shrink-0 max-w-[45%] truncate" title={m.organizerName}>{m.organizerName}</span>}
           </div>
           <h1 className="font-display font-extrabold text-[40px] md:text-5xl leading-[0.95] uppercase text-apex-text-bright break-words">{m.title}</h1>
-          {(m.charityGoal || m.charityUrl) && (
-            <span className="text-[17px]" data-testid="charity-goal">
-              {m.charityGoal}
-              {m.charityUrl && (
-                <>{m.charityGoal ? ' · ' : ''}<a href={m.charityUrl} target="_blank" rel="noopener noreferrer" className={`whitespace-nowrap ${linkCls}`}
-                  data-testid="charity-link">Strona celu ↗</a></>
-              )}
-            </span>
-          )}
         </div>
+
+        {(m.charityGoal || m.charityUrl || m.charityPercent != null) && (
+          <section className="border border-apex-border border-l-[3px] border-l-apex-rose px-3.5 py-3 flex flex-col gap-1.5 min-w-0" data-testid="charity-goal">
+            <span className="font-mono text-xs tracking-wider uppercase text-apex-rose flex items-center gap-1.5">
+              <HeartIcon />Cel charytatywny
+            </span>
+            {m.charityPercent != null ? (
+              <p className="text-[17px] text-apex-text-bright break-words" data-testid="charity-percent">
+                <span className="font-mono">{m.charityPercent}%</span> dochodu trafia {m.charityGoal ? <>na: {m.charityGoal}</> : 'na cel charytatywny'}
+              </p>
+            ) : m.charityGoal && <p className="text-[17px] text-apex-text-bright break-words">{m.charityGoal}</p>}
+            {m.charityUrl && (
+              <a href={m.charityUrl} target="_blank" rel="noopener noreferrer" className={`self-start whitespace-nowrap text-[15px] ${linkCls}`}
+                data-testid="charity-link">Strona celu ↗</a>
+            )}
+          </section>
+        )}
 
         <div className="border border-apex-yellow-dim px-3.5 py-2.5 font-mono text-[15px] uppercase tracking-wide text-apex-yellow" data-testid="deadline">
           {deadlineText(m, opensLabel)}

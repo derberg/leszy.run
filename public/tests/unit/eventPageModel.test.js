@@ -512,3 +512,16 @@ describe('W-77 event page („Więcej informacji”)', () => {
     assert.equal(mergePending(RA1, { payload: { basics: { website_url: 'https://example.org/b' } } }).websiteUrl, 'https://example.org/b')
   })
 })
+
+describe('W-78 the share of the income for the cause', () => {
+  it('is shown only on a charity event, and only a whole number', () => {
+    assert.equal(model({ ...RA1, charityPercent: 100 }).charityPercent, 100)
+    assert.equal(model(RA1).charityPercent, null)
+    assert.equal(model({ ...RA1, isCharity: false, charityPercent: 100 }).charityPercent, null)
+    assert.equal(model({ ...RA1, charityPercent: '50' }).charityPercent, null)
+  })
+  it('a staged change shows in the preview', () => {
+    const merged = mergePending(RA1, { payload: { basics: { charity_percent: 50 } } })
+    assert.equal(merged.charityPercent, 50)
+  })
+})

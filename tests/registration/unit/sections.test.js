@@ -636,3 +636,14 @@ test('W-77 basics: the event page („Więcej informacji”) is an optional http
     assert.equal(res.errors.websiteUrl, 'Podaj adres zaczynający się od http:// albo https://.')
   }
 })
+
+test('W-78 basics: the share of the income for the cause is an optional whole percent 1..100', () => {
+  assert.equal(validateSection('basics', { charityPercent: 100 }, DRAFT).value.charity_percent, 100)
+  assert.equal(validateSection('basics', { charityPercent: 1 }, DRAFT).value.charity_percent, 1)
+  assert.deepEqual(validateSection('basics', { charityPercent: null }, DRAFT).value, { charity_percent: null })
+  for (const bad of [0, 101, 50.5, '50', -1]) {
+    const res = validateSection('basics', { charityPercent: bad }, DRAFT)
+    assert.equal(res.ok, false, String(bad))
+    assert.equal(res.errors.charityPercent, 'Podaj liczbę od 1 do 100.')
+  }
+})
