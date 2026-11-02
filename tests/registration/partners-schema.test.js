@@ -1,6 +1,6 @@
 // Event partners, task 1: one `event_partners` table serves the admin app, the wizard and the
 // discount codes. `registration_partners` is gone; its rows were copied (hidden) or merged into
-// the admin partner of the same name by migration 20261106200000. That copy runs once in
+// the admin partner of the same name by migration 20261108200000. That copy runs once in
 // production and no test here can reach the state before it: it was checked by hand (task-1
 // report). LOCAL stack only.
 import { after, afterEach, before, test } from 'node:test'

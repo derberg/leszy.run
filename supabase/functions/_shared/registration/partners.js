@@ -1,5 +1,5 @@
 // An event partner's field rules (event_partners): one copy for organizer-partners and the admin
-// app's backend. The table's CHECKs state the same rules (migration 20261106200000).
+// app's backend. The table's CHECKs state the same rules (migration 20261108200000).
 // Plain ESM, no Deno APIs. null means "no value", undefined means "invalid".
 
 import { isUuid } from './organizerEvent.js'
