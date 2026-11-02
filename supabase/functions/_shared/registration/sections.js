@@ -189,6 +189,9 @@ const OFFICE = {
   lng: ['office_lng', rules.coord(180)],
 }
 
+// A row's note is shown beside its hours on the event page: „tylko bieg dzieci”.
+export const HOURS_NOTE_MAX = 120
+
 function validateOffice(value, ctx, c) {
   checkKeys(value, [...Object.keys(OFFICE), 'hours'], c)
   const out = {}
@@ -198,12 +201,14 @@ function validateOffice(value, ctx, c) {
     out.hours = []
     for (const h of value.hours) {
       if (!isPlainObject(h)) { c.fail('hours', 'Nieprawidłowa lista godzin.'); continue }
-      checkKeys(h, ['date', 'from', 'to'], c)
+      checkKeys(h, ['date', 'from', 'to', 'note'], c)
+      const note = rules.text(HOURS_NOTE_MAX)(h.note, 'note', c)
+      if (note === undefined) continue
       if (!isIsoDate(h.date)) c.fail('date', 'Nieprawidłowa data.')
       else if (!TIME_RE.test(h.from ?? '')) c.fail('from', 'Podaj godzinę jako GG:MM.')
       else if (!TIME_RE.test(h.to ?? '')) c.fail('to', 'Podaj godzinę jako GG:MM.')
       else if (h.to <= h.from) c.fail('to', 'Godzina zamknięcia musi być po otwarciu.')
-      else out.hours.push({ date: h.date, from: h.from, to: h.to })
+      else out.hours.push({ date: h.date, from: h.from, to: h.to, ...(note ? { note } : {}) })
     }
   }
   return out

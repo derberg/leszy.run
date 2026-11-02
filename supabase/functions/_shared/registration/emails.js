@@ -284,14 +284,14 @@ export function operatorAlertEmail({ alerts }) {
 const fullName = (p) => `${p.firstName ?? ''} ${p.lastName ?? ''}`.trim()
 
 function officeLines(officeHours = []) {
-  return officeHours.map((h) => `${dayFmt.format(new Date(h.starts_at))} ${timeFmt.format(new Date(h.starts_at))}–${timeFmt.format(new Date(h.ends_at))}`)
+  return officeHours.map((h) => `${dayFmt.format(new Date(h.starts_at))} ${timeFmt.format(new Date(h.starts_at))}–${timeFmt.format(new Date(h.ends_at))}${h.note ? ` (${h.note})` : ''}`)
 }
 
 /**
  * The free registration confirmation, one e-mail to whoever registered (Plan 2's „Jesteś na
  * liście”, moved here from register-free). event { name, eventDate, place, officePlace, url },
  * people [{ role: self|adult|minor, firstName, lastName, competition, ageGroupLabel, startTime }],
- * payerFirstName, officeHours [{ starts_at, ends_at }].
+ * payerFirstName, officeHours [{ starts_at, ends_at, note }].
  *   one person who is the payer      → „Jesteś na liście — <nazwa>”, Plan 2's text unchanged
  *   more than one person             → „Jesteście na liście — <nazwa>”, every person listed
  *   one other person (payer does not run) → „<Imię Nazwisko> jest na liście — <nazwa>”

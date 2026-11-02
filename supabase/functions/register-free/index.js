@@ -95,7 +95,7 @@ Deno.serve(async (req) => {
 
     // Best effort: the registrations stand whether or not the e-mails go out.
     try {
-      const hours = await rows(admin.from('office_hours').select('starts_at, ends_at')
+      const hours = await rows(admin.from('office_hours').select('starts_at, ends_at, note')
         .eq('event_id', settings.event_id).order('starts_at')).catch(() => [])
       const place = [settings.town_label, settings.place_details].filter(Boolean).join(', ')
       const mail = freeConfirmationEmail({
