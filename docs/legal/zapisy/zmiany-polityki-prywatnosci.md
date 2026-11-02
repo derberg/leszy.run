@@ -44,7 +44,7 @@ Obecny akapit pogrubiony („LESZY.RUN jest administratorem danych osobowych prz
 
 > - **Telefon i osoba do kontaktu w nagłych wypadkach z zapisu:** 30 dni po dniu zawodów, także na urządzeniach pomiarowych.
 > - **Zgłoszenie nieopłacone w terminie:** dane osoby — 30 dni po wygaśnięciu.
-> - **Pozostałe dane zapisu:** zgodnie z poleceniem Organizatora, domyślnie [DO UZUPEŁNIENIA: 12 miesięcy] po dniu zawodów.
+> - **Pozostałe dane zapisu:** zgodnie z poleceniem Organizatora, domyślnie 5 lat od końca roku kalendarzowego zawodów, jak dane o płatnościach.
 > - **Płatności, zwroty, wypłaty i logi operatora płatności:** 5 lat od końca roku kalendarzowego, w którym dokonano płatności.
 > - **Akceptacje regulaminów i oświadczeń:** tak długo jak dane zgłoszenia, a jeżeli toczy się spór — do jego zakończenia.
 > - **Umowa organizatora, historia rachunku do wypłat, rejestr działań Organizatora:** przez czas trwania umowy i [DO UZUPEŁNIENIA: proponowane 6 lat] po jej rozwiązaniu (przedawnienie roszczeń, art. 118 KC).

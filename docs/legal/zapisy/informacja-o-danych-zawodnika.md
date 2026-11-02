@@ -1,7 +1,7 @@
 # Informacja o przetwarzaniu danych zawodnika
 
-**Wersja:** 2026-11-v8
-**Status:** projekt do weryfikacji prawnej, nieobowiązujący
+**Wersja:** 2026-11-v10
+**Status:** obowiązująca
 **Zastosowanie:** domyślna treść dokumentu „Informacja o danych” (`event_consents.kind = 'data_info'`), tworzonego z każdym Wydarzeniem. Organizator może ją zastąpić własną. Pola w nawiasach klamrowych `{…}` Serwis wypełnia danymi Wydarzenia i Organizatora.
 
 Podstawa: art. 13 RODO (dane zbierane od osoby, której dotyczą) i art. 14 RODO (dane osób zapisanych przez kogoś innego oraz osoby do kontaktu w nagłych wypadkach).
@@ -10,7 +10,7 @@ Podstawa: art. 13 RODO (dane zbierane od osoby, której dotyczą) i art. 14 RODO
 
 ## Kto jest administratorem Twoich danych
 
-Administratorem Twoich danych podanych przy zapisie na **{nazwa wydarzenia}** jest Organizator: **{nazwa organizatora}**, {adres organizatora}, {NIP / KRS}. W sprawach danych możesz pisać do Organizatora: **{e-mail kontaktowy organizatora}**. [DO UZUPEŁNIENIA przez Organizatora: dane inspektora ochrony danych, jeżeli został wyznaczony.]
+Administratorem Twoich danych podanych przy zapisie na **{nazwa wydarzenia}** jest Organizator: **{nazwa organizatora}**, {adres organizatora}, {NIP / KRS}. W sprawach danych możesz pisać do Organizatora: **{e-mail kontaktowy organizatora}**. Organizator i LESZY.RUN nie wyznaczyli inspektora ochrony danych, chyba że podano to wyżej; w sprawach danych pisz na adresy podane w tej informacji.
 
 Zapisy, płatności i — jeżeli tak podano na stronie zawodów — pomiar czasu prowadzi w imieniu Organizatora **LESZY.RUN** (Wookiee Łukasz Górnicki, ul. Wierzbowa 2, 44-144 Nieborowice, NIP 6292248418, kontakt: lukasz@leszy.run), na podstawie umowy powierzenia przetwarzania danych (art. 28 RODO).
 
@@ -37,7 +37,8 @@ Podczas zawodów Organizator może utrwalać Twój wizerunek (zdjęcia, wideo) i
 
 ## Kto otrzymuje dane
 
-- LESZY.RUN, który prowadzi zapisy w imieniu Organizatora, oraz jego dostawcy usług: Supabase, Inc. (baza danych), Vercel, Inc. (hosting), Twilio Inc. / SendGrid (e-mail), SMSAPI sp. z o.o. (SMS przed zawodami, jeżeli Organizator z niego korzysta). Część z nich ma siedzibę w USA; dane są przekazywane na podstawie [DO UZUPEŁNIENIA: standardowych klauzul umownych Komisji Europejskiej / EU-US Data Privacy Framework]. Aktualna lista: www.leszy.run/podmioty-przetwarzajace.
+- LESZY.RUN, który prowadzi zapisy w imieniu Organizatora, oraz jego dostawcy usług: Supabase, Inc. (baza danych), Vercel, Inc. (hosting), Twilio Inc. / SendGrid (e-mail), SMSAPI sp. z o.o. (SMS przed zawodami, jeżeli Organizator z niego korzysta). Część z nich ma siedzibę w USA; dane są przekazywane na podstawie: standardowe klauzule umowne Komisji Europejskiej lub EU-US Data Privacy Framework (art. 46 ust. 2 lit. c / art. 45 RODO). Aktualna lista: www.leszy.run/podmioty-przetwarzajace.
+- LESZY.RUN jako odrębny administrator — po publikacji wyników Organizator przekazuje je LESZY.RUN, który prowadzi archiwum wyników (imię, nazwisko, klub, kategoria, numer startowy, czas, miejsce) na podstawie prawnie uzasadnionego interesu (art. 6 ust. 1 lit. f RODO) przez czas działania serwisu LESZY.RUN. Możesz wnieść sprzeciw: lukasz@leszy.run.
 - Payments Lab sp. z o.o. (dpay.pl) — operator płatności, w zakresie potrzebnym do przeprowadzenia płatności i zwrotu.
 - Osoby upoważnione przez Organizatora (np. obsługa biura zawodów).
 - Wszyscy odwiedzający stronę zawodów — w zakresie listy startowej i wyników.
@@ -48,9 +49,9 @@ Podczas zawodów Organizator może utrwalać Twój wizerunek (zdjęcia, wideo) i
 - Numer telefonu i dane osoby do kontaktu w nagłych wypadkach: 30 dni po dniu zawodów.
 - Nazwa drużyny: 30 dni po dniu zawodów. Potem drużyna zostaje na liście startowej pod neutralną nazwą.
 - Zgłoszenie, które nie zostało opłacone w terminie: 30 dni po jego wygaśnięciu.
-- Pozostałe dane zgłoszenia: [DO UZUPEŁNIENIA: proponowane 12 miesięcy po dniu zawodów], a dłużej, jeżeli jest to potrzebne do obrony przed roszczeniami — do upływu terminu ich przedawnienia.
+- Pozostałe dane zgłoszenia: 5 lat od końca roku kalendarzowego, w którym odbyły się zawody, tak jak dane o płatnościach, aby można było ustalić, kogo dotyczy płatność, zwrot lub roszczenie. Wcześniej usuniemy je na Twoje żądanie, chyba że są potrzebne do obrony przed roszczeniami.
 - Dane o płatnościach: 5 lat od końca roku kalendarzowego, w którym dokonano płatności (przepisy podatkowe).
-- Wyniki zawodów: bezterminowo, w archiwum wyników. [DO WERYFIKACJI: zob. „Do weryfikacji”, pkt 1.]
+- Wyniki zawodów: w archiwum wyników, przez czas działania serwisu LESZY.RUN.
 - Zdjęcia i nagrania z zawodów: przez czas publikacji relacji i wyników albo do uwzględnienia Twojego sprzeciwu.
 
 ## Twoje prawa
@@ -93,10 +94,10 @@ Potwierdzając zapis kodem z e-maila, zakładasz konto w serwisie LESZY.RUN (alb
 
 ## Do weryfikacji
 
-1. **Archiwum wyników.** Obecna Polityka prywatności LESZY.RUN opiera bezterminowe archiwum wyników na uzasadnionym interesie LESZY.RUN jako administratora. W modelu powierzenia Organizator jest administratorem wyników z zawodów. Rozstrzygnąć, kto i na jakiej podstawie przechowuje wyniki po zawodach, i zapisać to tu, w umowie organizatora (§10 ust. 15 lit. d) i w Polityce prywatności tak samo.
+1. **Rozstrzygnięte 2026-11-02:** z chwilą publikacji Organizator przekazuje wyniki LESZY.RUN, który prowadzi archiwum jako odrębny administrator na podstawie art. 6 ust. 1 lit. f RODO (umowa organizatora §10 ust. 15 lit. c; tu w sekcji „Kto otrzymuje dane”). Pytanie było: **Archiwum wyników.** Obecna Polityka prywatności LESZY.RUN opiera bezterminowe archiwum wyników na uzasadnionym interesie LESZY.RUN jako administratora. W modelu powierzenia Organizator jest administratorem wyników z zawodów. Rozstrzygnąć, kto i na jakiej podstawie przechowuje wyniki po zawodach, i zapisać to tu, w umowie organizatora (§10 ust. 15 lit. c) i w Polityce prywatności tak samo.
 2. **Kontakt w nagłych wypadkach.** Czy art. 6 ust. 1 lit. f jest właściwą podstawą zbierania danych osoby trzeciej, czy wystarczy lit. b (część organizacji bezpiecznych zawodów)? Czy obowiązek informacyjny wobec tej osoby (art. 14) można spełnić przez zobowiązanie zapisującego do przekazania informacji, czy LESZY.RUN powinien wysłać jej SMS?
 3. **Status płatności na liście startowej.** Przyjęto wariant ostrożny (decyzja P3-R14, wersja 2026-11-v3): zgłoszenia czekające na wpłatę są na liście publicznej tylko liczbą („+N czeka na wpłatę”), bez imienia i nazwiska; status osoby widzą tylko ona sama i Organizator. Użytkownik może tę decyzję złagodzić (pytanie otwarte Plan 4 Q3).
 4. **Miejscowość osób niepełnoletnich na liście startowej.** Przyjęto (P3-R14): miejscowość osoby, która w dniu zawodów nie ma 18 lat, nie jest publikowana. Skrót nazwiska pozostaje do rozważenia. Klub dziecka jest publikowany i jego nazwa może wskazywać miejscowość (przyjęte świadomie, zob. DPIA R2).
-5. **Okres 12 miesięcy** dla danych zgłoszenia — potwierdzić z Organizatorami i z terminami przedawnienia roszczeń z umowy o udział w zawodach (art. 118 KC).
+5. **Okres 5 lat** dla danych zgłoszenia (decyzja 2026-11-02, wersja 2026-11-v9): tyle co dane o płatnościach, żeby ustalić, kogo dotyczy płatność, zwrot lub roszczenie. Przy kontroli najtrudniej uzasadnić tym celem miejscowość, klub i narodowość.
 6. **Podstawa dla 16–17-latków.** Formularz traktuje każdą osobę poniżej 18 lat jako zapisywaną przez opiekuna, a Regulamin serwisu pozwala założyć konto od 16 lat. Ustalić, czy 16–17-latek może zapisać się sam (art. 17 i art. 20 KC — umowy w drobnych bieżących sprawach życia codziennego), czy zawsze przez opiekuna.
 7. **Zastępowanie treści przez Organizatora.** Jeżeli Organizator zastąpi tę informację własną, czy LESZY.RUN powinien wymuszać obecność sekcji o odbiorcach i o koncie LESZY.RUN?

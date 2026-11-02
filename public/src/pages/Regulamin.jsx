@@ -15,7 +15,7 @@ export default function Regulamin() {
           <li><strong>Serwis:</strong> witryna internetowa LESZY.RUN wraz z funkcjonalnościami dostępnymi po rejestracji konta.</li>
           <li><strong>Użytkownik:</strong> osoba fizyczna posiadająca konto w Serwisie.</li>
           <li><strong>Konto:</strong> indywidualny profil Użytkownika, identyfikowany adresem email.</li>
-          <li><strong>Organizator:</strong> podmiot organizujący zawody biegowe, korzystający z usług pomiaru czasu Usługodawcy.</li>
+          <li><strong>Organizator:</strong> podmiot organizujący zawody biegowe, który zawarł z Usługodawcą umowę organizatora lub korzysta z jego usług pomiaru czasu.</li>
           <li><strong>Uczestnik:</strong> osoba startująca w zawodach obsługiwanych przez LESZY.RUN.</li>
           <li><strong>Operator płatności:</strong> Payments Lab sp. z o.o. z siedzibą w Warszawie (KRS 0000845085), operator serwisu dpay.pl, za którego pośrednictwem przyjmowane są płatności w Serwisie.</li>
         </ul>
@@ -60,7 +60,7 @@ export default function Regulamin() {
           <li>Opłatę startową Usługodawca przyjmuje za pośrednictwem Operatora płatności, wyłącznie w imieniu i na rzecz Organizatora. Zapłata na rzecz Usługodawcy jest zapłatą na rzecz Organizatora.</li>
           <li>Zgłoszenie jest ważne po potwierdzeniu adresu email i opłaceniu w terminie podanym przy zapisie.</li>
           <li>Za przebieg zawodów, ich odwołanie lub zmianę oraz zwrot opłat odpowiada Organizator, na zasadach określonych w regulaminie zawodów.</li>
-          <li>Uczestnikowi nie przysługuje ustawowe prawo odstąpienia od umowy o udział w zawodach (art. 38 pkt 12 ustawy o prawach konsumenta). Zasady rezygnacji i ewentualnego zwrotu opłaty określa Organizator w regulaminie zawodów.</li>
+          <li>Uczestnikowi nie przysługuje ustawowe prawo odstąpienia od umowy o udział w zawodach (art. 38 ust. 1 pkt 12 ustawy o prawach konsumenta). Zasady rezygnacji i ewentualnego zwrotu opłaty określa Organizator w regulaminie zawodów.</li>
         </ol>
       </section>
 

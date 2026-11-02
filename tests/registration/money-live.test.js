@@ -96,20 +96,32 @@ test('V-90 flag on: check-voucher answers the price and organizer-vouchers write
 
 test('V-90 flag on: „Opublikuj zmiany” on a charity event with donations and a priced extra needs only a payout account; get-registration-event says moneyLive true with no payments item', async () => {
   const event = await charityFree()
-  const payout = await call('update-event-payout', {
-    eventId: event.eventId, mode: 'custom', recipient: 'Fundacja Leśna Pomoc', taxId: '526-025-02-74',
-    iban: 'PL61 1090 1014 0000 0712 1981 2874', title: 'Bieg Leszego — wpisowe',
-  }, owner)
-  assert.equal(payout.status, 200, payout.text)
-  const read = await call('get-registration-event', { eventId: event.eventId }, owner)
-  assert.equal(read.status, 200, read.text)
-  assert.equal(read.body.data.moneyLive, true)
-  assert.deepEqual(read.body.data.checklist.blocking, [], JSON.stringify(read.body.data.checklist))
+  // Agreement v6 §1 ust. 2 (P-42a): the club's own payout details name the
+  // Organizer, so even a beneficiary's account needs them. payout.test.js and
+  // the Playwright actors expect the shared club without them, hence the cleanup.
+  const { data: s } = await db().from('registration_settings').select('club_id').eq('event_id', event.eventId).single()
+  const { error: cErr } = await db().from('club_payout_details').insert({
+    club_id: s.club_id, legal_name: 'Klub', nip: '5260250274', iban: 'PL61109010140000071219812874', address: 'ul. Leśna 1',
+  })
+  assert.ifError(cErr)
+  try {
+    const payout = await call('update-event-payout', {
+      eventId: event.eventId, mode: 'custom', recipient: 'Fundacja Leśna Pomoc', taxId: '526-025-02-74',
+      iban: 'PL61 1090 1014 0000 0712 1981 2874', title: 'Bieg Leszego — wpisowe',
+    }, owner)
+    assert.equal(payout.status, 200, payout.text)
+    const read = await call('get-registration-event', { eventId: event.eventId }, owner)
+    assert.equal(read.status, 200, read.text)
+    assert.equal(read.body.data.moneyLive, true)
+    assert.deepEqual(read.body.data.checklist.blocking, [], JSON.stringify(read.body.data.checklist))
 
-  const saved = await call('save-registration-section', { eventId: event.eventId, section: 'basics', value: { firstStartTime: '10:15' } }, owner)
-  assert.equal(saved.status, 200, saved.text)
-  const pub = await call('publish-registration-event', { eventId: event.eventId, action: 'publish_changes', notify: { send: false } }, owner)
-  assert.equal(pub.status, 200, pub.text)
+    const saved = await call('save-registration-section', { eventId: event.eventId, section: 'basics', value: { firstStartTime: '10:15' } }, owner)
+    assert.equal(saved.status, 200, saved.text)
+    const pub = await call('publish-registration-event', { eventId: event.eventId, action: 'publish_changes', notify: { send: false } }, owner)
+    assert.equal(pub.status, 200, pub.text)
+  } finally {
+    await db().from('club_payout_details').delete().eq('club_id', s.club_id)
+  }
 })
 
 test('V-90 flag on: transfers stay live for free entries (runner invite and organizer transfer)', async () => {

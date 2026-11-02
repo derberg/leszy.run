@@ -42,9 +42,15 @@ export async function payoutState(admin, settings) {
   const { data: row, error } = await admin.from('event_payout_details')
     .select('payout_mode, payout_recipient, payout_tax_id, payout_iban').eq('event_id', settings.event_id).maybeSingle()
   if (error) throw error
-  if (row?.payout_mode === 'custom') return { mode: 'custom', ready: customPayoutReady(row) }
   const { data: club, error: cErr } = await admin.from('club_payout_details')
     .select('club_id').eq('club_id', settings.club_id).maybeSingle()
   if (cErr) throw cErr
+  // The club's own details name the Organizer (name, NIP, address), the party to
+  // the organizer agreement (§1 ust. 2): a paid event needs them even when its
+  // money goes to another account, so a club with no legal identity stays free.
+  if (row?.payout_mode === 'custom') {
+    const accountReady = customPayoutReady(row)
+    return { mode: 'custom', ready: accountReady && !!club, accountReady, clubReady: !!club }
+  }
   return { mode: 'club', ready: !!club }
 }

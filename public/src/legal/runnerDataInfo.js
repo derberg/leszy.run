@@ -24,7 +24,7 @@
 //
 // Keep in step with the source document when it changes.
 
-export const RUNNER_DATA_INFO_VERSION = '2026-11-v8'
+export const RUNNER_DATA_INFO_VERSION = '2026-11-v10'
 
 /**
  * @param {{ eventName: string, organizerName: string|null, contactEmail: string|null, paid?: boolean, teams?: boolean, nationality?: boolean }} p
@@ -47,7 +47,7 @@ export function runnerDataInfo({ eventName, organizerName, contactEmail, paid = 
       {
         heading: 'Kto jest administratorem Twoich danych',
         blocks: [
-          `Administratorem Twoich danych podanych przy zapisie na ${eventName} jest Organizator: ${organizer}. ${contact}`,
+          `Administratorem Twoich danych podanych przy zapisie na ${eventName} jest Organizator: ${organizer}. ${contact} Organizator i LESZY.RUN nie wyznaczyli inspektora ochrony danych, chyba że podano to wyżej; w sprawach danych pisz na adresy podane w tej informacji.`,
           'Zapisy, płatności i — jeżeli tak podano na stronie zawodów — pomiar czasu prowadzi w imieniu Organizatora LESZY.RUN (Wookiee Łukasz Górnicki, ul. Wierzbowa 2, 44-144 Nieborowice, NIP 6292248418, kontakt: lukasz@leszy.run), na podstawie umowy powierzenia przetwarzania danych (art. 28 RODO).',
         ],
       },
@@ -81,6 +81,7 @@ export function runnerDataInfo({ eventName, organizerName, contactEmail, paid = 
         blocks: [{
           list: [
             'LESZY.RUN, który prowadzi zapisy w imieniu Organizatora, oraz jego dostawcy usług: Supabase, Inc. (baza danych), Vercel, Inc. (hosting), Twilio Inc. / SendGrid (e-mail), SMSAPI sp. z o.o. (SMS przed zawodami, jeżeli Organizator z niego korzysta). Część z nich ma siedzibę w USA; dane są przekazywane na podstawie: standardowe klauzule umowne Komisji Europejskiej lub EU-US Data Privacy Framework (art. 46 ust. 2 lit. c / art. 45 RODO). Aktualna lista: www.leszy.run/podmioty-przetwarzajace.',
+            'LESZY.RUN jako odrębny administrator — po publikacji wyników Organizator przekazuje je LESZY.RUN, który prowadzi archiwum wyników (imię, nazwisko, klub, kategoria, numer startowy, czas, miejsce) na podstawie prawnie uzasadnionego interesu (art. 6 ust. 1 lit. f RODO) przez czas działania serwisu LESZY.RUN. Możesz wnieść sprzeciw: lukasz@leszy.run.',
             ...only(paid, 'Payments Lab sp. z o.o. (dpay.pl) — operator płatności, w zakresie potrzebnym do przeprowadzenia płatności i zwrotu.'),
             'Osoby upoważnione przez Organizatora (np. obsługa biura zawodów).',
             'Wszyscy odwiedzający stronę zawodów — w zakresie listy startowej i wyników.',
@@ -95,9 +96,9 @@ export function runnerDataInfo({ eventName, organizerName, contactEmail, paid = 
             'Numer telefonu i dane osoby do kontaktu w nagłych wypadkach: 30 dni po dniu zawodów.',
             ...only(teams, 'Nazwa drużyny: 30 dni po dniu zawodów. Potem drużyna zostaje na liście startowej pod neutralną nazwą.'),
             ...only(paid, 'Zgłoszenie, które nie zostało opłacone w terminie: 30 dni po jego wygaśnięciu.'),
-            'Pozostałe dane zgłoszenia: 12 miesięcy po dniu zawodów, a dłużej, jeżeli jest to potrzebne do obrony przed roszczeniami — do upływu terminu ich przedawnienia.',
+            'Pozostałe dane zgłoszenia: 5 lat od końca roku kalendarzowego, w którym odbyły się zawody, tak jak dane o płatnościach, aby można było ustalić, kogo dotyczy płatność, zwrot lub roszczenie. Wcześniej usuniemy je na Twoje żądanie, chyba że są potrzebne do obrony przed roszczeniami.',
             ...only(paid, 'Dane o płatnościach: 5 lat od końca roku kalendarzowego, w którym dokonano płatności (przepisy podatkowe).'),
-            'Wyniki zawodów: bezterminowo, w archiwum wyników.',
+            'Wyniki zawodów: w archiwum wyników, przez czas działania serwisu LESZY.RUN.',
             'Zdjęcia i nagrania z zawodów: przez czas publikacji relacji i wyników albo do uwzględnienia Twojego sprzeciwu.',
           ],
         }],

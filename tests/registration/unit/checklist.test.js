@@ -148,6 +148,13 @@ test('P-42 paid, another account: blocks until every field is valid', () => {
   assert.deepEqual(paid({ mode: 'custom', ready: true }).blocking, [])
 })
 
+test('P-42 paid, another account, but the club has no payout details of its own: asks for the club\'s (the Organizer, agreement §1 ust. 2)', () => {
+  assert.deepEqual(paid({ mode: 'custom', ready: false, accountReady: true, clubReady: false }).blocking,
+    [{ key: 'payout', label: 'Uzupełnij dane do wypłat w ustawieniach klubu' }])
+  assert.deepEqual(paid({ mode: 'custom', ready: false, accountReady: false, clubReady: false }).blocking,
+    [{ key: 'payout', label: 'Dane do wypłat tego wydarzenia' }], 'an incomplete other account is named first')
+})
+
 test('P-42 paid with no payout state at all blocks (fail closed)', () => {
   const r = publishChecklist({ ...complete({ settings: { pricingMode: 'fixed' } }), payout: undefined })
   assert.deepEqual(keys(r.blocking), ['payout'])

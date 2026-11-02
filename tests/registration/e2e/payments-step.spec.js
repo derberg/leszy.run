@@ -134,6 +134,15 @@ test('P-43 Płatności renders A6; the payout checklist item opens it; the owner
   await expect(page.getByLabel('Numer rachunku')).toHaveValue(IBAN_GROUPED)
   await shoot(page, 'platnosci-custom-owner')
 
+  // A fresh club (agreement v6 §1 ust. 2, P-42a): the other account alone is not
+  // enough, the club's own details name the Organizer.
+  await page.goto(`${base}/publikacja`)
+  await expect(page.getByTestId('blocking-item')).toHaveText(/Uzupełnij dane do wypłat w ustawieniach klubu/)
+  const { error: cpErr } = await admin().from('club_payout_details').insert({
+    club_id: club.clubId, legal_name: `Klub ${slug}`, nip: '5260250274', iban: 'PL61109010140000071219812874', address: 'ul. Leśna 1',
+  })
+  if (cpErr) throw cpErr
+
   // The checklist no longer asks for the payout, and nothing else holds a paid event.
   await page.goto(`${base}/publikacja`)
   await expect(page.getByTestId('checklist')).toBeVisible()
@@ -159,11 +168,7 @@ test('P-43 Płatności renders A6; the payout checklist item opens it; the owner
   await expect(mem.getByTestId('event-payout')).toHaveCount(0)
   await expect(mem.getByText('Konto do wypłat')).toHaveCount(0)
 
-  // Back to the club account once the club has payout details.
-  const { error } = await admin().from('club_payout_details').insert({
-    club_id: club.clubId, legal_name: `Klub ${slug}`, nip: '5260250274', iban: 'PL61109010140000071219812874', address: 'ul. Leśna 1',
-  })
-  if (error) throw error
+  // Back to the club account: the club got its payout details above.
   await page.goto(`${base}/platnosci`)
   await page.getByRole('radio', { name: 'Konto klubu' }).click()
   await page.getByRole('button', { name: 'Zapisz konto do wypłat' }).click()

@@ -76,7 +76,7 @@ Rozszerzenie czynności 1.
 - **Kategorie danych:** jak w umowie organizatora §10 ust. 7; brak danych szczególnych kategorii (art. 9) i danych kart płatniczych.
 - **Dalsze podmioty przetwarzające:** Supabase, Inc.; Vercel, Inc.; Twilio Inc. / SendGrid; SMSAPI sp. z o.o. (tylko SMS przed zawodami); Payments Lab sp. z o.o. w zakresie, w jakim działa na polecenie [DO WERYFIKACJI].
 - **Transfery do państw trzecich (art. 30 ust. 2 lit. c):** USA — Supabase, Inc., Vercel, Inc., Twilio Inc. jako podmioty z siedzibą w USA, przy przechowywaniu danych w UE (Supabase eu-west-1, Vercel dub1) i wysyłce e-mail przez infrastrukturę SendGrid. Zabezpieczenie: [DO UZUPEŁNIENIA: SCC / EU-US DPF dla każdego].
-- **Okres przechowywania (informacyjnie, wynika z poleceń administratora):** telefon i kontakt w nagłych wypadkach — 30 dni po zawodach (w Supabase automatycznie, na urządzeniach pomiarowych skryptem uruchamianym przez operatora); dane zgłoszeń wygasłych — 30 dni; pozostałe dane zgłoszenia — [DO UZUPEŁNIENIA: 12 miesięcy] po zawodach; surowe odczyty bramek — 90 dni; zdjęcia z kamery na mecie — 30 dni.
+- **Okres przechowywania (informacyjnie, wynika z poleceń administratora):** telefon i kontakt w nagłych wypadkach — 30 dni po zawodach (w Supabase automatycznie, na urządzeniach pomiarowych skryptem uruchamianym przez operatora); dane zgłoszeń wygasłych — 30 dni; pozostałe dane zgłoszenia — 5 lat od końca roku kalendarzowego zawodów, jak dane o płatnościach; surowe odczyty bramek — 90 dni; zdjęcia z kamery na mecie — 30 dni.
 - **Środki bezpieczeństwa (art. 30 ust. 2 lit. d):** jak we wstępie.
 
 ---
