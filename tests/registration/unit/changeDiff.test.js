@@ -152,8 +152,8 @@ test('M-1 the checklist on staged values: a staged paid pricing with a payout no
   const settled = { ...live, settings: { ...live.settings, name: 'Bieg', slug: 'bieg', contact_email: 'zapisy@klub.example' } }
   const paid = { competitions: { pricing_mode: 'fixed', items: live.competitions.map((c) => item(c, { price: 6000 })) } }
   const keys = (payout) => publishChecklist({ ...mergedChecklistInput({ ...settled, payout }, paid), hasAgreement: true }).blocking.map((b) => b.key)
-  assert.deepEqual(keys({ mode: 'club', ready: false }), ['payments', 'payout'])
-  assert.deepEqual(keys({ mode: 'club', ready: true }), ['payments'])
+  assert.deepEqual(keys({ mode: 'club', ready: false }), ['payout'])
+  assert.deepEqual(keys({ mode: 'club', ready: true }), [])
 })
 
 test('T-06 mergedChecklistInput: a staged team reads as sized, a live team stays sized, a staged one with no size blocks', async () => {

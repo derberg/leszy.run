@@ -163,8 +163,8 @@ export async function createPublishedFreeEvent(owner, {
 }
 
 /**
- * A published PAID event (fixed pricing). While PAID_REGISTRATION_ENABLED is
- * false the checklist refuses a paid publish, so it is published as free
+ * A published PAID event (fixed pricing). A shortcut that needs no payout
+ * account: it is published as free
  * through the edge functions and then, LOCAL stack only (localEnv() guards
  * admin()), switched to pricing_mode 'fixed' with the one open-ended
  * price_tiers row apply_registration_section writes for fixed pricing, one

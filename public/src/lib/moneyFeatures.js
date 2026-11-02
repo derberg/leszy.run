@@ -1,11 +1,11 @@
-// Plan 7's money features (donations, extras, vouchers) in the public app's read model, while
-// PAID_REGISTRATION_ENABLED is false (final review I-1 + I-4; the rule is flags.js
-// moneyFeaturesLive). /api/event drops them from the event it serves, so the form shows no donation
-// chips, no extras and no code field, exactly as before Plan 7.
+// Plan 7's money features (donations, extras, vouchers) in the public app's read model (final review
+// I-1 + I-4; the rule is flags.js moneyFeaturesLive). Only while PAID_REGISTRATION_ENABLED is false,
+// /api/event drops them from the event it serves, so the form shows no donation chips, no extras and
+// no code field, exactly as before Plan 7.
 //
 // No import from supabase/: a Vercel Function (public/api/*) may not reach outside public/. So the
 // flag is copied here, and public/tests/unit/moneyFeatures.test.js fails when the copy differs.
-export const MONEY_FEATURES_FLAG = false
+export const MONEY_FEATURES_FLAG = true
 
 const LOCAL_SUPABASE = /^http:\/\/(127\.0\.0\.1|localhost)(:\d+)?(\/|$)/
 

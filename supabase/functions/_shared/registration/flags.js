@@ -1,7 +1,8 @@
 // Feature switches for online registration. Plain ESM, no runtime APIs: runs in Deno and Node.
 
-// A paid event can be drafted but not published until payments ship.
-export const PAID_REGISTRATION_ENABLED = false
+// Paid registration through dpay. False is the kill switch: a paid event can be drafted but not
+// published, and every money feature below is off.
+export const PAID_REGISTRATION_ENABLED = true
 
 // People in one registration request (a group: one payer, up to ten participants).
 export const MAX_PEOPLE_PER_REQUEST = 10
@@ -18,10 +19,9 @@ export const PAYMENT_CHANNEL_PRESELECT = false
 // published free charity event behaves exactly as before Plan 7: no donation chips, no extras, no
 // codes, and „Opublikuj zmiany” is not held by them. Transfers are not money and stay live.
 //
-// The local test stack exercises them with the flag still false: REGISTRATION_MONEY_TEST=on
-// (tests/registration/functions.env, the Playwright Vite env) turns them on, but only where
-// SUPABASE_URL is an http:// local address, never on a deployed project (https). A test proves the
-// production behaviour by sending `x-registration-money: off` on one request.
+// Only while the flag is false: REGISTRATION_MONEY_TEST=on (tests/registration/functions.env, the
+// Playwright Vite env) turns them on, but only where SUPABASE_URL is an http:// local address, never
+// on a deployed project (https), and `x-registration-money: off` turns them off for one request.
 export const MONEY_TEST_ENV = 'REGISTRATION_MONEY_TEST'
 export const MONEY_OFF_HEADER = 'x-registration-money'
 const LOCAL_SUPABASE = /^http:\/\/(127\.0\.0\.1|localhost|kong|host\.docker\.internal)(:\d+)?(\/|$)/

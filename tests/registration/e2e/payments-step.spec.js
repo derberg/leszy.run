@@ -6,7 +6,9 @@ import { callFn, makeClub } from '../helpers/registrationFixtures.js'
 
 // Plan 3 task 8, P-43: the Płatności step of a paid event is A6 (not the
 // Dodatki placeholder), the publish checklist's payout item points to it, the
-// owner sets another payout account there, and an admin sees it masked.
+// owner sets another payout account there, and an admin sees it masked. With
+// PAID_REGISTRATION_ENABLED true the owner then publishes the paid draft from
+// the wizard's Publikacja step.
 // SCREENSHOT_DIR, when set, receives the review screenshots (1440 and 390 px).
 // Playwright loads the Deno-side modules as CommonJS, so nothing here imports
 // supabase/functions/_shared.
@@ -44,7 +46,7 @@ async function payoutRow(eventId) {
   return data
 }
 
-test('P-43 Płatności renders A6; the payout checklist item opens it; the owner sets another account, an admin sees it masked', async ({ browser }) => {
+test('P-43 Płatności renders A6; the payout checklist item opens it; the owner sets another account, an admin sees it masked; the paid draft publishes from the wizard', async ({ browser }) => {
   test.setTimeout(120_000)
   const slug = `p43-${crypto.randomBytes(3).toString('hex')}`
   // Playwright cannot load the agreement version module: accept through the edge functions.
@@ -72,7 +74,8 @@ test('P-43 Płatności renders A6; the payout checklist item opens it; the owner
   await page.goto(`${base}/publikacja`)
   const item = page.getByTestId('blocking-item').filter({ hasText: 'Uzupełnij dane do wypłat w ustawieniach klubu' })
   await expect(item).toBeVisible()
-  await expect(page.getByTestId('blocking-item').filter({ hasText: 'Płatności online — wkrótce' })).toBeVisible()
+  await expect(page.getByTestId('blocking-item')).toHaveCount(1)
+  await expect(page.getByText('wkrótce')).toHaveCount(0)
   await expect(item.getByRole('link')).toHaveAttribute('href', `${base}/platnosci`)
   await shoot(page, 'publikacja-paid')
 
@@ -131,10 +134,10 @@ test('P-43 Płatności renders A6; the payout checklist item opens it; the owner
   await expect(page.getByLabel('Numer rachunku')).toHaveValue(IBAN_GROUPED)
   await shoot(page, 'platnosci-custom-owner')
 
-  // The checklist no longer asks for the payout.
+  // The checklist no longer asks for the payout, and nothing else holds a paid event.
   await page.goto(`${base}/publikacja`)
-  await expect(page.getByTestId('blocking-item').filter({ hasText: 'Płatności online — wkrótce' })).toBeVisible()
-  await expect(page.getByTestId('blocking-item').filter({ hasText: 'wypłat' })).toHaveCount(0)
+  await expect(page.getByTestId('checklist')).toBeVisible()
+  await expect(page.getByTestId('blocking-item')).toHaveCount(0)
 
   // An admin sees the account masked and cannot change it.
   const adminCtx = await contextFor(browser, club.adminEmail)
@@ -171,6 +174,17 @@ test('P-43 Płatności renders A6; the payout checklist item opens it; the owner
   await adm.goto(`${base}/platnosci`)
   await expect(adm.getByTestId('club-payout')).toContainText('PL61 … 2874')
   await shoot(adm, 'platnosci-club-admin')
+
+  // PAID_REGISTRATION_ENABLED: the owner publishes the paid draft from the wizard.
+  await page.goto(`${base}/publikacja`)
+  await expect(page.getByTestId('checklist')).toBeVisible()
+  await expect(page.getByTestId('blocking-item')).toHaveCount(0)
+  await page.getByRole('button', { name: /^Opublikuj/ }).click()
+  await expect(page.getByTestId('published')).toContainText('OPUBLIKOWANE')
+  const { data: published, error: pubError } = await admin().from('registration_settings')
+    .select('state, pricing_mode').eq('event_id', eventId).single()
+  if (pubError) throw pubError
+  expect(published).toEqual({ state: 'published', pricing_mode: 'fixed' })
 
   await Promise.all([ownerCtx.close(), adminCtx.close(), memberCtx.close()])
 })

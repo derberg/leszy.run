@@ -296,7 +296,7 @@ test('P-41 no path but get-event-payout carries the event IBAN or NIP: wizard re
 
 // ---------------------------------------------------------------- P-42
 
-test('P-42 a paid draft: club account without club payout details blocks; with them only the payments flag item; another valid account too', async () => {
+test('P-42 a paid draft: club account without club payout details blocks; with them nothing blocks; another valid account publishes', async () => {
   const own = await makeClub({ slug: `p3-pay42-${rand()}` })
   const ownerS = await sessionFor(own.ownerEmail)
   const { data: none } = await db().from('club_payout_details').select('club_id').eq('club_id', own.clubId)
@@ -320,24 +320,25 @@ test('P-42 a paid draft: club account without club payout details blocks; with t
     return r.body.data.checklist.blocking
   }
   assert.deepEqual(await blocking(), [
-    { key: 'payments', label: 'Płatności online — wkrótce' },
     { key: 'payout', label: 'Uzupełnij dane do wypłat w ustawieniach klubu' },
   ])
   const refused = await callFn('publish-registration-event', ownerS, { eventId, action: 'publish' })
   assert.equal(refused.status, 409)
-  assert.deepEqual(refused.body.blocking.map((b) => b.key), ['payments', 'payout'])
+  assert.deepEqual(refused.body.blocking.map((b) => b.key), ['payout'])
 
   const { error } = await db().from('club_payout_details').insert({
     club_id: own.clubId, legal_name: 'Klub', nip: NIP, iban: IBAN, address: 'ul. Leśna 1',
   })
   assert.ifError(error)
-  assert.deepEqual(await blocking(), [{ key: 'payments', label: 'Płatności online — wkrótce' }])
+  assert.deepEqual(await blocking(), [])
 
-  // Another account, valid: still only the flag item.
+  // Another account, valid: nothing blocks, and the paid event publishes (PAID_REGISTRATION_ENABLED).
   assert.equal((await setPayout(eventId, CUSTOM, ownerS)).status, 200)
-  assert.deepEqual(await blocking(), [{ key: 'payments', label: 'Płatności online — wkrótce' }])
-  const again = await callFn('publish-registration-event', ownerS, { eventId, action: 'publish' })
-  assert.deepEqual(again.body.blocking.map((b) => b.key), ['payments'])
+  assert.deepEqual(await blocking(), [])
+  const published = await callFn('publish-registration-event', ownerS, { eventId, action: 'publish' })
+  assert.equal(published.status, 200, JSON.stringify(published.body))
+  const after = await settingsOf(eventId)
+  assert.deepEqual([after.state, after.pricing_mode], ['published', 'fixed'])
 })
 
 test('P-42 an incomplete other account stored directly (no edge function) blocks a paid event', async () => {

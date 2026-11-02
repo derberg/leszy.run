@@ -13,8 +13,8 @@ import { VITE_BASE_PORT, slotPort } from '../helpers/slot.js'
 // `runner` registers „Wilcze Szczenięta” (self, an added adult, 17 y, 16 y) and pays on the mock,
 // `viewer` reads the public start list, `invitee` accepts from the link in their e-mail, `runner`
 // then swaps a child and reorders, and the timing host pulls the result.
-// The wizard publishes a free event: PAID_REGISTRATION_ENABLED keeps the checklist from publishing
-// a paid one, so the price comes from makeEventPaid, the step createPublishedPaidEvent uses.
+// The wizard publishes a free event and the price comes from makeEventPaid, the step
+// createPublishedPaidEvent uses (a shortcut: P-43 publishes a paid draft through the wizard).
 
 const ZT = '00000000-0000-4000-8000-0000000000c1'
 const TEAM = 'Wilcze Szczenięta'

@@ -3,6 +3,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { publishChecklist, blockingMessage, SLUG_TAKEN_ITEM, takesMoney, moneyReason } from '../../../supabase/functions/_shared/registration/checklist.js'
 import { registrationWindow } from '../../../supabase/functions/_shared/registration/dates.js'
+import { PAID_REGISTRATION_ENABLED } from '../../../supabase/functions/_shared/registration/flags.js'
 
 const window = (opensOn, closesOn) => {
   const { opensAt, closesAt } = registrationWindow({ opensOn, closesOn })
@@ -92,9 +93,11 @@ test('W-13 no current agreement blocks', () => {
   assert.deepEqual(keys(publishChecklist(complete({ hasAgreement: false })).blocking), ['agreement'])
 })
 
-test('W-13 a paid event blocks with „Płatności online — wkrótce” while payments are off', () => {
+test('W-13 a paid event with a ready payout account blocks nothing: PAID_REGISTRATION_ENABLED is true', () => {
+  assert.equal(PAID_REGISTRATION_ENABLED, true)
   const r = publishChecklist(complete({ settings: { pricingMode: 'fixed' } }))
-  assert.deepEqual(r.blocking, [{ key: 'payments', label: 'Płatności online — wkrótce' }])
+  assert.deepEqual(r.blocking, [])
+  assert.deepEqual(publishChecklist(complete({ settings: { pricingMode: 'tiered' } })).blocking.filter((b) => b.key === 'payments'), [])
 })
 
 test('W-13 optional items name their wizard step and never block', () => {
@@ -129,26 +132,25 @@ test('W-69 the regulamin and the organizer contact both block publish, each on i
 // P-42: a paid event needs somewhere to pay the money out (ruling P3-R1: the
 // checklist sees only { mode, ready }, never the account itself).
 const paid = (payout) => publishChecklist(complete({ settings: { pricingMode: 'fixed' }, payout }))
-const PAYMENTS_SOON = { key: 'payments', label: 'Płatności online — wkrótce' }
 
-test('P-42 paid, club account, the club has payout details: only the payments flag item', () => {
-  assert.deepEqual(paid({ mode: 'club', ready: true }).blocking, [PAYMENTS_SOON])
+test('P-42 paid, club account, the club has payout details: nothing blocks', () => {
+  assert.deepEqual(paid({ mode: 'club', ready: true }).blocking, [])
 })
 
 test('P-42 paid, club account, the club has no payout details: blocks and says where to fill them', () => {
   assert.deepEqual(paid({ mode: 'club', ready: false }).blocking,
-    [PAYMENTS_SOON, { key: 'payout', label: 'Uzupełnij dane do wypłat w ustawieniach klubu' }])
+    [{ key: 'payout', label: 'Uzupełnij dane do wypłat w ustawieniach klubu' }])
 })
 
 test('P-42 paid, another account: blocks until every field is valid', () => {
   assert.deepEqual(paid({ mode: 'custom', ready: false }).blocking,
-    [PAYMENTS_SOON, { key: 'payout', label: 'Dane do wypłat tego wydarzenia' }])
-  assert.deepEqual(paid({ mode: 'custom', ready: true }).blocking, [PAYMENTS_SOON])
+    [{ key: 'payout', label: 'Dane do wypłat tego wydarzenia' }])
+  assert.deepEqual(paid({ mode: 'custom', ready: true }).blocking, [])
 })
 
 test('P-42 paid with no payout state at all blocks (fail closed)', () => {
   const r = publishChecklist({ ...complete({ settings: { pricingMode: 'fixed' } }), payout: undefined })
-  assert.deepEqual(keys(r.blocking), ['payments', 'payout'])
+  assert.deepEqual(keys(r.blocking), ['payout'])
 })
 
 test('P-42 a free event never asks for payout details', () => {
@@ -178,20 +180,20 @@ test('T-06 a team with a size, a hidden team and an individual competition do no
 
 // An event takes money when its pricing mode is not free, or it has a priced extra, or donations
 // are on (a charity event with „Pozwól dopłacić darowiznę”, ruling 7). Each then needs a payout
-// account, and is held by the payments flag.
+// account. With PAID_REGISTRATION_ENABLED true nothing else holds it.
 const PAYOUT_CLUB = { key: 'payout', label: 'Uzupełnij dane do wypłat w ustawieniach klubu' }
-// M-2 (fix round 1): the payments item names what makes the event take money.
-const PAYMENTS_DONATIONS = { key: 'payments', label: 'Darowizny przy zapisie to płatności online — wkrótce. Wyłącz „Pozwól dopłacić darowiznę” w Podstawach' }
-const PAYMENTS_EXTRAS = { key: 'payments', label: 'Płatne dodatki to płatności online — wkrótce' }
 
 test('V-20 a free event with donations on and no payout → the blocking payout item', () => {
   const r = publishChecklist(complete({ settings: { isCharity: true, donationsEnabled: true }, payout: { mode: 'club', ready: false } }))
-  assert.deepEqual(r.blocking, [PAYMENTS_DONATIONS, PAYOUT_CLUB])
+  assert.deepEqual(r.blocking, [PAYOUT_CLUB])
+  const ready = publishChecklist(complete({ settings: { isCharity: true, donationsEnabled: true } }))
+  assert.deepEqual(ready.blocking, [], 'with a ready payout account a charity event with donations publishes')
 })
 
 test('V-20 a free event with a priced extra and no payout → the blocking payout item; a 0 zł extra asks nothing', () => {
   const priced = publishChecklist({ ...complete({ payout: { mode: 'club', ready: false } }), extras: [{ price: 4500 }] })
-  assert.deepEqual(priced.blocking, [PAYMENTS_EXTRAS, PAYOUT_CLUB])
+  assert.deepEqual(priced.blocking, [PAYOUT_CLUB])
+  assert.deepEqual(publishChecklist({ ...complete(), extras: [{ price: 4500 }] }).blocking, [], 'payout ready: publishes')
   const gratis = publishChecklist({ ...complete({ payout: { mode: 'club', ready: false } }), extras: [{ price: 0 }] })
   assert.deepEqual(gratis.blocking, [])
 })

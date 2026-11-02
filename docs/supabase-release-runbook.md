@@ -184,7 +184,7 @@ The `registration-watchdog` pg_cron job (`20261030180000_registration_watchdog.s
   UTC hour (`operator_alerts.dedupe_key` `watchdog_error:<kind>:<hour>`, stored already e-mailed so
   the digest skips it). It then answers 500. If even that row cannot be written, it mails anyway.
 
-It needs no dpay settings, and it keeps working while `PAID_REGISTRATION_ENABLED` is false,
+It needs no dpay settings, and it keeps working while the `DPAY_*` secrets are missing,
 because the jobs still run and stamp their heartbeats then (P3-R16). A mail that could not be sent
 is retried the next hour, and the function answers 502.
 

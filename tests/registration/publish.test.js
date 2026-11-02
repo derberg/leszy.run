@@ -114,7 +114,7 @@ test('W-14 registration closing after race day blocks publish', async () => {
   assert.equal((await settingsOf(eventId)).state, 'draft')
 })
 
-test('W-14 a paid event cannot be published yet', async () => {
+test('W-14 a paid event publishes once it has a payout account (PAID_REGISTRATION_ENABLED)', async () => {
   // A club of its own: no club payout details, whatever other files left in the seed club.
   const own = await makeClub({ slug: `w14-${rand()}` })
   const session = await sessionFor(own.ownerEmail)
@@ -123,9 +123,18 @@ test('W-14 a paid event cannot be published yet', async () => {
   const r = await publish(eventId, session)
   assert.equal(r.status, 409)
   assert.deepEqual(r.body.blocking, [
-    { key: 'payments', label: 'Płatności online — wkrótce' },
     { key: 'payout', label: 'Uzupełnij dane do wypłat w ustawieniach klubu' },
   ])
+  assert.equal((await settingsOf(eventId)).state, 'draft')
+
+  const { error } = await admin().from('club_payout_details').insert({
+    club_id: own.clubId, legal_name: 'Klub', nip: '5260250274', iban: 'PL61109010140000071219812874', address: 'ul. Leśna 1',
+  })
+  assert.ifError(error)
+  const ok = await publish(eventId, session)
+  assert.equal(ok.status, 200, JSON.stringify(ok.body))
+  const settings = await settingsOf(eventId)
+  assert.deepEqual([settings.state, settings.pricing_mode], ['published', 'fixed'])
 })
 
 test('W-14 get-registration-event returns the checklist', async () => {
