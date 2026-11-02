@@ -26,6 +26,7 @@ export function extraRow(x) {
     key: `x${++seq}`,
     id: x.id ?? null,
     name: x.name ?? '',
+    description: x.description ?? '',
     price: priceText(x.price),
     orderUntil: x.orderUntil ?? '',
     imageUploadId: x.imageUploadId ?? null,
@@ -42,7 +43,7 @@ export function extraRow(x) {
 }
 
 export function newExtraRow() {
-  return { key: `x${++seq}`, id: null, name: '', price: '', orderUntil: '', imageUploadId: null, categoryIds: [], variants: [newVariant()], saved: null, savedKeys: [] }
+  return { key: `x${++seq}`, id: null, name: '', description: '', price: '', orderUntil: '', imageUploadId: null, categoryIds: [], variants: [newVariant()], saved: null, savedKeys: [] }
 }
 
 export const addVariant = (row) => ({ ...row, variants: [...row.variants, newVariant()] })
@@ -61,6 +62,7 @@ function itemOf(r) {
   return {
     ...(r.id ? { id: r.id } : {}),
     name: r.name,
+    description: r.description.trim() || null,
     imageUploadId: r.imageUploadId,
     price: r.price,
     orderUntil: r.orderUntil,
@@ -69,7 +71,7 @@ function itemOf(r) {
   }
 }
 
-const started = (r) => !!(r.id || r.name.trim() || r.price.trim() || r.orderUntil || r.imageUploadId
+const started = (r) => !!(r.id || r.name.trim() || r.description.trim() || r.price.trim() || r.orderUntil || r.imageUploadId
   || r.variants.some((v) => v.label.trim() || String(v.stock).trim()))
 
 /** The variant fields that do not validate, by variant key: { [key]: { label?, stock? } }. */

@@ -50,11 +50,17 @@ const EXTRAS = [
 
 describe('V-62 the extras a person may pick', () => {
   const now = new Date('2026-11-10T12:00:00Z')
+  it('W-86 an extra carries the organizer\'s description to the picker', () => {
+    const text = '35 zł pokrywa koszt wykonania koszulki, pozostałe 25 zł trafia na cel zbiórki.'
+    const [shirt] = orderableExtras([{ ...EXTRAS[0], description: text }], C9, now)
+    assert.equal(shirt.description, text)
+  })
   it('offered in the competition and still orderable today (Warsaw); a sold-out variant stays as soldOut', () => {
     const nine = orderableExtras(EXTRAS, C9, now)
     assert.deepEqual(nine.map((x) => x.id), ['x1', 'x2'])
     assert.deepEqual(nine[0].variants, [{ id: 's', label: 'S', soldOut: true }, { id: 'm', label: 'M', soldOut: false }])
     assert.equal(nine[0].priceLabel, '45,00 zł')
+    assert.equal(nine[0].description, null)
     assert.deepEqual(orderableExtras(EXTRAS, C3, now).map((x) => x.id), ['x1'])
     // The last day of ordering is still orderable, the next is not.
     assert.deepEqual(orderableExtras(EXTRAS, C3, new Date('2026-11-01T22:59:59Z')).map((x) => x.id), ['x1', 'x3'])

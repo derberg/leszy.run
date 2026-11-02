@@ -260,6 +260,15 @@ test('V-18 extras: a staged change is one „Dodatki” row; the same list is no
   ])
 })
 
+test('W-86 extras: a changed description alone is a „Dodatki” row', () => {
+  const extra = { id: 'x1', name: 'Koszulka', description: null, image_upload_id: null, price: 4500, order_until: '2026-11-25', category_ids: [], variants: [{ id: 'v1', label: 'M', stock: 30 }] }
+  const withExtras = { ...live, extras: [extra] }
+  const diff = changeDiff(withExtras, { extras: { items: [{ ...extra, description: '35 zł to koszt koszulki.' }] } })
+  assert.deepEqual(diff.map((d) => [d.field, d.before, d.after]), [
+    ['extras.items', ['Koszulka: 45 zł, do 25.11 (M: 30)'], ['Koszulka: 45 zł, do 25.11 (M: 30), opis: 35 zł to koszt koszulki.']],
+  ])
+})
+
 test('V-20 mergedChecklistInput carries the extras the event will have: a staged priced extra makes it take money', () => {
   const merged = mergedChecklistInput({ ...live, extras: [] }, { extras: { items: [{ id: null, name: 'Koszulka', price: 4500, variants: [] }] } })
   assert.deepEqual(merged.extras.map((x) => x.price), [4500])

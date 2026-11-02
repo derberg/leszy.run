@@ -72,14 +72,18 @@ function deadlineText(m, opensLabel) {
 }
 
 // Plan 7: the extras a competition offers, under its name („Koszulka 45,00 zł”), still orderable
-// today; one with nothing left reads „Czapka · brak”.
+// today; one with nothing left reads „Czapka · brak”. One with a description takes its own line,
+// the description under it.
 function ExtrasLine({ extras }) {
   if (!extras.length) return null
   return (
     <small className="flex flex-wrap gap-x-3 gap-y-0.5 mt-0.5 text-sm text-apex-text font-medium" data-testid="competition-extras">
       {extras.map((x) => (
-        <span key={x.id} className="[overflow-wrap:anywhere]" data-testid="competition-extra">
+        <span key={x.id} className={`[overflow-wrap:anywhere]${x.description ? ' basis-full' : ''}`} data-testid="competition-extra">
           {soldOut(x) ? `${x.name} · brak` : <>{x.name} <span className="font-mono text-apex-yellow whitespace-nowrap">{x.priceLabel}</span></>}
+          {x.description && (
+            <span className="block text-apex-muted whitespace-pre-line" data-testid="competition-extra-description">{x.description}</span>
+          )}
         </span>
       ))}
     </small>

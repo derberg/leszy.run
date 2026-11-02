@@ -79,6 +79,7 @@ function extrasFor(extras, categoryId) {
     .map((x) => ({
       id: x.id,
       name: x.name,
+      description: x.description ?? null,
       imageUrl: x.imageUrl ?? null,
       priceLabel: money(x.price),
       orderUntil: x.orderUntil,
@@ -341,6 +342,7 @@ function mergeExtras(raw, items, uploads, sold) {
   return items.map((x) => ({
     id: x.id ?? null,
     name: x.name,
+    description: x.description ?? null,
     imagePath: x.image_upload_id ? (uploads[x.image_upload_id]?.path ?? live.get(x.id)?.imagePath ?? null) : null,
     price: x.price,
     orderUntil: x.order_until,

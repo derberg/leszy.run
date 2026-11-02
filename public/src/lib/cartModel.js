@@ -53,6 +53,7 @@ export function orderableExtras(extras, categoryId, now = new Date()) {
     .map((x) => ({
       id: x.id,
       name: x.name,
+      description: x.description ?? null,
       price: x.price,
       priceLabel: formatPln(x.price),
       imageUrl: x.imageUrl ?? null,

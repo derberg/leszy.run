@@ -11,7 +11,7 @@
 //                   tier, or null) and, for tiered pricing, `prices` ({ tierId: grosze })
 //     tiers         price_tiers rows (id, ends_on) in registration_raw's order
 //     extras        extras (snake_case, as the extras section stages them: id, name,
-//                   price, order_until, category_ids, variants [{ id, label, stock }])
+//                   description, price, order_until, category_ids, variants [{ id, label, stock }])
 //     officeHours   office_hours rows (starts_at, ends_at, note)
 //     ageGroups, kidsGroups, consents  their rows (consents: custom ones are compared)
 //     payout        { mode, ready } of the event's payout account (eventPayout.js),
@@ -156,9 +156,10 @@ function tierDiff(live, value, out) {
   }
 }
 
-// Dodatki as one row: each extra as „name: price, do d.m (variant: stock, …)”.
+// Dodatki as one row: each extra as „name: price, do d.m (variant: stock, …)”, then its description.
 const extraWords = (items = []) => items.map((x) =>
-  `${x.name}: ${money(x.price)}, do ${dm(x.order_until)} (${(x.variants ?? []).map((v) => `${v.label}: ${v.stock}`).join(', ')})`)
+  `${x.name}: ${money(x.price)}, do ${dm(x.order_until)} (${(x.variants ?? []).map((v) => `${v.label}: ${v.stock}`).join(', ')})`
+  + (x.description ? `, opis: ${x.description}` : ''))
 
 function competitionDiff(live, value, out) {
   const byId = new Map((live.competitions ?? []).map((c) => [c.category_id, c]))

@@ -2,14 +2,15 @@ import { useEffect, useId, useRef, useState } from 'react'
 import { uploadExtraImage } from '../../../../lib/organizer.js'
 import { resizePoster } from '../../../../lib/resizePoster.js'
 import { publicFileUrl } from '../../../../lib/registrationFiles.js'
-import { MAX_EXTRAS, MAX_VARIANTS } from '@registration/sections.js'
+import { EXTRA_DESCRIPTION_MAX, MAX_EXTRAS, MAX_VARIANTS } from '@registration/sections.js'
 import {
   addVariant, assignExtraIds, competitionOn, extraRow, extraSold, extrasSection, newExtraRow, toggleCompetition,
 } from '../../../../lib/extraRows.js'
 import { btnGhost } from '../../settingsUi.js'
 import { FieldError, Lock, Seg, cardClass, cellInput, monoLabel, sectionErrors } from '../wizardUi.jsx'
 
-// A5b: products sold with the entry, each with an image, a price, an order deadline, variants
+// A5b: products sold with the entry, each with an image, a price, an order deadline, an optional
+// description the runner reads under the name (not money, so a sale never locks it), variants
 // with a stock and the competitions that offer it. The list autosaves as one section (staged
 // after publish). Ruling 10 after publish: an extra with a sold variant keeps its price and
 // stays, and a sold variant stays with at least what sold.
@@ -102,6 +103,14 @@ function ExtraCard({ row, n, competitions, imageUrl, errors, published, readOnly
             {(p) => <input {...p} name="orderUntil" type="date" className={`${cellInput} w-full`} value={row.orderUntil} onChange={set('orderUntil')} />}
           </Field>
         </div>
+
+        <Field label="Opis (opcjonalnie)" error={fields.description}>
+          {(p) => (
+            <textarea {...p} name="description" rows={2} maxLength={EXTRA_DESCRIPTION_MAX}
+              placeholder="Np. 35 zł pokrywa koszt wykonania koszulki, pozostałe 25 zł trafia na cel zbiórki."
+              className={`${cellInput} w-full h-auto py-2 resize-y`} value={row.description} onChange={set('description')} />
+          )}
+        </Field>
 
         <div className="flex flex-col gap-1.5">
           <span className={monoLabel}>Warianty · limit sztuk</span>

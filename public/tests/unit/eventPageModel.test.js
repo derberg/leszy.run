@@ -423,10 +423,16 @@ describe('extras (Plan 7)', () => {
   it('an extra shows its image URL, price and order deadline; a variant with nothing left stays, as „brak”', () => {
     const [shirt] = model(withExtras).competitions[0].extras
     assert.deepEqual(shirt, {
-      id: 'x1', name: 'Koszulka techniczna', imageUrl: fileUrl('e1/extra/k.jpg'), priceLabel: '45 zł', orderUntil: '2026-11-25',
+      id: 'x1', name: 'Koszulka techniczna', description: null, imageUrl: fileUrl('e1/extra/k.jpg'), priceLabel: '45 zł', orderUntil: '2026-11-25',
       orderUntilLabel: 'zamówienia do 25.11',
       variants: [{ id: 'v1', label: 'M', left: 3, soldOut: false, leftLabel: null }, { id: 'v2', label: 'L', left: 0, soldOut: true, leftLabel: 'brak' }],
     })
+  })
+
+  it('W-86 an extra carries its description as the organizer wrote it', () => {
+    const text = '35 zł pokrywa koszt wykonania koszulki,\npozostałe 25 zł trafia na cel zbiórki.'
+    const [shirt] = model({ ...RA1, extras: [{ ...SHIRT, description: text }] }).competitions[0].extras
+    assert.equal(shirt.description, text)
   })
 
   it('a raw with no extras key gives every competition an empty list', () => {
@@ -467,15 +473,15 @@ describe('mergePending: staged tiers and extras (Plan 7)', () => {
       payload: { extras: { items: [
         { id: 'x1', name: 'Koszulka', image_upload_id: 'u1', price: 4500, order_until: '2026-11-25', category_ids: [],
           variants: [{ id: 'v1', label: 'M', stock: 10 }, { id: null, label: 'XL', stock: 5 }] },
-        { id: null, name: 'Czapka', image_upload_id: null, price: 3000, order_until: '2026-12-01', category_ids: ['c1'], variants: [{ id: null, label: 'Uni', stock: 100000 }] },
+        { id: null, name: 'Czapka', description: 'Na cel zbiórki.', image_upload_id: null, price: 3000, order_until: '2026-12-01', category_ids: ['c1'], variants: [{ id: null, label: 'Uni', stock: 100000 }] },
       ] } },
       uploads: { u1: { path: 'e1/extra/nowa.jpg', meta: {} } },
       sold: { v1: 7 },
     })
     assert.deepEqual(merged.extras, [
-      { id: 'x1', name: 'Koszulka', imagePath: 'e1/extra/nowa.jpg', price: 4500, orderUntil: '2026-11-25', categoryIds: [],
+      { id: 'x1', name: 'Koszulka', description: null, imagePath: 'e1/extra/nowa.jpg', price: 4500, orderUntil: '2026-11-25', categoryIds: [],
         variants: [{ id: 'v1', label: 'M', left: 3 }, { id: null, label: 'XL', left: 5 }] },
-      { id: null, name: 'Czapka', imagePath: null, price: 3000, orderUntil: '2026-12-01', categoryIds: ['c1'],
+      { id: null, name: 'Czapka', description: 'Na cel zbiórki.', imagePath: null, price: 3000, orderUntil: '2026-12-01', categoryIds: ['c1'],
         variants: [{ id: null, label: 'Uni', left: 100000 }] },
     ])
     assert.equal(raw.extras[0].variants.length, 1, 'input untouched')

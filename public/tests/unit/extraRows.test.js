@@ -28,9 +28,24 @@ test('A5b a whole new card is sent; an empty limit is MAX_STOCK; an untouched ne
   const s = extrasSection([filled, newExtraRow()], { state: 'draft', eventDate: '2027-12-05' })
   assert.equal(s.ok, true)
   assert.deepEqual(s.value.items, [{
-    name: 'Posiłek', imageUploadId: null, price: '20', orderUntil: '2027-11-20', categoryIds: [], variants: [{ label: 'Wege', stock: 100000 }],
+    name: 'Posiłek', description: null, imageUploadId: null, price: '20', orderUntil: '2027-11-20', categoryIds: [], variants: [{ label: 'Wege', stock: 100000 }],
   }])
   assert.deepEqual(s.cardErrors, {})
+})
+
+test('W-86 a card carries the description: empty is none, a description alone starts a card, too long is refused on its field', () => {
+  const r = extraRow(server({ description: '35 zł to koszt koszulki.' }))
+  assert.equal(r.description, '35 zł to koszt koszulki.')
+  assert.equal(r.saved.description, '35 zł to koszt koszulki.')
+  assert.equal(extraRow(server()).description, '')
+  const cleared = extrasSection([{ ...r, description: '  ' }], { state: 'published', eventDate: '2027-12-05' })
+  assert.equal(cleared.value.items[0].description, null)
+  const long = { ...r, description: 'x'.repeat(501) }
+  const s = extrasSection([long], { state: 'draft', eventDate: '2027-12-05' })
+  assert.equal(s.cardErrors[r.key].fields.description, 'Opis może mieć najwyżej 500 znaków.')
+  assert.equal(s.value.items[0].description, '35 zł to koszt koszulki.')
+  const onlyDescription = { ...newExtraRow(), description: 'Opis' }
+  assert.ok(extrasSection([onlyDescription], { state: 'draft' }).cardErrors[onlyDescription.key])
 })
 
 test('A5b a saved card mid-edit sends its last whole value; the errors name the field and the variant', () => {
