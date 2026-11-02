@@ -1,8 +1,12 @@
-// Plan 7, task 5: the organizer's vouchers and partners (organizer-vouchers), the partner of one
-// entry (organizer-entry-action `partner`), the B3 partner column and count
-// (list-event-registrations) and the CSV (export-event-registrations), plus the partner-leak walk
-// of every runner-facing answer and e-mail (Review Focus 5). Scenarios V-30…V-34 and V-38 in
-// docs/registration/scenario-matrix.md. LOCAL stack plus the mocked dpay and the e-mail capture.
+// Plan 7, task 5: the organizer's vouchers (organizer-vouchers), the partner of one entry
+// (organizer-entry-action `partner`), the B3 partner column and count (list-event-registrations)
+// and the CSV (export-event-registrations), plus the partner-leak walk of every runner-facing
+// answer and e-mail (Review Focus 5). Partners are made through organizer-partners since they
+// became one event_partners list (public or hidden, 2026-11-02). V-38 and V-81 use a HIDDEN
+// partner: a public one shows its name, logo and link on /api/event on purpose, while a hidden
+// one, the entry's partner_id, every note and vouchers.note must reach no runner. Scenarios
+// V-30…V-35, V-38 and V-81 in docs/registration/scenario-matrix.md. LOCAL stack plus the mocked
+// dpay and the e-mail capture.
 import { test, before, after, beforeEach, afterEach } from 'node:test'
 import assert from 'node:assert/strict'
 import crypto from 'node:crypto'
