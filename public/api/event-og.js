@@ -4,9 +4,38 @@
 // pages point og:image here. An unknown slug gets the site's own image.
 //
 // Imports by relative path only (see api/event.js).
+import { mkdirSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { createClient } from '@supabase/supabase-js'
-import { renderEventOg } from '../scripts/generate-event-og.js'
 import { isEventSlug, readEventShareFields } from '../src/lib/eventShareMeta.js'
+
+// The function runtime has no system fonts: librsvg drew every letter as an
+// empty box. og-fonts/ (copied in by `includeFiles` in vercel.json) holds the
+// TTFs the template names, and fontconfig is pointed at them before sharp
+// first draws text, which is why the template is imported only after this.
+function useBundledFonts() {
+  const dir = join(tmpdir(), 'leszy-fontconfig')
+  mkdirSync(dir, { recursive: true })
+  const conf = join(dir, 'fonts.conf')
+  const fonts = fileURLToPath(new URL('../og-fonts/', import.meta.url))
+  writeFileSync(conf, `<?xml version="1.0"?>
+<!DOCTYPE fontconfig SYSTEM "fonts.dtd">
+<fontconfig><dir>${fonts}</dir><cachedir>${join(dir, 'cache')}</cachedir></fontconfig>
+`)
+  process.env.FONTCONFIG_FILE = conf
+}
+
+let renderEventOg = null
+
+async function renderer() {
+  if (!renderEventOg) {
+    useBundledFonts()
+    ;({ renderEventOg } = await import('../scripts/generate-event-og.js'))
+  }
+  return renderEventOg
+}
 
 let supabase = null
 
@@ -45,7 +74,7 @@ export default async function handler(req, res) {
   try {
     const fields = await readEventShareFields(client(), slug)
     if (!fields) return fallback(res, CACHED)
-    const png = await renderEventOg({
+    const png = await (await renderer())({
       name: fields.name,
       date: fields.date,
       location: fields.location,
