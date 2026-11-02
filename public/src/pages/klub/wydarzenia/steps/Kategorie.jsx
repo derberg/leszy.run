@@ -20,16 +20,26 @@ const reckoningTip = (year) => `W dniu zawodów: ukończone lata w dniu startu. 
 const groupKey = (categoryId, gender, label) => `${categoryId}|${gender}|${label}`
 const toInt = (v) => (/^\d+$/.test(String(v).trim()) ? Number(v) : null)
 
+// Unadded, the card is a button that adds: dashed border and a „+” so it does
+// not read like the Open box above it, which only informs.
 function ChoiceCard({ title, text, added, tone, onClick, testId }) {
-  const border = added ? (tone === 'cyan' ? 'border-apex-cyan' : 'border-apex-yellow') : 'border-apex-border-mid hover:border-apex-border-bright'
+  const accent = tone === 'cyan' ? 'text-apex-cyan' : 'text-apex-yellow'
+  const border = added ? (tone === 'cyan' ? 'border-solid border-apex-cyan' : 'border-solid border-apex-yellow')
+    : 'border-dashed border-apex-border-bright hover:border-solid hover:border-apex-yellow-dim hover:bg-apex-surface-2'
   return (
-    <button type="button" onClick={onClick} data-testid={testId}
-      className={`flex-1 basis-[260px] text-left border ${border} bg-apex-surface px-4 py-3.5 flex flex-col gap-1 font-sans`}>
-      <span className="flex justify-between gap-2.5 w-full">
-        <span className="text-lg font-bold text-apex-text-bright">{title}</span>
-        {added && <span className={`font-mono text-xs ${tone === 'cyan' ? 'text-apex-cyan' : 'text-apex-yellow'}`}>✓ DODANE</span>}
+    <button type="button" onClick={onClick} data-testid={testId} aria-pressed={added}
+      className={`group flex-1 basis-[260px] text-left border ${border} bg-apex-surface px-4 py-3.5 flex gap-3.5 items-start font-sans ${added ? 'cursor-default' : 'cursor-pointer'}`}>
+      <span aria-hidden="true"
+        className={`shrink-0 w-9 h-9 flex items-center justify-center border font-mono text-xl leading-none ${added ? `border-current ${accent}` : `border-apex-border-bright ${accent} group-hover:border-current`}`}>
+        {added ? '✓' : '+'}
       </span>
-      <span className="text-[15px] text-apex-muted leading-snug">{text}</span>
+      <span className="flex flex-col gap-1 min-w-0 flex-1">
+        <span className="flex justify-between items-baseline gap-2.5 w-full">
+          <span className="text-lg font-bold text-apex-text-bright">{title}</span>
+          <span className={`whitespace-nowrap font-mono text-xs ${added ? accent : 'text-apex-muted group-hover:text-apex-text-bright'}`}>{added ? 'DODANE' : 'DODAJ'}</span>
+        </span>
+        <span className="text-[15px] text-apex-muted leading-snug">{text}</span>
+      </span>
     </button>
   )
 }
