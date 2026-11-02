@@ -286,10 +286,23 @@ test('form: field modes and custom consents', () => {
   assert.ok(validateSection('form', { consents: [{ text: ' ' }] }, DRAFT).errors.text)
 })
 
-test('W-64 form: nationality defaults to off (Brak); the other switches to optional', () => {
+test('form: a consent can be minors-only (minorsOnly true), a boolean or nothing', () => {
+  const r = validateSection('form', {
+    consents: [{ text: 'Jako opiekun zgadzam się na udział dziecka w zawodach.', minorsOnly: true }, { text: 'Dla wszystkich.', minorsOnly: false }],
+  }, DRAFT)
+  assert.equal(r.ok, true, JSON.stringify(r.errors))
+  assert.deepEqual(r.value.consents, [
+    { id: null, text: 'Jako opiekun zgadzam się na udział dziecka w zawodach.', minorsOnly: true },
+    { id: null, text: 'Dla wszystkich.' },
+  ])
+  assert.ok(validateSection('form', { consents: [{ text: 'A.', minorsOnly: 'yes' }] }, DRAFT).errors.minorsOnly)
+  assert.ok(validateSection('form', { consents: [{ text: 'A.', minorsOnly: null }] }, DRAFT).errors.minorsOnly)
+})
+
+test('W-64 form: city and club default to required, ice to optional, nationality to off (Brak)', () => {
   const r = validateSection('form', { formFields: {} }, DRAFT)
   assert.equal(r.ok, true, JSON.stringify(r.errors))
-  assert.deepEqual(r.value.form_fields, { city: 'optional', club: 'optional', ice: 'optional', nationality: 'off' })
+  assert.deepEqual(r.value.form_fields, { city: 'required', club: 'required', ice: 'optional', nationality: 'off' })
 })
 
 test('W-65 form: phone is not a switch any more; a stored or sent phone mode is dropped, never stored', () => {

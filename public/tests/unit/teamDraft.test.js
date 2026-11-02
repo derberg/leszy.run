@@ -127,6 +127,16 @@ describe('T-60 toTeamRequest', () => {
   })
 })
 
+describe('the guardian consent (minorsOnly) in a team', () => {
+  const consents = [{ id: 'k1' }, { id: 'kg', minorsOnly: true }]
+  it('an adult squad sends it not', () => {
+    assert.deepEqual(toTeamRequest(team(), { consents, today: TODAY }).acceptedConsentIds, ['k1'])
+  })
+  it('a squad with a child sends it', () => {
+    assert.deepEqual(toTeamRequest(team([me, zosia]), { consents, today: TODAY }).acceptedConsentIds, ['k1', 'kg'])
+  })
+})
+
 describe('T-61 memberVariant', () => {
   it('one day short of 18 is a minor, at 18 an adult', () => {
     assert.equal(memberVariant({ birthDate: '2008-11-07' }, TODAY), 'minor')

@@ -43,6 +43,7 @@ import { warsawToday } from '../_shared/registration/dates.js'
 import { isUuid } from '../_shared/registration/organizerEvent.js'
 import { callTransferRpc, GONE, sendAcceptedTransferEmail, TRANSFER_REFUSALS } from '../_shared/registration/transfers.js'
 import { refundsInFlight } from '../_shared/registration/refundInFlight.js'
+import { requiredConsents } from '../_shared/registration/consents.js'
 
 const TOKEN_RE = /^[A-Za-z0-9_-]{43}$/
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
@@ -126,7 +127,9 @@ async function samePriceCompetitions(admin, reg) {
 }
 
 async function consentsOf(admin, eventId) {
-  const list = await rows(admin.from('event_consents').select('id, kind, text, sort_order, created_at').eq('event_id', eventId))
+  // The recipient is an adult: a minors-only consent is not theirs (consents.js).
+  const list = requiredConsents(await rows(admin.from('event_consents')
+    .select('id, kind, text, sort_order, created_at, minors_only').eq('event_id', eventId)))
   return list.sort((a, b) => (KIND_ORDER[a.kind] ?? 3) - (KIND_ORDER[b.kind] ?? 3) || a.sort_order - b.sort_order ||
     String(a.created_at).localeCompare(String(b.created_at)) || String(a.id).localeCompare(String(b.id)))
 }
@@ -224,8 +227,9 @@ async function accept(admin, req, body, hash, { transfer, reg, settings }) {
   const checked = validatePerson({ ...person, email }, { ...ctx, now: new Date() })
   if (!checked.ok) return json({ error: INVALID, code: 'invalid_person', fields: checked.errors }, 400, req, withCookie)
 
-  // ---- every event consent (image included) and the service regulamin, or nothing is accepted
-  const consentIds = (await rows(admin.from('event_consents').select('id').eq('event_id', reg.event_id))).map((c) => c.id)
+  // ---- every event consent (image included) but a minors-only one, and the service regulamin,
+  // or nothing is accepted
+  const consentIds = (await consentsOf(admin, reg.event_id)).map((c) => c.id)
   const { acceptedConsentIds, serviceRegulamin } = body
   if (serviceRegulamin !== true || !idList(acceptedConsentIds) || !sameSet(acceptedConsentIds, consentIds)) {
     return json({ error: CONSENTS, code: 'consents_required' }, 400, req, withCookie)

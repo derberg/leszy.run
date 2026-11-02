@@ -132,6 +132,9 @@ export async function createPublishedFreeEvent(owner, {
   gpx = null,
   office = null,
   placeDetails = null,
+  // The runner fields as they were before city and club became required by default (migration
+  // 20261105090000), so the suites' people need no town or club. A test of the form passes its own.
+  formFields = { city: 'optional', club: 'optional', ice: 'optional', nationality: 'off' },
 } = {}) {
   const session = typeof owner === 'string' ? { cookie: owner } : owner
   const club = await clubBySlug(clubSlug)
@@ -157,6 +160,7 @@ export async function createPublishedFreeEvent(owner, {
     })),
   })
   if (timingMode !== 'leszyrun') await save('timing', { timingMode })
+  if (formFields) await save('form', { formFields })
   const published = expect(await callFn('publish-registration-event', session, { eventId, action: 'publish' }), 200, 'publish')
   const slug = new URL(published.url).pathname.split('/').pop()
   return { eventId, slug, categoryIds, gpx: course, eventDate, closesOn }

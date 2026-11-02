@@ -16,6 +16,11 @@ import { FieldError, InfoTip, Lock, Seg, Soon, cardTitle, cellInput, monoLabel, 
 // delete: the server refuses it with consent_locked (P2-R30). Every team
 // competition gets its own section: the team name is always asked, leg order
 // is a choice until the competition is in use (registration_check_locks).
+// The guardian preset is minors-only (`minorsOnly`): a runner sees it only when
+// entering a child (_shared/registration/consents.js). A consent with the same
+// text saved before that existed applies to everyone, so it is listed with the
+// typed ones, where the organizer sees it as such; „Dodaj” on the preset turns
+// it minors-only when nobody has accepted it yet.
 
 const FIELDS = [
   { key: 'city', label: 'Miejscowość' },
@@ -27,11 +32,16 @@ const MODES = [['required', 'Wymagane'], ['optional', 'Opcjonalne'], ['off', 'Br
 
 const PRESETS = [
   { label: 'Start na własną odpowiedzialność', text: 'Startuję na własną odpowiedzialność.' },
-  { label: 'Zgoda opiekuna · dzieci', text: 'Jako opiekun zgadzam się na udział dziecka w zawodach.' },
+  { label: 'Zgoda opiekuna · dzieci', text: 'Jako opiekun zgadzam się na udział dziecka w zawodach.', minorsOnly: true },
 ]
+const MINORS_ONLY_TIP = 'Widzi ją tylko ktoś, kto zapisuje dziecko. Dorosły zapisujący siebie jej nie zobaczy.'
 
 let rowSeq = 0
-const consentRow = (k = {}) => ({ key: ++rowSeq, id: k.id ?? null, text: k.text ?? '', saved: k.text ?? null, locked: !!k.accepted })
+const consentRow = (k = {}) => ({
+  key: ++rowSeq, id: k.id ?? null, text: k.text ?? '', saved: k.text ?? null, locked: !!k.accepted, minorsOnly: k.minorsOnly === true,
+})
+/** The row is this preset: its text, and whom it applies to. */
+const isPreset = (r, p) => r.text.trim() === p.text && r.minorsOnly === (p.minorsOnly === true)
 const LOCKED = 'Zaakceptowali ją zapisani: nie można jej zmienić ani usunąć.'
 const LEG_ORDER_TIP = 'Kapitan ustala kolejność zmian i może ją zmieniać do ostatniego dnia zapisów. Wyłączone: kolejność nie jest zbierana, pomiar LESZY.RUN jej nie potrzebuje.'
 
@@ -42,7 +52,7 @@ function consentsValue(rows) {
   for (const r of rows) {
     const text = r.text.trim() || (r.id ? r.saved : null)
     if (!text) continue
-    items.push({ ...(r.id ? { id: r.id } : {}), text })
+    items.push({ ...(r.id ? { id: r.id } : {}), text, ...(r.minorsOnly ? { minorsOnly: true } : {}) })
     keys.push(r.key)
   }
   return { items, keys }
@@ -118,14 +128,21 @@ export default function Formularz({ event, queue, saveState, readOnly, onSaved, 
     latest.current = { ...latest.current, rows: next }
     setRows(next)
   }
-  const presetOn = (p) => rows.some((r) => r.text.trim() === p.text)
+  const presetOn = (p) => rows.some((r) => isPreset(r, p))
   const togglePreset = (p, on) => {
     const cur = latest.current.rows
-    if (on && !cur.some((r) => r.text.trim() === p.text)) apply({ rows: [...cur, consentRow({ text: p.text })] })
-    if (!on) apply({ rows: cur.filter((r) => r.text.trim() !== p.text || r.locked) })
+    if (on && !cur.some((r) => isPreset(r, p))) {
+      // An unaccepted consent with the same text becomes the preset (it keeps its id); an accepted
+      // one stays as it is, and the preset is a new consent beside it.
+      const same = cur.find((r) => !r.locked && r.text.trim() === p.text)
+      apply({ rows: same
+        ? cur.map((r) => (r === same ? { ...r, minorsOnly: p.minorsOnly === true } : r))
+        : [...cur, consentRow({ text: p.text, minorsOnly: p.minorsOnly })] })
+    }
+    if (!on) apply({ rows: cur.filter((r) => !isPreset(r, p) || r.locked) })
   }
-  const presetLocked = (p) => rows.some((r) => r.locked && r.text.trim() === p.text)
-  const customRows = rows.filter((r) => !PRESETS.some((p) => p.text === r.text.trim()))
+  const presetLocked = (p) => rows.some((r) => r.locked && isPreset(r, p))
+  const customRows = rows.filter((r) => !PRESETS.some((p) => isPreset(r, p)))
 
   const panel = 'flex-1 border border-apex-border-mid bg-apex-surface min-w-0'
   return (
@@ -171,7 +188,17 @@ export default function Formularz({ event, queue, saveState, readOnly, onSaved, 
                 <Seg on={presetOn(p)} onClick={() => togglePreset(p, true)}>Dodaj</Seg>
                 <Seg on={!presetOn(p)} disabled={presetLocked(p)} title={presetLocked(p) ? LOCKED : undefined} onClick={() => togglePreset(p, false)}>Nie</Seg>
               </span>
-            )}>{p.label}</Row>
+            )}>
+              {p.minorsOnly ? (
+                <span className="flex flex-col">
+                  <span>{p.label}</span>
+                  <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                    <span className="font-mono text-xs text-apex-muted whitespace-nowrap" data-testid="minors-only-tag">TYLKO PRZY DZIECKU</span>
+                    <InfoTip label="Komu pokazujemy zgodę opiekuna" testId="minors-only-tip">{MINORS_ONLY_TIP}</InfoTip>
+                  </span>
+                </span>
+              ) : p.label}
+            </Row>
           ))}
           {customRows.map((r, i) => (
             <div key={r.key} className="flex gap-2 items-start px-3.5 py-2 border-b border-apex-border" data-testid="custom-consent">

@@ -136,3 +136,8 @@ test('V-71 staged extras keep each live variant\'s `sold`: a staged list cannot 
     variants: [{ id: V1, label: 'M', stock: 12, sold: 2 }, { id: null, label: 'L', stock: 100000, sold: 0 }],
   }])
 })
+
+test('a staged consent carries minorsOnly (the guardian consent), false when not sent', () => {
+  const e = stagedEvent({ ...live, pending: { payload: { form: { consents: [{ id: null, text: 'Opiekun.', minorsOnly: true }, { id: null, text: 'Wszyscy.' }] } } } })
+  assert.deepEqual(e.consents.filter((k) => k.kind === 'custom').map((k) => [k.text, k.minorsOnly]), [['Opiekun.', true], ['Wszyscy.', false]])
+})

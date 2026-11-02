@@ -11,6 +11,7 @@ import { MAX_PEOPLE_PER_REQUEST } from '../../../supabase/functions/_shared/regi
 import { ADULT_AGE } from '../../../supabase/functions/_shared/registration/person.js'
 import { ageOn } from '../../../supabase/functions/_shared/registration/ageGroups.js'
 import { warsawToday } from '../../../supabase/functions/_shared/registration/dates.js'
+import { requiredConsents } from '../../../supabase/functions/_shared/registration/consents.js'
 import { EMPTY_PERSON, consentsComplete, registrationFailure } from './personFormModel.js'
 
 export { MAX_PEOPLE_PER_REQUEST }
@@ -166,6 +167,14 @@ export function cardVariants(draft, today) {
 }
 
 /**
+ * The event consents this request shows, requires and sends: a minors-only one (the guardian's)
+ * only while a child's card is in it, so it appears and goes with that card (consents.js).
+ */
+export function draftConsents(draft, consents, today) {
+  return requiredConsents(consents, { hasMinor: cardVariants(draft, today).includes('minor') })
+}
+
+/**
  * The card's person as it is sent: a child whose phone was never typed takes card 1's (the
  * guardian's, D4-26) and follows it while untouched.
  */
@@ -207,7 +216,7 @@ export function toRequest(draft, { consents, code, today, extrasOf } = {}) {
   const people = requestPeople(draft, dayOf(today))
   // Plan 7: each person's code and extras (qty above 0 only), in the same order as people[].
   draft.cards.filter((_, i) => !(i === 0 && draft.notRunning)).forEach((c, i) => Object.assign(people[i], cartOfCard(c, extrasOf)))
-  const shared = { acceptedConsentIds: (consents ?? []).map((k) => k.id), serviceRegulamin: true }
+  const shared = { acceptedConsentIds: draftConsents(draft, consents, today).map((k) => k.id), serviceRegulamin: true }
   const body = people.length === 1 && !draft.notRunning
     ? { categoryId: people[0].categoryId, person: people[0].person, ...cartOfCard(draft.cards[0], extrasOf), ...shared }
     : { people, ...shared }
@@ -299,12 +308,12 @@ export function fixMessage(draft, errors) {
 }
 
 /**
- * „Dalej” is on when every consent and the service regulamin are ticked. A child's guardian box
- * sits on that child's step, where checkDraft sends the person with the reason; a button that is
- * merely off on the list could not say which child it waits for.
+ * „Dalej” is on when every consent that applies (draftConsents) and the service regulamin are
+ * ticked. A child's guardian box sits on that child's step, where checkDraft sends the person with
+ * the reason; a button that is merely off on the list could not say which child it waits for.
  */
-export function draftReady(draft, { consents, accepted, serviceAccepted }) {
-  return consentsComplete(consents, accepted, serviceAccepted)
+export function draftReady(draft, { consents, accepted, serviceAccepted, today }) {
+  return consentsComplete(draftConsents(draft, consents, today), accepted, serviceAccepted)
 }
 
 /** `at` of the group list step; any other `at` is a card key. */

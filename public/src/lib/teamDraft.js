@@ -10,7 +10,8 @@
 import { normalizeTeamRequest, validateTeam, CAPTAIN_SELF_MESSAGE } from '../../../supabase/functions/_shared/registration/team.js'
 import { ageOn } from '../../../supabase/functions/_shared/registration/ageGroups.js'
 import {
-  addPerson, cartOfCard, cardVariant, claimedEmail, erroredCards, groupFailure, LIST_STEP, newDraft, removePerson, requestPeople, withoutHiddenFields,
+  addPerson, cartOfCard, cardVariant, claimedEmail, draftConsents, erroredCards, groupFailure, LIST_STEP, newDraft, removePerson, requestPeople,
+  withoutHiddenFields,
 } from './groupDraft.js'
 import { personContext } from './personFormModel.js'
 import { countPl } from './plural.js'
@@ -102,7 +103,8 @@ export function toTeamRequest(draft, { consents, legOrder = false, displayedTota
     ...(voucherCode ? { voucherCode } : {}),
     members,
     membersConsent: draft.membersConsent === true,
-    acceptedConsentIds: (consents ?? []).map((k) => k.id),
+    // A minors-only consent goes only with a child in the squad (draftConsents).
+    acceptedConsentIds: draftConsents(draft, consents, today).map((k) => k.id),
     serviceRegulamin: true,
     ...(displayedTotal === undefined ? {} : { displayedTotal }),
     ...(website ? { website } : {}),

@@ -65,10 +65,10 @@ describe('profilePrefill (the logged-in person only)', () => {
 })
 
 describe('fieldModes', () => {
-  it('missing means optional, nationality missing means off; ice is one switch; the phone is no switch (P2-R32)', () => {
-    assert.deepEqual(fieldModes({ phone: 'off', club: 'off' }), { city: 'optional', club: 'off', ice: 'optional', nationality: 'off' })
-    assert.deepEqual(fieldModes({ nationality: 'required' }), { city: 'optional', club: 'optional', ice: 'optional', nationality: 'required' })
-    assert.deepEqual(fieldModes(null), { city: 'optional', club: 'optional', ice: 'optional', nationality: 'off' })
+  it('missing city/club means required, ice optional, nationality off; ice is one switch; the phone is no switch (P2-R32)', () => {
+    assert.deepEqual(fieldModes({ phone: 'off', club: 'off' }), { city: 'required', club: 'off', ice: 'optional', nationality: 'off' })
+    assert.deepEqual(fieldModes({ nationality: 'required' }), { city: 'required', club: 'required', ice: 'optional', nationality: 'required' })
+    assert.deepEqual(fieldModes(null), { city: 'required', club: 'required', ice: 'optional', nationality: 'off' })
   })
 })
 

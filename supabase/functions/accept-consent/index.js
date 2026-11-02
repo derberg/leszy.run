@@ -34,6 +34,7 @@ import { guardRequest } from '../_shared/cors.js'
 import { getSession } from '../_shared/session.js'
 import { clientIp } from '../_shared/clientIp.js'
 import { json } from '../_shared/registration/registrationRequest.js'
+import { requiredConsents } from '../_shared/registration/consents.js'
 import { ADULT_AGE, validatePerson } from '../_shared/registration/person.js'
 import { ageOn } from '../_shared/registration/ageGroups.js'
 import { warsawToday } from '../_shared/registration/dates.js'
@@ -125,10 +126,11 @@ Deno.serve(async (req) => {
       return json({ error: WRONG_SESSION, code: 'session_required' }, 403, req)
     }
 
-    // ---- the boxes: every event consent (image included) and the LESZY.RUN service regulamin
-    const { data: consents, error: cErr } = await admin.from('event_consents').select('id').eq('event_id', registration.event_id)
+    // ---- the boxes: every event consent (image included) and the LESZY.RUN service regulamin. An
+    // added adult accepts for themself, so a minors-only consent is not theirs (consents.js).
+    const { data: consents, error: cErr } = await admin.from('event_consents').select('id, minors_only').eq('event_id', registration.event_id)
     if (cErr) throw cErr
-    const consentIds = (consents ?? []).map((c) => c.id)
+    const consentIds = requiredConsents(consents).map((c) => c.id)
     const { acceptedConsentIds, shownConsentIds, serviceRegulamin } = body ?? {}
     if (serviceRegulamin !== true || !idList(acceptedConsentIds)) {
       return json({ error: CONSENTS, code: 'consents_required' }, 400, req)

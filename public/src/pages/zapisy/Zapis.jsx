@@ -15,7 +15,7 @@ import {
   newDraft, addPerson, removePerson, updatePerson, setCardCompetition, setCardOpen, setGuardianConsent, setNotRunning,
   cardVariants, effectivePerson, peopleCount, canAdd, toRequest, claimedEmail, checkDraft, draftReady, groupFailure,
   cardEmpty, cardName, erroredCards, fixMessage, formStep, stepAfter, LIST_STEP, addableCompetitions,
-  setCardVoucher, setCardExtra, uncheckedCodes, draftOrdersExtras,
+  setCardVoucher, setCardExtra, uncheckedCodes, draftOrdersExtras, draftConsents,
 } from '../../lib/groupDraft.js'
 import { donationsOffered, orderableExtras, pickedExtras } from '../../lib/cartModel.js'
 import { checkVoucherCode } from '../../lib/voucherCheck.js'
@@ -182,7 +182,9 @@ function PersonSignup({ raw: rawProp, categoryId, preview = false, backTo }) {
   const checkout = paid || ordersExtras || donationsOffered(raw)
   const email = claimedEmail(draft).trim()
   const codeNeeded = needsCode(user?.email, email, verifiedEmail)
-  const ready = draftReady(draft, { consents, accepted, serviceAccepted })
+  const ready = draftReady(draft, { consents, accepted, serviceAccepted, today })
+  // A minors-only consent (the guardian's) shows only while a child's card is in the request.
+  const shownConsents = draftConsents(draft, consents, today)
   const people = peopleCount(draft)
   const first = draft.cards[0].person
   const dataInfo = runnerDataInfo({
@@ -709,7 +711,7 @@ function PersonSignup({ raw: rawProp, categoryId, preview = false, backTo }) {
             + Zapisz kolejną osobę
           </button>
 
-          <ConsentList consents={consents} accepted={accepted} onToggle={(id, v) => setAccepted((a) => ({ ...a, [id]: v }))}
+          <ConsentList consents={shownConsents} accepted={accepted} onToggle={(id, v) => setAccepted((a) => ({ ...a, [id]: v }))}
             serviceAccepted={serviceAccepted} onService={setServiceAccepted} regulaminUrl={model.regulaminUrl} dataInfo={dataInfo} />
 
           {errorLine}
