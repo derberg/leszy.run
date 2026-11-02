@@ -93,17 +93,27 @@ function truncate(s, max) {
   return s.length > max ? s.slice(0, max - 1).trimEnd() + '…' : s
 }
 
-/** The SPA shell with the event's title, description, canonical, robots and Open Graph tags. */
-export function injectShareMeta(shell, fields, slug) {
+/**
+ * The SPA shell with the event's title, description, canonical, robots and Open Graph tags.
+ * `signedUp` is the link a runner shares from the registration page
+ * (`/events/<slug>?z=1`): „Jestem na liście startowej”, „Zapisz się też!” and
+ * the image with that banner. og:url keeps `?z=1`, because Facebook reads the
+ * tags of og:url's page; the canonical stays the plain page.
+ */
+export function injectShareMeta(shell, fields, slug, { signedUp = false } = {}) {
   const date = polishDate(fields.date)
-  const title = [fields.name, date].filter(Boolean).join(' — ') + ' — Leszy.run'
+  const title = signedUp
+    ? `Jestem na liście startowej: ${[fields.name, date].filter(Boolean).join(' — ')}`
+    : [fields.name, date].filter(Boolean).join(' — ') + ' — Leszy.run'
   const lead = [fields.name, fields.location, date].filter(Boolean).join(' — ')
   const description = truncate(
-    fields.description ? `${lead}. ${fields.description}` : `${lead}. Zapisy, lista startowa i wyniki na żywo.`,
+    signedUp ? `Zapisz się też! ${lead}.${fields.description ? ` ${fields.description}` : ''}`
+      : fields.description ? `${lead}. ${fields.description}` : `${lead}. Zapisy, lista startowa i wyniki na żywo.`,
     300,
   )
   const url = `${SITE}/events/${slug}`
-  const image = `${SITE}/api/event-og?slug=${slug}`
+  const shareUrl = signedUp ? `${url}?z=1` : url
+  const image = `${SITE}/api/event-og?slug=${slug}${signedUp ? '&amp;v=z' : ''}`
 
   const t = escapeAttr(title)
   const d = escapeAttr(description)
@@ -115,7 +125,7 @@ export function injectShareMeta(shell, fields, slug) {
   html = set(html, /(<link rel="canonical" href=")[^"]*"/, url)
   html = set(html, /(<meta property="og:title" content=")[^"]*"/, t)
   html = set(html, /(<meta property="og:description" content=")[^"]*"/, d)
-  html = set(html, /(<meta property="og:url" content=")[^"]*"/, url)
+  html = set(html, /(<meta property="og:url" content=")[^"]*"/, shareUrl)
   html = set(html, /(<meta property="og:image" content=")[^"]*"/, image)
   html = set(html, /(<meta property="og:image:alt" content=")[^"]*"/, t)
   html = set(html, /(<meta name="twitter:title" content=")[^"]*"/, t)

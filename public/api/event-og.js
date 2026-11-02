@@ -1,5 +1,7 @@
 // GET /api/event-og?slug=<slug>: the 1200x630 link preview image of one
-// leszy.run event, drawn by renderLeszyrunEventOg() (scripts/generate-event-og.js)
+// leszy.run event. `&v=z` is the „JESTEM NA LIŚCIE STARTOWEJ” variant a runner
+// shares from the registration page, `&v=story` the same as a 1080x1920
+// Instagram story. Each is drawn by renderLeszyrunEventOg() (scripts/generate-event-og.js)
 // and cached by Vercel's CDN. api/event-page.js and the pre-rendered past event
 // pages point og:image here. An unknown slug gets the site's own image.
 //
@@ -66,11 +68,19 @@ const CACHED = {
 }
 const NO_STORE = { 'Cache-Control': 'no-store' }
 
+const VARIANTS = {
+  z: { signedUp: true },
+  story: { signedUp: true, format: 'story' },
+}
+
 export default async function handler(req, res) {
   // One spelling of the query string, so the CDN keeps one entry per event.
   const params = new URL(req.url, 'http://localhost').searchParams
   const slug = params.get('slug')
-  if ([...params.keys()].length !== 1 || !isEventSlug(slug)) return fallback(res, CACHED)
+  const v = params.get('v')
+  const keys = [...params.keys()]
+  const spelled = keys.length === 1 || (keys.length === 2 && VARIANTS[v])
+  if (!spelled || !isEventSlug(slug)) return fallback(res, CACHED)
   try {
     const fields = await readEventShareFields(client(), slug)
     if (!fields) return fallback(res, CACHED)
@@ -81,7 +91,7 @@ export default async function handler(req, res) {
       charity: fields.charity,
       blurb: shortBlurb(fields.description, 160),
       tags: fields.tags,
-    }, { footer: `leszy.run/events/${slug}` })
+    }, { footer: `leszy.run/events/${slug}`, ...(VARIANTS[v] || {}) })
     res.statusCode = 200
     res.setHeader('Content-Type', 'image/png')
     for (const [k, v] of Object.entries(CACHED)) res.setHeader(k, v)

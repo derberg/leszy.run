@@ -1,15 +1,25 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
-import { shareLinks } from '../../src/lib/shareLinks.js'
+import { shareLinks, signedUpShareText, signedUpShareUrl, storyImagePath } from '../../src/lib/shareLinks.js'
 
-describe('shareLinks („Udostępnij”)', () => {
-  it('every network gets the event page, encoded', () => {
-    const links = shareLinks({ url: 'https://www.leszy.run/events/bieg-leszego', text: 'Zapisy: Bieg Leszego & przyjaciół' })
-    assert.deepEqual(links.map((l) => l.id), ['facebook', 'x', 'whatsapp'])
-    const enc = encodeURIComponent('https://www.leszy.run/events/bieg-leszego')
-    assert.equal(links[0].href, `https://www.facebook.com/sharer/sharer.php?u=${enc}`)
-    assert.ok(links[1].href.startsWith('https://x.com/intent/post?text=Zapisy%3A%20Bieg%20Leszego%20%26%20przyjaci%C3%B3%C5%82&url='))
-    assert.ok(links[1].href.endsWith(enc))
-    assert.equal(new URL(links[2].href).searchParams.get('text'), 'Zapisy: Bieg Leszego & przyjaciół https://www.leszy.run/events/bieg-leszego')
+describe('shareLinks („Pochwal się”)', () => {
+  const url = signedUpShareUrl('bieg-leszego')
+  const text = signedUpShareText('Bieg Leszego & przyjaciół', '6 grudnia 2026')
+
+  it('the shared address is the event page with ?z=1, nothing about the person', () => {
+    assert.equal(url, 'https://www.leszy.run/events/bieg-leszego?z=1')
+    assert.equal(text, 'Jestem na liście startowej: Bieg Leszego & przyjaciół (6 grudnia 2026)! Zapisz się też 👉')
+    assert.equal(signedUpShareText('X', null), 'Jestem na liście startowej: X! Zapisz się też 👉')
+  })
+
+  it('Facebook gets the address only, WhatsApp the text and the address', () => {
+    const links = shareLinks({ url, text })
+    assert.deepEqual(links.map((l) => l.id), ['facebook', 'whatsapp'])
+    assert.equal(new URL(links[0].href).searchParams.get('u'), url)
+    assert.equal(new URL(links[1].href).searchParams.get('text'), `${text} ${url}`)
+  })
+
+  it('the story image is the event-og variant', () => {
+    assert.equal(storyImagePath('bieg-leszego'), '/api/event-og?slug=bieg-leszego&v=story')
   })
 })

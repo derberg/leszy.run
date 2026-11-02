@@ -72,6 +72,14 @@ describe('injectShareMeta', () => {
     const listed = injectShareMeta(shell, { ...eventShareFields(registration, null), noindex: false }, 'niebocross-2027')
     assert.equal(meta(listed, 'name', 'robots'), 'index, follow')
   })
+  it('?z=1, the link a runner shares: banner image, „Zapisz się też!”, og:url keeps the parameter', () => {
+    const z = injectShareMeta(shell, eventShareFields(registration, null), 'niebocross-2027', { signedUp: true })
+    assert.equal(meta(z, 'property', 'og:title'), 'Jestem na liście startowej: NieboCross 2027 — 18 kwietnia 2027')
+    assert.match(meta(z, 'property', 'og:description'), /^Zapisz się też! NieboCross 2027 — Nieborowice — 18 kwietnia 2027\. /)
+    assert.equal(meta(z, 'property', 'og:image'), 'https://www.leszy.run/api/event-og?slug=niebocross-2027&amp;v=z')
+    assert.equal(meta(z, 'property', 'og:url'), 'https://www.leszy.run/events/niebocross-2027?z=1')
+    assert.match(z, /<link rel="canonical" href="https:\/\/www.leszy.run\/events\/niebocross-2027"/)
+  })
   it('leaves the app bundle alone', () => {
     const scripts = s => s.match(/<script[^>]*src="[^"]*"/g)
     assert.deepEqual(scripts(html), scripts(shell))
