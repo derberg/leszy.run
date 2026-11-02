@@ -251,9 +251,13 @@ function buildResultsHtml(e, cssLinks, jsScripts) {
     <meta property="og:url" content="${canonical}" />
     <meta property="og:locale" content="pl_PL" />
     <meta property="og:site_name" content="Leszy.run" />
+    <meta property="og:image" content="${BASE_URL}/api/event-og?slug=${e.slug}" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="${title}" />
     <meta name="twitter:description" content="${description}" />
+    <meta name="twitter:image" content="${BASE_URL}/api/event-og?slug=${e.slug}" />
 
     <link rel="icon" type="image/svg+xml" href="/logo-bez-napisu.svg" />
     <link rel="apple-touch-icon" href="/logo-bez-napisu.svg" />
@@ -306,9 +310,13 @@ function buildEventHtml(e, cssLinks, jsScripts, manifest) {
     <meta property="og:url" content="${canonical}" />
     <meta property="og:locale" content="pl_PL" />
     <meta property="og:site_name" content="Leszy.run" />
+    <meta property="og:image" content="${BASE_URL}/api/event-og?slug=${e.slug}" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="${title}" />
     <meta name="twitter:description" content="${description}" />
+    <meta name="twitter:image" content="${BASE_URL}/api/event-og?slug=${e.slug}" />
 
     <link rel="icon" type="image/svg+xml" href="/logo-bez-napisu.svg" />
     <link rel="apple-touch-icon" href="/logo-bez-napisu.svg" />

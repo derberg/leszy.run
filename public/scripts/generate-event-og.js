@@ -93,6 +93,19 @@ function buildBadges(event) {
  * @param {string} outputPath - Absolute path to write the PNG file
  */
 export async function generateEventOg(event, outputPath) {
+  const output = await renderEventOg(event)
+  await sharp(output).toFile(outputPath)
+  return { width: WIDTH, height: HEIGHT, bytes: output.length }
+}
+
+/**
+ * The same image as a PNG buffer. `footer` is the address in the bottom left:
+ * a kalendarz page says leszy.run/kalendarz, a leszy.run event page leszy.run.
+ * @param {object} event
+ * @param {{ footer?: string }} [opts]
+ * @returns {Promise<Buffer>}
+ */
+export async function renderEventOg(event, { footer = 'leszy.run/kalendarz' } = {}) {
   const logoPath = resolve(ROOT, 'public/logo-z-napisem.svg')
   const logoSvg = readFileSync(logoPath, 'utf-8')
 
@@ -192,7 +205,7 @@ export async function generateEventOg(event, outputPath) {
   <text x="60" y="${HEIGHT - 20}"
     font-family="'Rajdhani', Arial, sans-serif" font-weight="500"
     font-size="14" letter-spacing="3" fill="${TEXT_MUTED}" opacity="0.5">
-    leszy.run/kalendarz
+    ${escapeXml(footer)}
   </text>
 
   <!-- Bottom accent bar -->
@@ -227,7 +240,140 @@ export async function generateEventOg(event, outputPath) {
     .png({ quality: 90, compressionLevel: 9 })
     .toBuffer()
 
-  await sharp(output).toFile(outputPath)
+  return output
+}
 
-  return { width: WIDTH, height: HEIGHT, bytes: output.length }
+const ROSE = '#BE185D'
+
+// Rajdhani at 22 px averages about 10 px a character, so 84 keeps a line of
+// the description inside the 1000 px text column.
+const BLURB_LINE_CHARS = 84
+
+function wrapLines(text, maxChars, maxLines) {
+  const words = text.split(' ')
+  const lines = []
+  let line = ''
+  for (const w of words) {
+    const next = line ? `${line} ${w}` : w
+    if (next.length <= maxChars) { line = next; continue }
+    if (line) lines.push(line)
+    line = w
+    if (lines.length === maxLines) break
+  }
+  if (lines.length < maxLines && line) lines.push(line)
+  return lines.slice(0, maxLines)
+}
+
+/**
+ * The link preview of a leszy.run event page (/events/:slug): name, date and
+ * place, the charity it supports, the start of the organizer's description and
+ * what kinds of entry it offers. Every block after the name is optional, and
+ * the layout closes up around a missing one.
+ * @param {{ name, date, location, charity?: string|null, blurb?: string, tags?: string[] }} event
+ * @param {{ footer?: string }} [opts]
+ * @returns {Promise<Buffer>}
+ */
+export async function renderLeszyrunEventOg(event, { footer = 'leszy.run' } = {}) {
+  const logoSvg = readFileSync(resolve(ROOT, 'public/logo-z-napisem.svg'), 'utf-8')
+  const LOGO = 120
+
+  const nameRaw = truncate(event.name || 'Wydarzenie', 70).toUpperCase()
+  const nameLines = wrapTitle(nameRaw, 34)
+  const nameSize = nameLines.length > 1 ? 40 : (nameRaw.length > 26 ? 44 : 54)
+  const dateLine = [formatPolishDate(event.date), (event.location || '').toUpperCase()].filter(Boolean).join('  ·  ')
+  const blurbLines = event.blurb ? wrapLines(event.blurb, BLURB_LINE_CHARS, 2) : []
+  const tags = (event.tags || []).slice(0, 4)
+  const charity = event.charity != null
+
+  const parts = []
+  let y = 60 + LOGO + 64
+
+  for (const line of nameLines) {
+    parts.push(`<text x="${CX}" y="${y}" font-family="'Barlow Condensed', Arial, sans-serif" font-weight="800"
+      font-size="${nameSize}" letter-spacing="2" text-anchor="middle" fill="${TEXT_BRIGHT}">${escapeXml(line)}</text>`)
+    y += nameSize + 6
+  }
+
+  if (dateLine) {
+    y += 4
+    parts.push(`<text x="${CX}" y="${y}" font-family="'Barlow Condensed', Arial, sans-serif" font-weight="700"
+      font-size="26" letter-spacing="3" text-anchor="middle" fill="${YELLOW}">${escapeXml(truncate(dateLine, 70))}</text>`)
+    y += 26
+  }
+
+  if (charity) {
+    const label = event.charity ? `CHARYTATYWNIE  ·  ${truncate(event.charity, 56)}` : 'BIEG CHARYTATYWNY'
+    const textW = label.length * 9.4
+    const w = textW + 28 + 34
+    const x = CX - w / 2
+    y += 22
+    // A heart drawn as a path: the bundled fonts have no ♥ glyph.
+    parts.push(`<rect x="${x}" y="${y}" width="${w}" height="34" rx="2" fill="${ROSE}" fill-opacity="0.08" stroke="${ROSE}" stroke-opacity="0.5"/>
+      <path transform="translate(${x + 16} ${y + 10}) scale(0.6)" fill="${ROSE}"
+        d="M12 21s-7.5-4.6-10-9.3C.3 8.3 2.2 4 6 4c2.3 0 4 1.5 6 3.6C14 5.5 15.7 4 18 4c3.8 0 5.7 4.3 4 7.7C19.5 16.4 12 21 12 21z"/>
+      <text x="${x + 42}" y="${y + 23}" font-family="'Rajdhani', Arial, sans-serif" font-weight="600"
+        font-size="17" letter-spacing="1" fill="${ROSE}">${escapeXml(label)}</text>`)
+    y += 34
+  }
+
+  if (blurbLines.length) {
+    y += charity ? 46 : 40
+    for (const line of blurbLines) {
+      parts.push(`<text x="${CX}" y="${y}" font-family="'Rajdhani', Arial, sans-serif" font-weight="500"
+        font-size="22" text-anchor="middle" fill="${TEXT_MUTED}">${escapeXml(line)}</text>`)
+      y += 28
+    }
+    y -= 28
+  }
+
+  if (tags.length) {
+    y += 30
+    const widths = tags.map(t => t.length * 10.5 + 30)
+    const total = widths.reduce((a, b) => a + b, 0) + (tags.length - 1) * 10
+    let bx = CX - total / 2
+    tags.forEach((t, i) => {
+      parts.push(`<rect x="${bx}" y="${y}" width="${widths[i]}" height="30" rx="2" fill="none" stroke="${CYAN}" stroke-opacity="0.6"/>
+        <text x="${bx + widths[i] / 2}" y="${y + 21}" font-family="'Rajdhani', Arial, sans-serif" font-weight="600"
+          font-size="16" letter-spacing="2" text-anchor="middle" fill="${CYAN}">${escapeXml(t)}</text>`)
+      bx += widths[i] + 10
+    })
+    y += 30
+  }
+
+  // Centre the logo and the blocks in the space above the footer, so an event
+  // with only a name and a date does not leave the lower half empty.
+  const dy = Math.max(0, Math.round((HEIGHT - 50 - y - 44) / 2) - 10)
+
+  const svg = `
+<svg width="${WIDTH}" height="${HEIGHT}" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <radialGradient id="glow" cx="50%" cy="30%" r="45%">
+      <stop offset="0%" stop-color="${GREEN}" stop-opacity="0.10"/>
+      <stop offset="60%" stop-color="${GREEN}" stop-opacity="0.02"/>
+      <stop offset="100%" stop-color="${BG}" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="${WIDTH}" height="${HEIGHT}" fill="${BG}"/>
+  <rect width="${WIDTH}" height="${HEIGHT}" fill="url(#glow)"/>
+  <rect x="0" y="0" width="${WIDTH}" height="4" fill="${YELLOW}"/>
+  <g transform="translate(0 ${dy})">
+  ${parts.join('\n  ')}
+  </g>
+  <line x1="0" y1="${HEIGHT - 50}" x2="${WIDTH}" y2="${HEIGHT - 50}" stroke="${BORDER}" stroke-width="1"/>
+  <text x="60" y="${HEIGHT - 20}" font-family="'Rajdhani', Arial, sans-serif" font-weight="500"
+    font-size="14" letter-spacing="3" fill="${TEXT_MUTED}" opacity="0.6">${escapeXml(footer)}</text>
+  <text x="${WIDTH - 60}" y="${HEIGHT - 20}" font-family="'Rajdhani', Arial, sans-serif" font-weight="600"
+    font-size="14" letter-spacing="3" text-anchor="end" fill="${YELLOW}">KALENDARZ BIEGÓW · LESZY.RUN/KALENDARZ</text>
+  <rect x="0" y="${HEIGHT - 3}" width="${WIDTH}" height="3" fill="${YELLOW}" opacity="0.4"/>
+</svg>`
+
+  const logo = await sharp(Buffer.from(logoSvg))
+    .resize({ height: LOGO, fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } })
+    .png().toBuffer()
+  const logoW = (await sharp(logo).metadata()).width || LOGO
+  const base = await sharp(Buffer.from(svg)).resize(WIDTH, HEIGHT).png().toBuffer()
+  return sharp(base)
+    .composite([{ input: logo, left: Math.round((WIDTH - logoW) / 2), top: 44 + dy }])
+    .png({ compressionLevel: 9 })
+    .toBuffer()
 }
