@@ -25,7 +25,7 @@ import { resendTransferEmails } from './transfers.js'
 //      never sent, or sent and never answered → one alert each (deduplicated), never a send. An
 //      organizer refund is then the operator's: backend/scripts/resolve-registration-refund.js
 //   3. refund retries: insufficient_balance (406) only, an hour apart, 24 at most
-//   4. reminders: a pending order with a window of 6 h or more past its half
+//   4. reminders: a pending order with a window over 24 h, 3 days before expiry (at its half when shorter)
 //   5. dpay check (Task 5 review M6, review I2): an order about to expire, or expired less than
 //      2 h ago and not told yet, that holds an unpaid dpay transaction is checked at dpay. A
 //      payment whose IPN never reached us is confirmed through confirm_order (late if the order
