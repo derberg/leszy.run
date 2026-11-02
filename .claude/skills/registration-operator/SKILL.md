@@ -1,6 +1,6 @@
 ---
 name: registration-operator
-description: Use when the LeszyRun operator asks about online race registration (zapisy) for clubs — "who is on the waitlist", "which clubs have zapisy", "has <club> accepted the agreement", "are payout details in", "enable / switch on zapisy for <club>", "disable <club>", "new agreement version", „kto czeka na zapisy", „lista oczekujących", „status zapisów klubów", „włącz zapisy klubowi", „wyłącz zapisy", „nowa wersja umowy organizatora". Covers the read-only status queries, the confirmed one-row enable/disable write with its admin_actions audit row, and the PR procedure for a new organizer agreement version.
+description: Use when the LeszyRun operator asks about online race registration (zapisy) for clubs — "who is on the waitlist", "which clubs have zapisy", "has <club> accepted the agreement", "are payout details in", "enable / switch on zapisy for <club>", "disable <club>", "new agreement version", "change a club's NIP / payout name", „kto czeka na zapisy", „lista oczekujących", „status zapisów klubów", „włącz zapisy klubowi", „wyłącz zapisy", „nowa wersja umowy organizatora", „zmiana NIP klubu". Covers the read-only status queries, the confirmed one-row enable/disable write with its admin_actions audit row, the PR procedure for a new organizer agreement version, and the by-hand correction of a club's locked payout identity (name, NIP, KRS).
 ---
 
 # Registration operator
@@ -238,3 +238,36 @@ read back), with these differences:
 
 Never UPDATE or DELETE an `organizer_agreements` row to "move" a club to the
 new version.
+
+
+## 6. Correct a club's payout identity (write)
+
+Once saved, a club's `legal_name`, `nip` and `krs` are locked in the app
+(`update-club-payout` answers 409 `identity_locked`): they name the
+Organizer, the party to the organizer agreement (§1 ust. 2). The owner writes
+to lukasz@leszy.run instead. The IBAN and address stay editable by the owner.
+
+1. **Decide which case it is, with the operator.** A typo or a new legal name
+   of the SAME entity (same NIP) is a correction: continue. A different NIP is
+   a different entity, so a new contract: stop and tell the operator; that is
+   not a data fix.
+2. **Confirm the request came from the club owner**: the operator checks the
+   sender against the owner's account themselves; never print `profiles.email`.
+3. **Say exactly what changes** (club id, which of the three fields, "the
+   value from the owner's e-mail"; never echo the values into this file or
+   the transcript beyond what the operator already typed) and wait for "tak".
+4. **Write through `save_club_payout`**, so the history row is appended in the
+   same transaction. Keep the account and address from the stored row, never
+   fetched into the terminal (MCP `execute_sql`):
+   ```sql
+   SELECT public.save_club_payout(d.club_id, '<OPERATOR_PROFILE_ID>'::uuid, c.name,
+            jsonb_build_object('legal_name', '<NEW_NAME>', 'nip', d.nip, 'krs', d.krs,
+                               'iban', d.iban, 'address', d.address)) IS NOT NULL AS saved
+     FROM public.club_payout_details d JOIN public.clubs c ON c.id = d.club_id
+    WHERE d.club_id = '<CLUB_ID>';
+   ```
+   Replace only the field being corrected (`'nip', '<NEW_NIP>'` with the 10
+   digits, no dashes; `'krs', NULL` to clear it). Exactly one row, `saved = true`.
+5. **Audit row** in `admin_actions` as in task 3, `"action": "payout_identity_corrected"`,
+   `"target_table": "club_payout_details"`, payload with the field names only
+   (`{"fields": ["legal_name"], …}`), never the values.
