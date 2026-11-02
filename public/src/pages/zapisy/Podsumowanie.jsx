@@ -59,7 +59,7 @@ const row = 'flex justify-between gap-2.5 py-2 border-b border-apex-border text-
  *   onBack: () => void, onFailure: (err: Error) => void,
  *   onRepriced: (byCategory: Record<string, number>) => void, endpoint?: string, stepLabel?: string,
  *   team?: { name: string, members: Array<{ key, name, detail, extras? }> },
- *   donation?: { goal: string|null }|null, onRegisterFree?: (() => Promise<void>)|null }} p
+ *   donation?: { goal: string|null, percent?: number|null }|null, onRegisterFree?: (() => Promise<void>)|null }} p
  * A line's `priceGrosze` is its list price, `voucher` { code, percent } and `extras`
  * [{ name, variantLabel, price, qty }] (cartModel's pickedExtras).
  */
@@ -227,7 +227,7 @@ export default function Podsumowanie({
         ))}
       </div>
       {donation && (
-        <DonationChips goal={donation.goal} chip={chip} other={other} error={shownDonationError} disabled={busy}
+        <DonationChips goal={donation.goal} percent={donation.percent ?? null} chip={chip} other={other} error={shownDonationError} disabled={busy}
           onChip={(k) => { setChip(k); setDonationError(null) }} onOther={(t) => { setOther(t); setDonationError(null) }} />
       )}
       <div data-testid="checkout-amounts">
@@ -243,7 +243,7 @@ export default function Podsumowanie({
             )}
             {cart.donation > 0 && (
               <div className={row} data-testid="amount-donation">
-                <span>Darowizna na cel</span><span className="font-mono text-apex-text-bright whitespace-nowrap">{formatPln(cart.donation)}</span>
+                <span>Dodatkowa darowizna na cel</span><span className="font-mono text-apex-text-bright whitespace-nowrap">{formatPln(cart.donation)}</span>
               </div>
             )}
           </>

@@ -519,7 +519,7 @@ function PersonSignup({ raw: rawProp, categoryId, preview = false, backTo }) {
     return (
       <Podsumowanie raw={raw} open={open} welcome={welcome} lines={lines} body={toRequest(draft, { consents, today, extrasOf })}
         addedCategoryIds={draft.cards.slice(1).map((c) => c.categoryId)}
-        donation={donationsOffered(raw) ? { goal: raw.charityGoal ?? null } : null}
+        donation={donationsOffered(raw) ? { goal: raw.charityGoal ?? null, percent: Number.isInteger(raw.charityPercent) ? raw.charityPercent : null } : null}
         onRegisterFree={freeFromSummary ? () => register(null) : null}
         onRepriced={(byCategory) => setPriceOf((m) => ({ ...m, ...byCategory }))}
         onBack={() => setStep('form')} onFailure={(err) => fail(err)} />

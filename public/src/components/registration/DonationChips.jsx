@@ -1,22 +1,28 @@
 import { DONATION_CHIPS } from '../../lib/cartModel.js'
 import { inputCls, labelCls } from './ui.js'
 
-// RA4 (Plan 7, ruling 7): „Darowizna na cel: <cel>” on a charity event with donations on, as chips
-// „0”, „+20 zł”, „+50 zł”, „inna”. „0” is the starting choice: nothing that costs money is
-// preselected. „inna” opens an amount in złote (1–5 000 zł, cartModel's parseDonationInput),
+// RA4 (Plan 7, ruling 7): „Dodatkowa darowizna na cel: <cel>” on a charity event with donations on, as
+// chips „0”, „+5 zł”, „+10 zł”, „inna”. Under them: the chip is on top of the entry fee and reaches the
+// organizer whole (umowa organizatora §7.1: „Organizator otrzymuje te kwoty w całości”), and, when
+// the organizer stated it, what share of the event's income goes to the cause (`percent`).
+// „0” is the starting choice: nothing that costs money is preselected. „inna” opens an amount in złote (1–5 000 zł, cartModel's parseDonationInput),
 // whose error sits under it and is linked to it.
 
 /**
- * @param {{ goal: string|null, chip: string, other: string, error?: string|null,
+ * @param {{ goal: string|null, percent?: number|null, chip: string, other: string, error?: string|null,
  *   onChip: (key: string) => void, onOther: (text: string) => void, disabled?: boolean }} p
  */
-export default function DonationChips({ goal, chip, other, error, onChip, onOther, disabled = false }) {
+export default function DonationChips({ goal, percent = null, chip, other, error, onChip, onOther, disabled = false }) {
   const errorId = 'donation-error'
   return (
     <section className="flex flex-col gap-2" data-testid="donation" aria-labelledby="donation-heading">
       <h2 id="donation-heading" className="font-sans font-bold text-[17px] text-apex-text-bright [overflow-wrap:anywhere]">
-        Darowizna na cel{goal ? `: ${goal}` : ''}
+        Dodatkowa darowizna na cel{goal ? `: ${goal}` : ''}
       </h2>
+      <p className="text-[15px] text-apex-text" data-testid="donation-info">
+        {percent != null && <><span className="font-mono">{percent}%</span> dochodu z zawodów trafia na ten cel. </>}
+        Darowizna to dodatkowa kwota ponad opłatę startową. Przekazujemy ją organizatorowi w całości, na ten cel.
+      </p>
       <div className="grid grid-cols-4 gap-2" role="radiogroup" aria-labelledby="donation-heading">
         {DONATION_CHIPS.map((c) => {
           const on = chip === c.key
