@@ -10,7 +10,12 @@
       ]
     }
   ],
+  "functions": {
+    "api/event-page.js": { "includeFiles": "dist/index.html" },
+    "api/event-og.js": { "includeFiles": "public/logo-z-napisem.svg" }
+  },
   "rewrites": [
+    { "source": "/events/:slug", "destination": "/api/event-page?slug=:slug" },
     { "source": "/((?!assets/|edge/).*)", "destination": "/index.html" }
   ],
   "headers": [

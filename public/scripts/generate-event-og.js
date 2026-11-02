@@ -93,6 +93,19 @@ function buildBadges(event) {
  * @param {string} outputPath - Absolute path to write the PNG file
  */
 export async function generateEventOg(event, outputPath) {
+  const output = await renderEventOg(event)
+  await sharp(output).toFile(outputPath)
+  return { width: WIDTH, height: HEIGHT, bytes: output.length }
+}
+
+/**
+ * The same image as a PNG buffer. `footer` is the address in the bottom left:
+ * a kalendarz page says leszy.run/kalendarz, a leszy.run event page leszy.run.
+ * @param {object} event
+ * @param {{ footer?: string }} [opts]
+ * @returns {Promise<Buffer>}
+ */
+export async function renderEventOg(event, { footer = 'leszy.run/kalendarz' } = {}) {
   const logoPath = resolve(ROOT, 'public/logo-z-napisem.svg')
   const logoSvg = readFileSync(logoPath, 'utf-8')
 
@@ -192,7 +205,7 @@ export async function generateEventOg(event, outputPath) {
   <text x="60" y="${HEIGHT - 20}"
     font-family="'Rajdhani', Arial, sans-serif" font-weight="500"
     font-size="14" letter-spacing="3" fill="${TEXT_MUTED}" opacity="0.5">
-    leszy.run/kalendarz
+    ${escapeXml(footer)}
   </text>
 
   <!-- Bottom accent bar -->
@@ -227,7 +240,5 @@ export async function generateEventOg(event, outputPath) {
     .png({ quality: 90, compressionLevel: 9 })
     .toBuffer()
 
-  await sharp(output).toFile(outputPath)
-
-  return { width: WIDTH, height: HEIGHT, bytes: output.length }
+  return output
 }
