@@ -36,6 +36,14 @@ export function orderAmounts({ entryPrices, extrasTotal = 0, donation = 0 } = {}
   }
 }
 
+// dpay's commission on one transaction, a payment or a refund alike: 0.9%, rounded up to the
+// grosz, at least 0.20 zł. LESZY.RUN bears it and invoices the organizer (§8 of the organizer
+// agreement); it is never taken from the runner's money, so this only informs the organizer.
+export function dpayFee(amount) {
+  grosze(amount, 'amount')
+  return amount === 0 ? 0 : Math.max(20, Math.ceil((amount * 9) / 1000))
+}
+
 function splitZloty(amount) {
   return [Math.floor(amount / 100), String(amount % 100).padStart(2, '0')]
 }

@@ -291,7 +291,9 @@ for (const [mode, width] of [['free', 390], ['paid', 1440]]) {
     await expect(second).toHaveAttribute('data-variant', 'minor')
     await expect(page.locator('#p2-email')).toHaveCount(0)
     await expect(second.locator('[aria-labelledby="p2-gender-label"]').getByRole('button')).toHaveText(['Dziewczynka', 'Chłopiec'])
-    await expect(second.getByTestId('category-preview')).toContainText('Grupa')
+    // #375: a child with no kids' group and no age class covering them shows no „Grupa” at all, never
+    // the adult K open / M open fallback.
+    await expect(second.getByTestId('category-preview')).toHaveCount(0)
     await expect(second.getByTestId('guardian-consent')).not.toBeChecked()
     await expect(second.getByTestId('next-child')).toHaveText('+ Kolejne dziecko')
     await expect(second.getByTestId('next-child')).toBeDisabled()

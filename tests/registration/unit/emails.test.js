@@ -379,6 +379,19 @@ test('Plan 6 Task 5 the operator digest says what to do for the organizer refund
   assert.doesNotMatch(plain.text, /Co zrobić/)
 })
 
+test('O-48 the operator digest tells the operator to record a refund made in the dpay panel with record-external-refund.js', () => {
+  const m = operatorAlertEmail({ alerts: [{
+    kind: 'refund_external', orderId: 'o-x', payload: { txn: 'T-1', dpayRefunded: 2000, recorded: 0, inFlight: 0, difference: 2000 },
+    createdAt: '2026-11-02T10:00:00Z',
+  }] })
+  const line = m.text.split('\n').find((l) => l.startsWith('- refund_external: '))
+  assert.ok(line, m.text)
+  assert.match(line, /backend\/scripts\/record-external-refund\.js --order <orderId> --amount/)
+  assert.match(line, /panelu dpay/)
+  assert.ok(m.text.includes('"difference":2000'))
+  assert.ok(m.html.includes('record-external-refund.js'))
+})
+
 test('O-44 M1/M6 the resolve-script hints for refund_unknown, refund_pending and refund_insufficient_balance appear only for an organizer refund', () => {
   const at = '2026-11-01T10:00:00Z'
   const auto = operatorAlertEmail({ alerts: ['refund_unknown', 'refund_pending', 'refund_insufficient_balance'].map((kind) => (

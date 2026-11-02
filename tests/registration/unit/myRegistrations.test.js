@@ -52,8 +52,8 @@ test('W-87 orders and people per event, upcoming soonest first then past latest 
     { slug: 'bieg-przyszly', eventName: 'Bieg Przyszły', eventDate: '2026-12-06', firstStartTime: '10:00' },
   )
   assert.deepEqual(future.orders, [
-    { id: 'o1', status: 'paid', total: 6000, expiresAt: null, paidAt: '2026-10-01T10:05:00Z', createdAt: '2026-10-01T10:00:00Z' },
-    { id: 'o2', status: 'pending', total: 3000, expiresAt: '2026-11-05T10:00:00Z', paidAt: null, createdAt: '2026-10-02T10:00:00Z' },
+    { id: 'o1', status: 'paid', total: 6000, refunded: 0, cancelled: false, expiresAt: null, paidAt: '2026-10-01T10:05:00Z', createdAt: '2026-10-01T10:00:00Z' },
+    { id: 'o2', status: 'pending', total: 3000, refunded: 0, cancelled: false, expiresAt: '2026-11-05T10:00:00Z', paidAt: null, createdAt: '2026-10-02T10:00:00Z' },
   ])
   assert.deepEqual(future.people, [
     { id: 'r-me', firstName: 'Ola', lastName: 'Leśna', competition: 'Bieg 10 km', status: 'confirmed', mine: true },
@@ -85,6 +85,17 @@ test('W-87 a row seen twice (own entry and in an own order) is listed once; an o
   assert.equal(data[0].people.length, 1)
   assert.equal(data[1].orders.length, 1)
   assert.deepEqual(data[1].people, [])
+})
+
+test('W-87 a paid order whose entries were all cancelled is marked, with what dpay paid back', () => {
+  const data = shapeMyRegistrations({
+    userId: ME, settings, competitions, now: NOW,
+    orders: [order({ id: 'o-gone', event_id: 'e-future', total: 2000 }), order({ id: 'o-live', event_id: 'e-future', created_at: '2026-10-02T10:00:00Z' })],
+    registrations: [],
+    refunded: new Map([['o-gone', 2000], ['o-live', 500]]),
+    liveOrderIds: new Set(['o-live']),
+  })
+  assert.deepEqual(data[0].orders.map((o) => [o.id, o.cancelled, o.refunded]), [['o-gone', true, 2000], ['o-live', false, 500]])
 })
 
 test('W-87 compareEvents: race day is upcoming, an undated event ends the upcoming ones', () => {

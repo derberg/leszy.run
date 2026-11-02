@@ -8,7 +8,7 @@ const sectionTitle = 'font-display font-bold text-[10px] tracking-widest upperca
 
 function StatusBadge({ status }) {
   if (status === 'accepted') {
-    return <span className="px-1.5 py-0.5 text-[9px] font-mono border border-green-800 text-green-400">OK</span>
+    return <span className="px-1.5 py-0.5 text-[9px] font-mono border border-apex-green-dim text-apex-green bg-apex-green-bg">OK</span>
   }
   return <span className="px-1.5 py-0.5 text-[9px] font-mono border border-apex-yellow-dim text-apex-yellow">oczekuje</span>
 }
