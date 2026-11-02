@@ -203,3 +203,26 @@ html.light .hero-scanlines::before {
   padding: 1px 5px;
 }
 .leaflet-tooltip.leszy-course-label::before { display: none; }
+
+/* ─── PRINT ─── */
+/* printDocument() copies a [data-print-doc] element into #print-root, which
+   then prints alone, black on white (the organizer agreement's "Pobierz PDF"). */
+@media print {
+  :root, html, html.dark, html:not(.dark) {
+    --color-apex-bg: #FFFFFF;
+    --color-apex-surface: #FFFFFF;
+    --color-apex-border: #CCCCCC;
+    --color-apex-yellow: #000000;
+    --color-apex-yellow-dim: #999999;
+    --color-apex-text: #111111;
+    --color-apex-text-bright: #000000;
+    --color-apex-muted: #555555;
+  }
+  body { background: #FFFFFF; }
+  body:has(> #print-root) > :not(#print-root) { display: none !important; }
+  #print-root [data-print-doc] { max-width: none; }
+  #print-root [data-print-hide] { display: none !important; }
+  #print-root h2 { break-after: avoid; }
+  @page { margin: 18mm 16mm; }
+}
+@media screen { #print-root { display: none; } }
