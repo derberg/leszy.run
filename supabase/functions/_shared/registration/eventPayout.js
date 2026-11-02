@@ -48,6 +48,9 @@ export async function payoutState(admin, settings) {
   // The club's own details name the Organizer (name, NIP, address), the party to
   // the organizer agreement (§1 ust. 2): a paid event needs them even when its
   // money goes to another account, so a club with no legal identity stays free.
-  if (row?.payout_mode === 'custom') return { mode: 'custom', ready: customPayoutReady(row) && !!club, clubReady: !!club }
+  if (row?.payout_mode === 'custom') {
+    const accountReady = customPayoutReady(row)
+    return { mode: 'custom', ready: accountReady && !!club, accountReady, clubReady: !!club }
+  }
   return { mode: 'club', ready: !!club }
 }

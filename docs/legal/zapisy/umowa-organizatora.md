@@ -201,7 +201,7 @@ Organizator:
 11. **Zakaz zgód w formularzu (§9 ust. 4)** — potwierdzić, że wymagane pola „zgód” w formularzu zapisu są oświadczeniami, a nie zgodami RODO; rozważyć zmianę nazwy pól w Serwisie z „zgody” na „oświadczenia”.
 12. **Rozstrzygnięte 2026-11-02:** do czasu podania danych stroną jest klub; dane wymagane przed pierwszym płatnym Wydarzeniem (§1 ust. 2). Pytanie było: **Dane Organizatora (§1 ust. 2)** — czy umowa może być zawarta przed uzupełnieniem nazwy, NIP i adresu Organizatora.
 13. **Zastosowane 2026-11-02 po przeglądzie prawnym (wersja 2026-11-v6):**
-    a) §1 ust. 2 — płatne Wydarzenia tylko po podaniu danych podmiotu z NIP (decyzja W2); bez nich wyłącznie bezpłatne Wydarzenia, a stroną jest osoba akceptująca; zmiana NIP lub nazwy wymaga ponownej akceptacji. Zastępuje rozstrzygnięcie z pkt 12.
+    a) §1 ust. 2 — płatne Wydarzenia tylko po podaniu danych podmiotu z NIP (decyzja W2); bez nich wyłącznie bezpłatne Wydarzenia, a stroną jest osoba akceptująca; nazwy, NIP i KRS nie można zmienić w Serwisie (zmiana przez lukasz@leszy.run). Zastępuje rozstrzygnięcie z pkt 12.
     b) §2 pkt 5 — darowizny jako część świadczenia Organizatora wobec Uczestnika.
     c) §2 pkt 9–11 — definicje „klub”, „właściciel klubu”, „panel Wydarzenia”.
     d) §4 ust. 3 — umowy zawierane w granicach ustawień Organizatora, prawo odmowy zawarcia umowy.

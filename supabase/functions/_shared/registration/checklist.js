@@ -147,7 +147,10 @@ export function publishChecklist(event) {
   const paid = reason !== null
   if (!PAID_REGISTRATION_ENABLED && paid) block('payments', PAYMENTS_SOON[reason])
   if (paid && !event?.payout?.ready) {
-    const custom = event?.payout?.mode === 'custom' && event.payout.clubReady !== false
+    // An incomplete other account is named first; a complete one still needs the
+    // club's own details (agreement §1 ust. 2), which live in club settings.
+    const p = event?.payout
+    const custom = p?.mode === 'custom' && (p.accountReady === false || p.clubReady !== false)
     block('payout', custom ? 'Dane do wypłat tego wydarzenia' : 'Uzupełnij dane do wypłat w ustawieniach klubu')
   }
 
