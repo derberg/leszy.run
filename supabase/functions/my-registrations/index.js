@@ -5,6 +5,7 @@ import { allRows } from '../_shared/registration/allRows.js'
 import {
   LISTED_ORDER_STATUSES, LISTED_REGISTRATION_STATUSES, shapeMyRegistrations,
 } from '../_shared/registration/myRegistrations.js'
+import { acceptedRefundTotals } from '../_shared/registration/refundedTotals.js'
 
 function json(body, status, req) {
   return new Response(JSON.stringify(body), {
@@ -24,7 +25,7 @@ const chunks = (ids) => {
 const REG_COLUMNS = 'id, event_id, category_id, order_id, status, first_name, last_name, profile_id, created_at'
 
 // POST {} → 200 { data: [{ eventId, slug, eventName, eventDate, firstStartTime,
-//   orders: [{ id, status, total, expiresAt, paidAt, createdAt }],
+//   orders: [{ id, status, total, refunded, cancelled, expiresAt, paidAt, createdAt }],
 //   people: [{ id, firstName, lastName, competition, status, mine }] }] }
 // „Moje zapisy”: every published (or closed) registration event where the session bought an order
 // (pending or paid) or is on a live entry (confirmed or awaiting payment) as the runner, as the
@@ -59,6 +60,9 @@ Deno.serve(async (req) => {
         .in('status', LISTED_REGISTRATION_STATUSES).in('order_id', ids).order('id')))
     }
     const candidates = [...new Map([...own, ...inOrders].map((r) => [r.id, r])).values()]
+    // Before the N-1 filter: a package the organizer moved on still holds its order's place.
+    const liveOrderIds = new Set(inOrders.map((r) => r.order_id))
+    const refunded = await acceptedRefundTotals(admin, orders.map((o) => o.id))
 
     const others = candidates.filter((r) => r.profile_id !== me).map((r) => r.id)
     const byOrganizer = new Set()
@@ -82,7 +86,7 @@ Deno.serve(async (req) => {
         .select('category_id, name').in('category_id', ids).order('category_id')))
     }
 
-    return json({ data: shapeMyRegistrations({ userId: me, settings, orders, registrations, competitions }) }, 200, req)
+    return json({ data: shapeMyRegistrations({ userId: me, settings, orders, registrations, competitions, refunded, liveOrderIds }) }, 200, req)
   } catch (err) {
     console.error('my-registrations error:', err?.message, err?.code)
     return json({ error: 'Internal server error' }, 500, req)

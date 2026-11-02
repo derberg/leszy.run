@@ -24,7 +24,10 @@ function expiryLabel(iso) {
   })
 }
 
-function OrderBadge({ status }) {
+function OrderBadge({ status, cancelled }) {
+  if (cancelled) {
+    return <span className="whitespace-nowrap px-1.5 py-0.5 text-[9px] font-mono border border-apex-border-bright text-apex-muted">ANULOWANE</span>
+  }
   return status === 'paid'
     ? <span className="whitespace-nowrap px-1.5 py-0.5 text-[9px] font-mono border border-apex-green-dim text-apex-green bg-apex-green-bg">OPŁACONE</span>
     : <span className="whitespace-nowrap px-1.5 py-0.5 text-[9px] font-mono border border-apex-yellow-dim text-apex-yellow">DO ZAPŁATY</span>
@@ -78,8 +81,11 @@ function EventCard({ ev, today }) {
         <ul className="mt-2 space-y-1">
           {ev.orders.map((o) => (
             <li key={o.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
-              <OrderBadge status={o.status} />
+              <OrderBadge status={o.status} cancelled={o.cancelled} />
               <span className="font-mono text-[11px] text-apex-text-bright whitespace-nowrap">{formatPln(o.total)}</span>
+              {o.refunded > 0 && (
+                <span className="font-mono text-[10px] text-apex-muted whitespace-nowrap" data-testid="zapisy-refunded">zwrot {formatPln(o.refunded)}</span>
+              )}
               {o.status === 'pending' && o.expiresAt && (
                 <span className="font-mono text-[10px] text-apex-muted whitespace-nowrap">do {expiryLabel(o.expiresAt)}</span>
               )}
