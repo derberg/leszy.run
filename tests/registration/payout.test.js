@@ -172,14 +172,14 @@ test('F-19 get-club-payout: the owner reads every field', async () => {
   assert.equal(r.status, 200)
   assert.deepEqual(r.body.data, {
     legalName: GOOD.legalName, nip: '5260250274', krs: '0000123456',
-    iban: 'PL61109010140000071219812874', address: 'ul. Nowa 2, 00-002 Warszawa',
+    iban: 'PL61109010140000071219812874', address: 'ul. Nowa 2, 00-002 Warszawa', identityReady: true,
   })
 })
 
 test('F-19 get-club-payout: an admin reads the name and the masked account only', async () => {
   const r = await read(await sessionFor('admin@zatyrani-test.local'), ZT)
   assert.equal(r.status, 200)
-  assert.deepEqual(r.body.data, { legalName: GOOD.legalName, ibanMasked: 'PL61 … 2874' })
+  assert.deepEqual(r.body.data, { legalName: GOOD.legalName, ibanMasked: 'PL61 … 2874', identityReady: true })
 })
 
 test('F-19 get-club-payout: a member and a non-member get 403', async () => {
@@ -192,6 +192,41 @@ test('F-19 get-club-payout: a club without details answers data null', async () 
   const r = await read(await sessionFor(OWNER), ZT)
   assert.equal(r.status, 200)
   assert.equal(r.body.data, null)
+})
+
+test('F-19b partial save: every field optional; an empty form is 400; a bad value is still refused', async () => {
+  await clearPayout()
+  const s = await sessionFor(OWNER)
+  const empty = await call(s, { clubId: ZT, legalName: ' ', nip: '', krs: '', iban: '', address: '' })
+  assert.equal(empty.status, 400)
+  assert.deepEqual(empty.body, { error: 'Wpisz co najmniej jedno pole.' })
+  assert.deepEqual(await call(s, { clubId: ZT, iban: 'PL61109010140000071219812875' }).then((r) => r.body), { error: 'Nieprawidłowy numer rachunku.' })
+
+  // The name alone: saved, nothing locked yet, not ready to publish.
+  assert.equal((await call(s, { clubId: ZT, legalName: 'Zatyrani' })).status, 200)
+  let { data: row } = await admin().from('club_payout_details').select('legal_name, nip, krs, iban, address').eq('club_id', ZT).single()
+  assert.deepEqual(row, { legal_name: 'Zatyrani', nip: null, krs: null, iban: null, address: null })
+  assert.equal((await read(s, ZT)).body.data.identityReady, false)
+
+  // Still a draft: the name can change while the NIP is missing.
+  assert.equal((await call(s, { clubId: ZT, legalName: GOOD.legalName, address: GOOD.address })).status, 200)
+  // The NIP completes the identity; no account number yet.
+  assert.equal((await call(s, { clubId: ZT, legalName: GOOD.legalName, nip: GOOD.nip, address: GOOD.address })).status, 200)
+  const r = await read(s, ZT)
+  assert.equal(r.body.data.identityReady, true)
+  assert.equal(r.body.data.iban, null)
+  const adminView = await read(await sessionFor('admin@zatyrani-test.local'), ZT)
+  assert.deepEqual(adminView.body.data, { legalName: GOOD.legalName, ibanMasked: null, identityReady: true })
+
+  // Now locked: the name and NIP are stored.
+  const locked = await call(s, { clubId: ZT, legalName: 'Inny', nip: GOOD.nip, address: GOOD.address })
+  assert.equal(locked.status, 409)
+  assert.equal(locked.body.code, 'identity_locked')
+  // The account is added later.
+  assert.equal((await call(s, { clubId: ZT, legalName: GOOD.legalName, nip: GOOD.nip, address: GOOD.address, iban: GOOD.iban })).status, 200)
+  ;({ data: row } = await admin().from('club_payout_details').select('iban').eq('club_id', ZT).single())
+  assert.equal(row.iban, 'PL61109010140000071219812874')
+  await clearPayout()
 })
 
 test('F-19 a club without online registration has no payout section: owner and admin 404, outsiders still 403', async () => {

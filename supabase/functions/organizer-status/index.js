@@ -3,6 +3,7 @@ import { getCorsHeaders, guardRequest } from '../_shared/cors.js'
 import { getSession } from '../_shared/session.js'
 
 import { clubRole, clubRegistrationEnabled, ORGANIZER_AGREEMENT_VERSION } from '../_shared/organizer.js'
+import { organizerIdentityReady } from '../_shared/registration/eventPayout.js'
 
 function json(body, status, req) {
   return new Response(JSON.stringify(body), {
@@ -31,7 +32,7 @@ Deno.serve(async (req) => {
       clubRegistrationEnabled(admin, clubId),
       admin.from('registration_waitlist').select('club_id').eq('club_id', clubId).maybeSingle(),
       admin.from('organizer_agreements').select('accepted_at').eq('club_id', clubId).eq('version', ORGANIZER_AGREEMENT_VERSION).limit(1),
-      admin.from('club_payout_details').select('club_id').eq('club_id', clubId).maybeSingle(),
+      admin.from('club_payout_details').select('legal_name, nip, address').eq('club_id', clubId).maybeSingle(),
     ])
     return json({ data: {
       enabled,
@@ -39,7 +40,8 @@ Deno.serve(async (req) => {
       agreementAccepted: (agreement.data?.length ?? 0) > 0,
       agreementAcceptedAt: agreement.data?.[0]?.accepted_at ?? null,
       version: ORGANIZER_AGREEMENT_VERSION,
-      payoutConfigured: !!payout.data,
+      // The Organizer is named; the account number may still be missing.
+      payoutConfigured: organizerIdentityReady(payout.data),
       role,
     } }, 200, req)
   } catch (err) {

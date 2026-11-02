@@ -16,7 +16,7 @@ export async function acceptOrganizerAgreement(clubId, version) {
   return (await callFunction('accept-organizer-agreement', { clubId, version })).data
 }
 
-/** Owner: every field. Admin: { legalName, ibanMasked }. null when nothing is saved yet. */
+/** Owner: every field. Admin: { legalName, ibanMasked }. Both: identityReady. Any field may be null; null when nothing is saved yet. */
 export async function getClubPayout(clubId) {
   return (await callFunction('get-club-payout', { clubId })).data
 }

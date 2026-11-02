@@ -123,6 +123,23 @@ test('F-20 zatyrani-test: the owner accepts the agreement, then owner and admin 
   await expect(member.getByTestId('agreement-link')).toHaveCount(0)
 })
 
+test('F-20b the owner saves the details in parts: no account number is fine, and the 7-day payout warning shows', async ({ actors }) => {
+  const owner = await open(actors.owner, '/klub/zatyrani-test/ustawienia')
+  await owner.getByLabel('Nazwa podmiotu', { exact: true }).fill('Stowarzyszenie Zatyrani Test')
+  await owner.getByRole('button', { name: 'Zapisz dane do wypłat' }).click()
+  await expect(owner.getByTestId('payout-saved')).toBeVisible()
+  await expect(owner.getByTestId('payout-iban-missing')).toContainText('w terminie 7 dni od zawodów')
+  // Only the name: not locked yet.
+  await expect(owner.getByTestId('payout-identity-locked')).toHaveCount(0)
+
+  await owner.reload()
+  await expect(owner.getByLabel('Nazwa podmiotu', { exact: true })).toHaveValue('Stowarzyszenie Zatyrani Test')
+  const { data } = await admin().from('club_payout_details').select('legal_name, nip, iban').eq('club_id', ZT).single()
+  expect(data).toEqual({ legal_name: 'Stowarzyszenie Zatyrani Test', nip: null, iban: null })
+  await admin().from('club_payout_details').delete().eq('club_id', ZT)
+  await admin().from('club_payout_history').delete().eq('club_id', ZT)
+})
+
 test('F-20 zatyrani-test: the owner saves payout details, the admin sees the masked account', async ({ actors }) => {
   const owner = await open(actors.owner, '/klub/zatyrani-test/ustawienia')
   await owner.getByLabel('Nazwa podmiotu', { exact: true }).fill('Stowarzyszenie Zatyrani Test')

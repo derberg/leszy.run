@@ -4,6 +4,7 @@ import { getClubPayout, getEventPayout, updateEventPayout } from '../../../../li
 import { groupIban } from '../../../../lib/iban.js'
 import { btnPrimary, errorClass, fieldInput, savedClass } from '../../settingsUi.js'
 import { useKlub } from '../../context.js'
+import { IbanMissing } from '../../sections/PayoutDetails.jsx'
 import { FieldError, InfoTip, Seg, cardClass, cardTitle, monoLabel, sectionErrors } from '../wizardUi.jsx'
 import Vouchers from './Vouchers.jsx'
 
@@ -43,7 +44,8 @@ function Value({ name, children, mono = false }) {
 
 /** The club's own account, as club settings hold it. */
 function ClubAccount({ club, payout, isOwner }) {
-  if (!payout) {
+  // Without the Organizer named (name, NIP, address) a paid event cannot publish.
+  if (!payout?.identityReady) {
     return (
       <div className="flex flex-wrap items-center justify-between gap-3" data-testid="club-payout-missing">
         <span className="font-sans text-[17px] text-apex-red">Brak danych do wypłat klubu</span>
@@ -55,10 +57,23 @@ function ClubAccount({ club, payout, isOwner }) {
       </div>
     )
   }
+  const account = payout.ibanMasked ?? masked(payout.iban)
   return (
-    <div className="grid gap-3.5 grid-cols-[repeat(auto-fit,minmax(min(100%,220px),1fr))]" data-testid="club-payout">
-      <Value name="Odbiorca">{payout.legalName}</Value>
-      <Value name="Rachunek" mono>{payout.ibanMasked ?? masked(payout.iban)}</Value>
+    <div className="flex flex-col gap-3.5">
+      <div className="grid gap-3.5 grid-cols-[repeat(auto-fit,minmax(min(100%,220px),1fr))]" data-testid="club-payout">
+        <Value name="Odbiorca">{payout.legalName}</Value>
+        <Value name="Rachunek" mono>{account ?? '—'}</Value>
+      </div>
+      {!account && (
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <IbanMissing />
+          {isOwner && (
+            <Link to={`/klub/${club.slug}/ustawienia`} className="font-mono text-sm text-apex-yellow whitespace-nowrap no-underline hover:underline">
+              USTAWIENIA KLUBU →
+            </Link>
+          )}
+        </div>
+      )}
     </div>
   )
 }
