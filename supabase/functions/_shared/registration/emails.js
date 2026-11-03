@@ -245,8 +245,9 @@ const RESOLVE = 'backend/scripts/resolve-registration-refund.js --refund <refund
  * carries payload.reason 'organizer' (Task 5 review M1).
  */
 export const ALERT_HINTS = {
-  refund_unknown: `zwrot organizatora bez pewnej odpowiedzi dpay: sprawdź panel dpay, potem ${RESOLVE}`,
-  refund_pending: `zwrot organizatora w toku po stronie dpay: sprawdź panel dpay, potem ${RESOLVE}`,
+  refund_unknown: `zwrot organizatora bez pewnej odpowiedzi dpay (z polem verify: dpay odpowiedział 400, a /pbl/details nie rozstrzygnął; dpayRefunded to suma zwrotów w dpay, recorded nasza): sprawdź panel dpay, potem ${RESOLVE}`,
+  refund_pending: `zwrot organizatora zapisany przez starszą wersję jako „w toku” (dpay 409): sprawdź panel dpay, potem ${RESOLVE}`,
+  refund_blocked: 'dpay odpowiedział 409 „Transaction already has a refund form submitted!”: stary formularz zwrotu blokuje zwroty tej transakcji przez API i sam nie zniknie. Pieniądze nie wyszły, rezerwacja zwolniona. Napisz do dpay z identyfikatorem transakcji (txn); po ich odpowiedzi zwrot można zlecić ponownie',
   refund_stalled: `zwrot bez odpowiedzi dpay od 15 min. Organizatora (reason organizer): sprawdź panel dpay, potem ${RESOLVE}`,
   refund_never_sent: `zwrot nigdy nie wysłany do dpay. Organizatora (reason organizer): brak zwrotu w panelu dpay → ${RESOLVE} z --outcome rejected`,
   refund_email_failed: 'zwrot przyjęty, e-mail do biegacza nie wyszedł: popraw przyczynę lub napisz ręcznie; refunds.runner_notified_at = NULL każe zadaniu wysłać go ponownie. Z polem copy (payer / holder) nie wyszła tylko ta kopia, druga doszła: napisz do tej osoby ręcznie i nie zeruj runner_notified_at',

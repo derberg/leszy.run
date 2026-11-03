@@ -92,10 +92,13 @@ test('O-10 a partial reservation moves the line and the registration; accepted l
 
 // ---------------------------------------------------------------- O-11
 
-test('O-11 refusals: over the remaining amount, zero, an unpaid order, race day; the cutoff is warsawDayStart', async () => {
+test('O-11 refusals: another refund of the payment in progress, over the remaining amount, zero, an unpaid order, race day; the cutoff is warsawDayStart', async () => {
   const event = await paidEvent()
   const e = await paidEntry(event)
-  ok(await reserve(e.line.id, 2000))
+  const first = ok(await reserve(e.line.id, 2000))
+  // A second refund of the payment waits for the first one's answer (dpay: one at a time).
+  refused(await reserve(e.line.id, 1000), 'refund_in_progress')
+  ok(await rpc('finish_organizer_refund', { p_refund_id: first.refundId, p_outcome: 'accepted' }))
   refused(await reserve(e.line.id, 4001), 'exceeds:4000')
   refused(await reserve(e.line.id, 0), 'invalid_amount')
   refused(await reserve(e.line.id, -5), 'invalid_amount')

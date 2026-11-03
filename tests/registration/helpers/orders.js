@@ -25,6 +25,17 @@ export async function consentIds(eventId) {
 
 export const rpc = (fn, args) => db().rpc(fn, args)
 
+/**
+ * An organizer refund made long ago with no certain answer (`unknown`, sent 20 minutes back), so
+ * reserve_organizer_refund no longer counts it as in progress: refunds of one payment otherwise go
+ * one at a time (refund_in_progress). The reservation stays.
+ */
+export async function ageRefund(refundId) {
+  const { error } = await db().from('refunds')
+    .update({ dpay_status: 'unknown', requested_at: new Date(Date.now() - 20 * 60_000).toISOString() }).eq('id', refundId)
+  if (error) throw error
+}
+
 /** The profile id for an address (created when missing): every order needs an account (P3-R4). */
 export async function profileFor(email) {
   const normalized = email.toLowerCase().trim()

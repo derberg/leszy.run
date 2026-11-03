@@ -35,6 +35,9 @@ const TIMEOUT_MS = 10_000
 const KNOWN_STATUSES = new Set(['created', 'processing', 'paid', 'captured', 'expired'])
 // https://docs.dpay.pl/docs/cykl-platnosci/zwroty/ (DigitalPayments-PSP-Message-ID, at most 24 characters)
 const MAX_MESSAGE_ID = 24
+// dpay's answer of 2026-11-03: /pbl/details is cached for a few seconds, so a refund ordered just now
+// may not show yet; they advise waiting about 10 s before reading it to judge a refund.
+const REFUND_VERIFY_DELAY_MS = 10_000
 
 function isHttpUrl(v) {
   try {
@@ -59,6 +62,11 @@ export function dpayConfig(env) {
     else values[key] = v.trim()
   }
   if (bad.length) throw new DpayConfigError(bad)
+  // Optional, for the local test stack, whose mock answers at once: how long verifyRefund waits.
+  // Anything but a whole number of milliseconds up to a minute keeps dpay's 10 s.
+  const delay = read('DPAY_REFUND_VERIFY_DELAY_MS')
+  const refundVerifyDelayMs = typeof delay === 'string' && /^\d{1,5}$/.test(delay.trim()) && Number(delay) <= 60_000
+    ? Number(delay) : REFUND_VERIFY_DELAY_MS
   const noSlash = (u) => u.replace(/\/+$/, '')
   return {
     service: values.DPAY_SERVICE,
@@ -68,6 +76,7 @@ export function dpayConfig(env) {
     ipnUrl: values.DPAY_IPN_URL,
     publicSiteUrl: noSlash(values.PUBLIC_SITE_URL),
     timeoutMs: TIMEOUT_MS,
+    refundVerifyDelayMs,
   }
 }
 
@@ -153,15 +162,21 @@ export async function verifyIpn(cfg, body) {
   return safeEqualHex(await ipnSignature(cfg.secret, body), body.signature)
 }
 
-// GUESS until sandbox test S-06 records the real response: dpay documents the details endpoint but not
-// its response fields. The official Node SDK (@dpayglobal/dpay-node-sdk 0.2.0, parseTransaction) reads
-// `transaction.status` and `transaction.value` (a decimal string or a number). Anything else, or a value
-// parseDpayAmount refuses, gives grosze: null, which must never confirm a payment.
+// dpay's answer of 2026-11-03 describes the details response: `transaction.value` is a decimal
+// string, `refunded_amount` and `available_refund_amount` are numbers (15.0), and `refunds[]` lists
+// every refund of the transaction, from the API and the panel, with a negative `value`. A value
+// parseDpayAmount refuses gives null, which must never confirm a payment or settle a refund.
 function detailsAmount(value) {
-  const asText = typeof value === 'string' ? value : typeof value === 'number' && Number.isFinite(value) ? String(value) : null
-  if (asText === null) return null
+  // A number (refunded_amount) is a float: 10.1 + 5.2 arrives as 15.299999999999999, whose text the
+  // decimal pattern refuses. Whole grosze within float noise are read; anything else is refused.
+  if (typeof value === 'number') {
+    if (!Number.isFinite(value) || value < 0) return null
+    const grosze = Math.round(value * 100)
+    return Math.abs(value * 100 - grosze) < 1e-6 && Number.isSafeInteger(grosze) ? grosze : null
+  }
+  if (typeof value !== 'string') return null
   try {
-    return parseDpayAmount(asText)
+    return parseDpayAmount(value)
   } catch (err) {
     if (err instanceof MoneyError) return null
     throw err
@@ -177,7 +192,9 @@ function detailsAmount(value) {
  *           a timeout or a non-JSON body.
  * refundedGrosze is `transaction.refunded_amount` (seen in the sandbox on 2026-11-01, sandbox README:
  * dpay reports every refund there, also one made in its merchant panel); null when absent or not an
- * amount parseDpayAmount accepts, which must never be read as "nothing refunded".
+ * amount parseDpayAmount accepts, which must never be read as "nothing refunded". It counts every
+ * refund dpay accepted, also one not yet carried out by the payer's bank, and does not drop when the
+ * bank later refuses it (dpay, 2026-11-03).
  */
 export async function transactionDetails(cfg, txnId) {
   const body = { service: cfg.service, transaction_id: txnId }
@@ -197,23 +214,26 @@ export async function transactionDetails(cfg, txnId) {
 
 /**
  * Orders a refund, full when `grosze` is omitted. `messageId` (≤ 24 characters) is sent as
- * DigitalPayments-PSP-Message-ID; it labels the transfer and is NOT an idempotency key, so the caller
- * must never send the same refund twice.
+ * DigitalPayments-PSP-Message-ID; it labels the transfer and is NOT an idempotency key (dpay,
+ * 2026-11-03: every valid request is a new refund), so the caller must never send the same refund twice.
  * POST {panelBase}/api/v1/pbl/refund { service, transaction_id, value?, checksum }
  * https://docs.dpay.pl/docs/cykl-platnosci/zwroty/
  * Outcome:
- *   accepted              HTTP 200 with status 'success' and refund: true (the body the docs show and the
- *                         official Node SDK's parseRefund checks)
+ *   accepted              HTTP 200 with status 'success' and refund: true: dpay took the order. The
+ *                         payer's bank may still refuse it later (dpay then retries a BLIK refund itself)
  *   insufficient_balance  406: the merchant balance is too low; the only outcome worth retrying later
- *   pending               409: a refund form for this transaction was already submitted (GUESS from the
- *                         SDK's outcome list; the docs page does not describe 409)
- *   rejected              any other 4xx (400 exceeds/refused, 401 checksum, 402 unpaid, 404 unknown,
- *                         410 already refunded)
+ *   failed                400 („Refund failed”, or a refusal such as an amount over what is left). dpay:
+ *                         the order may already have reached the payment operator, so it is never read
+ *                         as "no money moved" before /pbl/details says so (verifyRefund)
+ *   blocked               409 „Transaction already has a refund form submitted!”: a withdrawn refund form
+ *                         blocks API refunds of this transaction until dpay clears it. No money moved,
+ *                         nothing is in progress, and it does not clear by itself: the operator writes
+ *                         to dpay with the transaction id
+ *   rejected              any other 4xx (401 checksum, 402 unpaid, 404 unknown, 410 already refunded)
  *   unknown               timeout, network error, 5xx, 3xx, or a 200 without the success body
- * Only `accepted` is known to have moved money. Callers must NOT read rejected, pending or unknown as
- * "no money moved": a 410 means an earlier refund went through, a 409 means one is in progress, and an
- * unknown may have been carried out. None of them may be retried automatically or offered again
- * without a person checking the dpay panel.
+ * Only `accepted` is known to have moved money. Callers must NOT read failed, rejected or unknown as
+ * "no money moved": a 410 means an earlier refund went through, and a 400 or an unknown may have been
+ * carried out. None of them may be retried automatically or offered again without a check.
  */
 export async function refundTransaction(cfg, { transactionId, grosze, messageId }) {
   if (messageId !== undefined && (typeof messageId !== 'string' || messageId.length > MAX_MESSAGE_ID)) {
@@ -238,7 +258,8 @@ export async function refundTransaction(cfg, { transactionId, grosze, messageId 
   let outcome
   if (status === 200) outcome = json?.status === 'success' && json?.refund === true ? 'accepted' : 'unknown'
   else if (status === 406) outcome = 'insufficient_balance'
-  else if (status === 409) outcome = 'pending'
+  else if (status === 409) outcome = 'blocked'
+  else if (status === 400) outcome = 'failed'
   else if (status >= 400 && status < 500) outcome = 'rejected'
   else outcome = 'unknown'
   return { outcome, httpStatus: status, message }

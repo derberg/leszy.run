@@ -230,14 +230,14 @@ test('P-09 details of an unknown transaction → DpayError(404)', async () => {
   await assert.rejects(transactionDetails(cfg, 'no-such-txn'), { name: 'DpayError', httpStatus: 404 })
 })
 
-test('P-09 refunds: partial 1000 twice accepted, over the rest rejected 400, unpaid 402, full then 410', async () => {
+test('P-09 refunds: partial 1000 twice accepted, over the rest failed 400, unpaid 402, full then 410', async () => {
   const txnId = await paidTransaction(10091)
   const a = await refundTransaction(cfg, { transactionId: txnId, grosze: 1000, messageId: 'aaaaaaaaaaaaaaaaaaaaaaaa' })
   assert.deepEqual([a.outcome, a.httpStatus], ['accepted', 200])
   const b = await refundTransaction(cfg, { transactionId: txnId, grosze: 1000, messageId: 'aaaaaaaaaaaaaaaaaaaaaaaa' })
   assert.deepEqual([b.outcome, b.httpStatus], ['accepted', 200], 'the mock does not deduplicate on the message id')
   const over = await refundTransaction(cfg, { transactionId: txnId, grosze: 9000, messageId: 'b' })
-  assert.deepEqual([over.outcome, over.httpStatus], ['rejected', 400])
+  assert.deepEqual([over.outcome, over.httpStatus], ['failed', 400])
   const rest = await refundTransaction(cfg, { transactionId: txnId, messageId: 'c' })
   assert.deepEqual([rest.outcome, rest.httpStatus], ['accepted', 200])
   const again = await refundTransaction(cfg, { transactionId: txnId, grosze: 1, messageId: 'd' })
@@ -255,7 +255,7 @@ test('P-09 refunds: partial 1000 twice accepted, over the rest rejected 400, unp
   assert.deepEqual([u.outcome, u.httpStatus], ['rejected', 402])
 })
 
-test('P-09 refund outcomes: 406 insufficient_balance, 500 unknown, 409 pending, hang unknown after the timeout', async () => {
+test('P-09 refund outcomes: 406 insufficient_balance, 500 unknown, 409 blocked, 400 failed, hang unknown after the timeout', async () => {
   const txnId = await paidTransaction(5000)
   await dpayMode({ refundInsufficient: true })
   const ins = await refundTransaction(cfg, { transactionId: txnId, grosze: 100, messageId: 'x' })
@@ -267,9 +267,13 @@ test('P-09 refund outcomes: 406 insufficient_balance, 500 unknown, 409 pending, 
 
   await dpayMode({ refundFails: false, refundPending: true })
   const pend = await refundTransaction(cfg, { transactionId: txnId, grosze: 100, messageId: 'x' })
-  assert.deepEqual([pend.outcome, pend.httpStatus], ['pending', 409])
+  assert.deepEqual([pend.outcome, pend.httpStatus], ['blocked', 409])
 
-  await dpayMode({ refundPending: false, refundHang: true })
+  await dpayMode({ refundPending: false, refundRejected: true })
+  const refused = await refundTransaction(cfg, { transactionId: txnId, grosze: 100, messageId: 'x' })
+  assert.deepEqual([refused.outcome, refused.httpStatus], ['failed', 400])
+
+  await dpayMode({ refundRejected: false, refundHang: true })
   const started = Date.now()
   const hang = await refundTransaction({ ...cfg, timeoutMs: 300 }, { transactionId: txnId, grosze: 100, messageId: 'x' })
   assert.deepEqual([hang.outcome, hang.httpStatus], ['unknown', null])

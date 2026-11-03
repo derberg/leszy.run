@@ -209,7 +209,7 @@ test.describe('dpay sandbox acceptance', () => {
     expect(second.outcome, second.message).toBe('accepted')
     const over = await ref(total() - 1500 + 1) // one grosz more than is left
     expect(over.httpStatus).toBe(400)
-    expect(over.outcome).toBe('rejected')
+    expect(over.outcome).toBe('failed') // a 400 is judged against /pbl/details by the caller
 
     const details = await bridge('details', { txn })
     // Sum every numeric/decimal field whose name mentions "refund": the parser does not read one yet (S-06 finds it).

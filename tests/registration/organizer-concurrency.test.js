@@ -17,7 +17,7 @@ import { messagesTo, startCapture } from './helpers/emailCapture.js'
 import { acceptAgreement, callFn, createPublishedPaidEvent } from './helpers/registrationFixtures.js'
 import { dpayMode, dpayRefunds, dpayReset, payMock, replayIpn, startDpayMock } from './helpers/dpayControl.js'
 import {
-  attemptFor, competitionOf, confirm, confirmOk, db, minutesFromNow, one, orderOf, orderOk, profileFor, rows, rpc,
+  ageRefund, attemptFor, competitionOf, confirm, confirmOk, db, minutesFromNow, one, orderOf, orderOk, profileFor, rows, rpc,
   runnerEmail, setSettings,
 } from './helpers/orders.js'
 import { adult, groupMeta, isDeadlock, registerGroup } from './helpers/groups.js'
@@ -163,7 +163,7 @@ test('O-20b one requestKey sent for two different lines at once → one refund, 
 
 // ---------------------------------------------------------------- O-21
 
-test('O-21 two organizers: owner 40 zł and admin 30 zł of a 60 zł line at once → one accepted, the other exceeds with what is left', async () => {
+test('O-21 two organizers: owner 40 zł and admin 30 zł of a 60 zł line at once → one accepted, the other refund_in_progress, or exceeds with what is left', async () => {
   const event = await paidEvent()
   for (let round = 0; round < 10; round++) {
     const e = await paidEntry(event)
@@ -171,9 +171,13 @@ test('O-21 two organizers: owner 40 zł and admin 30 zł of a 60 zł line at onc
     const statuses = [o.status, a.status].sort()
     assert.deepEqual(statuses, [200, 409], `round ${round}: ${JSON.stringify([o, a])}`)
     const lost = o.status === 409 ? o : a
-    assert.equal(lost.body.code, 'exceeds')
-    assert.equal(lost.body.remaining, o.status === 409 ? 3000 : 2000)
-    assert.equal(lost.body.error, exceedsCopy(lost.body.remaining))
+    // Refunds of one payment go one at a time: the loser meets the winner's open refund, or, when
+    // the winner was already answered, the amount left.
+    assert.ok(['refund_in_progress', 'exceeds'].includes(lost.body.code), JSON.stringify(lost))
+    if (lost.body.code === 'exceeds') {
+      assert.equal(lost.body.remaining, o.status === 409 ? 3000 : 2000)
+      assert.equal(lost.body.error, exceedsCopy(lost.body.remaining))
+    }
     const atMock = await refundsAtMock(e.txn)
     assert.equal(atMock.length, 1)
     assert.ok(atMock.reduce((s, r) => s + r.grosze, 0) <= PRICE)
@@ -192,7 +196,8 @@ test('O-21 two concurrent full refunds → one cancellation, taken − 1 once, o
     assert.deepEqual(rs.map((r) => r.status).sort(), [200, 409], JSON.stringify(rs))
     const won = rs.find((r) => r.status === 200)
     assert.deepEqual(won.body.data.cancelled, [e.registrationId])
-    assert.equal(rs.find((r) => r.status === 409).body.remaining, 0)
+    const lost = rs.find((r) => r.status === 409).body
+    assert.ok(lost.code === 'refund_in_progress' || lost.remaining === 0, JSON.stringify(lost))
     assert.equal(await taken(cat), before - 1)
     assert.equal((await reg(e.registrationId)).status, 'cancelled')
     assert.deepEqual((await refundsAtMock(e.txn)).map((r) => r.grosze), [PRICE])
@@ -205,6 +210,7 @@ test('O-21 two halves settling at the same moment → exactly one cancels the en
   for (let round = 0; round < 20; round++) {
     const e = await paidEntry(event)
     const a = ok(await rpc('reserve_organizer_refund', { p_line_id: e.lineId, p_grosze: 3000, p_actor: ownerId, p_request_key: key() }))
+    await ageRefund(a.refundId) // an unanswered refund from long ago, resolved now by the operator
     const b = ok(await rpc('reserve_organizer_refund', { p_line_id: e.lineId, p_grosze: 3000, p_actor: adminId, p_request_key: key() }))
     const before = await taken(cat)
     const rs = await together(round,
@@ -315,7 +321,7 @@ test('O-23 the organizer cancels a pending order, then the payment lands → ref
 
 // ---------------------------------------------------------------- O-24, O-25, O-28
 
-test('O-24 dpay answers 500 → unknown, the reservation kept, one alert; the rest can still be refunded; the job makes no dpay call', async () => {
+test('O-24 dpay answers 500 → unknown, the reservation kept, one alert; the rest is refused for 15 minutes, then can be refunded; the job makes no dpay call', async () => {
   const event = await paidEvent()
   const e = await paidEntry(event)
   await dpayMode({ refundFails: true })
@@ -329,6 +335,11 @@ test('O-24 dpay answers 500 → unknown, the reservation kept, one alert; the re
   assert.equal((await alerts(e.orderId, 'refund_unknown')).length, 1)
 
   await dpayMode({ refundFails: false })
+  // dpay: no second refund of the payment while the first may still be running there.
+  const early = await refund(e, 4000)
+  assert.equal(early.status, 409, JSON.stringify(early))
+  assert.equal(early.body.code, 'refund_in_progress')
+  await ageRefund(f.id) // 15 minutes on, the unknown refund no longer blocks
   const rest = await refund(e, 4000)
   assert.equal(rest.status, 200, JSON.stringify(rest))
   assert.deepEqual(rest.body.data.cancelled, [], 'only accepted money cancels: 40 of 60 zł')

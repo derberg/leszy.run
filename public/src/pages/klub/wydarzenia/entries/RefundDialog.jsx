@@ -18,7 +18,7 @@ const LINE_NAME = { entry: 'Opłata startowa', extra: 'Dodatek', donation: 'Daro
 // dpay's final refusals: the refund row under that key is settled for good, so a retry needs a new
 // key (a replay would answer the same refusal forever). Any other failure keeps the key: the
 // request may have gone through, and the same key replays it.
-const SETTLED_REFUSALS = new Set(['rejected', 'insufficient_balance'])
+const SETTLED_REFUSALS = new Set(['rejected', 'insufficient_balance', 'refund_blocked'])
 
 const remainingOf = (line) => line.amount - line.refunded
 const newKey = () => crypto.randomUUID()

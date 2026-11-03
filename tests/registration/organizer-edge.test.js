@@ -379,6 +379,54 @@ test('O-34 dpay never answers → 202 after the function\'s dpay timeout, no run
   assert.equal((await one('order_lines', { id: e.lineId })).refunded, 2000, 'the reservation is kept')
 })
 
+test('O-34b dpay 400 although the refund went through → /pbl/details shows it → 200 accepted, the club\'s e-mail, no alert', async () => {
+  const event = await paidEvent()
+  const e = await paidEntry(event)
+  await dpayMode({ refundFailedButDone: true })
+  const r = await callFn('organizer-refund', owner, { lineId: e.lineId, grosze: 2000, requestKey: key() })
+  assert.equal(r.status, 200, JSON.stringify(r.body))
+  assert.equal(r.body.data.status, 'accepted')
+  assert.equal((await one('refunds', { id: r.body.data.refundId })).dpay_status, 'accepted')
+  assert.equal((await waitForMail(e.email, 1)).length, 1)
+  assert.deepEqual((await rows('operator_alerts', { order_id: e.orderId })).map((a) => a.kind), [])
+
+  // A 400 with nothing refunded at dpay is a refusal: the reservation goes back.
+  await dpayMode({ refundFailedButDone: false, refundRejected: true })
+  const no = await callFn('organizer-refund', owner, { lineId: e.lineId, grosze: 1000, requestKey: key() })
+  assert.equal(no.status, 409, JSON.stringify(no.body))
+  assert.equal(no.body.code, 'rejected')
+  assert.equal((await one('order_lines', { id: e.lineId })).refunded, 2000)
+})
+
+test('O-34c dpay 409 (a refund form blocks the transaction) → 409 refund_blocked, the reservation freed, one refund_blocked alert', async () => {
+  const event = await paidEvent()
+  const e = await paidEntry(event)
+  await dpayMode({ refundPending: true })
+  const r = await callFn('organizer-refund', owner, { lineId: e.lineId, grosze: 2000, requestKey: key() })
+  assert.equal(r.status, 409, JSON.stringify(r.body))
+  assert.equal(r.body.code, 'refund_blocked')
+  assert.match(r.body.error, /blokuje zwroty tej wpłaty/)
+  assert.equal((await one('refunds', { id: r.body.refundId })).dpay_status, 'rejected')
+  assert.equal((await one('order_lines', { id: e.lineId })).refunded, 0)
+  const alerts = await rows('operator_alerts', { order_id: e.orderId, kind: 'refund_blocked' })
+  assert.equal(alerts.length, 1)
+  assert.equal(alerts[0].payload.txn, e.txn)
+  await sleep(300)
+  assert.equal((await messagesTo(e.email)).length, 0)
+})
+
+test('O-34d one refund of a payment at a time: another one awaiting dpay\'s answer → 409 refund_in_progress, nothing reserved', async () => {
+  const event = await paidEvent()
+  const e = await paidEntry(event)
+  // A reservation not yet answered by dpay (as between reserve and dpay's answer).
+  await rpc('reserve_organizer_refund', { p_line_id: e.lineId, p_grosze: 1000, p_actor: ownerId, p_request_key: key() })
+  const r = await callFn('organizer-refund', owner, { lineId: e.lineId, grosze: 2000, requestKey: key() })
+  assert.equal(r.status, 409, JSON.stringify(r.body))
+  assert.equal(r.body.code, 'refund_in_progress')
+  assert.equal((await one('order_lines', { id: e.lineId })).refunded, 1000)
+  assert.equal((await rows('refunds', { order_id: e.orderId })).length, 1)
+})
+
 // ---------------------------------------------------------------- O-35
 
 test('O-35 extend, remind (a second within 24 h → 429), cancel, edit and rename each write one organizer_actions row naming the target', async () => {

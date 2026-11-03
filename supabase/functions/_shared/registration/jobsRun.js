@@ -366,9 +366,13 @@ export async function runJobs(admin, cfg, { site, alertTo, budgetMs }) {
         const [r] = await rpcRows(admin, 'claim_refund_retries', { p_limit: 1 })
         if (!r) return
         counts.refundRetries++
-        const outcome = await executeRefund(admin, { ...cfg, timeoutMs: Math.min(cfg.timeoutMs ?? 10_000, left - 1_000) }, {
+        const timeoutMs = Math.min(cfg.timeoutMs ?? 10_000, left - 1_000)
+        const outcome = await executeRefund(admin, { ...cfg, timeoutMs }, {
           orderId: r.order_id, txn: r.txn, refundId: r.refund_id, messageId: r.message_id, attemptId: r.attempt_id,
           grosze: r.amount, reason: r.reason, partial: r.amount < r.attempt_grosze, source: 'retry',
+          // A 400 is judged after dpay's cache delay; without the time for it, an unchanged
+          // amount is stored as unknown rather than rejected.
+          verifyWait: left >= 2 * timeoutMs + (cfg.refundVerifyDelayMs ?? 10_000) + 1_000,
         })
         if (outcome === 'insufficient_balance' && r.attempts >= MAX_RETRIES) {
           // Exhausted: no further retry, and the row no longer looks due (review M4).

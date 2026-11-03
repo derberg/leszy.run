@@ -67,6 +67,7 @@ const DEFAULT_MODE = {
   refundInsufficient: false,
   refundPending: false,
   refundRejected: false,
+  refundFailedButDone: false,
   refundBodyOverride: null,
   refundHang: false,
   detailsHang: false,
@@ -211,21 +212,26 @@ export async function startDpayMock({ port = DPAY_MOCK_PORT, publicUrl = `http:/
     const txn = txns.get(body.transaction_id)
     if (!txn) return [404, 'Transaction not found']
     if (mode.detailsBodyOverride) return [200, mode.detailsBodyOverride]
-    // Shape after the official Node SDK's parser (@dpayglobal/dpay-node-sdk 0.2.0); dpay's docs do not
-    // list the fields. Sandbox test S-06 records the real one.
+    // The shape dpay described on 2026-11-03: `value` a decimal string, the refund amounts numbers,
+    // `refunds[]` every refund with a negative value and status 'paid'.
+    const own = refunds.filter((r) => r.txnId === txn.id)
     return [200, {
+      status: 'success',
       transaction: {
         id: txn.id,
         value: toValue(txn.grosze),
         status: mode.detailsStatus ?? txn.status,
-        refunded: txn.refunded > 0,
-        refunded_amount: toValue(txn.refunded),
-        available_refund_amount: toValue(txn.grosze - txn.refunded),
-        fully_refunded: txn.refunded === txn.grosze,
         creation_date: txn.createdAt,
+        refunded: txn.refunded > 0,
+        refunded_amount: txn.refunded / 100,
+        available_refund_amount: (txn.grosze - txn.refunded) / 100,
+        fully_refunded: txn.refunded === txn.grosze,
+        direct: false,
       },
-      refunds: refunds.filter((r) => r.txnId === txn.id).map((r) => ({ value: toValue(r.grosze), creation_date: r.at })),
       payer: {},
+      refunds: own.map((r, i) => ({
+        payment_id: `ZWROT-${txn.id}-${i}`, value: -r.grosze / 100, status: 'paid', creation_date: r.at, payment_date: r.at,
+      })),
     }]
   }
 
@@ -238,17 +244,20 @@ export async function startDpayMock({ port = DPAY_MOCK_PORT, publicUrl = `http:/
     if (txn.status !== 'paid') return [402, { status: 'error', refund: false, message: 'Transaction has not been paid' }]
     const remaining = txn.grosze - txn.refunded
     if (remaining === 0) return [410, { status: 'error', refund: false, message: 'Transaction has already been refunded' }]
-    // 409: a refund form for this transaction was already submitted and is still being processed
-    // (the official Node SDK lists 409 among the refund outcomes; the docs page does not describe it).
-    if (mode.refundPending) return [409, { status: 'error', refund: false, message: 'Refund already in progress' }]
-    // Any other 4xx, here a refusal (400): the client reads it as rejected, final.
-    if (mode.refundRejected) return [400, { status: 'error', refund: false, message: 'Refund refused' }]
+    // 409: a withdrawn refund form blocks API refunds of this transaction until dpay clears it
+    // (dpay, 2026-11-03). Nothing is refunded.
+    if (mode.refundPending) return [409, { status: 'error', refund: false, message: 'Transaction already has a refund form submitted!' }]
+    // 400 „Refund failed”: nothing refunded, or (refundFailedButDone) the order reached the payment
+    // operator before the error, so the refund is carried out anyway, as dpay warned it can be.
+    if (mode.refundRejected) return [400, { status: 'error', refund: false, message: 'Refund failed' }]
+    const done400 = mode.refundFailedButDone
     if (mode.refundInsufficient) return [406, { status: 'error', refund: false, message: 'Insufficient balance to process the refund' }]
     const grosze = body.value === undefined ? remaining : toGrosze(body.value)
     if (grosze === null || grosze === 0) return [400, { status: 'error', refund: false, message: 'Invalid refund amount' }]
     if (grosze > remaining) return [400, { status: 'error', refund: false, message: 'Refund amount exceeds available refund amount' }]
     txn.refunded += grosze
     refunds.push({ txnId: txn.id, grosze, messageId: messageId ?? null, at: new Date().toISOString() })
+    if (done400) return [400, { status: 'error', refund: false, message: 'Refund failed' }]
     return [200, { status: 'success', refund: true, message: messageId ? `dpay.pl zwrot ${messageId}` : `dpay.pl ${txn.id}` }]
   }
 
