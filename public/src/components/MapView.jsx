@@ -53,7 +53,7 @@ export default function MapView({ events, userLocation, radius }) {
         center={userLocation ? [userLocation.lat, userLocation.lng] : POLAND_CENTER}
         zoom={userLocation ? getZoomForRadius(radius) : POLAND_ZOOM}
         className={`w-full h-[500px] border border-apex-border ${isDark ? 'map-dark' : ''}`}
-        style={{ background: isDark ? '#0C0C14' : '#F5F5F8' }}
+        style={{ background: isDark ? '#0D110C' : '#F5F5F8' }}
       >
         <TileLayer
           url={tileUrl}
@@ -91,8 +91,8 @@ export default function MapView({ events, userLocation, radius }) {
               center={[userLocation.lat, userLocation.lng]}
               radius={radius * 1000}
               pathOptions={{
-                color: '#BBDD00',
-                fillColor: '#BBDD00',
+                color: '#A8C23A',
+                fillColor: '#A8C23A',
                 fillOpacity: 0.12,
                 weight: 2.5,
               }}

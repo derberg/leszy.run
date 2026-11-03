@@ -1298,6 +1298,14 @@ Named volume `pgdata` in docker-compose.yml. Never use anonymous volumes.
 
 Dark, tactical theme for trail running timing. Acid yellow on near-black.
 
+**The public app (`public/`) no longer uses this palette in dark mode.** Its dark
+mode is "Nocny bór", the light mode's forest at night: green-black surfaces
+(`#0D110C` / `#121810` / `#182015` / `#1F291B`), moss accent `#A8C23A`,
+parchment text (`#AEB59E` body, `#E4E6D6` bright). The Leszy logo is black
+artwork, so dark mode inverts it to bone with `invert() hue-rotate(180deg)`,
+which keeps the leaves green (`.hero-logo-dark`, `.bg-logo-dark` in
+`public/src/app.css`). The palette below still describes the admin `frontend/`.
+
 ### Palette
 - Background: `#0A0A10` (near-black)
 - Surface: `#0C0C14` / `#12121E` / `#1A1A28`

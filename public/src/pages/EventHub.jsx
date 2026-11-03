@@ -67,7 +67,7 @@ function PastEventView({ event }) {
         )}
 
         <div>
-          <Link to={`/events/${event.slug}/results`} className="inline-block border-2 border-apex-yellow bg-apex-yellow text-apex-ink px-10 py-4 font-display font-bold uppercase tracking-widest hover:shadow-[0_0_20px_rgba(187,221,0,0.3)] transition-all">
+          <Link to={`/events/${event.slug}/results`} className="inline-block border-2 border-apex-yellow bg-apex-yellow text-apex-ink px-10 py-4 font-display font-bold uppercase tracking-widest hover:shadow-[0_0_20px_rgba(168,194,58,0.3)] transition-all">
             Zobacz wyniki →
           </Link>
         </div>

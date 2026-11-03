@@ -31,7 +31,7 @@ function getTypeTagClass(type) {
   return `${baseTag} border-apex-cyan/30 text-apex-cyan`
 }
 
-const distTagClass = `${baseTag} border-[rgba(187,221,0,0.3)] text-apex-yellow-dim`
+const distTagClass = `${baseTag} border-[rgba(168,194,58,0.3)] text-apex-yellow-dim`
 
 /**
  * Format a date in Polish locale.
@@ -298,11 +298,8 @@ export default function EventPage() {
           <img
             src="/logo-bez-napisu.svg"
             alt=""
-            className={`w-[80vh] max-w-[90vw] h-auto ${isDark ? 'opacity-[0.04]' : 'opacity-[0.06]'}`}
-            style={{ filter: isDark
-              ? 'brightness(1.4) drop-shadow(0 0 20px rgba(45,90,39,0.6)) drop-shadow(0 0 50px rgba(45,90,39,0.4)) drop-shadow(0 0 80px rgba(187,221,0,0.15))'
-              : 'drop-shadow(0 0 20px rgba(45,90,39,0.1))'
-            }}
+            className={`w-[80vh] max-w-[90vw] h-auto ${isDark ? 'opacity-[0.04] bg-logo-dark' : 'opacity-[0.06]'}`}
+            style={{ filter: isDark ? undefined : 'drop-shadow(0 0 20px rgba(45,90,39,0.1))' }}
           />
         </div>
 

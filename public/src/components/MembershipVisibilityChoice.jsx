@@ -22,12 +22,12 @@ export default function MembershipVisibilityChoice({ value, onChange }) {
       </legend>
       <label className={optionClass}>
         <input type="radio" name={`membership-visibility-${uid}`} checked={!value}
-          onChange={() => onChange(false)} className="accent-[#BBDD00]" />
+          onChange={() => onChange(false)} className="accent-apex-yellow" />
         <span>Publiczna — widać mnie na publicznej stronie klubu</span>
       </label>
       <label className={optionClass}>
         <input type="radio" name={`membership-visibility-${uid}`} checked={!!value}
-          onChange={() => onChange(true)} className="accent-[#BBDD00]" />
+          onChange={() => onChange(true)} className="accent-apex-yellow" />
         <span>Tylko dla klubowiczów</span>
       </label>
       <p className="font-sans text-[10px] text-apex-muted">

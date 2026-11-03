@@ -91,11 +91,11 @@ function buildStaticBody(e, manifest) {
   const links = others.map(s => {
     const o = manifest[s]
     const label = escapeHtml([o.name, formatPolishDate(o.date)].filter(Boolean).join(' — '))
-    return `      <li style="margin:0"><a href="/events/${escapeHtml(s)}" style="color:#B0AEC6;text-decoration:none;display:block;padding:0.25rem 0">${label}</a></li>`
+    return `      <li style="margin:0"><a href="/events/${escapeHtml(s)}" style="color:#AEB59E;text-decoration:none;display:block;padding:0.25rem 0">${label}</a></li>`
   }).join('\n')
 
-  const crossNav = others.length ? `  <nav aria-label="Inne minione wydarzenia" style="padding:1.25rem 1.5rem;background:#0A0A10;border-top:1px solid #1C1C2A;font-family:'Rajdhani',sans-serif">
-    <h2 style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:0.85rem;color:#DDDCEC;text-transform:uppercase;letter-spacing:0.08em;margin:0 0 0.625rem">Inne minione wydarzenia</h2>
+  const crossNav = others.length ? `  <nav aria-label="Inne minione wydarzenia" style="padding:1.25rem 1.5rem;background:#0D110C;border-top:1px solid #222C1D;font-family:'Rajdhani',sans-serif">
+    <h2 style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:0.85rem;color:#E4E6D6;text-transform:uppercase;letter-spacing:0.08em;margin:0 0 0.625rem">Inne minione wydarzenia</h2>
     <ul style="list-style:none;padding:0;margin:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:0 1rem;font-size:0.8rem">
 ${links}
     </ul>
@@ -181,23 +181,23 @@ function buildStaticResultsBody(e) {
       const pos = finished ? String(i + 1) : '—'
       const time = finished ? formatDuration(r.durationMs) : (STATUS_LABELS[r.status] || '—')
       return `          <tr>
-            <td style="padding:0.3rem 0.75rem;color:#8886A0;font-family:'IBM Plex Mono',monospace">${pos}</td>
-            <td style="padding:0.3rem 0.75rem;color:#DDDCEC">${name}</td>
-            <td style="padding:0.3rem 0.75rem;color:#8886A0">${escapeHtml(r.participant.club || '')}</td>
-            <td style="padding:0.3rem 0.75rem;color:#BBDD00;font-family:'IBM Plex Mono',monospace">${time}</td>
+            <td style="padding:0.3rem 0.75rem;color:#8C947C;font-family:'IBM Plex Mono',monospace">${pos}</td>
+            <td style="padding:0.3rem 0.75rem;color:#E4E6D6">${name}</td>
+            <td style="padding:0.3rem 0.75rem;color:#8C947C">${escapeHtml(r.participant.club || '')}</td>
+            <td style="padding:0.3rem 0.75rem;color:#A8C23A;font-family:'IBM Plex Mono',monospace">${time}</td>
           </tr>`
     }).join('\n')
 
     return `    <section style="margin:0 0 2rem">
-      <h2 style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:1.1rem;color:#DDDCEC;text-transform:uppercase;letter-spacing:0.08em;margin:0 0 0.5rem">${escapeHtml(cat.category)}</h2>
+      <h2 style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:1.1rem;color:#E4E6D6;text-transform:uppercase;letter-spacing:0.08em;margin:0 0 0.5rem">${escapeHtml(cat.category)}</h2>
       <div style="overflow-x:auto">
         <table style="border-collapse:collapse;font-size:0.85rem;min-width:480px">
           <thead>
-            <tr style="border-bottom:1px solid #262638;text-align:left">
-              <th style="padding:0.3rem 0.75rem;color:#8886A0;font-weight:600">#</th>
-              <th style="padding:0.3rem 0.75rem;color:#8886A0;font-weight:600">Zawodnik</th>
-              <th style="padding:0.3rem 0.75rem;color:#8886A0;font-weight:600">Klub</th>
-              <th style="padding:0.3rem 0.75rem;color:#8886A0;font-weight:600">Czas</th>
+            <tr style="border-bottom:1px solid #2E3B27;text-align:left">
+              <th style="padding:0.3rem 0.75rem;color:#8C947C;font-weight:600">#</th>
+              <th style="padding:0.3rem 0.75rem;color:#8C947C;font-weight:600">Zawodnik</th>
+              <th style="padding:0.3rem 0.75rem;color:#8C947C;font-weight:600">Klub</th>
+              <th style="padding:0.3rem 0.75rem;color:#8C947C;font-weight:600">Czas</th>
             </tr>
           </thead>
           <tbody>
@@ -208,9 +208,9 @@ ${trs}
     </section>`
   }).join('\n')
 
-  return `  <div id="static-results" style="padding:1.5rem;background:#0A0A10;font-family:'Rajdhani',sans-serif">
-    <h1 style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:1.6rem;color:#DDDCEC;text-transform:uppercase;letter-spacing:0.06em;margin:0 0 0.25rem">Wyniki — ${escapeHtml(e.name)}</h1>
-    <p style="color:#8886A0;margin:0 0 1.5rem">${escapeHtml(formatPolishDate(e.date))}${e.location ? ` · ${escapeHtml(e.location)}` : ''} · <a href="/events/${escapeHtml(e.slug)}" style="color:#B0AEC6">strona wydarzenia</a></p>
+  return `  <div id="static-results" style="padding:1.5rem;background:#0D110C;font-family:'Rajdhani',sans-serif">
+    <h1 style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:1.6rem;color:#E4E6D6;text-transform:uppercase;letter-spacing:0.06em;margin:0 0 0.25rem">Wyniki — ${escapeHtml(e.name)}</h1>
+    <p style="color:#8C947C;margin:0 0 1.5rem">${escapeHtml(formatPolishDate(e.date))}${e.location ? ` · ${escapeHtml(e.location)}` : ''} · <a href="/events/${escapeHtml(e.slug)}" style="color:#AEB59E">strona wydarzenia</a></p>
 ${sections}
   </div>
   <script>

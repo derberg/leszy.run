@@ -384,11 +384,8 @@ export default function Kalendarz() {
             src="/logo-bez-napisu.svg"
             alt=""
             fetchPriority="high"
-            className={`w-[80vh] max-w-[90vw] h-auto ${isDark ? 'opacity-[0.04]' : 'opacity-[0.06]'}`}
-            style={{ filter: isDark
-              ? 'brightness(1.4) drop-shadow(0 0 20px rgba(45,90,39,0.6)) drop-shadow(0 0 50px rgba(45,90,39,0.4)) drop-shadow(0 0 80px rgba(187,221,0,0.15))'
-              : 'drop-shadow(0 0 20px rgba(45,90,39,0.1))'
-            }}
+            className={`w-[80vh] max-w-[90vw] h-auto ${isDark ? 'opacity-[0.04] bg-logo-dark' : 'opacity-[0.06]'}`}
+            style={{ filter: isDark ? undefined : 'drop-shadow(0 0 20px rgba(45,90,39,0.1))' }}
           />
         </div>
         <div className="pt-20 md:pt-20 pb-8 px-6 max-w-[1200px] mx-auto relative z-10">

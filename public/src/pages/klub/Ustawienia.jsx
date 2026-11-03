@@ -171,7 +171,7 @@ export default function Ustawienia() {
                 checked={isPublic}
                 onChange={(e) => setIsPublic(e.target.checked)}
                 disabled
-                className="accent-[#BBDD00] w-4 h-4 mt-0.5 shrink-0"
+                className="accent-apex-yellow w-4 h-4 mt-0.5 shrink-0"
               />
               <span className="font-sans text-base font-medium text-apex-text leading-snug">Publiczna strona klubu widoczna dla wszystkich</span>
             </label>

@@ -128,7 +128,7 @@ export default function Ustawienia() {
             type="checkbox"
             checked={!!profile?.weekly_digest}
             onChange={(e) => savePref('weekly_digest', e.target.checked)}
-            className="mt-0.5 accent-[#BBDD00]"
+            className="mt-0.5 accent-apex-yellow"
           />
           <span className="font-sans text-xs text-apex-text">
             Cotygodniowe podsumowanie e-mailem
@@ -141,7 +141,7 @@ export default function Ustawienia() {
             type="checkbox"
             checked={(profile?.privacy_settings?.favorites ?? true) !== false}
             onChange={(e) => savePrivacy({ favorites: e.target.checked })}
-            className="mt-0.5 accent-[#BBDD00]"
+            className="mt-0.5 accent-apex-yellow"
           />
           <span className="font-sans text-xs text-apex-text">
             Pokazuj klubowiczom co obserwuję
@@ -157,7 +157,7 @@ export default function Ustawienia() {
             type="checkbox"
             checked={(privacy.display_name ?? true) !== false}
             onChange={(e) => savePrivacy({ display_name: e.target.checked })}
-            className="mt-0.5 accent-[#BBDD00]"
+            className="mt-0.5 accent-apex-yellow"
           />
           <span className="font-sans text-xs text-apex-text">
             Pokazuj imię i nazwisko
@@ -170,7 +170,7 @@ export default function Ustawienia() {
             type="checkbox"
             checked={(privacy.club ?? true) !== false}
             onChange={(e) => savePrivacy({ club: e.target.checked })}
-            className="mt-0.5 accent-[#BBDD00]"
+            className="mt-0.5 accent-apex-yellow"
           />
           <span className="font-sans text-xs text-apex-text">
             Pokazuj mój klub
@@ -182,7 +182,7 @@ export default function Ustawienia() {
             type="checkbox"
             checked={(privacy.bio ?? true) !== false}
             onChange={(e) => savePrivacy({ bio: e.target.checked })}
-            className="mt-0.5 accent-[#BBDD00]"
+            className="mt-0.5 accent-apex-yellow"
           />
           <span className="font-sans text-xs text-apex-text">
             Pokazuj opis o mnie
@@ -197,7 +197,7 @@ export default function Ustawienia() {
                 type="checkbox"
                 checked={profile?.privacy_settings?.club_public_name === 'nickname'}
                 onChange={(e) => savePrivacy({ club_public_name: e.target.checked ? 'nickname' : 'display' })}
-                className="mt-0.5 accent-[#BBDD00]"
+                className="mt-0.5 accent-apex-yellow"
               />
               <span className="font-sans text-xs text-apex-text">
                 Na publicznej stronie klubu pokazuj tylko pseudonim
@@ -212,7 +212,7 @@ export default function Ustawienia() {
                   checked={!!me?.hidden_public}
                   disabled={visBusy}
                   onChange={(e) => toggleHiddenPublic(e.target.checked)}
-                  className="mt-0.5 accent-[#BBDD00]"
+                  className="mt-0.5 accent-apex-yellow"
                 />
                 <span className="font-sans text-xs text-apex-text">
                   Nie pokazuj mnie na publicznej stronie klubu

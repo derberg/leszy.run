@@ -6,18 +6,21 @@
   --font-display: 'Barlow Condensed', sans-serif;
   --font-mono: 'IBM Plex Mono', monospace;
 
-  --color-terrain-green: #BBDD00;
-  --color-terrain-slate: #9896B4;
-  --color-apex-bg: #0A0A10;
-  --color-apex-surface: #10101A;
-  --color-apex-surface-2: #161622;
-  --color-apex-surface-3: #1C1C2A;
-  --color-apex-border: #1C1C2A;
-  --color-apex-border-mid: #262638;
-  --color-apex-border-bright: #343450;
-  --color-apex-yellow: #BBDD00;
-  --color-apex-yellow-bright: #D4FF00;
-  --color-apex-yellow-dim: #778800;
+  /* Dark mode is "Nocny bór": the light mode's forest at night. Green-black
+     surfaces, moss accent, parchment text. The old acid yellow on violet-black
+     read as a cockpit and hid the black Leszy logo. */
+  --color-terrain-green: #A8C23A;
+  --color-terrain-slate: #9AA48C;
+  --color-apex-bg: #0D110C;
+  --color-apex-surface: #121810;
+  --color-apex-surface-2: #182015;
+  --color-apex-surface-3: #1F291B;
+  --color-apex-border: #222C1D;
+  --color-apex-border-mid: #2E3B27;
+  --color-apex-border-bright: #3F5035;
+  --color-apex-yellow: #A8C23A;
+  --color-apex-yellow-bright: #C2DB55;
+  --color-apex-yellow-dim: #7D9433;
   --color-apex-red: #EF4444;
   --color-apex-red-dim: #5C0A0A;
   --color-apex-cyan: #00BFEF;
@@ -30,11 +33,11 @@
   --color-apex-green-bg: rgb(5 46 22 / 0.3);
   /* Charity: the heart and the stripe of the „Cel charytatywny” panel. */
   --color-apex-rose: #F43F5E;
-  --color-apex-text: #9896B4;
-  --color-apex-text-bright: #C4C2D8;
-  --color-apex-muted: #8886A0;
-  --color-apex-dim: #605E78;
-  --color-apex-ink: #0A0A10;
+  --color-apex-text: #AEB59E;
+  --color-apex-text-bright: #E4E6D6;
+  --color-apex-muted: #8C947C;
+  --color-apex-dim: #5E6652;
+  --color-apex-ink: #0D110C;
 }
 
 *, *::before, *::after { box-sizing: border-box; }
@@ -127,7 +130,7 @@ html.light {
   opacity: 0.03;
   pointer-events: none;
   z-index: 0;
-  filter: invert(1) sepia(1) saturate(5) hue-rotate(30deg);
+  filter: invert(1) hue-rotate(180deg);
 }
 
 /* Manual override: light — logo is naturally dark, no inversion */
@@ -141,9 +144,15 @@ html.light .page-watermark::after {
   }
 }
 
-/* Hero logo — dark mode needs filters, light mode uses natural black */
+/* Hero logo. The artwork is black, which no brightness filter lifts off a dark
+   background, so dark mode inverts it to bone. hue-rotate(180deg) turns the
+   inverted leaves back to green. */
 .hero-logo-dark {
-  filter: brightness(1.4) drop-shadow(0 0 20px rgba(45,90,39,0.6)) drop-shadow(0 0 50px rgba(45,90,39,0.4)) drop-shadow(0 0 80px rgba(187,221,0,0.15));
+  filter: invert(0.86) hue-rotate(180deg) sepia(0.25) drop-shadow(0 0 50px rgba(140,190,70,0.15));
+}
+/* The faint full-page logo behind Kalendarz and event pages. */
+.bg-logo-dark {
+  filter: invert(1) hue-rotate(180deg);
 }
 .hero-logo-light {
   filter: drop-shadow(0 2px 8px rgba(0,0,0,0.1)) drop-shadow(0 0 30px rgba(45,90,39,0.15));
@@ -163,18 +172,12 @@ html.light .page-watermark::after {
   50% { transform: translateX(-50%) translateY(6px); }
 }
 
-/* Scanline overlay — apply to hero::before */
+/* Scanline overlay — apply to hero::before. Light mode only: on the dark
+   forest it read as a screen, not a wood. */
 .hero-scanlines::before {
   content: '';
   position: absolute;
   inset: 0;
-  background: repeating-linear-gradient(
-    0deg,
-    transparent,
-    transparent 2px,
-    rgba(187,221,0,0.015) 2px,
-    rgba(187,221,0,0.015) 4px
-  );
   pointer-events: none;
   z-index: 2;
 }
@@ -208,9 +211,9 @@ html.light .hero-scanlines::before {
 
 /* ─── REGISTRATION COURSE MAP (RA1b) ─── */
 .leaflet-tooltip.leszy-course-label {
-  background: #0A0A10;
-  color: #DDDCEC;
-  border: 1px solid #343450;
+  background: #0D110C;
+  color: #E4E6D6;
+  border: 1px solid #3F5035;
   border-radius: 0;
   box-shadow: none;
   font: 500 11px 'IBM Plex Mono', monospace;
