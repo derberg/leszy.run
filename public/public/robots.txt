@@ -7,6 +7,3 @@ Sitemap: https://www.leszy.run/sitemap.xml
 Disallow: /events/*/admin/
 Disallow: /events/*/volunteer
 Disallow: /events/*/checkin
-
-# Landing lists, blocked by the owner's decision on 2026-11-03
-Disallow: /listy
