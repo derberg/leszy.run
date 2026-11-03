@@ -1,21 +1,26 @@
 import { useRef, useState } from 'react'
-import { townCandidates, townSearchUrl } from '../../lib/townSearch.js'
+import { splitTownInput, townCandidates, townSearchUrl } from '../../lib/townSearch.js'
 import { btnGhost, fieldInput, fieldLabel, errorClass } from '../../pages/klub/settingsUi.js'
 
 // „Miejscowość” with a Nominatim lookup on Enter, blur or „Pokaż na mapie” — never
 // per keystroke. Picking a candidate sets the town label, its area
 // („GM. PILCHOWICE · ŚLĄSKIE”) and the pin; one candidate is picked at once.
+// Text after the first comma is not part of the town: it reaches onPick as `rest`.
 export default function TownSearch({ id = 'town', townLabel, townArea, onPick, disabled = false }) {
   const [text, setText] = useState(townLabel ?? '')
   const [candidates, setCandidates] = useState([])
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState(null)
   const lastQuery = useRef((townLabel ?? '').trim())
+  const restRef = useRef('')
 
   async function search() {
-    const q = text.trim()
-    if (!q || q === lastQuery.current || busy) return
-    lastQuery.current = q
+    const typed = text.trim()
+    if (!typed || typed === lastQuery.current || busy) return
+    lastQuery.current = typed
+    const { town: q, rest } = splitTownInput(typed)
+    restRef.current = rest
+    if (!q) return
     setBusy(true)
     setError(null)
     try {
@@ -39,7 +44,8 @@ export default function TownSearch({ id = 'town', townLabel, townArea, onPick, d
     lastQuery.current = c.label
     setCandidates([])
     setError(null)
-    onPick(c)
+    onPick(c, { rest: restRef.current })
+    restRef.current = ''
   }
 
   return (
