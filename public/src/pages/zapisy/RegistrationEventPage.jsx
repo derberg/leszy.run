@@ -245,6 +245,8 @@ export default function RegistrationEventPage({ raw, now, preview = false, links
           </section>
         )}
 
+        <PartnerLogos partners={raw.partners ?? []} variant="dark" />
+
         {m.startPlace && (
           <div className="border border-apex-border px-3.5 py-3 flex flex-col gap-1 min-w-0" data-testid="start">
             <span className={labelCls}>Start</span>
@@ -313,7 +315,6 @@ export default function RegistrationEventPage({ raw, now, preview = false, links
             <CoursePanel courses={m.courses} compact />
           </section>
         )}
-        <PartnerLogos partners={raw.partners ?? []} variant="dark" />
       </div>
     </div>
   )
