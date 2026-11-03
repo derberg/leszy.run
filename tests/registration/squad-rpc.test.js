@@ -184,7 +184,7 @@ test('T-32 swap an awaiting adult → the old row cancelled, its participant rem
   const out = ok(await squadEdit(event, teamId, actor, {
     op: 'swap', registrationId: ids[1], person: newAdult(cat),
   }))
-  assert.deepEqual(out.removed, [{ id: ids[1], email: members[1].email, firstName: old.first_name }])
+  assert.deepEqual(out.removed, [{ id: ids[1], email: members[1].email, firstName: old.first_name, guardianEmail: null }])
   assert.equal(out.added.length, 1)
   assert.equal((await reg(ids[1])).status, 'cancelled')
   assert.ok((await participantOf(ids[1])).removed_at)

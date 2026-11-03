@@ -199,7 +199,7 @@ describe('runnerDataInfo transfers (Plan 7, task 10)', () => {
     const t = JSON.stringify(section())
     assert.ok(t.includes('Osoba zaproszona dostaje wtedy e-mail, że zaproszenie cofnięto, bez Twojego imienia.'))
     const { RUNNER_DATA_INFO_VERSION } = await import('../../src/legal/runnerDataInfo.js')
-    assert.equal(RUNNER_DATA_INFO_VERSION, '2026-11-v11')
+    assert.ok(['2026-11-v11', '2026-11-v12'].includes(RUNNER_DATA_INFO_VERSION))
   })
 
   it('never mentions a partner or a discount code', () => {
@@ -212,5 +212,17 @@ describe('runnerDataInfo transfers (Plan 7, task 10)', () => {
     const md = await readFile(new URL('../../../docs/legal/zapisy/informacja-o-danych-zawodnika.md', import.meta.url), 'utf8')
     for (const block of section().blocks) assert.ok(md.includes(block), block.slice(0, 60))
     assert.notEqual(RUNNER_DATA_INFO_VERSION, '2026-11-v6')
+  })
+})
+
+describe('TP-44 a team child\'s parent named by the captain', () => {
+  it('the captain is the source of the parent\'s name and address; the parent accepts; the contact goes after 30 days; version v12', async () => {
+    const t = JSON.stringify(runnerDataInfo({ ...base, teams: true }))
+    assert.ok(t.includes('podaje imię, nazwisko i adres e-mail jego rodzica lub opiekuna; źródłem tych danych jest kapitan (art. 14 ust. 2 lit. f RODO)'))
+    assert.ok(t.includes('zgłoszenie dziecka czeka na zgodę opiekuna i nie jest usuwane'))
+    assert.ok(t.includes('Imię, nazwisko i adres e-mail opiekuna usuwamy 30 dni po dniu zawodów.'))
+    assert.equal(JSON.stringify(runnerDataInfo(base)).includes('rodzica lub opiekuna; źródłem'), false, 'teams only')
+    const { RUNNER_DATA_INFO_VERSION } = await import('../../src/legal/runnerDataInfo.js')
+    assert.equal(RUNNER_DATA_INFO_VERSION, '2026-11-v12')
   })
 })

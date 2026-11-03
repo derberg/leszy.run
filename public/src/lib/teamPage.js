@@ -3,7 +3,7 @@
 // rules as the sign-up (groupDraft.js, team.js).
 import { validateSquadMember } from '../../../supabase/functions/_shared/registration/team.js'
 import { cardVariant } from './groupDraft.js'
-import { moveMember, ownPart } from './teamDraft.js'
+import { EMPTY_PARENT, moveMember, ownPart } from './teamDraft.js'
 import { countPl } from './plural.js'
 import { EMPTY_PERSON } from './personFormModel.js'
 
@@ -59,9 +59,11 @@ export function newMember(person = EMPTY_PERSON) {
  * `detailsLater` (the captain's own add or swap, never the organizer's): an adult's other fields go
  * only while „Pokaż więcej pól” shows them (`moreFields`), as on the sign-up form.
  */
-export function toMemberRequest({ person, guardianConsent, moreFields }, { consents, today, detailsLater = false }) {
+export function toMemberRequest({ person, guardianConsent, moreFields, parentOther, parent }, { consents, today, detailsLater = false }) {
   if (cardVariant(person, today) !== 'minor') return { person: detailsLater && !moreFields ? ownPart(person) : person }
   const { email: _none, ...child } = person
+  // A parent who is not the captain accepts on /zgoda: the captain sends neither box nor consents.
+  if (parentOther === true) return { person: child, parent: { ...EMPTY_PARENT, ...parent } }
   return {
     person: child,
     guardianConsent: guardianConsent === true,
@@ -71,8 +73,8 @@ export function toMemberRequest({ person, guardianConsent, moreFields }, { conse
 }
 
 /** validateSquadMember over that body: { field: message }, empty when the server would take it. */
-export function checkMember(member, { context, today, now = new Date(), detailsLater = false }) {
-  return validateSquadMember(toMemberRequest(member, { today, detailsLater }), { ...context, now, detailsLater }).errors ?? {}
+export function checkMember(member, { context, today, now = new Date(), detailsLater = false, captainEmail = null }) {
+  return validateSquadMember(toMemberRequest(member, { today, detailsLater }), { ...context, now, detailsLater, captainEmail }).errors ?? {}
 }
 
 /**
@@ -88,7 +90,7 @@ export function squadFailure(err) {
   if (err.status === 404) return { ...base, missing: true }
   if (STALE.has(err.code)) return { ...base, stale: true, message: err.message }
   if (err.code === 'consents_changed') return { ...base, consentsChanged: true, message: err.message }
-  if (err.code === 'email_retired') return { ...base, fields: { email: err.message } }
+  if (err.code === 'email_retired') return { ...base, fields: { [err.field === 'parentEmail' ? 'parentEmail' : 'email']: err.message } }
   if (err.fields) return { ...base, fields: err.fields, message: err.code === 'invalid_person' ? err.message : null }
   return { ...base, message: err.status >= 500 ? 'Nie udało się zmienić składu. Spróbuj ponownie.' : err.message }
 }

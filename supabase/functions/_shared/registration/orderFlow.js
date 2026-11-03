@@ -187,7 +187,7 @@ export async function loadOrderView(admin, orderId) {
   const regIds = lineRows.filter((l) => l.registration_id).map((l) => l.registration_id)
   const regs = regIds.length
     ? await rows(admin.from('registrations')
-      .select('id, status, first_name, last_name, email, category_id, age_group_label, kids_group_id, consent_state, profile_id, registered_by_profile_id, guardian_name, guardian_profile_id, guardian_removed_at, team_id')
+      .select('id, status, first_name, last_name, email, category_id, age_group_label, kids_group_id, consent_state, profile_id, registered_by_profile_id, guardian_name, guardian_profile_id, guardian_removed_at, guardian_named, team_id')
       .in('id', regIds))
     : []
   const teamIds = [...new Set(regs.map((r) => r.team_id).filter(Boolean))]
@@ -314,7 +314,7 @@ export async function teamEmailArgs(admin, teamId) {
   if (error) throw error
   const [regs, settingsRow, compRow] = await Promise.all([
     rows(admin.from('registrations')
-      .select('id, first_name, last_name, age_group_label, team_leg, team_position, consent_state, profile_id, registered_by_profile_id, guardian_name, guardian_profile_id, guardian_removed_at')
+      .select('id, first_name, last_name, age_group_label, team_leg, team_position, consent_state, profile_id, registered_by_profile_id, guardian_name, guardian_profile_id, guardian_removed_at, guardian_named')
       .eq('team_id', teamId).in('status', ['confirmed', 'pending_payment'])),
     admin.from('registration_settings').select('name, slug, event_date, town_label, place_details').eq('event_id', team.event_id).single(),
     admin.from('competitions').select('name').eq('category_id', team.category_id).single(),
@@ -335,6 +335,9 @@ export async function teamEmailArgs(admin, teamId) {
         lastName: byOrganizer ? null : r.last_name,
         ageGroupLabel: r.age_group_label,
         role: r.id === team.captain_registration_id ? 'self' : registrationRole(r),
+        // A child whose parent the captain named (guardian_named), not the captain.
+        parentName: !byOrganizer && r.guardian_named === true ? r.guardian_name : null,
+        consentState: r.consent_state,
         transferred: transferred.has(r.id),
         transferredBy: transferred.get(r.id) ?? null,
       }

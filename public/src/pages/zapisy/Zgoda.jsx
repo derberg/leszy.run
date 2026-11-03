@@ -34,8 +34,12 @@ import { eventPath } from './RegistrationEventPage.jsx'
 // accept_consent_request re-check every rule they decide (adult today, the competition's ages,
 // the age group), and a team has no rule beyond those.
 //
+// A team's child whose parent the captain named (`asGuardian`): the link went to that parent, who
+// sees the child's data (a child's card: no e-mail), may correct it, and ticks the guardian's box
+// besides every consent, the minors-only ones included; accept-consent records them as 'guardian'.
+//
 // API: consent-request { token, sendCode?, code? } and accept-consent { token,
-// acceptedConsentIds, shownConsentIds, serviceRegulamin: true, edits? }; the contract is in the
+// acceptedConsentIds, shownConsentIds, serviceRegulamin: true, guardianConsent?, edits? }; the contract is in the
 // functions' headers. The per-token limit is 30 calls an hour, so the page reads once on load and
 // otherwise only on the person's action.
 
@@ -77,10 +81,21 @@ function CodeStep({ info, sent, code, onCode, error, busy, stale, onSend, onSubm
     <form onSubmit={onSubmit} className="flex flex-col gap-5" data-testid="consent-code-step">
       <PageTop right="Akceptacja regulaminu" />
       <EventStrip event={info.event} competition={info.competition} />
-      <h1 className="font-display font-extrabold text-[38px] leading-none uppercase text-apex-text-bright">Cześć, {info.firstName}</h1>
-      <p className="text-lg leading-snug">
-        Ktoś zapisał Cię na te zawody. Zanim wystartujesz, zaakceptuj regulamin i sprawdź swoje dane.
-      </p>
+      {info.asGuardian ? (
+        <>
+          <h1 className="font-display font-extrabold text-[38px] leading-none uppercase text-apex-text-bright">Dzień dobry</h1>
+          <p className="text-lg leading-snug" data-testid="consent-guardian-intro">
+            Ktoś zapisał Twoje dziecko, {info.firstName}, na te zawody. Jako rodzic lub opiekun sprawdź jego dane i zdecyduj, czy wystartuje.
+          </p>
+        </>
+      ) : (
+        <>
+          <h1 className="font-display font-extrabold text-[38px] leading-none uppercase text-apex-text-bright">Cześć, {info.firstName}</h1>
+          <p className="text-lg leading-snug">
+            Ktoś zapisał Cię na te zawody. Zanim wystartujesz, zaakceptuj regulamin i sprawdź swoje dane.
+          </p>
+        </>
+      )}
       {!sent && (
         <>
           <p className="text-lg leading-snug">
@@ -117,7 +132,7 @@ function CodeStep({ info, sent, code, onCode, error, busy, stale, onSend, onSubm
       <div className="border border-apex-border bg-apex-surface p-3.5 flex flex-col gap-1.5">
         <span className={labelCls}>Dlaczego kod?</span>
         <span className="text-base leading-snug">
-          Link mógł trafić do kogoś innego. Twoje dane pokażemy dopiero temu, kto ma dostęp do Twojej skrzynki. Kod loguje Cię też do LESZY.RUN; konto powstaje samo.
+          Link mógł trafić do kogoś innego. {info.asGuardian ? 'Dane dziecka' : 'Twoje dane'} pokażemy dopiero temu, kto ma dostęp do Twojej skrzynki. Kod loguje Cię też do LESZY.RUN; konto powstaje samo.
         </span>
       </div>
     </form>
@@ -144,7 +159,9 @@ function Done({ info }) {
       <PageTop right="Akceptacja regulaminu" />
       <div className="bg-apex-yellow text-apex-ink p-[18px] flex flex-col gap-1">
         <span className="font-mono text-xs uppercase">Zapis potwierdzony</span>
-        <span className="font-display font-extrabold text-3xl sm:text-4xl leading-none uppercase">Dziękujemy — regulamin zaakceptowany.</span>
+        <span className="font-display font-extrabold text-3xl sm:text-4xl leading-none uppercase">
+          {info.asGuardian ? 'Dziękujemy — udział dziecka potwierdzony.' : 'Dziękujemy — regulamin zaakceptowany.'}
+        </span>
         <span className="text-base font-semibold">{[info.event.name, dateLabel(info.event.date)].filter(Boolean).join(' · ')}</span>
       </div>
       <div className="border border-apex-border-mid bg-apex-surface p-3.5">
@@ -222,12 +239,14 @@ function ConsentForm({ token, answer, snapshot, onAccepted, onRefused, onSession
   const [errors, setErrors] = useState({})
   const [accepted, setAccepted] = useState({})
   const [serviceAccepted, setServiceAccepted] = useState(false)
+  const asGuardian = answer.asGuardian === true
+  const [guardianChecked, setGuardianChecked] = useState(false)
   const [consentError, setConsentError] = useState(null)
   const [message, setMessage] = useState(null)
   const [busy, setBusy] = useState(false)
   const owed = editable ? (answer.missingFields ?? []) : []
 
-  const ready = serviceAccepted && consents.every((c) => accepted[c.id] === true)
+  const ready = serviceAccepted && consents.every((c) => accepted[c.id] === true) && (!asGuardian || guardianChecked)
 
   const change = (patch) => {
     setPerson((p) => ({ ...p, ...patch }))
@@ -276,6 +295,7 @@ function ConsentForm({ token, answer, snapshot, onAccepted, onRefused, onSession
         acceptedConsentIds: consents.filter((c) => accepted[c.id]).map((c) => c.id),
         shownConsentIds: consents.map((c) => c.id),
         serviceRegulamin: true,
+        ...(asGuardian ? { guardianConsent: true } : {}),
         ...(Object.keys(edits).length ? { edits } : {}),
       })
       onAccepted({ ...answer, person: { ...answer.person, ...edits } })
@@ -307,8 +327,13 @@ function ConsentForm({ token, answer, snapshot, onAccepted, onRefused, onSession
       <PageTop right="Akceptacja regulaminu" />
       <EventStrip event={answer.event} competition={answer.competition} />
       <h1 className="font-display font-extrabold text-[38px] leading-none uppercase text-apex-text-bright">
-        {owed.length ? 'Uzupełnij dane' : 'Sprawdź dane'}
+        {asGuardian ? 'Dane dziecka' : owed.length ? 'Uzupełnij dane' : 'Sprawdź dane'}
       </h1>
+      {asGuardian && (
+        <p className="text-base border-l-2 border-apex-yellow pl-3" data-testid="consent-guardian-note">
+          Dane dziecka podała osoba, która zapisała drużynę. Popraw je, jeśli coś się nie zgadza.
+        </p>
+      )}
       {owed.length > 0 && (
         <p className="text-base border-l-2 border-apex-yellow pl-3" data-testid="consent-owed">
           Osoba, która Cię zapisała, nie podała wszystkich danych. Uzupełnij: {missingDetailsText(owed)}.
@@ -321,12 +346,19 @@ function ConsentForm({ token, answer, snapshot, onAccepted, onRefused, onSession
       )}
       <PersonForm fields={fields} value={person} onChange={change} errors={errors} competition={comp}
         raceDate={ctx?.raceDate ?? answer.event.date} reckoning={ctx?.reckoning ?? 'race_day'} ageGroups={ctx?.ageGroups ?? []}
-        prefill={null} disabled={busy || !editable} variant="self" idPrefix="p" emailReadOnly owed={owed} />
+        prefill={null} disabled={busy || !editable} variant={asGuardian ? 'minor' : 'self'} idPrefix="p" emailReadOnly owed={owed} />
+      {asGuardian && (
+        <label className="flex gap-3 items-start border border-apex-border bg-apex-surface p-3.5 font-sans text-[15px] leading-snug text-apex-text cursor-pointer">
+          <input type="checkbox" className="mt-0.5 w-5 h-5 shrink-0 accent-apex-yellow rounded-none" required checked={guardianChecked}
+            onChange={(e) => { setGuardianChecked(e.target.checked); setConsentError(null) }} data-testid="guardian-consent" />
+          <span><span className="text-apex-red" aria-hidden="true">*</span> Jako rodzic lub opiekun prawny zgadzam się na udział dziecka i akceptuję regulamin.</span>
+        </label>
+      )}
       <ConsentList consents={consents} accepted={accepted} onToggle={(id, v) => { setAccepted((a) => ({ ...a, [id]: v })); setConsentError(null) }}
         serviceAccepted={serviceAccepted} onService={(v) => { setServiceAccepted(v); setConsentError(null) }}
         regulaminUrl={model.regulaminUrl ?? answer.regulaminUrl ?? null} dataInfo={dataInfo} error={consentError} />
       {message && <p className="text-apex-red text-base" role="alert" data-testid="consent-error">{message}</p>}
-      <button type="submit" disabled={busy || !ready} className={primaryBtn}>{busy ? 'Zapisujemy…' : 'Akceptuję regulamin'}</button>
+      <button type="submit" disabled={busy || !ready} className={primaryBtn}>{busy ? 'Zapisujemy…' : asGuardian ? 'Potwierdzam udział dziecka' : 'Akceptuję regulamin'}</button>
     </form>
   )
 }

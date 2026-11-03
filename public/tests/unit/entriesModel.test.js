@@ -342,3 +342,15 @@ describe('transferRecipients (TransferDialog: pick a person already on the list)
     })
   })
 })
+
+describe('TP-43 a child awaiting a parent who is not the captain', () => {
+  it('the menu offers the reminder and the paper consent, worded for a guardian', () => {
+    const child = row({ role: 'minor', consentState: 'awaiting', status: 'confirmed', statusKey: 'free' })
+    const actions = entryActions(child)
+    assert.ok(actions.includes('remind_consent'))
+    assert.ok(actions.includes('consent_office'))
+    assert.equal(actionLabel('remind_consent', child), 'Przypomnij opiekunowi o zgodzie')
+    assert.equal(actionLabel('consent_office', child), 'Zgoda opiekuna na papierze')
+    assert.equal(actionLabel('consent_office', row({ role: 'adult' })), 'Regulamin podpisany w biurze')
+  })
+})

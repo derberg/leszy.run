@@ -35,3 +35,8 @@ test('hasMinor: a person with role minor', () => {
   assert.equal(hasMinor([]), false)
   assert.equal(hasMinor(undefined), false)
 })
+
+test('hasMinor: a child whose guardian is somebody else (a team member\'s parent) is not the registrant\'s to consent for', () => {
+  assert.equal(hasMinor([{ role: 'self' }, { role: 'minor', guardian: { name: 'Marta Leśna', email: 'm@x.pl' } }]), false)
+  assert.equal(hasMinor([{ role: 'self' }, { role: 'minor', guardian: { name: 'M', email: 'm@x.pl' } }, { role: 'minor' }]), true)
+})

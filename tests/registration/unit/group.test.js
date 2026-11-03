@@ -1,7 +1,7 @@
 // Plan 4, task 1: G-01…G-05, the group rules (roles, guardian rule, in-group duplicates).
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { normalizeGroupRequest, paymentStatusOf, registrationRole, validateGroup } from '../../../supabase/functions/_shared/registration/group.js'
+import { consentRecipient, normalizeGroupRequest, paymentStatusOf, registrationRole, validateGroup } from '../../../supabase/functions/_shared/registration/group.js'
 import { warsawToday } from '../../../supabase/functions/_shared/registration/dates.js'
 
 // 2026-10-28 10:00 in Warsaw.
@@ -182,4 +182,28 @@ test('T-43 paymentStatusOf: an individual keeps the old rule, a 0 zł entry in a
   assert.equal(paymentStatusOf({ status: 'confirmed', price: 0 }, { total: 5000 }), 'free')
   assert.equal(paymentStatusOf({ status: 'confirmed', price: 0 }, null), 'free')
   assert.equal(paymentStatusOf({ status: 'expired', price: 5000 }, { total: 5000 }), null)
+})
+
+test('TP-10 consentRecipient: an added adult is asked at their own address, a child at the guardian\'s', () => {
+  assert.equal(consentRecipient({ email: 'ala@example.pl', consent_state: 'awaiting', registered_by_profile_id: 'k' }), 'ala@example.pl')
+  assert.equal(consentRecipient({ email: null, guardian_name: 'Marta Leśna', guardian_email: 'marta@example.pl', consent_state: 'awaiting' }),
+    'marta@example.pl')
+  // A guardian who deleted the account left no address: nobody to ask.
+  assert.equal(consentRecipient({ email: null, guardian_name: 'Usunięte konto', guardian_email: null, guardian_removed_at: '2026-11-01' }), null)
+  assert.equal(consentRecipient(null), null)
+})
+
+test('TP-11 a child awaiting the parent\'s consent is still a minor, not an added adult', () => {
+  assert.equal(registrationRole({ email: null, guardian_name: 'Marta Leśna', guardian_email: 'm@x.pl', guardian_profile_id: null,
+    consent_state: 'awaiting', registered_by_profile_id: 'k', profile_id: null }), 'minor')
+})
+
+test('TP-16 a named parent\'s child after the 30-day purge stays a minor: guardian_named is the marker, never guardian_removed_at', () => {
+  const purged = { email: null, guardian_name: null, guardian_email: null, guardian_profile_id: null,
+    guardian_removed_at: null, guardian_named: true, consent_state: 'awaiting', registered_by_profile_id: 'k', profile_id: null }
+  assert.equal(registrationRole(purged), 'minor')
+  assert.equal(consentRecipient(purged), null)
+  // Without the marker the row would read as an added adult: the reason the column exists.
+  assert.equal(registrationRole({ ...purged, guardian_named: false }), 'adult')
+  assert.equal(registrationRole({ ...purged, guardian_named: undefined }), 'adult')
 })

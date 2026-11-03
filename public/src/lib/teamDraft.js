@@ -10,10 +10,11 @@
 import { normalizeTeamRequest, validateTeam, CAPTAIN_SELF_MESSAGE } from '../../../supabase/functions/_shared/registration/team.js'
 import { ageOn } from '../../../supabase/functions/_shared/registration/ageGroups.js'
 import {
-  addPerson, carryOver, CARRY_FIELDS, copiedFromNames, cartOfCard, cardVariant, claimedEmail, draftConsents, erroredCards, groupFailure, LIST_STEP, newDraft, removePerson, requestPeople,
+  addPerson, carryOver, CARRY_FIELDS, copiedFromNames, cartOfCard, cardVariant, claimedEmail, erroredCards, groupFailure, LIST_STEP, newDraft, removePerson, requestPeople,
   withoutHiddenFields,
 } from './groupDraft.js'
 import { personContext } from './personFormModel.js'
+import { requiredConsents } from '../../../supabase/functions/_shared/registration/consents.js'
 import { countPl } from './plural.js'
 
 /** The hint under an adult member's e-mail: the label itself stays „E-mail”, so it never wraps. */
@@ -32,6 +33,36 @@ export const ownPart = (person) => Object.fromEntries(MEMBER_KEYS.filter((k) => 
 /** „Pokaż więcej pól” / „Ukryj dodatkowe pola” on an adult member's card. */
 export function setMoreFields(draft, key, on) {
   return { ...draft, cards: draft.cards.map((c) => (c.key === key ? { ...c, moreFields: on === true } : c)) }
+}
+
+/** The parent's fields on a child's card when „Rodzic lub opiekun to ktoś inny” is chosen. */
+export const EMPTY_PARENT = { firstName: '', lastName: '', email: '' }
+
+/**
+ * A child's card: the captain is the parent or legal guardian (`false`, the default: the guardian
+ * box) or names somebody else (`true`: that parent gets the consent e-mail, validateParent in team.js).
+ * The parent typed stays on the card when the captain switches back, but is sent only while chosen.
+ */
+export function setParentChoice(draft, key, other) {
+  return { ...draft, cards: draft.cards.map((c) => (c.key === key ? { ...c, parentOther: other === true } : c)) }
+}
+
+/** The named parent's fields, a partial patch. */
+export function setParent(draft, key, patch) {
+  return { ...draft, cards: draft.cards.map((c) => (c.key === key ? { ...c, parent: { ...EMPTY_PARENT, ...c.parent, ...patch } } : c)) }
+}
+
+const namesParent = (card, variant) => variant === 'minor' && card?.parentOther === true
+
+/**
+ * The event consents the team form shows, requires and sends: a minors-only one only while the squad
+ * holds a child the captain answers for. A child whose parent is named gets it from that parent on
+ * /zgoda (consents.js), so it goes with the last such card.
+ */
+export function teamConsents(draft, consents, today) {
+  const variants = draft.cards.map((c, i) => (i === 0 ? 'self' : cardVariant(c.person, today)))
+  const answersFor = draft.cards.some((c, i) => variants[i] === 'minor' && !namesParent(c, variants[i]))
+  return requiredConsents(consents, { hasMinor: answersFor })
 }
 
 /** The captain and `size - 1` empty cards. */
@@ -157,7 +188,9 @@ export function toTeamRequest(draft, { consents, legOrder = false, displayedTota
   const members = requestPeople(draft, today).map(({ person, guardianConsent }, i) => ({
     // requestPeople marks a child by the guardian box: every other member but the captain is an adult.
     person: i > 0 && guardianConsent === undefined && !draft.cards[i].moreFields ? ownPart(person) : person,
-    ...(guardianConsent === undefined ? {} : { guardianConsent }),
+    // A child's card: the box, or the parent the captain named instead of it.
+    ...(guardianConsent === undefined ? {}
+      : draft.cards[i].parentOther === true ? { parent: { ...EMPTY_PARENT, ...draft.cards[i].parent } } : { guardianConsent }),
     ...(legOrder ? { leg: legOf(draft, draft.cards[i].key) } : {}),
     // Plan 7: each member's extras. The code is the team line's, never a member's.
     ...memberExtras(draft.cards[i], extrasOf),
@@ -170,8 +203,8 @@ export function toTeamRequest(draft, { consents, legOrder = false, displayedTota
     ...(voucherCode ? { voucherCode } : {}),
     members,
     membersConsent: draft.membersConsent === true,
-    // A minors-only consent goes only with a child in the squad (draftConsents).
-    acceptedConsentIds: draftConsents(draft, consents, today).map((k) => k.id),
+    // A minors-only consent goes only with a child the captain answers for (teamConsents).
+    acceptedConsentIds: teamConsents(draft, consents, today).map((k) => k.id),
     serviceRegulamin: true,
     ...(displayedTotal === undefined ? {} : { displayedTotal }),
     ...(website ? { website } : {}),

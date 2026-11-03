@@ -34,7 +34,7 @@ const THROTTLED = 'Limit wiadomości wyczerpany. Spróbuj później.'
 const TEST_FAILED = 'Nie udało się wysłać wiadomości próbnej. Spróbuj ponownie za chwilę.'
 
 const REG_COLUMNS = 'id, status, category_id, email, order_id, team_id, profile_id, registered_by_profile_id, ' +
-  'consent_state, guardian_email, guardian_name, guardian_profile_id, guardian_removed_at'
+  'consent_state, guardian_email, guardian_name, guardian_profile_id, guardian_removed_at, guardian_named'
 
 /** subject and body, trimmed and checked → { subject, body } | { fields } */
 function checkMessage(input) {

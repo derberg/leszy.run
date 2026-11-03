@@ -439,7 +439,8 @@ export function groupFailure(err, draft, today) {
     if (Number.isInteger(err.index)) {
       const ci = cardIndexOf(draft, err.index)
       const minor = ci > 0 && cardVariant(draft.cards[ci]?.person, today) === 'minor'
-      put(ci, minor ? 'firstName' : 'email', err.message)
+      // A team child's parent (teamDraft.js) has an address of their own on the child's card.
+      put(ci, err.field === 'parentEmail' ? 'parentEmail' : minor ? 'firstName' : 'email', err.message)
     } else {
       put(0, 'email', err.message)
     }

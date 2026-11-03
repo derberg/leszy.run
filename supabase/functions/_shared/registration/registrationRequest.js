@@ -406,12 +406,16 @@ export async function prepareRegistration(req, admin, body, { pricing, throttles
   const refused = claims.find((c) => !c.allowed)
   if (refused) return { response: throttled(req, refused.retryAfterSec, withCookie) }
 
-  // ---- a retired added adult never registers (ruling 8: they could never log in). After the
+  // ---- a retired added adult never registers (ruling 8: they could never log in), and neither does
+  // a child whose named parent's address is retired: that parent could never accept. After the
   // session step (I-3): only a verified buyer learns that an address they typed is retired.
   for (const [index, p] of people.entries()) {
-    if (p.email && p.email !== email && await isEmailRetired(admin, p.email)) {
+    const parent = Boolean(p.guardian?.email) && await isEmailRetired(admin, p.guardian.email)
+    if (parent || (p.email && p.email !== email && await isEmailRetired(admin, p.email))) {
+      // `field` names the parent's address on a child's card, which has no e-mail of its own.
+      const where = legacy ? {} : { index, ...(parent ? { field: 'parentEmail' } : {}) }
       return {
-        response: json({ error: RETIRED_EMAIL_MESSAGE, code: 'email_retired', ...(legacy ? {} : { index }) }, 403, req, withCookie),
+        response: json({ error: RETIRED_EMAIL_MESSAGE, code: 'email_retired', ...where }, 403, req, withCookie),
       }
     }
   }

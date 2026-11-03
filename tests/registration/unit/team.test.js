@@ -2,7 +2,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import {
-  TEAM_NAME_CHARS_MESSAGE, TEAM_NAME_MESSAGE, normalizeTeamRequest, teamNameKey, validateSquadMember, validateTeam,
+  PARENT_IS_CAPTAIN_MESSAGE, TEAM_NAME_CHARS_MESSAGE, TEAM_NAME_MESSAGE, normalizeTeamRequest, teamNameKey, validateSquadMember, validateTeam,
 } from '../../../supabase/functions/_shared/registration/team.js'
 import { warsawToday } from '../../../supabase/functions/_shared/registration/dates.js'
 
@@ -359,4 +359,77 @@ test('TM-06 validateSquadMember with detailsLater (the captain\'s add or swap): 
   assert.deepEqual(Object.keys(validateSquadMember({ person: five }, asks).errors).sort(), ['city', 'iceName', 'icePhone', 'phone'])
   const child = validateSquadMember({ person: newChild, guardianConsent: true }, { ...asks, detailsLater: true })
   assert.deepEqual(Object.keys(child.errors).sort(), ['city', 'iceName', 'icePhone'])
+})
+
+// ---------------------------------------------------------------- a child's parent who is not the captain
+
+// The captain of a relay is often a coach. On a child's card they say who the parent is instead of
+// ticking the guardian box: the child is stored with that person as guardian and waits for their
+// consent (consent_state 'awaiting'), which the parent gives on /zgoda.
+const PARENT = { firstName: 'Marta', lastName: 'Leśna', email: 'Marta.Lesna@Example.pl' }
+const childWithParent = (i, age, parent = PARENT) => ({ ...minor(i, age), guardianConsent: false, parent })
+
+test('TP-01 a child whose parent is somebody else needs no guardian box; the parent becomes the guardian', () => {
+  const r = run(request([captain(), adult(1), childWithParent(1, 12)]))
+  assert.equal(r.ok, true, JSON.stringify(r))
+  assert.equal(r.value.members[2].role, 'minor')
+  assert.deepEqual(r.value.members[2].guardian, { name: 'Marta Leśna', email: 'marta.lesna@example.pl' })
+  assert.equal('guardian' in r.value.members[0], false)
+  assert.equal('guardian' in r.value.members[1], false)
+})
+
+test('TP-02 a child the captain answers for keeps the guardian box and carries no guardian', () => {
+  const r = run(request([captain(), adult(1), minor(1, 12)]))
+  assert.equal(r.ok, true)
+  assert.equal('guardian' in r.value.members[2], false)
+})
+
+test('TP-03 the parent\'s name and address are checked, each on its own field', () => {
+  const r = run(request([captain(), adult(1), childWithParent(1, 12, { firstName: ' ', lastName: '', email: 'nie-adres' })]))
+  assert.equal(r.ok, false)
+  assert.deepEqual(r.errors, { 2: {
+    parentFirstName: 'Podaj imię rodzica lub opiekuna.',
+    parentLastName: 'Podaj nazwisko rodzica lub opiekuna.',
+    parentEmail: 'Podaj poprawny adres e-mail rodzica lub opiekuna.',
+  } })
+  const long = run(request([captain(), adult(1), childWithParent(1, 12, { ...PARENT, firstName: 'x'.repeat(101) })]))
+  assert.equal(long.errors[2].parentFirstName, 'Imię jest za długie.')
+})
+
+test('TP-04 the captain\'s own address as the parent\'s is refused: then the captain is the parent', () => {
+  const r = run(request([captain(), adult(1), childWithParent(1, 12, { ...PARENT, email: ' KAPITAN@example.pl ' })]))
+  assert.equal(r.ok, false)
+  assert.deepEqual(r.errors, { 2: { parentEmail: PARENT_IS_CAPTAIN_MESSAGE } })
+})
+
+test('TP-05 another member\'s address may be the parent\'s: a mother running in the same relay', () => {
+  const r = run(request([captain(), adult(1), childWithParent(1, 12, { ...PARENT, email: 'ala1@example.pl' })]))
+  assert.equal(r.ok, true, JSON.stringify(r))
+  assert.equal(r.value.members[2].guardian.email, 'ala1@example.pl')
+})
+
+test('TP-06 a parent on an adult\'s card or the captain\'s is ignored, never stored', () => {
+  const r = run(request([captain({}, { parent: PARENT }), { ...adult(1), parent: PARENT }, adult(2)]))
+  assert.equal(r.ok, true, JSON.stringify(r))
+  assert.ok(r.value.members.every((m) => !('guardian' in m)))
+})
+
+test('TP-07 normalizeTeamRequest keeps a parent object as text fields, and nothing else', () => {
+  const req = normalizeTeamRequest({ members: [{ person: {}, parent: { firstName: ' Marta ', lastName: 7, email: 'm@x.pl', extra: 1 } }, { person: {}, parent: 'x' }] })
+  assert.deepEqual(req.members[0].parent, { firstName: 'Marta', lastName: '', email: 'm@x.pl' })
+  assert.equal('parent' in req.members[1], false)
+})
+
+test('TP-08 validateSquadMember: a child with a parent named needs no box; the captain\'s address is refused', () => {
+  const ctx = { ...memberContext, captainEmail: 'kapitan@example.pl' }
+  const ok = validateSquadMember({ person: newChild, parent: PARENT }, ctx)
+  assert.equal(ok.ok, true, JSON.stringify(ok))
+  assert.deepEqual(ok.value.guardian, { name: 'Marta Leśna', email: 'marta.lesna@example.pl' })
+  assert.deepEqual(validateSquadMember({ person: newChild, parent: { ...PARENT, email: 'Kapitan@example.pl' } }, ctx).errors,
+    { parentEmail: PARENT_IS_CAPTAIN_MESSAGE })
+  assert.deepEqual(Object.keys(validateSquadMember({ person: newChild, parent: { email: '' } }, ctx).errors).sort(),
+    ['parentEmail', 'parentFirstName', 'parentLastName'])
+  const adultWithParent = validateSquadMember({ person: newAdult, parent: PARENT }, ctx)
+  assert.equal(adultWithParent.ok, true)
+  assert.equal('guardian' in adultWithParent.value, false)
 })

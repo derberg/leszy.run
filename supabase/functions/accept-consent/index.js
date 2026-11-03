@@ -1,6 +1,10 @@
-// POST { token, acceptedConsentIds, shownConsentIds?, serviceRegulamin, edits? } — the added
-// adult accepts the regulamin (Plan 4). Needs a session whose address is the registration's
-// (consent-request's code opens one); the payer's session is not enough. consent-ip:<ip> 30/h and
+// POST { token, acceptedConsentIds, shownConsentIds?, serviceRegulamin, guardianConsent?, edits? } — the
+// added adult accepts the regulamin (Plan 4), or a child's parent, whom the team captain named,
+// accepts the child's participation as guardian. Needs a session whose address is the one the link
+// went to (consentRecipient; consent-request's code opens one); the payer's session is not enough.
+// A parent ticks every consent of the event, the minors-only ones included, and `guardianConsent`
+// („Jako opiekun prawny zgadzam się na udział dziecka”), and a corrected birth date must keep the
+// child a child: an adult accepts for themself. consent-ip:<ip> 30/h and
 // consent-token:<hash> 30/h, both shared with consent-request.
 //
 // The boxes (review I1): acceptedConsentIds are the ticked ones, shownConsentIds the ones the page
@@ -39,6 +43,7 @@ import { getSession } from '../_shared/session.js'
 import { clientIp } from '../_shared/clientIp.js'
 import { json } from '../_shared/registration/registrationRequest.js'
 import { requiredConsents } from '../_shared/registration/consents.js'
+import { registrationRole } from '../_shared/registration/group.js'
 import { ADULT_AGE, validatePerson } from '../_shared/registration/person.js'
 import { ageOn } from '../_shared/registration/ageGroups.js'
 import { warsawToday } from '../_shared/registration/dates.js'
@@ -54,6 +59,7 @@ const INVALID = 'Popraw zaznaczone pola.'
 const OWED = 'Uzupełnij zaznaczone pola.'
 const SWITCHED_OFF = 'Tego pola nie zbieramy na tych zawodach.'
 const MINOR = 'Z tą datą urodzenia osoba byłaby niepełnoletnia. Zapisuje ją rodzic lub opiekun.'
+const ADULT = 'Z tą datą urodzenia osoba byłaby pełnoletnia i sama akceptuje regulamin. Zgłoś to organizatorowi.'
 // The form_fields switch behind each editable field, and its mode when the event stored none.
 const SWITCH = { city: ['city', 'optional'], club: ['club', 'optional'], iceName: ['ice', 'optional'],
   icePhone: ['ice', 'optional'], nationality: ['nationality', 'off'] }
@@ -83,7 +89,7 @@ const RPC_ERRORS = {
  * with no field). The rest is validatePerson on the edited person, keeping only the errors of the
  * changed fields, plus the adult check for a changed birth date.
  */
-function editErrors(current, changed, ctx) {
+function editErrors(current, changed, ctx, { asGuardian = false } = {}) {
   const touched = new Set(Object.keys(changed))
   for (const [a, b] of Object.entries(PAIRED)) if (touched.has(a)) touched.add(b)
   const errors = {}
@@ -95,9 +101,10 @@ function editErrors(current, changed, ctx) {
   for (const [key, message] of Object.entries(checked.errors ?? {})) {
     if (touched.has(key) && !errors[key]) errors[key] = message
   }
-  if ('birthDate' in changed && !errors.birthDate && changed.birthDate
-      && ageOn(changed.birthDate, warsawToday(), 'race_day') < ADULT_AGE) {
-    errors.birthDate = MINOR
+  if ('birthDate' in changed && !errors.birthDate && changed.birthDate) {
+    const minor = ageOn(changed.birthDate, warsawToday(), 'race_day') < ADULT_AGE
+    if (!asGuardian && minor) errors.birthDate = MINOR
+    if (asGuardian && !minor) errors.birthDate = ADULT
   }
   return errors
 }
@@ -133,12 +140,14 @@ Deno.serve(async (req) => {
     }
 
     // ---- the boxes: every event consent (image included) and the LESZY.RUN service regulamin. An
-    // added adult accepts for themself, so a minors-only consent is not theirs (consents.js).
+    // added adult accepts for themself, so a minors-only consent is not theirs (consents.js); a
+    // child's parent accepts as guardian, every consent and the guardian's own box.
+    const asGuardian = registrationRole(registration) === 'minor'
     const { data: consents, error: cErr } = await admin.from('event_consents').select('id, minors_only').eq('event_id', registration.event_id)
     if (cErr) throw cErr
-    const consentIds = requiredConsents(consents).map((c) => c.id)
-    const { acceptedConsentIds, shownConsentIds, serviceRegulamin } = body ?? {}
-    if (serviceRegulamin !== true || !idList(acceptedConsentIds)) {
+    const consentIds = requiredConsents(consents, { hasMinor: asGuardian }).map((c) => c.id)
+    const { acceptedConsentIds, shownConsentIds, serviceRegulamin, guardianConsent } = body ?? {}
+    if (serviceRegulamin !== true || !idList(acceptedConsentIds) || (asGuardian && guardianConsent !== true)) {
       return json({ error: CONSENTS, code: 'consents_required' }, 400, req)
     }
     const shown = idList(shownConsentIds) ? shownConsentIds : acceptedConsentIds
@@ -172,7 +181,7 @@ Deno.serve(async (req) => {
       return json({ error: EDITS_CLOSED, code: 'edits_closed' }, 422, req)
     }
     if (hasEdits) {
-      const errors = editErrors(current, changed, ctx)
+      const errors = editErrors(current, changed, ctx, { asGuardian })
       if (Object.keys(errors).length) return json({ error: INVALID, code: 'edit_invalid', fields: errors }, 422, req)
     }
     // A team member gives their own details here: every field the event requires must be in.

@@ -107,6 +107,9 @@ describe('entriesToCsv (O-04)', () => {
     const regulamin = (over) => cellsOf(entriesToCsv([{ ...ROW, ...over }]).split('\r\n').at(-1))[20]
     assert.equal(regulamin({ consentState: 'awaiting' }), 'czeka na zgodę')
     assert.equal(regulamin({ consentState: 'office' }), 'podpisany w biurze')
+    // A child whose parent is not the captain waits for that parent (TP), and their paper consent reads so.
+    assert.equal(regulamin({ role: 'minor', consentState: 'awaiting' }), 'czeka na zgodę opiekuna')
+    assert.equal(regulamin({ role: 'minor', consentState: 'office' }), 'zgoda opiekuna na papierze')
     assert.equal(regulamin({ status: 'cancelled', statusKey: 'cancelled' }), '')
   })
 })
