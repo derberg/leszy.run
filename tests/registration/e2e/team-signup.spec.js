@@ -236,7 +236,7 @@ test('T-62 RA1: the team card reads „Drużyny N–M osób · <cena> / drużyna
   // Final review I-5: an event of teams only counts drużyny, never people.
   await expect(page.getByTestId('stat-registered')).toContainText('0 drużyn')
   await expect(page.getByTestId('stat-registered')).not.toContainText('osób')
-  await expect(page.getByTestId('stat-free')).toContainText('20 dla drużyn')
+  await expect(page.getByTestId('stat-free')).toContainText('20 drużyn')
 })
 
 test('T-62 M-1 RB1 says under the name that it is public', async ({ actors }) => {
