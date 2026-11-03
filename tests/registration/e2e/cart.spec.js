@@ -399,7 +399,8 @@ async function fillMember(page, prefix, { first, last = 'Leśny', birth = '1987-
   await page.locator(`#${prefix}-birth`).fill(birth)
   await page.locator(`[aria-labelledby="${prefix}-gender-label"]`).getByRole('button', { name: gender, exact: true }).click()
   await page.locator(`#${prefix}-email`).fill(email)
-  await page.locator(`#${prefix}-phone`).fill(phone)
+  // An adult member's card has no phone until „Pokaż więcej pól”: the member gives it on /zgoda.
+  if (await page.locator(`#${prefix}-phone`).count()) await page.locator(`#${prefix}-phone`).fill(phone)
 }
 
 for (const width of [1440, 390]) {
