@@ -38,17 +38,38 @@
 # - Reads stop_hook_active from the payload to avoid an infinite stop loop:
 #   once we've blocked once in a stop-continuation chain, we let the next stop
 #   through regardless (so the gate costs exactly one deliberate review pass).
+# - Fires once per STATE of the work, not once per stop. The state is HEAD plus
+#   the uncommitted diff, hashed into a stamp in this worktree's git dir. A stop
+#   with the same state as the last review passes silently; a new commit or edit
+#   gates again. The stop that ends a review stamps the state the review left,
+#   so docs it just edited do not re-fire it. Without this a long orchestrator
+#   session ran the full review on every cron check-in and subagent hand-back:
+#   433 reviews in one session (2026-10-24 to 11-02), each on ~500k tokens of
+#   context, with nothing changed between most of them.
 
 set -u
 
-# Read the Stop-hook payload on stdin. If we're already in a continuation
-# triggered by a previous block, allow the stop (loop guard).
 input=$(cat 2>/dev/null || true)
-stop_active=$(printf '%s' "$input" | jq -r '.stop_hook_active // false' 2>/dev/null || echo false)
-[ "$stop_active" = "true" ] && exit 0
 
 project=$(cd "$(dirname "$0")/../.." 2>/dev/null && pwd)
 [ -z "$project" ] && exit 0
+
+stamp=$(git -C "$project" rev-parse --path-format=absolute --git-path claude-doc-gate-reviewed 2>/dev/null || true)
+work_state() {
+  {
+    git -C "$project" rev-parse HEAD 2>/dev/null
+    git -C "$project" status --porcelain 2>/dev/null
+    git -C "$project" diff HEAD 2>/dev/null
+  } | shasum | awk '{print $1}'
+}
+
+# Loop guard: this stop ends the review the previous block asked for. Record the
+# state it left as reviewed and allow the stop.
+stop_active=$(printf '%s' "$input" | jq -r '.stop_hook_active // false' 2>/dev/null || echo false)
+if [ "$stop_active" = "true" ]; then
+  [ -n "$stamp" ] && work_state > "$stamp" 2>/dev/null
+  exit 0
+fi
 
 # Skip on main (see header) — topic work lives in worktrees on feature branches.
 branch=$(git -C "$project" symbolic-ref --short -q HEAD 2>/dev/null || true)
@@ -78,6 +99,11 @@ docs_changed=$(printf '%s\n' "$changed" | grep -E "$DOCS")
 
 # Nothing relevant changed -> nothing to gate.
 [ -z "$code_changed" ] && [ -z "$automation_changed" ] && exit 0
+
+# Already reviewed this exact state -> nothing new to gate.
+state=$(work_state)
+[ -n "$stamp" ] && [ -f "$stamp" ] && [ "$(cat "$stamp" 2>/dev/null)" = "$state" ] && exit 0
+[ -n "$stamp" ] && printf '%s\n' "$state" > "$stamp" 2>/dev/null
 
 reason=$(printf 'DOCS + SKILLS + AUTOMATION GATE — run an HONEST self-check before finishing. The bar is "genuinely needed", not "produce output". If nothing drifted and no skill gap surfaced, emit EXACTLY the line `Docs, skills, automation: unaffected.` and finish — no headings, no per-category breakdown, no recap of what you checked. Do NOT invent docs work or invent skills to look busy. This gate fires once; spend it on real judgement, not on writing about the judgement.
 
