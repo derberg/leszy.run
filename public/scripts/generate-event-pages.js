@@ -4,6 +4,7 @@
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'fs'
 import { resolve, dirname } from 'path'
 import { fileURLToPath } from 'url'
+import { CALENDAR_FIELDS } from '../src/lib/calendarData.js'
 import { TYPE_LABELS, typeTagClass, distTagClass, eventTypes, formatDateWithWeekday, infoCells } from '../src/lib/eventFacts.js'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
@@ -407,7 +408,7 @@ function buildSitemap(slugs, manifest) {
 // on the calendar hub. Bake a static shell with the same values Kalendarz.jsx's useSeo sets
 // at render time (keep the two in sync). The canonical also folds crawled parameter
 // variants (e.g. the SearchAction ?q= template) into /kalendarz.
-function buildKalendarzShell(indexHtml) {
+function buildKalendarzShell(indexHtml, upcoming) {
   const title = 'Kalendarz biegów w Polsce — Leszy.run'
   const desc = 'Przeglądaj setki biegów, marszów nordic walking i wydarzeń sportowych z całej Polski. Filtruj po regionie, dystansie, typie i dacie.'
   const url = `${BASE_URL}/kalendarz`
@@ -423,8 +424,32 @@ function buildKalendarzShell(indexHtml) {
   if (!html.includes('rel="canonical"')) {
     html = html.replace('</title>', `</title>\n    <link rel="canonical" href="${url}" />`)
   }
-  return html
+  return html.replace('<div id="root"></div>', `<div id="root">${buildKalendarzList(upcoming)}</div>`)
 }
+
+// Every upcoming race as a plain link, grouped by month, inside #root: React replaces it
+// with the filterable calendar on load, and a crawler that runs no JavaScript gets a link
+// to each race page from /kalendarz instead of an empty div.
+function buildKalendarzList(upcoming) {
+  const months = new Map()
+  for (const { slug, event } of upcoming) {
+    const key = event.date.slice(0, 7)
+    if (!months.has(key)) months.set(key, [])
+    months.get(key).push({ slug, event })
+  }
+  const sections = [...months.entries()].map(([key, items]) => {
+    const [y, m] = key.split('-').map(Number)
+    const label = `${POLISH_MONTH_NOMINATIVE[m - 1]} ${y}`
+    const li = items.map(({ slug, event }) => {
+      const parts = [formatPolishDate(event.date.slice(0, 10)), event.location].filter(Boolean).map(escapeHtml).join(' — ')
+      return `<li class="py-1"><a href="/kalendarz/${escapeHtml(slug)}" class="text-apex-text-bright hover:text-apex-yellow no-underline">${escapeHtml(event.name)}</a> <span class="text-apex-muted">— ${parts}</span></li>`
+    }).join('')
+    return `<section class="mb-6"><h2 class="font-display font-extrabold text-sm tracking-widest uppercase text-apex-yellow mb-2">${label}</h2><ul class="list-none p-0 m-0 font-sans text-sm">${li}</ul></section>`
+  }).join('')
+  return `<main id="main-content" class="relative"><div class="pt-20 md:pt-24 pb-16 px-6 max-w-[900px] mx-auto"><h1 class="font-display font-extrabold text-[30px] md:text-[42px] tracking-[3px] uppercase text-apex-text-bright leading-tight mb-6">Kalendarz biegów w Polsce</h1>${sections}</div></main>`
+}
+
+const POLISH_MONTH_NOMINATIVE = ['Styczeń', 'Luty', 'Marzec', 'Kwiecień', 'Maj', 'Czerwiec', 'Lipiec', 'Sierpień', 'Wrzesień', 'Październik', 'Listopad', 'Grudzień']
 
 // --- Main ---
 
@@ -481,9 +506,17 @@ function main() {
 
   console.log(`Generated ${generated} event HTML files (${pastCount} past-event noindex).`)
 
+  // The calendar's data (lib/calendarData.js): every upcoming race with the fields the
+  // list, grid and map read, so /kalendarz never queries Supabase per visitor.
+  const upcoming = slugs
+    .map(slug => ({ slug, event: manifest[slug] }))
+    .filter(({ event }) => event.date && event.date.slice(0, 10) >= TODAY && (event.status === 'active' || event.status === 'cancelled'))
+    .sort((a, b) => a.event.date.localeCompare(b.event.date))
+  const calendarData = upcoming.map(({ event }) => Object.fromEntries(CALENDAR_FIELDS.map(f => [f, event[f] ?? null])))
   mkdirSync(resolve(DIST, 'kalendarz'), { recursive: true })
-  writeFileSync(resolve(DIST, 'kalendarz', 'index.html'), buildKalendarzShell(indexHtml))
-  console.log('Generated kalendarz/index.html shell.')
+  writeFileSync(resolve(DIST, 'kalendarz', 'events.json'), JSON.stringify(calendarData))
+  writeFileSync(resolve(DIST, 'kalendarz', 'index.html'), buildKalendarzShell(indexHtml, upcoming))
+  console.log(`Generated kalendarz/index.html shell and kalendarz/events.json (${upcoming.length} upcoming races).`)
 
   // 4. Generate sitemap (past events excluded)
   const { xml, included, skipped } = buildSitemap(slugs, manifest)

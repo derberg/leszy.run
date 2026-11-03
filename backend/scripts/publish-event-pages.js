@@ -9,7 +9,7 @@ import { resolve, dirname } from 'path'
 import { fileURLToPath } from 'url'
 import { generateEventOg } from '../../public/scripts/generate-event-og.js'
 import { writeRunLog } from './lib/run-log.js'
-import { buildManifestEntry } from './lib/manifestEntry.js'
+import { buildManifestEntry, shareImageView } from './lib/manifestEntry.js'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const PROJECT_ROOT = resolve(__dirname, '..', '..')
@@ -166,7 +166,7 @@ async function main() {
   for (const slug of newSlugs) {
     if (!oldSlugs.has(slug)) {
       added.push(slug)
-    } else if (JSON.stringify(oldManifest[slug]) !== JSON.stringify(newManifest[slug])) {
+    } else if (JSON.stringify(shareImageView(oldManifest[slug])) !== JSON.stringify(shareImageView(newManifest[slug]))) {
       changed.push(slug)
     }
   }
