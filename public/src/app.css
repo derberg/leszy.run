@@ -36,7 +36,7 @@
   --color-apex-text: #AEB59E;
   --color-apex-text-bright: #E4E6D6;
   --color-apex-muted: #8C947C;
-  --color-apex-dim: #5E6652;
+  --color-apex-dim: #7A826B;
   --color-apex-ink: #0D110C;
 }
 
@@ -81,7 +81,7 @@ body {
     --color-apex-text: #4A4860;
     --color-apex-text-bright: #1A1830;
     --color-apex-muted: #6B6980;
-    --color-apex-dim: #9896B4;
+    --color-apex-dim: #6F6D85;
     --color-apex-ink: #1A1830;
   }
 }
@@ -112,7 +112,7 @@ html.light {
   --color-apex-text: #4A4860;
   --color-apex-text-bright: #1A1830;
   --color-apex-muted: #6B6980;
-  --color-apex-dim: #9896B4;
+  --color-apex-dim: #6F6D85;
   --color-apex-ink: #1A1830;
 }
 
@@ -198,6 +198,16 @@ html.light .hero-scanlines::before {
       rgba(107,128,0,0.03) 2px,
       rgba(107,128,0,0.03) 4px
     );
+  }
+}
+
+/* The hero glow and the scroll hint loop forever (WCAG 2.2.2, 2.3.3). */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }
 

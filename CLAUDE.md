@@ -1304,7 +1304,10 @@ mode is "Nocny bór", the light mode's forest at night: green-black surfaces
 parchment text (`#AEB59E` body, `#E4E6D6` bright). The Leszy logo stays black
 in dark mode with a moss rim light (`drop-shadow`, `.hero-logo-dark` and
 `.bg-logo-dark` in `public/src/app.css`). Do not invert it: its shading is drawn
-in black, so a white Leszy reads as a photo negative. The palette below still describes the admin `frontend/`.
+in black, so a white Leszy reads as a photo negative. Every `apex-*` text token,
+`apex-dim` included, is at least 4.5:1 on `apex-bg` in both public modes: `dim`
+is used for small text in 28 places, so it is not decorative. The palette below
+still describes the admin `frontend/`.
 
 ### Palette
 - Background: `#0A0A10` (near-black)
