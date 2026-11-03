@@ -34,11 +34,28 @@ function Field({ id, label, error, children, className = '' }) {
   )
 }
 
-function TextInput({ id, value, onChange, error, ...rest }) {
+// `note`: the id of a line under the field that describes it too (CopiedNote's).
+function TextInput({ id, value, onChange, error, note, ...rest }) {
+  const describedBy = [error && `${id}-error`, note].filter(Boolean).join(' ') || undefined
   return (
     <input id={id} className={`${inputCls} ${error ? 'border-apex-red' : ''}`} value={value ?? ''}
-      aria-invalid={error ? 'true' : undefined} aria-describedby={error ? `${id}-error` : undefined}
+      aria-invalid={error ? 'true' : undefined} aria-describedby={describedBy}
       onChange={(e) => onChange(e.target.value)} {...rest} />
+  )
+}
+
+// A club or town the team form carried over from the card before (groupDraft carryOver): said
+// out loud, and one click empties it and puts the cursor in the field.
+function CopiedNote({ id, label, from, onClear }) {
+  return (
+    <div className="flex items-center justify-between gap-2 min-w-0" data-testid={`${id}-copied`}>
+      <span id={`${id}-copied`} className="font-sans text-sm text-apex-muted truncate min-w-0">Skopiowano od: {from}</span>
+      <button type="button" aria-label={`Wyczyść pole ${label} — skopiowano od: ${from}`}
+        onClick={() => { onClear(); document.getElementById(id)?.focus() }}
+        className="shrink-0 min-h-9 px-2.5 border border-apex-border-bright text-apex-text font-sans font-bold text-sm whitespace-nowrap hover:border-apex-yellow-dim hover:text-apex-yellow">
+        Wyczyść
+      </button>
+    </div>
   )
 }
 
@@ -82,16 +99,17 @@ function GuardianConsent({ id, guardian }) {
  *   loginHref?: string, codeNote?: string, disabled?: boolean, variant?: 'self'|'buyer'|'adult'|'minor',
  *   idPrefix?: string, guardian?: { name, email, checked, onChange, error },
  *   notRunning?: boolean, onNotRunning?: (on: boolean) => void, emailReadOnly?: boolean,
- *   ownHeading?: string, voucher?: object|null, extras?: object|null }} p
+ *   ownHeading?: string, voucher?: object|null, extras?: object|null, copied?: { club?: string, city?: string } }} p
  * `emailReadOnly`: the consent page (/zgoda) shows the address the link was sent to; it is never edited there.
  * `ownHeading`: the team form's „Kapitan”.
  * `voucher` / `extras` (Plan 7, RA2/RA3): VoucherField's and ExtrasPicker's props (without the ids,
  * which follow `idPrefix`), on a priced entry and where the competition offers extras.
+ * `copied`: the team form's club and town carried over from another card, by that person's name.
  */
 export default function PersonForm({
   fields, value, onChange, errors = {}, competition, raceDate, reckoning, ageGroups, prefill, loginHref, codeNote, disabled = false,
   variant = 'self', idPrefix = 'p', guardian, notRunning = false, onNotRunning, emailReadOnly = false,
-  ownHeading = 'Twoje dane', voucher = null, extras = null,
+  ownHeading = 'Twoje dane', voucher = null, extras = null, copied = {},
 }) {
   const minor = variant === 'minor'
   const buyer = variant === 'buyer'
@@ -175,12 +193,16 @@ export default function PersonForm({
             )}
             {fields.city !== 'off' && (
               <Field id={id('city')} label={optional('Miejscowość', fields.city)} error={errors.city}>
-                <TextInput id={id('city')} value={value.city} onChange={set('city')} error={errors.city} autoComplete={own ? 'address-level2' : 'off'} maxLength={200} />
+                <TextInput id={id('city')} value={value.city} onChange={set('city')} error={errors.city} autoComplete={own ? 'address-level2' : 'off'} maxLength={200}
+                  note={copied.city && value.city ? `${id('city')}-copied` : undefined} />
+                {copied.city && value.city && <CopiedNote id={id('city')} label="Miejscowość" from={copied.city} onClear={() => onChange({ city: '' })} />}
               </Field>
             )}
             {fields.club !== 'off' && (
               <Field id={id('club')} label={optional('Klub', fields.club)} error={errors.club}>
-                <TextInput id={id('club')} value={value.club} onChange={set('club')} error={errors.club} maxLength={200} />
+                <TextInput id={id('club')} value={value.club} onChange={set('club')} error={errors.club} maxLength={200}
+                  note={copied.club && value.club ? `${id('club')}-copied` : undefined} />
+                {copied.club && value.club && <CopiedNote id={id('club')} label="Klub" from={copied.club} onClear={() => onChange({ club: '' })} />}
               </Field>
             )}
             {fields.nationality !== 'off' && (

@@ -21,7 +21,7 @@ import { discountedPrice, voucherLineLabel } from '@registration/pricing.js'
 import { normalizeCode } from '@registration/vouchers.js'
 import {
   ADULT_EMAIL_NOTE, initTeam, setSize, droppedBy, moveMember, removeMember, squadCards, toTeamRequest, teamContext, checkTeam, checkCaptain,
-  firstOpenMember, memberAfter, memberAgeLabel, teamFailure, repricedFee,
+  firstOpenMember, memberAfter, memberAgeLabel, teamFailure, repricedFee, carryOverMember, carryOverSquad, carriedIn, memberCopiedFrom,
 } from '../../lib/teamDraft.js'
 import { useLeaveGuard, confirmLeave } from '../../lib/leaveGuard.js'
 import { focusCardError, useStepHistory } from '../../lib/useStepHistory.js'
@@ -144,6 +144,16 @@ export default function TeamSignup({ raw: rawProp, categoryId, preview = false, 
       setAt(s.at)
     },
   })
+
+  // A member's step opening takes the club and town of the card before it, where nothing was typed,
+  // and every copy follows its source from then on (a captain's club fixed on RB1 reaches the
+  // squad). A field it fills loses its „Podaj klub.”.
+  useEffect(() => {
+    const next = carryOverSquad(onMember ? carryOverMember(draft, stepId, fields) : draft, fields)
+    if (next === draft) return
+    setDraft(next)
+    for (const { key, field } of carriedIn(draft, next)) clearErrors(key, [field])
+  }, [draft, onMember, stepId])
 
   useEffect(() => {
     const key = errorFocus.current
@@ -561,7 +571,7 @@ export default function TeamSignup({ raw: rawProp, categoryId, preview = false, 
               aria-invalid={nameError ? 'true' : undefined} aria-describedby={nameError ? 'team-name-error team-name-note' : 'team-name-note'} disabled={busy}
               onChange={(e) => { const v = e.target.value; setDraft((d) => ({ ...d, teamName: v })); setNameError(null) }} />
             {nameError && <p id="team-name-error" className="text-apex-red font-sans text-sm">{nameError}</p>}
-            <p id="team-name-note" className="font-sans text-sm text-apex-muted" data-testid="team-name-public">Nazwa drużyny będzie widoczna na publicznej liście startowej.</p>
+            <p id="team-name-note" className="font-sans text-sm text-apex-muted" data-testid="team-name-public">Nazwa drużyny będzie widoczna na publicznej liście startowej. To nie jest klub. Klub podaje każda osoba osobno, a w jednej drużynie mogą być osoby z różnych klubów.</p>
           </div>
           <div className="flex flex-col gap-1.5">
             <span id="team-size-label" className={labelCls}>Ile osób w składzie</span>
@@ -619,7 +629,7 @@ export default function TeamSignup({ raw: rawProp, categoryId, preview = false, 
         <PersonForm fields={fields} value={effectivePerson(draft, i, today)} onChange={change(c.key, i)} errors={errors[c.key] ?? {}}
           competition={competition} raceDate={context.raceDate} reckoning={context.reckoning} ageGroups={context.ageGroups} disabled={busy}
           variant={variants[i]} idPrefix={`p${n}`} prefill={null} codeNote={variants[i] === 'adult' ? ADULT_EMAIL_NOTE : undefined}
-          extras={extrasProps(c)}
+          extras={extrasProps(c)} copied={memberCopiedFrom(draft, c.key)}
           guardian={{
             name: cardName(draft, 0), email: draft.cards[0].person.email, checked: c.guardianConsent,
             onChange: (v) => { setDraft((d) => setGuardianConsent(d, c.key, v)); clearErrors(c.key, ['guardianConsent']) },

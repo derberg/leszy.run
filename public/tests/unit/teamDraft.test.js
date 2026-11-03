@@ -2,9 +2,9 @@ import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
 import {
   initTeam, setSize, droppedBy, moveMember, removeMember, memberVariant, toTeamRequest, legOf, squadCards, checkTeam, checkCaptain,
-  teamContext, teamFailure, memberAfter, firstOpenMember, memberAgeLabel, repricedFee,
+  teamContext, teamFailure, memberAfter, firstOpenMember, memberAgeLabel, repricedFee, carryOverMember, carryOverSquad, carriedIn, memberCopiedFrom,
 } from '../../src/lib/teamDraft.js'
-import { setCardOpen, setGuardianConsent, updatePerson, LIST_STEP } from '../../src/lib/groupDraft.js'
+import { setCardOpen, setGuardianConsent, updatePerson, cardEmpty, copiedFromNames, LIST_STEP } from '../../src/lib/groupDraft.js'
 import { EMPTY_PERSON } from '../../src/lib/personFormModel.js'
 import { TEAM_NAME_CHARS_MESSAGE } from '../../../supabase/functions/_shared/registration/team.js'
 
@@ -293,5 +293,174 @@ describe('Final review L-1: a price_changed keeps the server\'s fee', () => {
     assert.equal(repricedFee(err({ entryTotal: '3000' })), null)
     assert.equal(repricedFee(err({ entryTotal: 3000 }, 'full')), null)
     assert.equal(repricedFee(new Error('offline')), null)
+  })
+})
+
+describe('carryOverMember: a member starts with the club and town of the card before them', () => {
+  // The captain with a club and a town, two empty members behind.
+  function squad() {
+    let d = initTeam(3, CAT)
+    d = updatePerson(d, d.cards[0].key, { ...me, club: 'KB Leszy', city: 'Gdynia' })
+    return d
+  }
+  const [cap, m2, m3] = [0, 1, 2]
+  const person = (d, i) => d.cards[i].person
+
+  it("member 2 takes the captain's club and town, marked as copied from the captain", () => {
+    const d0 = squad()
+    const d = carryOverMember(d0, d0.cards[m2].key)
+    assert.equal(person(d, m2).club, 'KB Leszy')
+    assert.equal(person(d, m2).city, 'Gdynia')
+    assert.deepEqual(copiedFromNames(d, d.cards[m2].key), { club: 'Ola Leśna', city: 'Ola Leśna' })
+    assert.equal(person(d, m3).club, '', 'only the opened card is filled')
+  })
+
+  it('member 3 copies from a finished member 2, not from the captain', () => {
+    let d = squad()
+    d = carryOverMember(d, d.cards[m2].key)
+    d = updatePerson(d, d.cards[m2].key, { ...piotr, club: 'AZS' })
+    d = setCardOpen(d, d.cards[m2].key, false)
+    d = carryOverMember(d, d.cards[m3].key)
+    assert.equal(person(d, m3).club, 'AZS')
+    assert.equal(person(d, m3).city, 'Gdynia', "member 2's copied town goes on")
+    assert.deepEqual(copiedFromNames(d, d.cards[m3].key), { club: 'Piotr Leśny', city: 'Piotr Leśny' })
+  })
+
+  it('an unfinished member 2 is skipped: member 3 falls back to the captain', () => {
+    let d = squad()
+    d = updatePerson(d, d.cards[m2].key, { club: 'AZS' })
+    d = carryOverMember(d, d.cards[m3].key)
+    assert.equal(person(d, m3).club, 'KB Leszy')
+  })
+
+  it('a field typed into on the card is never overwritten, the other one still is', () => {
+    let d = squad()
+    d = carryOverMember(d, d.cards[m2].key)
+    d = updatePerson(d, d.cards[m2].key, { club: 'Własny klub' })
+    assert.deepEqual(Object.keys(copiedFromNames(d, d.cards[m2].key)), ['city'], 'the edited club is no longer marked copied')
+    d = updatePerson(d, d.cards[cap].key, { club: 'Nowy', city: 'Sopot' })
+    d = carryOverMember(d, d.cards[m2].key)
+    assert.equal(person(d, m2).club, 'Własny klub')
+    assert.equal(person(d, m2).city, 'Sopot', "an untyped copy follows the captain's change")
+  })
+
+  it('„Wyczyść” (an empty patch) empties the field for good', () => {
+    let d = squad()
+    d = carryOverMember(d, d.cards[m2].key)
+    d = updatePerson(d, d.cards[m2].key, { club: '' })
+    assert.equal(person(d, m2).club, '')
+    assert.deepEqual(Object.keys(copiedFromNames(d, d.cards[m2].key)), ['city'])
+    d = carryOverMember(d, d.cards[m2].key)
+    assert.equal(person(d, m2).club, '', 'opening the card again does not bring it back')
+  })
+
+  it('nothing to copy: the same draft, and a captain with no club copies nothing', () => {
+    let d = initTeam(2, CAT)
+    d = updatePerson(d, d.cards[cap].key, me)
+    assert.equal(carryOverMember(d, d.cards[m2].key), d)
+    const full = squad()
+    const once = carryOverMember(full, full.cards[m2].key)
+    assert.equal(carryOverMember(once, once.cards[m2].key), once, 'opening it again changes nothing')
+  })
+
+  it("the captain's card never takes a copy", () => {
+    const d = squad()
+    assert.equal(carryOverMember(d, d.cards[cap].key), d)
+  })
+
+  it('with leg order the source is the card before in the squad as shown', () => {
+    let d = squad()
+    d = updatePerson(d, d.cards[m3].key, { ...ewa, club: 'Ewa Team' })
+    d = setCardOpen(d, d.cards[m3].key, false)
+    d = moveMember(d, 2, 0) // Ewa runs leg 1, the captain leg 2, member 2 leg 3
+    d = carryOverMember(d, d.cards[m2].key)
+    assert.equal(person(d, m2).club, 'KB Leszy', 'the captain is the nearest card before member 2')
+    d = moveMember(d, 1, 2) // captain to leg 3: Ewa, member 2, captain
+    d = updatePerson(d, d.cards[m2].key, { city: 'x' })
+    d = carryOverMember(d, d.cards[m2].key)
+    assert.equal(person(d, m2).club, 'Ewa Team')
+  })
+
+  it('a copied club alone leaves the card empty, so „Usuń” asks nothing', () => {
+    const d0 = squad()
+    const d = carryOverMember(d0, d0.cards[m2].key)
+    assert.equal(cardEmpty(d.cards[m2]), true)
+    assert.equal(cardEmpty(updatePerson(d, d.cards[m2].key, { firstName: 'A' }).cards[m2]), false)
+  })
+
+  it('the copied club goes in the request like a typed one', () => {
+    const d0 = squad()
+    const d = carryOverMember(d0, d0.cards[m2].key)
+    const req = toTeamRequest(d, { today: TODAY })
+    assert.equal(req.members[1].person.club, 'KB Leszy')
+  })
+})
+
+describe('carryOverSquad: a copy follows its source after the step that made it (review #395)', () => {
+  const ON = { club: 'optional', city: 'optional' }
+  // Captain „KS Lesy”; members 2 and 3 opened and finished in turn, the way the form does it.
+  function finished() {
+    let d = initTeam(3, CAT)
+    d = updatePerson(d, d.cards[0].key, { ...me, club: 'KS Lesy', city: 'Gdynia' })
+    for (const [i, p] of [[1, piotr], [2, ewa]]) {
+      const key = d.cards[i].key
+      d = carryOverMember(d, key, ON)
+      d = updatePerson(d, key, p)
+      d = setCardOpen(d, key, false)
+    }
+    return d
+  }
+  const clubs = (d) => toTeamRequest(d, { today: TODAY }).members.map((m) => m.person.club)
+
+  it("the captain's club fixed on RB1 reaches both finished members, through the chain", () => {
+    let d = finished()
+    assert.deepEqual(clubs(d), ['KS Lesy', 'KS Lesy', 'KS Lesy'])
+    d = updatePerson(d, d.cards[0].key, { club: 'KS Leszy' })
+    d = carryOverSquad(d, ON)
+    assert.deepEqual(clubs(d), ['KS Leszy', 'KS Leszy', 'KS Leszy'])
+    assert.deepEqual(memberCopiedFrom(d, d.cards[2].key), { club: 'Piotr Leśny', city: 'Piotr Leśny' }, 'member 3 still copies member 2')
+  })
+
+  it('a member who typed their own club stops the chain there; the next one follows them', () => {
+    let d = finished()
+    d = updatePerson(d, d.cards[1].key, { club: 'AZS' })
+    d = updatePerson(d, d.cards[0].key, { club: 'KS Leszy' })
+    d = carryOverSquad(d, ON)
+    assert.deepEqual(clubs(d), ['KS Leszy', 'AZS', 'AZS'])
+  })
+
+  it('a captain who empties the club empties the copies, and the same draft comes back once settled', () => {
+    let d = finished()
+    d = carryOverSquad(updatePerson(d, d.cards[0].key, { club: '' }), ON)
+    assert.deepEqual(clubs(d), ['', '', ''])
+    assert.equal(carryOverSquad(d, ON), d)
+  })
+
+  it('a member never opened is not filled in behind their back', () => {
+    let d = initTeam(3, CAT)
+    d = updatePerson(d, d.cards[0].key, { ...me, club: 'KS Lesy' })
+    assert.equal(carryOverSquad(d, ON), d)
+  })
+
+  it('carriedIn names the fields the carryover filled, for clearing their errors', () => {
+    const d = finished()
+    const next = carryOverSquad(updatePerson(d, d.cards[0].key, { club: 'KS Leszy' }), ON)
+    assert.deepEqual(carriedIn(d, next).map(({ key, field }) => [d.cards.findIndex((c) => c.key === key), field]), [[1, 'club'], [2, 'club']])
+  })
+
+  it("a field the organizer switched off is never copied", () => {
+    let d = initTeam(2, CAT)
+    d = updatePerson(d, d.cards[0].key, { ...me, club: 'KS Lesy', city: 'Gdynia' })
+    d = carryOverMember(d, d.cards[1].key, { club: 'off', city: 'optional' })
+    assert.equal(d.cards[1].person.club, '')
+    assert.equal(d.cards[1].person.city, 'Gdynia')
+  })
+
+  it('a nameless source is named by their leg, not their request index', () => {
+    let d = initTeam(3, CAT)
+    d = updatePerson(d, d.cards[0].key, { club: 'KS Lesy' })
+    d = moveMember(d, 0, 1) // the captain runs leg 2
+    d = carryOverMember(d, d.cards[2].key, ON)
+    assert.deepEqual(memberCopiedFrom(d, d.cards[2].key), { club: 'osoba 2' })
   })
 })
