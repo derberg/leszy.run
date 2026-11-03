@@ -293,9 +293,18 @@ const REGULAMIN_MARKERS = [
  *
  * @returns {Promise<boolean>}
  */
-async function verifyRegulaminPage(url, eventName, { timeoutMs = 10000, fetchImpl = fetch } = {}) {
-  const tokens = nameTokens(eventName)
+async function verifyRegulaminPage(url, eventName, { timeoutMs = 10000, fetchImpl = fetch, ownText = false, slug = '' } = {}) {
+  let tokens = nameTokens(eventName)
   if (tokens.length === 0) return false
+  // ownText: the page is the organizer's /<slug>/regulamin route, picked for
+  // want of a link that names the race. The menu around it links every race
+  // on the site, so the name is read with the links removed, and every name
+  // token the slug does not already carry must appear: a town or a month in
+  // the event name is what tells this race's regulamin from a sibling's.
+  if (ownText) {
+    const rest = tokens.filter(t => !citySlug(slug).includes(t))
+    if (rest.length) tokens = rest
+  }
   const ctrl = new AbortController()
   const timer = setTimeout(() => ctrl.abort(), timeoutMs)
   try {
@@ -309,12 +318,13 @@ async function verifyRegulaminPage(url, eventName, { timeoutMs = 10000, fetchImp
 
     const $ = cheerio.load(await res.text())
     $('script, style, nav, header, footer').remove()
+    if (ownText) $('a').remove()
     const text = plainText($('body').text())
     if (text.length < 1500) return false
 
     const markers = REGULAMIN_MARKERS.filter(m => text.includes(m)).length
     if (markers < 3) return false
-    return tokens.some(t => text.includes(t))
+    return ownText ? tokens.every(t => text.includes(t)) : tokens.some(t => text.includes(t))
   } catch {
     return false
   } finally {
@@ -376,11 +386,27 @@ async function pickRegulamin(candidates, city, eventName, deps = {}) {
   // organizer's only PDF away from it, a loss that reading more pages was
   // never meant to cause.
   if (!chosen) {
-    const onsite = candidates.filter(c => !c.offsite)
+    const onsite = candidates.filter(c => !c.offsite && !c.added)
     if (onsite.length === 1 && onsite[0].kind === 'pdf') chosen = onsite[0]
   }
 
-  if (!chosen) return null
+  // Tier 4: the organizer's own /<slug>/regulamin route. An organizer that
+  // runs one race keeps its regulamin there and links it from the menu as
+  // plain "Regulamin", beside a kids' regulamin. The slug puts the race's
+  // name into every link, so tier 1 ties and nothing else separates them.
+  // Bieg Sylwestrowy in Brzoza published without a regulamin that way. The
+  // route is only taken when its own text, the menu removed, names the race:
+  // TKKF Koszalin's /regulamin is the Mile Biegowe one, and its menu names
+  // every other race on the site.
+  if (!chosen) {
+    for (const c of candidates) {
+      if (c.kind !== 'html' || c.offsite) continue
+      const m = (b4sportPath(c.url) || '').match(/^\/([^/?#]+)\/regulamin\/?(?:[?#].*)?$/i)
+      if (!m) continue
+      return await verifyPageFn(c.url, eventName, { ownText: true, slug: m[1] }) ? c.url : null
+    }
+    return null
+  }
   const ok = chosen.kind === 'html'
     ? await verifyPageFn(chosen.url, eventName)
     : await verifyPdfFn(chosen.url)
@@ -439,6 +465,13 @@ async function fetchOrganizerDetails(orgSlugs) {
       })
       if (res.ok) {
         const $ = cheerio.load(await res.text())
+        // The route is a candidate itself, linked from the menu or not:
+        // pickRegulamin() reads it as the last resort. `added` keeps it out
+        // of the lone-PDF count when the menu never linked it, so a one-race
+        // organizer's only PDF still wins. A menu link to it was collected
+        // from the index first and wins the dedup below, as it always did.
+        const route = `${BASE_URL}/${slug}/regulamin`
+        candidates.push({ url: route, hay: citySlug(`${slug} regulamin`), context: '', text: 'Regulamin', kind: 'html', offsite: false, added: true })
         candidates.push(...collectRegulaminLinks($, slug))
       }
     } catch (err) {

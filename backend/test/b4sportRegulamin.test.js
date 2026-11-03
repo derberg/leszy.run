@@ -169,3 +169,65 @@ test('a network failure drops the candidate instead of throwing', async () => {
   })
   assert.equal(ok, false)
 })
+
+// --- the organizer's own /<slug>/regulamin route -----------------------------
+
+// Bieg Sylwestrowy in Brzoza: the menu links the race's regulamin as plain
+// "Regulamin" and the kids' races' regulamin twice. Every link carries
+// "sylwestrowy" through the organizer slug, so the name ties and nothing used
+// to be picked, although /regulamin is the race's own regulamin.
+const BRZOZA_NAV = `
+  <a href="/bieg_sylwestrowy/regulamin">Regulamin</a>
+  <a href="/bieg_sylwestrowy/biegi_dla_dzieci__wycia_z_regulaminu">Regulamin - Biegi Dla Dzieci</a>
+  <a href="/bieg_sylwestrowy/biegi_dla_dzieci__wycia_z_regulaminu">Regulamin - BIegi dla dziewdci</a>`
+const BRZOZA_NAME = 'XIX  BIEG SYLWESTROWY, Brzoza, 31 grudnia 2025'
+
+test('falls back to the organizer\'s /regulamin route when the links tie', async () => {
+  const candidates = collectRegulaminLinks(cheerio.load(BRZOZA_NAV), 'bieg_sylwestrowy')
+  const calls = []
+  const url = await pickRegulamin(candidates, 'Brzoza', BRZOZA_NAME, {
+    verifyPageFn: async (u, name, opts) => { calls.push({ u, opts }); return true },
+  })
+  assert.equal(url, 'https://b4sportonline.pl/bieg_sylwestrowy/regulamin')
+  // The route is verified on its own text, not on the menu it repeats.
+  assert.deepEqual(calls, [{
+    u: 'https://b4sportonline.pl/bieg_sylwestrowy/regulamin',
+    opts: { ownText: true, slug: 'bieg_sylwestrowy' },
+  }])
+})
+
+test('the /regulamin route is not written when its own text does not name the race', async () => {
+  const candidates = collectRegulaminLinks(cheerio.load(BRZOZA_NAV), 'bieg_sylwestrowy')
+  assert.equal(await pickRegulamin(candidates, 'Brzoza', BRZOZA_NAME, { verifyPageFn: no }), null)
+})
+
+const BRZOZA_REGULAMIN_HTML = REGULAMIN_HTML
+  .replace('Regulamin - Mile Biegowe 2026', 'Regulamin XX BIEG SYLWESTROWY, Brzoza, 31 grudnia 2026')
+
+test('ownText verification reads the regulamin, not the menu around it', async () => {
+  // The race named only in menu links: a different race's regulamin page.
+  const menuOnly = REGULAMIN_HTML.replace('<body>',
+    '<body><div><a href="/x/1">XIX BIEG SYLWESTROWY Brzoza 31 grudnia</a></div>')
+  const opts = { ownText: true, slug: 'bieg_sylwestrowy' }
+  assert.equal(await verifyRegulaminPage('https://x.pl/r', BRZOZA_NAME, { ...opts, fetchImpl: stubFetch(menuOnly) }), false)
+  assert.equal(await verifyRegulaminPage('https://x.pl/r', BRZOZA_NAME, { ...opts, fetchImpl: stubFetch(BRZOZA_REGULAMIN_HTML) }), true)
+})
+
+test('ownText verification needs every name token the slug does not already carry', async () => {
+  const otherTown = BRZOZA_REGULAMIN_HTML.replace('Brzoza', 'Koszalin')
+  const ok = await verifyRegulaminPage('https://x.pl/r', BRZOZA_NAME, {
+    ownText: true, slug: 'bieg_sylwestrowy', fetchImpl: stubFetch(otherTown),
+  })
+  assert.equal(ok, false)
+})
+
+test('the /regulamin route added unlinked does not take a lone PDF\'s place', async () => {
+  const candidates = [
+    { url: 'https://b4sportonline.pl/Org/regulamin', hay: 'orgregulamin', kind: 'html', offsite: false, added: true },
+    { url: 'https://x.pl/regulamin.pdf', hay: 'regulaminpdf', kind: 'pdf' },
+  ]
+  assert.equal(
+    await pickRegulamin(candidates, 'Sopot', 'Bieg Zupełnie Inny', { verifyPdfFn: yes, verifyPageFn: no }),
+    'https://x.pl/regulamin.pdf',
+  )
+})
