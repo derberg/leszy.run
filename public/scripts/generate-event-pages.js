@@ -4,6 +4,7 @@
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'fs'
 import { resolve, dirname } from 'path'
 import { fileURLToPath } from 'url'
+import { TYPE_LABELS, typeTagClass, distTagClass, eventTypes, formatDateWithWeekday, infoCells } from '../src/lib/eventFacts.js'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const ROOT = resolve(__dirname, '..')
@@ -241,6 +242,60 @@ ${items}
   </nav>`
 }
 
+// The race itself, rendered into #root at build time with EventPage's markup and classes.
+// React's createRoot replaces it on load, so visitors see the same page; a crawler that
+// does not run JavaScript gets the name, date, place, distances, price, deadline and
+// the organizer's links instead of an empty div. Time-dependent
+// bits (the "za N dni" badge, the favourite star, the map) are left to the client.
+function buildEventBody(event) {
+  const now = new Date()
+  const types = eventTypes(event)
+  const distances = event.distances || []
+  const cells = infoCells(event, now)
+
+  const tags = (types.length || distances.length)
+    ? `<div class="flex flex-wrap gap-1.5 mb-6">${[
+      ...types.map(t => `<span class="${typeTagClass(t)}">${escapeHtml(TYPE_LABELS[t] || t)}</span>`),
+      ...distances.map(d => `<span class="${distTagClass}">${escapeHtml(d)}</span>`),
+    ].join('')}</div>`
+    : ''
+
+  const button = (href, label, primary) => `<a href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer" class="${primary
+    ? 'font-display font-bold text-[12px] tracking-widest uppercase px-6 py-2.5 bg-apex-yellow text-apex-ink hover:bg-apex-yellow-bright transition-all no-underline'
+    : 'font-display font-bold text-[12px] tracking-widest uppercase px-6 py-2.5 border-2 border-apex-border text-apex-text-bright hover:border-apex-text hover:text-apex-yellow transition-all no-underline'}">${label}</a>`
+  const buttons = [
+    event.status !== 'cancelled' && event.registration_url ? button(event.registration_url, 'Zapisy', true) : '',
+    event.website ? button(event.website, 'Strona wydarzenia', false) : '',
+    event.regulamin_url ? button(event.regulamin_url, 'Regulamin', false) : '',
+  ].join('')
+
+  const grid = cells.length
+    ? `<div class="grid grid-cols-1 md:grid-cols-2 border-t border-apex-border">${cells.map((cell, i) => {
+      const spanFull = i === cells.length - 1 && cells.length % 2 !== 0
+      const tone = cell.closed ? 'text-apex-red' : cell.accent ? 'text-apex-yellow' : 'text-apex-text-bright'
+      return `<div class="px-5 py-4 border-b border-apex-border ${spanFull ? 'md:col-span-2' : ''}"><div class="font-mono text-[10px] font-semibold tracking-[2px] uppercase text-apex-dim mb-1">${escapeHtml(cell.label)}</div><div class="font-sans text-base font-semibold ${tone}">${escapeHtml(cell.value)}</div></div>`
+    }).join('')}</div>`
+    : ''
+
+  const location = event.location
+    ? `<div class="flex items-center gap-2 text-apex-muted mb-5"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="flex-shrink-0" aria-hidden="true"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg><span class="font-sans text-base">${escapeHtml(event.location)}${event.voivodeship ? `<span class="text-apex-dim">, ${escapeHtml(event.voivodeship)}</span>` : ''}</span></div>`
+    : ''
+
+  const cancelled = event.status === 'cancelled'
+    ? '<span class="font-mono text-[11px] font-semibold px-2 py-0.5 border border-apex-red/30 text-apex-red bg-apex-red/10 uppercase">Odwołany</span>'
+    : ''
+
+  return `<main id="main-content" class="relative"><div class="pt-20 md:pt-24 pb-16 px-6 max-w-[900px] mx-auto relative z-10">
+      <nav class="mb-6" aria-label="Nawigacja okruszkowa"><ol class="flex items-center gap-2 font-mono text-[11px] tracking-wide text-apex-muted list-none p-0 m-0"><li><a href="/kalendarz" class="hover:text-apex-yellow transition-colors no-underline text-apex-muted">Kalendarz</a></li><li aria-hidden="true">/</li><li class="text-apex-text-bright truncate max-w-[300px]">${escapeHtml(event.name)}</li></ol></nav>
+      <div class="flex items-center gap-3 mb-4"><span class="font-mono text-[13px] font-semibold text-apex-yellow">${escapeHtml(formatDateWithWeekday(event.date))}</span>${cancelled}</div>
+      <h1 class="font-display font-extrabold text-[30px] md:text-[42px] tracking-[3px] uppercase text-apex-text-bright leading-tight mb-3">${escapeHtml(event.name)}</h1>
+      ${location}
+      ${tags}
+      ${buttons ? `<div class="flex flex-wrap gap-3 mb-8">${buttons}</div>` : ''}
+      ${grid}
+    </div></main>`
+}
+
 function buildEventHtml(event, slug, cssLinks, jsScripts, manifest, today) {
   // City in the title improves matching for "<bieg> <miasto> <rok>" queries where the
   // event name itself doesn't contain the city.
@@ -308,7 +363,7 @@ function buildEventHtml(event, slug, cssLinks, jsScripts, manifest, today) {
     ${cssLinks}
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">${buildEventBody(event)}</div>
     ${buildRelatedNav(event)}
 ${buildRelatedEvents(event, slug, manifest, today)}
     <script id="event-data" type="application/json">${eventJson}</script>

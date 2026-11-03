@@ -10,28 +10,9 @@ import NearbyEvents from '../components/NearbyEvents.jsx'
 import LeszyrunBanner from '../components/LeszyrunBanner.jsx'
 import ReportEventModal from '../components/ReportEventModal.jsx'
 import StarButton from '../components/StarButton.jsx'
+import { TYPE_LABELS, typeTagClass, distTagClass, eventTypes, formatDateWithWeekday } from '../lib/eventFacts.js'
 
 const EventMap = lazy(() => import('../components/EventMap.jsx'))
-
-const TYPE_LABELS = {
-  trail: 'trail',
-  nocny: 'nocny',
-  ocr: 'OCR',
-  nordic: 'nordic walking',
-  ultra: 'ultramaraton',
-  charytatywny: 'charytatywny',
-  uliczny: 'uliczny',
-}
-
-const baseTag = 'font-mono text-[10px] font-semibold tracking-wide px-2 py-0.5 border uppercase'
-
-function getTypeTagClass(type) {
-  if (type === 'nocny') return `${baseTag} border-[rgba(148,130,220,0.3)] text-[#9482dc]`
-  if (type === 'charytatywny') return `${baseTag} border-[rgba(45,90,39,0.5)] text-[#5baa52]`
-  return `${baseTag} border-apex-cyan/30 text-apex-cyan`
-}
-
-const distTagClass = `${baseTag} border-[rgba(168,194,58,0.3)] text-apex-yellow-dim`
 
 /**
  * Format a date in Polish locale.
@@ -144,38 +125,50 @@ function buildJsonLd(event, slug) {
   return { '@context': 'https://schema.org', '@graph': [sportsEvent, breadcrumb] }
 }
 
+/**
+ * The race embedded in a static /kalendarz/:slug page, when it is this slug's.
+ * @param {string} slug
+ * @returns {Object|null}
+ */
+function readEmbeddedEvent(slug) {
+  if (typeof document === 'undefined') return null
+  const el = document.getElementById('event-data')
+  if (!el) return null
+  try {
+    const data = JSON.parse(el.textContent)
+    return data && slugify(data.name, data.date) === slug ? data : null
+  } catch {
+    return null
+  }
+}
+
 export default function EventPage() {
   const { slug } = useParams()
   const { isDark } = useTheme()
-  const [event, setEvent] = useState(null)
-  const [loading, setLoading] = useState(true)
+  // Start from the race embedded in the static page, so the first render already shows
+  // it and replaces the build-time copy in #root without a loading flash.
+  const [event, setEvent] = useState(() => readEmbeddedEvent(slug))
+  const [loading, setLoading] = useState(() => readEmbeddedEvent(slug) === null)
   const [notFound, setNotFound] = useState(false)
   const [showReport, setShowReport] = useState(false)
 
   // Load event data — reset when slug changes
   useEffect(() => {
     async function loadEvent() {
+      // 1. Try embedded JSON (direct URL hit with static HTML). Remove the tag so SPA
+      // navigation to other events doesn't reuse this stale embedded data.
+      const embedded = readEmbeddedEvent(slug)
+      document.getElementById('event-data')?.remove()
+      if (embedded) {
+        setEvent(embedded)
+        setNotFound(false)
+        setLoading(false)
+        return
+      }
+
       setEvent(null)
       setLoading(true)
       setNotFound(false)
-
-      // 1. Try embedded JSON (direct URL hit with static HTML)
-      const embedded = document.getElementById('event-data')
-      if (embedded) {
-        try {
-          const data = JSON.parse(embedded.textContent)
-          // Remove the script tag so SPA navigation to other events
-          // doesn't reuse this stale embedded data
-          embedded.remove()
-          if (data && slugify(data.name, data.date) === slug) {
-            setEvent(data)
-            setLoading(false)
-            return
-          }
-        } catch {
-          // Fall through to Supabase query
-        }
-      }
 
       // 2. SPA navigation fallback: extract date from slug, query Supabase
       const date = extractDateFromSlug(slug)
@@ -279,12 +272,10 @@ export default function EventPage() {
   }
 
   // Computed values
-  const types = (event.event_type || []).filter(t => t !== 'bieg')
+  const types = eventTypes(event)
   const distances = event.distances || []
   const days = daysUntil(event.date)
-  const dateFormatted = new Date(event.date).toLocaleDateString('pl-PL', {
-    weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
-  })
+  const dateFormatted = formatDateWithWeekday(event.date)
 
   return (
     <>
@@ -357,7 +348,7 @@ export default function EventPage() {
           {(types.length > 0 || distances.length > 0) && (
             <div className="flex flex-wrap gap-1.5 mb-6">
               {types.map(t => (
-                <span key={t} className={getTypeTagClass(t)}>
+                <span key={t} className={typeTagClass(t)}>
                   {TYPE_LABELS[t] || t}
                 </span>
               ))}
