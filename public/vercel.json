@@ -2,6 +2,12 @@
   "regions": ["dub1"],
   "routes": [
     {
+      "src": "/(.*)",
+      "has": [{ "type": "host", "value": "leszy-public.vercel.app" }],
+      "status": 308,
+      "headers": { "Location": "https://www.leszy.run/$1" }
+    },
+    {
       "src": "/edge/(.*)",
       "dest": "https://kojoxazlnxncrpxmnxiq.supabase.co/functions/v1/$1",
       "transforms": [
