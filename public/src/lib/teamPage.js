@@ -3,7 +3,7 @@
 // rules as the sign-up (groupDraft.js, team.js).
 import { validateSquadMember } from '../../../supabase/functions/_shared/registration/team.js'
 import { cardVariant } from './groupDraft.js'
-import { moveMember } from './teamDraft.js'
+import { moveMember, ownPart } from './teamDraft.js'
 import { countPl } from './plural.js'
 import { EMPTY_PERSON } from './personFormModel.js'
 
@@ -54,9 +54,13 @@ export function newMember(person = EMPTY_PERSON) {
   return { person: { ...EMPTY_PERSON, ...person }, guardianConsent: false }
 }
 
-/** The body's person part. A child has no address; their acceptances are the captain's as guardian. */
-export function toMemberRequest({ person, guardianConsent }, { consents, today }) {
-  if (cardVariant(person, today) !== 'minor') return { person }
+/**
+ * The body's person part. A child has no address; their acceptances are the captain's as guardian.
+ * `detailsLater` (the captain's own add or swap, never the organizer's): an adult's other fields go
+ * only while „Pokaż więcej pól” shows them (`moreFields`), as on the sign-up form.
+ */
+export function toMemberRequest({ person, guardianConsent, moreFields }, { consents, today, detailsLater = false }) {
+  if (cardVariant(person, today) !== 'minor') return { person: detailsLater && !moreFields ? ownPart(person) : person }
   const { email: _none, ...child } = person
   return {
     person: child,
@@ -67,8 +71,8 @@ export function toMemberRequest({ person, guardianConsent }, { consents, today }
 }
 
 /** validateSquadMember over that body: { field: message }, empty when the server would take it. */
-export function checkMember(member, { context, today, now = new Date() }) {
-  return validateSquadMember(toMemberRequest(member, { today }), { ...context, now }).errors ?? {}
+export function checkMember(member, { context, today, now = new Date(), detailsLater = false }) {
+  return validateSquadMember(toMemberRequest(member, { today, detailsLater }), { ...context, now, detailsLater }).errors ?? {}
 }
 
 /**

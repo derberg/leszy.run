@@ -3,6 +3,7 @@
 import { warsawToday } from './dates.js'
 import { formatDpayValue } from './money.js'
 import { statusLabel } from './entries.js'
+import { missingDetailsText } from './memberDetails.js'
 
 const LIVE = new Set(['confirmed', 'pending_payment'])
 const CONSENT = { awaiting: 'czeka na zgodę', office: 'podpisany w biurze' }
@@ -67,6 +68,8 @@ const COLUMNS = [
   ['Partner', (r) => r.partnerName],
   ['Kod rabatowy', (r) => r.voucherCode],
   ['Data zapisu', (r) => signedUp(r.createdAt)],
+  // Last, so a sheet built on the earlier columns keeps its places.
+  ['Brak danych', (r) => missingDetailsText(r.missingFields)],
 ]
 
 function toCsv(columns, rows) {

@@ -588,6 +588,8 @@ test('O-30 M6 a list row carries exactly the D6-11 key set, so a field added lat
     // Plan 7: the partner (organizer-only, V-33), the voucher's code (CSV), TransferDialog's
     // same-price competitions (V-86) and a refund in flight that hides the transfer (V-87)
     'partnerId', 'partnerName', 'voucherCode', 'transferTo', 'refundPending',
+    // A team member's details still to fill on /zgoda (memberDetails.js)
+    'missingFields',
   ].sort())
 })
 

@@ -198,6 +198,19 @@ test('G-28 consentRequestEmail: subject, who registered, the competition and sta
   assert.ok(!m.html.includes('<2026>'))
 })
 
+test('TM-10 consentRequestEmail for a member who owes details: the data note says the captain gave part of it, the link asks for the rest', () => {
+  const m = consentRequestEmail({ ...consentArgs, detailsOwed: true, team: { name: 'Leśne Dziki' } })
+  for (const part of [m.text, m.html]) {
+    assert.ok(part.includes('Twoje imię, nazwisko, datę urodzenia, płeć, e-mail i ewentualnie inne pola zgłoszenia podał(a) Ola Leśna.'), part)
+    assert.ok(part.includes('Brakujące dane, np. telefon, uzupełnisz sam(a) pod linkiem.'))
+    assert.ok(part.includes('Uzupełnij dane i zaakceptuj regulamin'))
+    assert.ok(!part.includes('telefon i pozostałe pola zgłoszenia) podał(a)'))
+  }
+  assert.equal(m.subject, 'Zapisano Cię na Bieg Leszego <2026> — uzupełnij dane i zaakceptuj regulamin')
+  // Without it the e-mail is the one an added adult always got.
+  assert.ok(consentRequestEmail(consentArgs).text.includes('telefon i pozostałe pola zgłoszenia) podał(a) Ola Leśna'))
+})
+
 test('G-28 consentRequestEmail as a reminder: the subject starts with „Przypomnienie: ”', () => {
   const m = consentRequestEmail({ ...consentArgs, reminder: true })
   assert.equal(m.subject, 'Przypomnienie: Zapisano Cię na Bieg Leszego <2026> — zaakceptuj regulamin')

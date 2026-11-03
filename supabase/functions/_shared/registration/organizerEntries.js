@@ -6,6 +6,7 @@ import { refundsInFlight } from './refundInFlight.js'
 import { allRows } from './allRows.js'
 import { paymentStatusOf, registrationRole } from './group.js'
 import { entryStatusKey, unconfirmedRefundGrosze } from './entries.js'
+import { entryOwedDetails } from './memberDetails.js'
 
 const LIVE = new Set(['confirmed', 'pending_payment'])
 const ID_CHUNK = 100
@@ -87,6 +88,8 @@ const groupBy = (items, key) => {
  *   transferTo          the competitions an organizer transfer may move the entry to (same price
  *                       in its frozen tier, visible, individual; a captain's own), [] when none
  *   voucherCode         the code the entry was bought with, null when none
+ *   missingFields       what a team member still owes (memberDetails.js: the captain gave only the
+ *                       name, birth date, gender and e-mail), [] when nothing; the panel's „brak danych”
  * partners are the event's: [{ id, name, count }], count = the live entries attributed to each
  * (pending_payment or confirmed, not lapsed). Organizer-only, like the rows (V-38).
  * counts are per person (D5-32), with people's places (placesLeft) and teams' (teamPlacesLeft) apart;
@@ -232,6 +235,7 @@ export async function loadEntries(admin, settings, { guardianEmail = false, now 
       voucherCode: r.voucher_id ? (voucherCode.get(r.voucher_id) ?? null) : null,
       transferTo: transferTo(r),
       refundPending: inFlight.has(r.id),
+      missingFields: entryOwedDetails(r, settings, now),
     }
     row.statusKey = entryStatusKey({ ...row, refunds, participant }, now)
     if (guardianEmail) row.guardianEmail = role === 'minor' ? (r.guardian_email ?? null) : null

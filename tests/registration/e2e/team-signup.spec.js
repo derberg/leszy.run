@@ -57,7 +57,8 @@ async function fillCard(page, prefix, { first, last = 'Leśny', birth = '1987-01
   await page.locator(`#${prefix}-birth`).fill(birth)
   await page.locator(`[aria-labelledby="${prefix}-gender-label"]`).getByRole('button', { name: gender, exact: true }).click()
   if (email !== undefined) await page.locator(`#${prefix}-email`).fill(email)
-  if (phone !== undefined) await page.locator(`#${prefix}-phone`).fill(phone)
+  // An adult member's card has no phone until „Pokaż więcej pól”: the member gives it on /zgoda.
+  if (phone !== undefined && await page.locator(`#${prefix}-phone`).count()) await page.locator(`#${prefix}-phone`).fill(phone)
 }
 
 async function tickAll(page) {

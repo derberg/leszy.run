@@ -102,6 +102,10 @@ function GuardianConsent({ id, guardian }) {
  *   ownHeading?: string, voucher?: object|null, extras?: object|null, copied?: { club?: string, city?: string } }} p
  * `emailReadOnly`: the consent page (/zgoda) shows the address the link was sent to; it is never edited there.
  * `ownHeading`: the team form's „Kapitan”.
+ * `detailsNote` (RB2, an adult team member): the card requires only the name, birth date, gender and
+ * e-mail; the other fields hide behind „Pokaż więcej pól” (`moreFields`, `onMoreFields`), with this
+ * line beside it, and are optional when shown. The member fills what is left on /zgoda (memberDetails.js).
+ * `owed` (/zgoda): the fields this person still has to fill, marked „uzupełnij” next to their label.
  * `voucher` / `extras` (Plan 7, RA2/RA3): VoucherField's and ExtrasPicker's props (without the ids,
  * which follow `idPrefix`), on a priced entry and where the competition offers extras.
  * `copied`: the team form's club and town carried over from another card, by that person's name.
@@ -109,7 +113,7 @@ function GuardianConsent({ id, guardian }) {
 export default function PersonForm({
   fields, value, onChange, errors = {}, competition, raceDate, reckoning, ageGroups, prefill, loginHref, codeNote, disabled = false,
   variant = 'self', idPrefix = 'p', guardian, notRunning = false, onNotRunning, emailReadOnly = false,
-  ownHeading = 'Twoje dane', voucher = null, extras = null, copied = {},
+  ownHeading = 'Twoje dane', voucher = null, extras = null, copied = {}, detailsNote = null, moreFields = false, onMoreFields, owed = [],
 }) {
   const minor = variant === 'minor'
   const buyer = variant === 'buyer'
@@ -120,11 +124,56 @@ export default function PersonForm({
   const today = new Date().toISOString().slice(0, 10)
   const id = (name) => `${idPrefix}-${name}`
   const categoryLabel = minor ? 'Grupa' : own ? 'Twoja kategoria' : 'Kategoria'
+  // An adult team member: only the name, birth date, gender and e-mail are the captain's to give;
+  // the rest is optional, hidden until asked for, and the member fills what is left.
+  const later = variant === 'adult' && Boolean(detailsNote)
+  const modes = later ? Object.fromEntries(Object.entries(fields).map(([k, m]) => [k, m === 'required' ? 'optional' : m])) : fields
+  const mark = (label, field) => (owed.includes(field) ? <>{label} <span className="text-apex-yellow">· uzupełnij</span></> : label)
 
   const phoneField = (
-    <Field id={id('phone')} label="Telefon" error={errors.phone}>
+    <Field id={id('phone')} label={mark(later ? 'Telefon (opcjonalnie)' : 'Telefon', 'phone')} error={errors.phone}>
       <TextInput id={id('phone')} type="tel" value={value.phone} onChange={set('phone')} error={errors.phone} autoComplete={own ? 'tel' : 'off'} maxLength={40} />
     </Field>
+  )
+  const placeFields = (
+    <>
+      {modes.city !== 'off' && (
+        <Field id={id('city')} label={mark(optional('Miejscowość', modes.city), 'city')} error={errors.city}>
+          <TextInput id={id('city')} value={value.city} onChange={set('city')} error={errors.city} autoComplete={own ? 'address-level2' : 'off'} maxLength={200}
+            note={copied.city && value.city ? `${id('city')}-copied` : undefined} />
+          {copied.city && value.city && <CopiedNote id={id('city')} label="Miejscowość" from={copied.city} onClear={() => onChange({ city: '' })} />}
+        </Field>
+      )}
+      {modes.club !== 'off' && (
+        <Field id={id('club')} label={mark(optional('Klub', modes.club), 'club')} error={errors.club}>
+          <TextInput id={id('club')} value={value.club} onChange={set('club')} error={errors.club} maxLength={200}
+            note={copied.club && value.club ? `${id('club')}-copied` : undefined} />
+          {copied.club && value.club && <CopiedNote id={id('club')} label="Klub" from={copied.club} onClear={() => onChange({ club: '' })} />}
+        </Field>
+      )}
+      {modes.nationality !== 'off' && (
+        <Field id={id('nationality')} label={mark(optional('Narodowość', modes.nationality), 'nationality')} error={errors.nationality}>
+          <CountrySelect id={id('nationality')} value={value.nationality} onChange={set('nationality')} error={errors.nationality} mode={modes.nationality} />
+        </Field>
+      )}
+    </>
+  )
+  const iceBlock = modes.ice !== 'off' && (
+    <>
+      <span className={`${labelCls} mt-1.5 normal-case tracking-normal font-sans text-sm`}>
+        {own ? 'Do kogo dzwonić, gdyby coś Ci się stało na trasie' : 'Do kogo dzwonić, gdyby coś się stało na trasie'}
+        {modes.ice === 'optional' ? ' (opcjonalnie)' : ''}
+        {(owed.includes('iceName') || owed.includes('icePhone')) && <span className="text-apex-yellow"> · uzupełnij</span>}
+      </span>
+      <div className="grid grid-cols-2 gap-2 items-end">
+        <Field id={id('ice-name')} label="Imię" error={errors.iceName}>
+          <TextInput id={id('ice-name')} aria-label="Imię osoby do kontaktu" value={value.iceName} onChange={set('iceName')} error={errors.iceName} maxLength={200} />
+        </Field>
+        <Field id={id('ice-phone')} label="Telefon" error={errors.icePhone}>
+          <TextInput id={id('ice-phone')} aria-label="Telefon osoby do kontaktu" type="tel" value={value.icePhone} onChange={set('icePhone')} error={errors.icePhone} maxLength={40} />
+        </Field>
+      </div>
+    </>
   )
   const emailField = (
     <Field id={id('email')} label="E-mail" error={errors.email}>
@@ -191,25 +240,7 @@ export default function PersonForm({
                 <span className="font-mono text-xl text-apex-yellow whitespace-nowrap">{category ?? '—'}</span>
               </div>
             )}
-            {fields.city !== 'off' && (
-              <Field id={id('city')} label={optional('Miejscowość', fields.city)} error={errors.city}>
-                <TextInput id={id('city')} value={value.city} onChange={set('city')} error={errors.city} autoComplete={own ? 'address-level2' : 'off'} maxLength={200}
-                  note={copied.city && value.city ? `${id('city')}-copied` : undefined} />
-                {copied.city && value.city && <CopiedNote id={id('city')} label="Miejscowość" from={copied.city} onClear={() => onChange({ city: '' })} />}
-              </Field>
-            )}
-            {fields.club !== 'off' && (
-              <Field id={id('club')} label={optional('Klub', fields.club)} error={errors.club}>
-                <TextInput id={id('club')} value={value.club} onChange={set('club')} error={errors.club} maxLength={200}
-                  note={copied.club && value.club ? `${id('club')}-copied` : undefined} />
-                {copied.club && value.club && <CopiedNote id={id('club')} label="Klub" from={copied.club} onClear={() => onChange({ club: '' })} />}
-              </Field>
-            )}
-            {fields.nationality !== 'off' && (
-              <Field id={id('nationality')} label={optional('Narodowość', fields.nationality)} error={errors.nationality}>
-                <CountrySelect id={id('nationality')} value={value.nationality} onChange={set('nationality')} error={errors.nationality} mode={fields.nationality} />
-              </Field>
-            )}
+            {!later && placeFields}
           </>
         )}
       </div>
@@ -218,22 +249,26 @@ export default function PersonForm({
         <div className="flex flex-col gap-3">
           {own ? <h2 className={sectionCls}>Kontakt</h2> : <h3 className={sectionCls}>Kontakt</h3>}
           {!minor && emailField}
-          {phoneField}
-          {fields.ice !== 'off' && (
-            <>
-              <span className={`${labelCls} mt-1.5 normal-case tracking-normal font-sans text-sm`}>
-                {own ? 'Do kogo dzwonić, gdyby coś Ci się stało na trasie' : 'Do kogo dzwonić, gdyby coś się stało na trasie'}
-                {fields.ice === 'optional' ? ' (opcjonalnie)' : ''}
-              </span>
-              <div className="grid grid-cols-2 gap-2 items-end">
-                <Field id={id('ice-name')} label="Imię" error={errors.iceName}>
-                  <TextInput id={id('ice-name')} aria-label="Imię osoby do kontaktu" value={value.iceName} onChange={set('iceName')} error={errors.iceName} maxLength={200} />
-                </Field>
-                <Field id={id('ice-phone')} label="Telefon" error={errors.icePhone}>
-                  <TextInput id={id('ice-phone')} aria-label="Telefon osoby do kontaktu" type="tel" value={value.icePhone} onChange={set('icePhone')} error={errors.icePhone} maxLength={40} />
-                </Field>
-              </div>
-            </>
+          {!later && phoneField}
+          {!later && iceBlock}
+        </div>
+      )}
+      {later && (
+        <div className="flex flex-col gap-3" data-testid="member-more">
+          <div className="flex flex-col gap-1">
+            <button type="button" onClick={() => onMoreFields?.(!moreFields)} aria-expanded={moreFields}
+              className="self-start min-h-11 font-sans font-bold text-base text-apex-yellow whitespace-nowrap hover:text-apex-yellow-bright"
+              data-testid="member-more-toggle">
+              {moreFields ? 'Ukryj dodatkowe pola' : 'Pokaż więcej pól'}
+            </button>
+            <p className="font-sans text-sm text-apex-muted" data-testid="member-details-note">{detailsNote}</p>
+          </div>
+          {moreFields && (
+            <div className="flex flex-col gap-3" data-testid="member-more-fields">
+              {placeFields}
+              {phoneField}
+              {iceBlock}
+            </div>
           )}
         </div>
       )}

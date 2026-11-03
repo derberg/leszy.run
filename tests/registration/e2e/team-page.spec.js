@@ -68,7 +68,8 @@ async function fillMember(page, { first, last = 'Nowa', birth = '1990-01-01', ge
   await page.locator('#m-birth').fill(birth)
   await page.locator('[aria-labelledby="m-gender-label"]').getByRole('button', { name: gender, exact: true }).click()
   if (email !== undefined) await page.locator('#m-email').fill(email)
-  await page.locator('#m-phone').fill(phone)
+  // The captain's adult member has no phone field until „Pokaż więcej pól”: the member gives it on /zgoda.
+  if (await page.locator('#m-phone').count()) await page.locator('#m-phone').fill(phone)
 }
 
 async function noButtonWraps(page) {

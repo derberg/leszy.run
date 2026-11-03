@@ -11,7 +11,7 @@ import { useLeaveGuard } from '../../lib/leaveGuard.js'
 import { useMoveFocus } from '../../lib/useMoveFocus.jsx'
 import { useStepHistory } from '../../lib/useStepHistory.js'
 import { consentsComplete, fieldModes } from '../../lib/personFormModel.js'
-import { ADULT_EMAIL_NOTE, teamContext } from '../../lib/teamDraft.js'
+import { ADULT_EMAIL_NOTE, MEMBER_DETAILS_NOTE, teamContext } from '../../lib/teamDraft.js'
 import {
   addLabel, checkMember, lastChangeDay, memberMeta, memberName, moveLeg, newMember, squadFailure, teamPath, teamStatusLabel, toMemberRequest,
 } from '../../lib/teamPage.js'
@@ -122,6 +122,9 @@ function Team({ raw: shellRaw, teamId, notice, setNotice }) {
   }
 
   const { team, members, competition: comp } = data
+  // The captain gives an adult's five fields and the member the rest (memberDetails.js); the club, editing for a
+  // captain, gives everything.
+  const detailsLater = !data.asOrganizer
   const legOrder = team.legOrderEnabled
   const closed = refusedClosed || !team.editsOpen
   const competition = raw.competitions.find((c) => c.categoryId === comp.categoryId) ?? null
@@ -205,7 +208,7 @@ function Team({ raw: shellRaw, teamId, notice, setNotice }) {
 
   function submitMember(e) {
     e.preventDefault()
-    const found = checkMember(form, { context, today })
+    const found = checkMember(form, { context, today, detailsLater })
     if (Object.keys(found).length) {
       setErrors(found)
       setMessage('Popraw zaznaczone pola.')
@@ -217,7 +220,7 @@ function Team({ raw: shellRaw, teamId, notice, setNotice }) {
   }
 
   function saveMember() {
-    const body = toMemberRequest(form, { consents, today })
+    const body = toMemberRequest(form, { consents, today, detailsLater })
     return edit(form.kind, form.kind === 'swap' ? { registrationId: form.target.registrationId, ...body } : body)
   }
 
@@ -298,6 +301,8 @@ function Team({ raw: shellRaw, teamId, notice, setNotice }) {
         <PersonForm fields={fields} value={form.person} onChange={change} errors={errors} competition={competition}
           raceDate={context.raceDate} reckoning={context.reckoning} ageGroups={context.ageGroups} disabled={busy}
           variant={variant} idPrefix="m" prefill={null} codeNote={variant === 'adult' ? ADULT_EMAIL_NOTE : undefined}
+          detailsNote={detailsLater ? MEMBER_DETAILS_NOTE : null} moreFields={form.moreFields === true}
+          onMoreFields={(on) => setForm((f) => ({ ...f, moreFields: on }))}
           guardian={{
             name: memberName(members.find((m) => m.isCaptain) ?? {}), email: user?.email, checked: form.guardianConsent,
             onChange: (v) => {

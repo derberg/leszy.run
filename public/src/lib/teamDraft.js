@@ -19,6 +19,21 @@ import { countPl } from './plural.js'
 /** The hint under an adult member's e-mail: the label itself stays „E-mail”, so it never wraps. */
 export const ADULT_EMAIL_NOTE = 'Wyślemy prośbę o akceptację regulaminu.'
 
+/** An adult member's card on RB2, beside „Pokaż więcej pól” (PersonForm's `detailsNote`; memberDetails.js). */
+export const MEMBER_DETAILS_NOTE = 'Nie musisz ich wypełniać: ta osoba dostanie e-mail z linkiem i resztę uzupełni sama.'
+
+// What the captain must give for an adult member. The other fields are optional for the captain
+// and sent only while the card shows them („Pokaż więcej pól”): a value the captain cannot see,
+// typed before the fields were hidden or while the card showed a child's layout, never leaves
+// the browser. What is left the member fills on /zgoda. The squad page (teamPage.js) uses it too.
+const MEMBER_KEYS = ['firstName', 'lastName', 'birthDate', 'gender', 'email']
+export const ownPart = (person) => Object.fromEntries(MEMBER_KEYS.filter((k) => k in person).map((k) => [k, person[k]]))
+
+/** „Pokaż więcej pól” / „Ukryj dodatkowe pola” on an adult member's card. */
+export function setMoreFields(draft, key, on) {
+  return { ...draft, cards: draft.cards.map((c) => (c.key === key ? { ...c, moreFields: on === true } : c)) }
+}
+
 /** The captain and `size - 1` empty cards. */
 export function initTeam(size, categoryId = null) {
   const first = newDraft(categoryId)
@@ -140,7 +155,8 @@ export function memberAgeLabel(person, raceDate, reckoning) {
  */
 export function toTeamRequest(draft, { consents, legOrder = false, displayedTotal, today, website, extrasOf } = {}) {
   const members = requestPeople(draft, today).map(({ person, guardianConsent }, i) => ({
-    person,
+    // requestPeople marks a child by the guardian box: every other member but the captain is an adult.
+    person: i > 0 && guardianConsent === undefined && !draft.cards[i].moreFields ? ownPart(person) : person,
     ...(guardianConsent === undefined ? {} : { guardianConsent }),
     ...(legOrder ? { leg: legOf(draft, draft.cards[i].key) } : {}),
     // Plan 7: each member's extras. The code is the team line's, never a member's.

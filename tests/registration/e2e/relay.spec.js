@@ -184,6 +184,12 @@ async function inviteeAccepts(context, email, token) {
   expect(code).toMatch(/^\d{6}$/)
   await page.locator('#consent-code').fill(code)
   await page.getByRole('button', { name: 'Dalej' }).click()
+  // The captain gave the name, birth date, gender and e-mail; the phone and the rest are the member's.
+  await expect(page.getByTestId('consent-owed')).toBeVisible()
+  await page.locator('#p-phone').fill('600300400')
+  for (const [id, value] of [['#p-city', 'Leszno'], ['#p-club', 'Leśne Dziki']]) {
+    if (await page.locator(id).count()) await page.locator(id).fill(value)
+  }
   await tickAll(page)
   await page.getByRole('button', { name: 'Akceptuję regulamin' }).click()
   await expect(page.getByTestId('consent-done')).toContainText('Dziękujemy — regulamin zaakceptowany.')
@@ -208,7 +214,9 @@ test('T-80 a relay across every audience: built in the wizard, paid once, one co
   expect(captainMails[0].text).toContain(`/events/${event.slug}/druzyna/${team.id}`)
   const consentMails = await mailsTo(inviteeEmail, 1)
   expect(consentMails).toHaveLength(1)
-  expect(consentMails[0].subject).toMatch(/^Zapisano Cię na .+ — zaakceptuj regulamin$/)
+  // The captain gave Piotr's name, birth date, gender and e-mail only: he is asked for the rest too.
+  expect(consentMails[0].subject).toBe(`Zapisano Cię na ${event.name} — uzupełnij dane i zaakceptuj regulamin`)
+  expect(consentMails[0].text).toContain('Brakujące dane, np. telefon, uzupełnisz sam(a) pod linkiem.')
   expect((await captureRequests()).map((r) => [r.to].flat().join())).toHaveLength(2)
 
   // viewer: the team and three full names (#373). Piotr has not accepted, so he is counted, not named (T-74).

@@ -143,7 +143,8 @@ async function tellPeople(admin, { teamId, confirmed, captainEmail, captainName,
 // POST { teamId, action, … } → 200 { data: { team: { name, status, paymentStatus, orderId, closesAt,
 //   editsOpen, payable, legOrderEnabled, teamMin, teamMax }, members: [{ registrationId, firstName, lastName,
 //   ageGroupLabel, age, role, consentState, leg, isCaptain }], competition: { categoryId, name },
-//   event: { id, slug, name, eventDate } } }, the same answer for a read and an edit.
+//   event: { id, slug, name, eventDate }, asOrganizer } }, the same answer for a read and an edit.
+//   asOrganizer: the session is the club's, not the captain's (the form then asks for every field).
 //   get
 //   reorder { legs: [registrationId…] }  every live member, in running order
 //   swap    { registrationId, person, guardianConsent?, acceptedConsentIds?, serviceRegulamin? }
@@ -211,7 +212,7 @@ Deno.serve(async (req) => {
       read ? SQUAD_READ_LIMIT : SQUAD_LIMIT, { windowSeconds: HOUR })
     if (!throttle.allowed) return throttled(req, throttle.retryAfterSec)
 
-    if (read) return json({ data: await squadView(admin, team, settings, competition) }, 200, req)
+    if (read) return json({ data: { ...await squadView(admin, team, settings, competition), asOrganizer } }, 200, req)
 
     const email = session.email.toLowerCase()
     const meta = { ip: await clientIp(req), userAgent: req.headers.get('user-agent') || null }
@@ -220,7 +221,9 @@ Deno.serve(async (req) => {
 
     if (action !== 'reorder') {
       const contexts = await personContexts(admin, settings, [competition])
-      const checked = validateSquadMember(body, { ...contexts.get(competition.category_id), now: new Date() })
+      // The captain's add or swap takes an adult's five fields, as the sign-up does (memberDetails.js);
+      // the organizer's stays the whole form.
+      const checked = validateSquadMember(body, { ...contexts.get(competition.category_id), now: new Date(), detailsLater: !asOrganizer })
       if (!checked.ok) {
         return json({ error: 'Popraw zaznaczone pola.', code: 'invalid_person', fields: checked.errors }, 400, req)
       }
@@ -277,7 +280,7 @@ Deno.serve(async (req) => {
         result,
       })
     }
-    return json({ data: view }, 200, req)
+    return json({ data: { ...view, asOrganizer } }, 200, req)
   } catch (err) {
     console.error('team-squad error:', err?.message, err?.code)
     return json({ error: 'Internal server error' }, 500, req)

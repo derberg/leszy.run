@@ -1,6 +1,6 @@
 # Informacja o przetwarzaniu danych zawodnika
 
-**Wersja:** 2026-11-v10
+**Wersja:** 2026-11-v11
 **Status:** obowiązująca
 **Zastosowanie:** domyślna treść dokumentu „Informacja o danych” (`event_consents.kind = 'data_info'`), tworzonego z każdym Wydarzeniem. Organizator może ją zastąpić własną. Pola w nawiasach klamrowych `{…}` Serwis wypełnia danymi Wydarzenia i Organizatora.
 
@@ -70,7 +70,7 @@ Ta osoba dostaje jeden e-mail z linkiem i z tą informacją. Na stronie z linku 
 
 Osobę niepełnoletnią zapisuje jej rodzic lub opiekun prawny, który podaje swoje imię, nazwisko i adres e-mail. Oświadczenia za osobę niepełnoletnią składa opiekun. Dziecko nie dostaje od LESZY.RUN żadnych wiadomości. Jeżeli opiekun usunie konto LESZY.RUN, zgłoszenie dziecka zostaje, bez danych kontaktowych opiekuna.
 
-W drużynie dane pozostałych członków podaje kapitan (art. 14 ust. 2 lit. f RODO). Każda dorosła osoba dostaje wtedy e-mail opisany wyżej, a za dziecko, którego kapitan jest rodzicem lub opiekunem, kapitan składa oświadczenia sam. Kapitan może zmieniać skład do zamknięcia zapisów; osoba usunięta ze składu po zapisie dostaje o tym e-mail, a jej zgłoszenie jest anulowane. Jeżeli kapitan usunie konto LESZY.RUN, drużyna zostaje na liście startowej pod neutralną nazwą, a składem zajmuje się Organizator.
+W drużynie dane pozostałych członków podaje kapitan (art. 14 ust. 2 lit. f RODO). Zapisując drużynę, kapitan musi podać o dorosłym członku tylko imię, nazwisko, datę urodzenia, płeć i adres e-mail; pola zgłoszenia, których kapitan nie wypełni (np. telefon czy kontakt w razie wypadku), ta osoba uzupełnia sama, na stronie z linku w e-mailu opisanym wyżej. Każda dorosła osoba dostaje ten e-mail, a za dziecko, którego kapitan jest rodzicem lub opiekunem, kapitan składa oświadczenia sam. Kapitan może zmieniać skład do zamknięcia zapisów; osoba usunięta ze składu po zapisie dostaje o tym e-mail, a jej zgłoszenie jest anulowane. Jeżeli kapitan usunie konto LESZY.RUN, drużyna zostaje na liście startowej pod neutralną nazwą, a składem zajmuje się Organizator.
 
 ## Gdy przekazujesz pakiet innej osobie
 

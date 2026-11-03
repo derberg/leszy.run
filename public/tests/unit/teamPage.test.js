@@ -52,6 +52,21 @@ describe('T-64 toMemberRequest', () => {
   })
 })
 
+describe('the captain\'s add or swap: an adult member gives the rest on /zgoda (detailsLater)', () => {
+  const asks = teamContext({ ...RAW, formFields: { city: 'required', club: 'off', ice: 'required', nationality: 'off' } }, COMPETITION, NOW)
+  const five = { ...anna, phone: '', city: 'Zabrze' }
+  it('only the five fields go while the more fields are hidden; shown, the rest goes too', () => {
+    assert.deepEqual(Object.keys(toMemberRequest(newMember(five), { today: TODAY, detailsLater: true }).person).sort(),
+      ['birthDate', 'email', 'firstName', 'gender', 'lastName'])
+    assert.equal(toMemberRequest({ ...newMember(five), moreFields: true }, { today: TODAY, detailsLater: true }).person.city, 'Zabrze')
+    assert.equal(toMemberRequest(newMember(five), { today: TODAY }).person.city, 'Zabrze', 'the organizer sends the whole form')
+  })
+  it('checkMember asks the captain for the five only; the organizer for everything', () => {
+    assert.deepEqual(checkMember(newMember(five), { context: asks, today: TODAY, now: NOW, detailsLater: true }), {})
+    assert.ok(checkMember(newMember(five), { context: asks, today: TODAY, now: NOW }).phone)
+  })
+})
+
 describe('T-64 checkMember: the server\'s own check', () => {
   it('a complete adult passes, an empty one names its fields', () => {
     assert.deepEqual(checkMember(newMember(anna), { context, today: TODAY, now: NOW }), {})

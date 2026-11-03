@@ -157,6 +157,39 @@ test('T-40 a free team: 201 with no order; one confirmation to the captain with 
   assert.equal(requests.length, 1)
 })
 
+test('T-47 an adult member registered with name, birth date, gender and e-mail fills the rest on /zgoda before accepting', async () => {
+  const event = await freeTeamEvent(owner)
+  const me = runnerEmail('capt')
+  const partner = runnerEmail('adult')
+  const [captain, member, ...children] = fourOf(me, partner)
+  const { phone: _phone, ...five } = member.person
+  const r = await call('register-team', await teamBody(event, [captain, { person: five }, ...children]), await sessionFor(me))
+  assert.equal(r.status, 201, JSON.stringify(r.body))
+  const reg = (await byEvent(event.eventId)).find((x) => x.email === partner)
+  assert.equal(reg.phone, null, 'nothing the member did not give is stored')
+
+  const [asked] = await waitForMail(partner)
+  assert.ok(asked.text.includes('uzupełnisz'), 'the e-mail says the rest is theirs to fill')
+  const token = asked.text.match(TOKEN_RE)[1]
+  const session = await sessionFor(partner)
+  const read = await call('consent-request', { token }, session)
+  assert.equal(read.status, 200, JSON.stringify(read.body))
+  assert.deepEqual(read.body.data.missingFields, ['phone'])
+
+  const body = { token, acceptedConsentIds: await consentIds(event.eventId), serviceRegulamin: true }
+  const refused = await call('accept-consent', body, session)
+  assert.equal(refused.status, 422, JSON.stringify(refused.body))
+  assert.equal(refused.body.code, 'details_required')
+  assert.deepEqual(refused.body.fields, { phone: 'Podaj numer telefonu.' })
+  assert.equal((await one('registrations', { id: reg.id })).consent_state, 'awaiting')
+
+  const ok = await call('accept-consent', { ...body, edits: { phone: '600900100' } }, session)
+  assert.equal(ok.status, 200, JSON.stringify(ok.body))
+  const after = await one('registrations', { id: reg.id })
+  assert.equal(after.consent_state, 'accepted')
+  assert.equal(after.phone, '600900100')
+})
+
 test('T-40 a 0 zł fee on a paid event is confirmed at once, never reaches dpay, and the confirmation has no payment wording (P3-R9, D5-23)', async () => {
   const event = await paidTeamEvent(owner, { price: 0 })
   const me = runnerEmail('capt')
@@ -681,6 +714,22 @@ test('T-77 team.payable: a pending order that can still be paid; not once the co
 })
 
 // ---------------------------------------------------------------- T-42 swap
+
+test('T-47 the captain swaps in an adult with name, birth date, gender and e-mail only: the rest is theirs to give on /zgoda', async () => {
+  const { event, partner, session, teamId } = await freeTeam()
+  await waitForMail(partner)
+  const old = (await byEvent(event.eventId)).find((r) => r.email === partner)
+  const next = runnerEmail('five')
+  const { phone: _phone, ...five } = swapIn(next)
+  const r = await squadCall(teamId, 'swap', session, { registrationId: old.id, person: five })
+  assert.equal(r.status, 200, JSON.stringify(r.body))
+  assert.equal(r.body.data.asOrganizer, false)
+  const added = (await byEvent(event.eventId)).find((x) => x.email === next)
+  assert.equal(added.status, 'confirmed')
+  assert.equal(added.phone, null)
+  const [asked] = await waitForMail(next)
+  assert.ok(asked.text.includes('uzupełnisz'))
+})
 
 test('T-42 a swap on a confirmed team: the adult out gets „Nie jesteś już w składzie”, the adult in a consent e-mail, the captain a summary; the old link is gone', async () => {
   const { event, me, partner, session, teamId, body } = await freeTeam()

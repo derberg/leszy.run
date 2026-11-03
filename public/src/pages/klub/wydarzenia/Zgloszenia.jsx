@@ -2,6 +2,7 @@ import { Fragment, useCallback, useEffect, useId, useMemo, useRef, useState } fr
 import { formatPln } from '@registration/money.js'
 import { statusLabel } from '@registration/entries.js'
 import { warsawToday } from '@registration/dates.js'
+import { missingDetailsText } from '@registration/memberDetails.js'
 import { callFunction } from '../../../lib/auth.js'
 import { downloadCsv } from '../../../lib/csvDownload.js'
 import {
@@ -79,8 +80,20 @@ function SubLine({ r }) {
 
 function ConsentLine({ r }) {
   const line = consentLine(r)
-  if (!line) return null
-  return <span className={`block font-mono text-xs ${line[1]}`} data-testid="registration-consent">{line[0]}</span>
+  // A team member fills their own phone and the rest on /zgoda (memberDetails.js); until then the
+  // entry lacks what the event requires.
+  const owed = missingDetailsText(r.missingFields)
+  if (!line && !owed) return null
+  return (
+    <>
+      {line && <span className={`block font-mono text-xs ${line[1]}`} data-testid="registration-consent">{line[0]}</span>}
+      {owed && (
+        <span className="block font-mono text-xs text-apex-cyan [overflow-wrap:anywhere]" data-testid="registration-owed">
+          brak danych: {owed}
+        </span>
+      )}
+    </>
+  )
 }
 
 function payment(r) {

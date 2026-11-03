@@ -13,7 +13,10 @@
 //       none), the session cookie set, then the full answer.
 //   matching session → 200 { data: { event, competition, person: { firstName, lastName,
 //       birthDate, gender, email, phone, city, club, iceName, icePhone, nationality },
-//       formFields, consents: [{ id, kind, text }], regulaminUrl, regulaminPath, editable } }
+//       formFields, consents: [{ id, kind, text }], regulaminUrl, regulaminPath, editable, missingFields } }
+//       missingFields: what a team member still owes before accepting (memberDetails.js: the
+//       captain gave only the name, birth date, gender and e-mail), [] when nothing or once
+//       registration has closed (no edits then; the office takes the rest).
 //
 // Refusals: 410 { code: invalid | used | expired } „Ten link został już użyty albo wygasł.”,
 // 409 gone (the entry was cancelled), 429 (consent-ip:<ip> 30/h, consent-token:<hash> 30/h, on
@@ -27,6 +30,7 @@ import { requestLoginCode } from '../_shared/requestCode.js'
 import { isEmailRetired, RETIRED_EMAIL_MESSAGE } from '../_shared/deletedEmails.js'
 import { json } from '../_shared/registration/registrationRequest.js'
 import { requiredConsents } from '../_shared/registration/consents.js'
+import { owedDetails } from '../_shared/registration/memberDetails.js'
 import {
   emailHint, IP_LIMIT, ipKey, loadByToken, personContext, personOf, sessionMatches, throttled, TOKEN_LIMIT, tokenHash, TOO_MANY,
 } from '../_shared/registration/consentAccess.js'
@@ -62,6 +66,7 @@ async function fullAnswer(admin, registration, settings, competition, publicPart
   const ordered = requiredConsents(consents).slice().sort((a, b) =>
     (KIND_ORDER[a.kind] ?? 3) - (KIND_ORDER[b.kind] ?? 3) || a.sort_order - b.sort_order ||
     String(a.created_at).localeCompare(String(b.created_at)) || String(a.id).localeCompare(String(b.id)))
+  const editable = Boolean(settings.closes_at) && Date.now() < Date.parse(settings.closes_at)
   return {
     event: publicPart.event,
     competition: publicPart.competition,
@@ -69,7 +74,8 @@ async function fullAnswer(admin, registration, settings, competition, publicPart
     formFields: settings.form_fields ?? {},
     consents: ordered.map((c) => ({ id: c.id, kind: c.kind, text: c.text })),
     ...regulaminOf(settings, path),
-    editable: Boolean(settings.closes_at) && Date.now() < Date.parse(settings.closes_at),
+    editable,
+    missingFields: editable ? owedDetails(registration, settings.form_fields ?? {}) : [],
   }
 }
 
