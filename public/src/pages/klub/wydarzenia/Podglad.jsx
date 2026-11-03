@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 import useSeo from '../../../hooks/useSeo.js'
 import { previewRegistrationEvent } from '../../../lib/organizer.js'
-import { mergePending } from '../../../lib/eventPageModel.js'
+import { previewRaw } from '../../../lib/eventPageModel.js'
 import RegistrationEventPage from '../../zapisy/RegistrationEventPage.jsx'
 import { ZapisView } from '../../zapisy/Zapis.jsx'
 import { CourseView } from '../../zapisy/Trasa.jsx'
@@ -36,7 +36,7 @@ export default function Podglad() {
   useEffect(() => {
     let live = true
     previewRegistrationEvent(eventId, true)
-      .then(({ raw, pending }) => { if (live) setLoad({ ready: true, raw: pending ? mergePending(raw, pending) : raw, notFound: false, error: null }) })
+      .then(({ raw, pending }) => { if (live) setLoad({ ready: true, raw: previewRaw(raw, pending, import.meta.env.VITE_SUPABASE_URL?.trim()), notFound: false, error: null }) })
       .catch((err) => { if (live) setLoad({ ready: true, raw: null, notFound: err.status === 404 || err.status === 403, error: err.message }) })
     return () => { live = false }
   }, [eventId])
