@@ -335,6 +335,10 @@ export async function teamEmailArgs(admin, teamId) {
         lastName: byOrganizer ? null : r.last_name,
         ageGroupLabel: r.age_group_label,
         role: r.id === team.captain_registration_id ? 'self' : registrationRole(r),
+        // A child whose guardian is not the account that entered them: the parent the captain named.
+        parentName: !byOrganizer && registrationRole(r) === 'minor' && r.guardian_profile_id !== r.registered_by_profile_id
+          ? r.guardian_name : null,
+        consentState: r.consent_state,
         transferred: transferred.has(r.id),
         transferredBy: transferred.get(r.id) ?? null,
       }

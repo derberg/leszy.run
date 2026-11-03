@@ -21,10 +21,13 @@
 // invited address comes from the sender (Art. 14(2)(f)), who is named by first name; the sender is
 // told the recipient's name, never their address; after an organizer transfer the old holder is
 // told nothing about the recipient (ruling N-1); deleting the account cancels open invites.
+// A team's child whose parent is not the captain: the parent's name and address come from the
+// captain (Art. 14(2)(f)), the parent accepts for the child from the e-mail, the entry waits until
+// then, and the parent's contact goes 30 days after the race (purge_registration_contact_data).
 //
 // Keep in step with the source document when it changes.
 
-export const RUNNER_DATA_INFO_VERSION = '2026-11-v11'
+export const RUNNER_DATA_INFO_VERSION = '2026-11-v12'
 
 /**
  * @param {{ eventName: string, organizerName: string|null, contactEmail: string|null, paid?: boolean, teams?: boolean, nationality?: boolean }} p
@@ -117,7 +120,7 @@ export function runnerDataInfo({ eventName, organizerName, contactEmail, paid = 
           'Zapisując inną osobę dorosłą (członka rodziny, drużyny), podajesz jej dane w jej imieniu. Źródłem jej danych jesteś Ty (art. 14 ust. 2 lit. f RODO): w e-mailu do tej osoby podajemy Twoje imię i nazwisko jako osoby, która ją zapisała. Przekaż jej, że dane podałeś.',
           'Ta osoba dostaje jeden e-mail z linkiem i z tą informacją. Na stronie z linku potwierdza swój adres kodem wysłanym e-mailem, sprawdza i może poprawić swoje dane, a potem akceptuje regulamin zawodów. Jeżeli tego nie zrobi, przed końcem zapisów dostanie jedno automatyczne przypomnienie; Ty i Organizator możecie wysłać kolejne (łącznie najwyżej trzy na dobę). Każde przypomnienie unieważnia poprzedni link. Organizator może też przyjąć jej podpis pod regulaminem w biurze zawodów. Dopóki ta osoba nie zaakceptuje regulaminu, nie pokazujemy jej na publicznej liście startowej z imienia i nazwiska.',
           'Osobę niepełnoletnią zapisuje jej rodzic lub opiekun prawny, który podaje swoje imię, nazwisko i adres e-mail. Oświadczenia za osobę niepełnoletnią składa opiekun. Dziecko nie dostaje od LESZY.RUN żadnych wiadomości. Jeżeli opiekun usunie konto LESZY.RUN, zgłoszenie dziecka zostaje, bez danych kontaktowych opiekuna.',
-          ...only(teams, 'W drużynie dane pozostałych członków podaje kapitan (art. 14 ust. 2 lit. f RODO). Zapisując drużynę, kapitan musi podać o dorosłym członku tylko imię, nazwisko, datę urodzenia, płeć i adres e-mail; pola zgłoszenia, których kapitan nie wypełni (np. telefon czy kontakt w razie wypadku), ta osoba uzupełnia sama, na stronie z linku w e-mailu opisanym wyżej. Każda dorosła osoba dostaje ten e-mail, a za dziecko, którego kapitan jest rodzicem lub opiekunem, kapitan składa oświadczenia sam. Kapitan może zmieniać skład do zamknięcia zapisów; osoba usunięta ze składu po zapisie dostaje o tym e-mail, a jej zgłoszenie jest anulowane. Jeżeli kapitan usunie konto LESZY.RUN, drużyna zostaje na liście startowej pod neutralną nazwą, a składem zajmuje się Organizator.'),
+          ...only(teams, 'W drużynie dane pozostałych członków podaje kapitan (art. 14 ust. 2 lit. f RODO). Zapisując drużynę, kapitan musi podać o dorosłym członku tylko imię, nazwisko, datę urodzenia, płeć i adres e-mail; pola zgłoszenia, których kapitan nie wypełni (np. telefon czy kontakt w razie wypadku), ta osoba uzupełnia sama, na stronie z linku w e-mailu opisanym wyżej. Każda dorosła osoba dostaje ten e-mail, a za dziecko, którego kapitan jest rodzicem lub opiekunem, kapitan składa oświadczenia sam. W drużynie kapitan, który nie jest rodzicem ani opiekunem prawnym dziecka, podaje imię, nazwisko i adres e-mail jego rodzica lub opiekuna; źródłem tych danych jest kapitan (art. 14 ust. 2 lit. f RODO). Na ten adres wysyłamy e-mail z linkiem: rodzic lub opiekun sprawdza dane dziecka, może je poprawić i składa za nie oświadczenia, w tym zgodę na udział dziecka. Do tego czasu zgłoszenie dziecka czeka na zgodę opiekuna i nie jest usuwane; zgodę można też podpisać w biurze zawodów. Imię, nazwisko i adres e-mail opiekuna usuwamy 30 dni po dniu zawodów. Kapitan może zmieniać skład do zamknięcia zapisów; osoba usunięta ze składu po zapisie dostaje o tym e-mail, a jej zgłoszenie jest anulowane. Jeżeli kapitan usunie konto LESZY.RUN, drużyna zostaje na liście startowej pod neutralną nazwą, a składem zajmuje się Organizator.'),
         ],
       },
       {

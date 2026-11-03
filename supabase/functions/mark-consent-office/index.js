@@ -1,5 +1,7 @@
 // POST { registrationId } — „Regulamin podpisany w biurze” (Plan 4): the organizer records that
-// an added adult signed the event's terms on paper. Owner/admin only, through
+// an added adult signed the event's terms on paper. For a team's child whose parent is not the
+// captain it is „Zgoda opiekuna na papierze”: the parent signed the child's consent on paper, and
+// mark_consent_office records the minors-only consents too. Owner/admin only, through
 // loadOrganizerEvent(…, { write: true }) on the registration's event: an outsider or a disabled
 // club gets 404, a plain member 403 (P2-R9). mark_consent_office sets consent_state 'office',
 // records the event consents as 'office' acceptances by the organizer and spends the link.

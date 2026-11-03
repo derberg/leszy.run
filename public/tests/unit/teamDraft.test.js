@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import {
   initTeam, setSize, droppedBy, moveMember, removeMember, memberVariant, toTeamRequest, legOf, squadCards, checkTeam, checkCaptain,
   teamContext, teamFailure, memberAfter, firstOpenMember, memberAgeLabel, repricedFee, carryOverMember, carryOverSquad, carriedIn, memberCopiedFrom,
-  setMoreFields,
+  setMoreFields, setParentChoice, setParent, teamConsents,
 } from '../../src/lib/teamDraft.js'
 import { setCardOpen, setGuardianConsent, updatePerson, cardEmpty, copiedFromNames, LIST_STEP } from '../../src/lib/groupDraft.js'
 import { EMPTY_PERSON } from '../../src/lib/personFormModel.js'
@@ -500,5 +500,56 @@ describe('carryOverSquad: a copy follows its source after the step that made it 
     d = moveMember(d, 0, 1) // the captain runs leg 2
     d = carryOverMember(d, d.cards[2].key, ON)
     assert.deepEqual(memberCopiedFrom(d, d.cards[2].key), { club: 'osoba 2' })
+  })
+})
+
+// A child's parent who is not the captain: the captain names them on the child's card, the box goes.
+describe('TP-40 a child\'s parent who is not the captain', () => {
+  const marta = { firstName: 'Marta', lastName: 'Leśna', email: 'marta@x.pl' }
+  const withChild = () => team([me, piotr, zosia])
+  const childKey = (d) => d.cards[2].key
+
+  it('by default the captain is the guardian: the box goes in the request, no parent', () => {
+    const base = withChild()
+    const d = setGuardianConsent(base, base.cards[2].key, true)
+    const m = toTeamRequest(d, { today: TODAY }).members[2]
+    assert.equal(m.guardianConsent, true)
+    assert.equal('parent' in m, false)
+  })
+  it('„Rodzic lub opiekun to ktoś inny”: the parent goes in the request, the box does not', () => {
+    let d = withChild()
+    d = setParentChoice(d, childKey(d), true)
+    d = setParent(d, childKey(d), marta)
+    const m = toTeamRequest(d, { today: TODAY }).members[2]
+    assert.deepEqual(m.parent, marta)
+    assert.equal('guardianConsent' in m, false)
+    assert.equal(checkTeam(d, { context, now: NOW }).ok, true)
+  })
+  it('back to „Jestem rodzicem”: the parent typed is kept on the card but never sent', () => {
+    let d = withChild()
+    d = setParent(setParentChoice(d, childKey(d), true), childKey(d), marta)
+    d = setParentChoice(d, childKey(d), false)
+    assert.deepEqual(d.cards[2].parent, marta)
+    assert.equal('parent' in toTeamRequest(d, { today: TODAY }).members[2], false)
+  })
+  it('the parent\'s errors land on the child\'s card; the captain\'s own address is refused', () => {
+    let d = withChild()
+    d = setParent(setParentChoice(d, childKey(d), true), childKey(d), { ...marta, email: 'OLA@x.pl' })
+    const r = checkTeam(d, { context, now: NOW })
+    assert.equal(r.ok, false)
+    assert.match(r.errors[childKey(d)].parentEmail, /To Twój adres/)
+  })
+  it('a minors-only consent is shown only while a child the captain answers for is in the squad', () => {
+    const consents = [{ id: 'r', kind: 'regulamin' }, { id: 'g', kind: 'custom', minorsOnly: true }]
+    let d = withChild()
+    assert.deepEqual(teamConsents(d, consents, TODAY).map((c) => c.id), ['r', 'g'])
+    d = setParentChoice(d, childKey(d), true)
+    assert.deepEqual(teamConsents(d, consents, TODAY).map((c) => c.id), ['r'])
+    assert.deepEqual(toTeamRequest(d, { consents, today: TODAY }).acceptedConsentIds, ['r'])
+  })
+  it('an adult\'s card never sends a parent, whatever the card holds', () => {
+    let d = team()
+    d = setParent(setParentChoice(d, d.cards[1].key, true), d.cards[1].key, marta)
+    assert.equal('parent' in toTeamRequest(d, { today: TODAY }).members[1], false)
   })
 })

@@ -7,6 +7,8 @@ import { missingDetailsText } from './memberDetails.js'
 
 const LIVE = new Set(['confirmed', 'pending_payment'])
 const CONSENT = { awaiting: 'czeka na zgodę', office: 'podpisany w biurze' }
+// A child waits for a parent who is not the captain, whose paper consent the office records.
+const CHILD_CONSENT = { awaiting: 'czeka na zgodę opiekuna', office: 'zgoda opiekuna na papierze' }
 
 const warsawTime = new Intl.DateTimeFormat('en-GB', {
   timeZone: 'Europe/Warsaw', hourCycle: 'h23', hour: '2-digit', minute: '2-digit',
@@ -32,7 +34,8 @@ const zloty = (grosze) => (grosze == null ? '' : formatDpayValue(grosze).replace
 
 function consentText(row) {
   if (!LIVE.has(row.status)) return ''
-  return CONSENT[row.consentState] ?? (row.role === 'minor' ? 'opiekun' : 'zaakceptowany')
+  if (row.role === 'minor') return CHILD_CONSENT[row.consentState] ?? 'opiekun'
+  return CONSENT[row.consentState] ?? 'zaakceptowany'
 }
 
 function signedUp(instant) {

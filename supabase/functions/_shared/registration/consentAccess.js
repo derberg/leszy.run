@@ -7,6 +7,7 @@ import { checkAndIncrement } from '../throttle.js'
 import { clientIp } from '../clientIp.js'
 import { hashToken } from './tokens.js'
 import { json } from './registrationRequest.js'
+import { consentRecipient } from './group.js'
 
 // 32 random bytes in base64url (tokens.js).
 const TOKEN_RE = /^[A-Za-z0-9_-]{43}$/
@@ -129,6 +130,8 @@ export const personOf = (r) => ({
   phone: r.phone, city: r.city, club: r.club, iceName: r.ice_name, icePhone: r.ice_phone, nationality: r.nationality,
 })
 
-/** Who may act on a link: a session whose address is the registration's. */
-export const sessionMatches = (session, registration) =>
-  Boolean(session?.email && registration?.email && session.email.trim().toLowerCase() === registration.email.trim().toLowerCase())
+/** Who may act on a link: a session whose address is the one the link went to (consentRecipient). */
+export function sessionMatches(session, registration) {
+  const to = consentRecipient(registration)
+  return Boolean(session?.email && to && session.email.trim().toLowerCase() === to.trim().toLowerCase())
+}

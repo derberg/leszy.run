@@ -247,8 +247,9 @@ export function actionLabel(action, row, { isTeamRow = false, isCaptain = false 
     case 'edit': return 'Edytuj dane'
     case 'remind_payment': return 'Przypomnij o wpłacie'
     case 'extend': return 'Przedłuż termin wpłaty'
-    case 'remind_consent': return 'Przypomnij o akceptacji regulaminu'
-    case 'consent_office': return 'Regulamin podpisany w biurze'
+    // A child's row waits for the parent the captain named (mark-consent-office records it as paper).
+    case 'remind_consent': return row.role === 'minor' ? 'Przypomnij opiekunowi o zgodzie' : 'Przypomnij o akceptacji regulaminu'
+    case 'consent_office': return row.role === 'minor' ? 'Zgoda opiekuna na papierze' : 'Regulamin podpisany w biurze'
     case 'message': return isTeamRow ? 'Napisz do kapitana' : 'Napisz do zawodnika'
     case 'refund': return 'Zwróć wpłatę'
     case 'cancel':

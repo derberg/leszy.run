@@ -1,4 +1,5 @@
-// POST { registrationId } — a new consent link for an added adult (Plan 4, ruling 5).
+// POST { registrationId } — a new consent link for an added adult (Plan 4, ruling 5), or for a team's
+// child whose parent is not the captain, sent to that parent (consentRecipient).
 // Allowed for the person who registered them (registered_by_profile_id, RA5) or an owner/admin
 // of the event's club (loadOrganizerEvent on the registration's event: an outsider or a disabled
 // club gets 404, and so does a plain member, P2-R20). The token is rotated, so the previous link
@@ -22,6 +23,7 @@ import { logOrganizerAction } from '../_shared/organizer.js'
 import { isUuid, loadOrganizerEvent } from '../_shared/registration/organizerEvent.js'
 import { json, NOT_FOUND } from '../_shared/registration/registrationRequest.js'
 import { rotateAndSend } from '../_shared/registration/consentRequests.js'
+import { consentRecipient } from '../_shared/registration/group.js'
 
 const REMIND_LIMIT = 3
 const DAY = 24 * 3600
@@ -44,7 +46,7 @@ Deno.serve(async (req) => {
     const registrationId = body?.registrationId
     if (!isUuid(registrationId)) return json(NOT_FOUND, 404, req)
     const { data: reg, error } = await admin.from('registrations')
-      .select('id, event_id, registered_by_profile_id, status, consent_state, email').eq('id', registrationId).maybeSingle()
+      .select('id, event_id, registered_by_profile_id, status, consent_state, email, profile_id, guardian_name, guardian_email, guardian_profile_id, guardian_removed_at').eq('id', registrationId).maybeSingle()
     if (error) throw error
     if (!reg) return json(NOT_FOUND, 404, req)
 
@@ -67,7 +69,7 @@ Deno.serve(async (req) => {
       organizer = access
     }
 
-    if (reg.status !== 'confirmed' || reg.consent_state !== 'awaiting' || !reg.email) return json(NOT_AWAITING, 409, req)
+    if (reg.status !== 'confirmed' || reg.consent_state !== 'awaiting' || !consentRecipient(reg)) return json(NOT_AWAITING, 409, req)
     // A spent or expired link cannot be rotated (rotate_consent_request); no request at all is the
     // crash window, which rotateAndSend issues.
     const { data: request, error: qErr } = await admin.from('consent_requests')

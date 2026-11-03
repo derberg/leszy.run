@@ -1,5 +1,7 @@
 // Consent requests (Plan 4): an adult registered by somebody else gets one e-mail with a
-// single-use link to accept the regulamin (ruling 10: it is also the Art. 14 notice). Only a
+// single-use link to accept the regulamin (ruling 10: it is also the Art. 14 notice). A child in a
+// team whose parent is not the captain is asked the same way, at the parent's address
+// (consentRecipient: guardian_email), with the e-mail worded for a parent. Only a
 // CONFIRMED registration awaiting consent gets one, so a paid group's adults are asked when the
 // payment lands (settleConfirmOutcome), never while the order waits, and never for an expired
 // or refunded one. issue_consent_request claims the row (insert … on conflict do nothing), so a
@@ -17,6 +19,7 @@ import { newToken } from './tokens.js'
 import { consentRequestEmail } from './emails.js'
 import { registeredByNames } from './registeredBy.js'
 import { owedDetails } from './memberDetails.js'
+import { consentRecipient, registrationRole } from './group.js'
 
 async function rows(query) {
   const { data, error } = await query
@@ -43,8 +46,9 @@ export const consentLink = (site, token) => `${site}/zgoda#${token}`
 export const dataInfoUrl = (site, slug) => `${site}/events/${encodeURIComponent(slug)}/informacja-o-danych`
 
 // The contact columns and the role's are memberDetails.js's: whether the person still owes details.
+// guardian_email: a child's request goes to the parent (consentRecipient).
 const REG_COLUMNS = 'id, event_id, category_id, order_id, team_id, first_name, email, status, consent_state, registered_by_profile_id, ' +
-  'profile_id, guardian_name, guardian_profile_id, guardian_removed_at, phone, city, club, ice_name, ice_phone, nationality'
+  'profile_id, guardian_name, guardian_email, guardian_profile_id, guardian_removed_at, phone, city, club, ice_name, ice_phone, nationality'
 
 /** Everything the e-mails of `regs` need besides the token: → (registration) → mail builder. */
 async function mailContext(admin, regs, { registeredBy = null, site = null } = {}) {
@@ -82,6 +86,7 @@ async function mailContext(admin, regs, { registeredBy = null, site = null } = {
       // Reminders too: a member who has not filled in their details is asked again, while /zgoda
       // still takes edits (consent-request and accept-consent stop at closes_at too).
       detailsOwed: Date.now() < Date.parse(settings.closes_at) && owedDetails(r, settings.form_fields ?? {}).length > 0,
+      guardian: registrationRole(r) === 'minor' ? { name: r.guardian_name } : null,
     })
   }
 }
@@ -89,7 +94,7 @@ async function mailContext(admin, regs, { registeredBy = null, site = null } = {
 // Sends; throws when the sender refused. Then stamps emailed_at on the request that still holds
 // this token (a rotation meanwhile means another e-mail carries the live link).
 async function deliver(admin, r, hash, mail) {
-  const res = await sendEmail({ to: r.email, ...mail, noTracking: true })
+  const res = await sendEmail({ to: consentRecipient(r), ...mail, noTracking: true })
   if (res && res.ok === false) throw new Error(`e-mail not accepted (${res.status})`)
   const { error } = await admin.from('consent_requests').update({ emailed_at: new Date().toISOString() })
     .eq('registration_id', r.id).eq('token_hash', hash)
@@ -98,7 +103,7 @@ async function deliver(admin, r, hash, mail) {
 
 /**
  * For each registration of `registrationIds` that is confirmed, awaiting consent and has an
- * address: a fresh token, issue_consent_request, and the e-mail only when that call returned
+ * address to ask (consentRecipient: the person's, or a child's guardian's): a fresh token, issue_consent_request, and the e-mail only when that call returned
  * true (this caller claimed the request). → the number of e-mails handed to the sender.
  * `registeredBy` (optional) names who registered, when the caller knows it; `site` overrides
  * PUBLIC_SITE_URL (the jobs pass theirs). Never throws: the registrations stand whatever
@@ -120,8 +125,9 @@ export async function issueConsentRequestsReport(admin, registrationIds, { regis
   if (!ids.length) return { sent: 0, failed }
   let sent = 0
   try {
-    const regs = await rows(admin.from('registrations').select(REG_COLUMNS)
-      .in('id', ids).eq('status', 'confirmed').eq('consent_state', 'awaiting').not('email', 'is', null))
+    const regs = (await rows(admin.from('registrations').select(REG_COLUMNS)
+      .in('id', ids).eq('status', 'confirmed').eq('consent_state', 'awaiting')))
+      .filter((r) => consentRecipient(r))
     if (!regs.length) return { sent: 0, failed }
     const build = await mailContext(admin, regs, { registeredBy, site })
 
@@ -174,7 +180,7 @@ export async function issueOrderConsentRequests(admin, orderId, opts = {}) {
 export async function rotateAndSend(admin, registrationId, { reminder = true, site = null } = {}) {
   const { data: r, error } = await admin.from('registrations').select(REG_COLUMNS).eq('id', registrationId).maybeSingle()
   if (error) throw error
-  if (!r || r.status !== 'confirmed' || r.consent_state !== 'awaiting' || !r.email) return 'not_awaiting'
+  if (!r || r.status !== 'confirmed' || r.consent_state !== 'awaiting' || !consentRecipient(r)) return 'not_awaiting'
 
   const { token, hash } = await newToken()
   const { data: rotated, error: rErr } = await admin.rpc('rotate_consent_request', { p_registration_id: r.id, p_token_hash: hash })

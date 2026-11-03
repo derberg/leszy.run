@@ -13,7 +13,7 @@ import {
 } from '../../lib/personFormModel.js'
 import {
   updatePerson, setCardOpen, setGuardianConsent, cardVariants, effectivePerson, cardEmpty, cardName, claimedEmail,
-  erroredCards, fixMessage, formStep, LIST_STEP, setCardVoucher, setCardExtra, draftOrdersExtras, draftConsents,
+  erroredCards, fixMessage, formStep, LIST_STEP, setCardVoucher, setCardExtra, draftOrdersExtras,
 } from '../../lib/groupDraft.js'
 import { donationsOffered, orderableExtras, pickedExtras } from '../../lib/cartModel.js'
 import { checkVoucherCode } from '../../lib/voucherCheck.js'
@@ -23,6 +23,7 @@ import {
   ADULT_EMAIL_NOTE, MEMBER_DETAILS_NOTE, setMoreFields, initTeam, setSize, droppedBy, moveMember, removeMember, squadCards, toTeamRequest,
   teamContext, checkTeam, checkCaptain, firstOpenMember, memberAfter, memberAgeLabel, teamFailure, repricedFee, carryOverMember, carryOverSquad,
   carriedIn, memberCopiedFrom,
+  setParentChoice, setParent, teamConsents,
 } from '../../lib/teamDraft.js'
 import { useLeaveGuard, confirmLeave } from '../../lib/leaveGuard.js'
 import { focusCardError, useStepHistory } from '../../lib/useStepHistory.js'
@@ -56,6 +57,9 @@ import { formPath } from './RegistrationEventPage.jsx'
 // checkoutCart with the code and every member's extras, which RB3 lists under each member. The
 // team goes through RB3 whenever it can cost money (a fee, an extra, or a charity event's chips);
 // a total that stays 0 on a free team registers from there.
+
+// The parent's fields on a child's card (validateParent in team.js), cleared as the captain types.
+const PARENT_ERRORS = ['parentFirstName', 'parentLastName', 'parentEmail']
 
 const stepTitle = (legOrder, n) => (legOrder ? `Zmiana ${n}` : `Osoba ${n}`)
 
@@ -165,8 +169,10 @@ export default function TeamSignup({ raw: rawProp, categoryId, preview = false, 
 
   const today = warsawToday()
   const variants = cardVariants(draft, today)
-  const guardianConsents = draftConsents(draft, consents, today).filter((c) => !captainConsents.includes(c))
+  // A child whose parent the captain named takes no minors-only consent from the captain (teamConsents).
+  const guardianConsents = teamConsents(draft, consents, today).filter((c) => !captainConsents.includes(c))
   const guardianReady = consentsComplete(guardianConsents, accepted, true)
+  const namedParents = draft.cards.some((c, i) => i > 0 && variants[i] === 'minor' && c.parentOther === true)
   const open = row?.state === 'open'
   const priceGrosze = fee ?? competition.priceGrosze ?? 0
   const feePaid = raw.pricingMode !== 'free' && priceGrosze !== 0
@@ -484,7 +490,8 @@ export default function TeamSignup({ raw: rawProp, categoryId, preview = false, 
   const rowDetail = (i) => {
     if (i === 0) return [groupOf(0), 'KAPITAN ✓'].filter(Boolean).join(' · ')
     if (variants[i] === 'minor') {
-      return [groupOf(i), memberAgeLabel(draft.cards[i].person, raw.eventDate, raw.ageReckoning ?? 'race_day'), 'OPIEKUN: KAPITAN'].filter(Boolean).join(' · ')
+      const guardian = draft.cards[i].parentOther === true ? 'ZGODA RODZICA' : 'OPIEKUN: KAPITAN'
+      return [groupOf(i), memberAgeLabel(draft.cards[i].person, raw.eventDate, raw.ageReckoning ?? 'race_day'), guardian].filter(Boolean).join(' · ')
     }
     return groupOf(i) ?? ''
   }
@@ -636,6 +643,14 @@ export default function TeamSignup({ raw: rawProp, categoryId, preview = false, 
           guardian={{
             name: cardName(draft, 0), email: draft.cards[0].person.email, checked: c.guardianConsent,
             onChange: (v) => { setDraft((d) => setGuardianConsent(d, c.key, v)); clearErrors(c.key, ['guardianConsent']) },
+          }}
+          parentChoice={{
+            other: c.parentOther === true, parent: c.parent,
+            onOther: (v) => { setDraft((d) => setParentChoice(d, c.key, v)); clearErrors(c.key, ['guardianConsent', ...PARENT_ERRORS]) },
+            onParent: (patch) => {
+              setDraft((d) => setParent(d, c.key, patch))
+              clearErrors(c.key, Object.keys(patch).map((k) => `parent${k[0].toUpperCase()}${k.slice(1)}`))
+            },
           }} />
         <button type="submit" disabled={busy} className={primaryBtn} data-testid="person-done">
           {next ? `Dalej · ${stepTitle(legOrder, draft.order.indexOf(next) + 1).toLowerCase()}` : 'Gotowe · skład'}
@@ -690,7 +705,8 @@ export default function TeamSignup({ raw: rawProp, categoryId, preview = false, 
           <label className="flex gap-3 items-start font-sans text-[15px] leading-snug text-apex-text cursor-pointer">
             <input type="checkbox" className="mt-0.5 w-5 h-5 shrink-0 accent-apex-yellow rounded-none" required checked={draft.membersConsent}
               onChange={(e) => { const v = e.target.checked; setDraft((d) => ({ ...d, membersConsent: v })) }} data-testid="members-consent" />
-            <span><span className="text-apex-red" aria-hidden="true">*</span> Mam zgodę członków drużyny na podanie ich danych. Każdy dorosły dostanie mail z regulaminem do potwierdzenia.</span>
+            <span><span className="text-apex-red" aria-hidden="true">*</span> Mam zgodę członków drużyny na podanie ich danych. Każdy dorosły dostanie mail z regulaminem do potwierdzenia.
+              {namedParents && ' Rodzic wskazany przy dziecku dostanie prośbę o zgodę na udział dziecka.'}</span>
           </label>
           {guardianConsents.map((k) => (
             <label key={k.id} className="flex gap-3 items-start font-sans text-[15px] leading-snug text-apex-text cursor-pointer">

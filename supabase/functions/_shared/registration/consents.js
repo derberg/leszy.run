@@ -13,7 +13,11 @@ export function requiredConsents(consents, { hasMinor = false } = {}) {
   return (consents ?? []).filter((c) => hasMinor || !minorsOnly(c))
 }
 
-/** Does the request enter a child (a person with role 'minor')? */
+/**
+ * Does the request enter a child the registrant answers for (a person with role 'minor')? A child
+ * carrying `guardian` (a team member whose parent is not the captain, validateTeam) is left out:
+ * that parent accepts the minors-only consents on /zgoda, never the captain on the form.
+ */
 export function hasMinor(people) {
-  return (people ?? []).some((p) => p?.role === 'minor')
+  return (people ?? []).some((p) => p?.role === 'minor' && !p?.guardian)
 }

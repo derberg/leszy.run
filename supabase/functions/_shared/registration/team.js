@@ -14,6 +14,10 @@ export const CAPTAIN_MESSAGE = 'Kapitanem drużyny może być tylko osoba pełno
 export const CAPTAIN_SELF_MESSAGE = 'Kapitanem drużyny może być tylko osoba, która zapisuje drużynę.'
 export const LEG_ORDER_MESSAGE = 'Ustal kolejność zmian.'
 export const MEMBERS_CONSENT_MESSAGE = 'Zaznacz zgodę członków drużyny.'
+export const PARENT_IS_CAPTAIN_MESSAGE = 'To Twój adres. Jeśli jesteś rodzicem lub opiekunem dziecka, wybierz „Jestem rodzicem lub opiekunem prawnym”.'
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+const NAME_MAX = 100
 
 const text = (v) => (typeof v === 'string' ? v.trim() : '')
 
@@ -33,19 +37,48 @@ export function teamNameKey(name) {
 
 /**
  * The request body as a team. Member 0 is the captain.
- * → { categoryId, teamName, members: [{ person, leg: number|null, guardianConsent }], membersConsent }
+ * → { categoryId, teamName, members: [{ person, leg: number|null, guardianConsent, parent? }], membersConsent }
+ * `parent` ({ firstName, lastName, email }, text) is present only when the body sent an object: on
+ * a child's card it names a parent or legal guardian who is not the captain.
  */
 export function normalizeTeamRequest(body) {
   const b = body && typeof body === 'object' ? body : {}
   const members = (Array.isArray(b.members) ? b.members : []).map((item) => {
     const m = item && typeof item === 'object' ? item : {}
+    const parent = m.parent && typeof m.parent === 'object' && !Array.isArray(m.parent)
+      ? { firstName: text(m.parent.firstName), lastName: text(m.parent.lastName), email: text(m.parent.email) }
+      : null
     return {
       person: m.person && typeof m.person === 'object' ? m.person : {},
       leg: Number.isInteger(m.leg) ? m.leg : null,
       guardianConsent: m.guardianConsent === true,
+      ...(parent ? { parent } : {}),
     }
   })
   return { categoryId: b.categoryId ?? null, teamName: text(b.teamName), members, membersConsent: b.membersConsent === true }
+}
+
+/**
+ * A child's parent or legal guardian named by the captain, who is not that person (on the team form
+ * and the captain's squad add or swap). The parent gets the consent e-mail and accepts on /zgoda,
+ * so the address must be one the captain does not hold: with their own, the captain is the parent
+ * and ticks the guardian box instead.
+ * → { ok, value: { name, email }|null, errors: { parentFirstName?, parentLastName?, parentEmail? } }
+ */
+export function validateParent(parent, { captainEmail = null } = {}) {
+  const firstName = text(parent?.firstName)
+  const lastName = text(parent?.lastName)
+  const email = text(parent?.email).toLowerCase()
+  const errors = {}
+  if (!firstName) errors.parentFirstName = 'Podaj imię rodzica lub opiekuna.'
+  else if (firstName.length > NAME_MAX) errors.parentFirstName = 'Imię jest za długie.'
+  if (!lastName) errors.parentLastName = 'Podaj nazwisko rodzica lub opiekuna.'
+  else if (lastName.length > NAME_MAX) errors.parentLastName = 'Nazwisko jest za długie.'
+  if (!EMAIL_RE.test(email) || email.length > 254) errors.parentEmail = 'Podaj poprawny adres e-mail rodzica lub opiekuna.'
+  else if (email === text(captainEmail).toLowerCase()) errors.parentEmail = PARENT_IS_CAPTAIN_MESSAGE
+  if (Object.keys(errors).length) return { ok: false, value: null, errors }
+  // guardian_name's shape: one full name, as the captain's own is stored for the children they answer for.
+  return { ok: true, value: { name: `${firstName} ${lastName}`, email }, errors }
 }
 
 function legsAreOneToN(members) {
@@ -84,9 +117,19 @@ export function validateTeam(req, { sessionEmail = null, competition = null, now
   // An adult member other than the captain may give the rest of their details on /zgoda
   // (memberDetails.js), so the captain need not; the birth date and gender stay required here, so
   // every rule they decide still holds.
+  // A child whose parent is not the captain: the parent consents on /zgoda, so the captain's box is
+  // not asked for. Judged by today's date, as validatePerson judges a minor; an adult's or the
+  // captain's `parent` is dropped.
+  const captainEmail = text(members[0].person?.email).toLowerCase() || text(sessionEmail).toLowerCase()
+  const parents = members.map((m, i) => (i > 0 && m.parent && isMinorToday(m.person?.birthDate, now)
+    ? validateParent(m.parent, { captainEmail })
+    : null))
+
   const group = validateGroup(
     {
-      people: members.map((m, i) => ({ categoryId, person: m.person, guardianConsent: m.guardianConsent, detailsLater: i > 0 })),
+      people: members.map((m, i) => ({
+        categoryId, person: m.person, guardianConsent: parents[i] ? true : m.guardianConsent, detailsLater: i > 0,
+      })),
       buyer: null,
     },
     { sessionEmail, competitions: new Map([[categoryId, competition]]), now },
@@ -94,6 +137,7 @@ export function validateTeam(req, { sessionEmail = null, competition = null, now
 
   // The captain pays, so a team has no separate buyer.
   const { buyer: _buyer, ...errors } = group.errors
+  parents.forEach((p, i) => { if (p && !p.ok) errors[i] = { ...(errors[i] ?? {}), ...p.errors } })
 
   const session = text(sessionEmail).toLowerCase()
   const captainIsSession = Boolean(session) && text(members[0].person?.email).toLowerCase() === session
@@ -116,7 +160,10 @@ export function validateTeam(req, { sessionEmail = null, competition = null, now
     ok: true,
     value: {
       teamName: collapsed(teamName),
-      members: group.value.map((v, i) => ({ ...v, leg: legOrderEnabled ? members[i].leg : null })),
+      members: group.value.map((v, i) => ({
+        ...v, leg: legOrderEnabled ? members[i].leg : null,
+        ...(v.role === 'minor' && parents[i] ? { guardian: parents[i].value } : {}),
+      })),
     },
     errors: {},
     fieldErrors,
@@ -126,18 +173,28 @@ export function validateTeam(req, { sessionEmail = null, competition = null, now
 
 /**
  * One person joining a squad (team-squad's add and swap). The role comes from the birth date, never
- * from the request, and a child needs the captain's guardian consent. A bad date stops here, because
- * the RPC would raise a raw 22007 on it.
- * @param {{ person?: object, guardianConsent?: boolean }} request
- * @param {object} context validatePerson's context
+ * from the request, and a child needs the captain's guardian consent, or a parent named in `parent`
+ * (validateParent), who then consents on /zgoda. A bad date stops here, because the RPC would raise
+ * a raw 22007 on it.
+ * @param {{ person?: object, guardianConsent?: boolean, parent?: object }} request
+ * @param {object} context validatePerson's context, plus `captainEmail` (the parent's address may not be it)
  * @returns {{ ok: boolean, value: object|null, errors: Record<string, string> }}
  */
-export function validateSquadMember({ person, guardianConsent } = {}, context = {}) {
+export function validateSquadMember({ person, guardianConsent, parent } = {}, context = {}) {
+  const named = parent && typeof parent === 'object' && isMinorToday(person?.birthDate, context.now ?? new Date())
+    ? validateParent(parent, { captainEmail: context.captainEmail })
+    : null
   const checked = validatePerson(person, context)
-  if (!checked.ok) return checked
+  if (!checked.ok || (named && !named.ok)) {
+    return { ok: false, value: null, errors: { ...(checked.errors ?? {}), ...(named?.errors ?? {}) } }
+  }
   const { isMinor, ...value } = checked.value
-  if (isMinor && guardianConsent !== true) {
+  if (isMinor && !named && guardianConsent !== true) {
     return { ok: false, value: null, errors: { guardianConsent: GUARDIAN_CONSENT_MESSAGE } }
   }
-  return { ok: true, value: { role: isMinor ? 'minor' : 'adult', ...value }, errors: {} }
+  return {
+    ok: true,
+    value: { role: isMinor ? 'minor' : 'adult', ...value, ...(isMinor && named ? { guardian: named.value } : {}) },
+    errors: {},
+  }
 }

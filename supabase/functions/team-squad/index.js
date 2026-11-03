@@ -118,12 +118,14 @@ async function mail(what, to, message) {
 // After a swap or an add. An unconfirmed team has told nobody yet: the adult out never heard of the
 // entry, so a „removed” e-mail would be the first they hear, and the adult in is asked when the fee
 // lands (settleConfirmOutcome covers every registration of the order). A swap keeping the address is
-// a correction, not a removal. A child has no address: the captain, their guardian, reads the summary.
+// a correction, not a removal. A child has no address: the captain, their guardian, reads the summary,
+// and a child whose parent is not the captain is asked for at that parent's address.
 async function tellPeople(admin, { teamId, confirmed, captainEmail, captainName, person, result }) {
   const [added] = result.added
   const [removed] = result.removed
   const adult = person.role === 'adult'
-  if (adult) await issueConsentRequests(admin, [added.id], { registeredBy: captainName })
+  const asked = adult || Boolean(person.guardian)
+  if (asked) await issueConsentRequests(admin, [added.id], { registeredBy: captainName })
   try {
     const args = await teamEmailArgs(admin, teamId)
     if (confirmed && removed?.email && removed.email.toLowerCase() !== person.email?.toLowerCase()) {
@@ -134,6 +136,7 @@ async function tellPeople(admin, { teamId, confirmed, captainEmail, captainName,
       removedName: removed?.firstName ?? null,
       addedName: `${person.firstName} ${person.lastName}`,
       consentAsked: confirmed && adult ? person.firstName : null,
+      parentAsked: confirmed && person.guardian ? person.guardian.name : null,
     }))
   } catch (err) {
     console.error('team-squad: e-mails failed:', err?.message)
@@ -147,8 +150,10 @@ async function tellPeople(admin, { teamId, confirmed, captainEmail, captainName,
 //   asOrganizer: the session is the club's, not the captain's (the form then asks for every field).
 //   get
 //   reorder { legs: [registrationId…] }  every live member, in running order
-//   swap    { registrationId, person, guardianConsent?, acceptedConsentIds?, serviceRegulamin? }
-//   add     { person, guardianConsent?, acceptedConsentIds?, serviceRegulamin? }
+//   swap    { registrationId, person, guardianConsent?, parent?, acceptedConsentIds?, serviceRegulamin? }
+//   add     { person, guardianConsent?, parent?, acceptedConsentIds?, serviceRegulamin? }
+//   parent  { firstName, lastName, email }: a child's parent who is not the captain (validateParent). The
+//           child then waits for that parent's consent on /zgoda, and the captain accepts nothing.
 // The captain's session, or the owner or an admin of the event's club (Plan 6, ruling 11: the
 // organizer edits a squad whose captain deleted the account or asked the club to). 401 without a
 // session, 404 for anybody else and for a disabled club; a plain club member gets 404 for a read
@@ -223,7 +228,9 @@ Deno.serve(async (req) => {
       const contexts = await personContexts(admin, settings, [competition])
       // The captain's add or swap takes an adult's five fields, as the sign-up does (memberDetails.js);
       // the organizer's stays the whole form.
-      const checked = validateSquadMember(body, { ...contexts.get(competition.category_id), now: new Date(), detailsLater: !asOrganizer })
+      const checked = validateSquadMember(body, {
+        ...contexts.get(competition.category_id), now: new Date(), detailsLater: !asOrganizer, captainEmail: captain.email,
+      })
       if (!checked.ok) {
         return json({ error: 'Popraw zaznaczone pola.', code: 'invalid_person', fields: checked.errors }, 400, req)
       }
@@ -232,7 +239,9 @@ Deno.serve(async (req) => {
         return json({ error: MINOR_BY_ORGANIZER, code: 'minor_by_organizer' }, 422, req)
       }
 
-      if (person.role === 'minor') {
+      // A child the captain answers for carries the captain's acceptances; one with a parent named
+      // carries none: that parent accepts on /zgoda.
+      if (person.role === 'minor' && !person.guardian) {
         if (body.serviceRegulamin !== true) {
           return json({ error: REFUSALS.consents_changed[1], code: 'consents_required' }, 400, req)
         }
@@ -246,6 +255,9 @@ Deno.serve(async (req) => {
       // Ruling 8 of Plan 4, after the session and the throttles: a child's address is never stored.
       if (person.role === 'adult' && await isEmailRetired(admin, person.email)) {
         return json({ error: RETIRED_EMAIL_MESSAGE, code: 'email_retired' }, 403, req)
+      }
+      if (person.guardian && await isEmailRetired(admin, person.guardian.email)) {
+        return json({ error: RETIRED_EMAIL_MESSAGE, code: 'email_retired', field: 'parentEmail' }, 403, req)
       }
       op = action === 'swap' ? { op: action, registrationId: body.registrationId, person } : { op: action, person }
     }

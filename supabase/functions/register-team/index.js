@@ -95,8 +95,9 @@ Deno.serve(async (req) => {
         await issueOrderConsentRequests(admin, orderId, { registeredBy: buyerName })
       } else {
         await sendTeamConfirmation(admin, teamId, email)
-        const adults = created.registrations.filter((r) => r.role === 'adult').map((r) => r.id)
-        await issueConsentRequests(admin, adults, { registeredBy: buyerName })
+        // Every adult member, and every child whose parent is not the captain (their request goes to
+        // that parent): issueConsentRequests takes only the rows awaiting consent.
+        await issueConsentRequests(admin, created.registrations.map((r) => r.id), { registeredBy: buyerName })
       }
       return answer({ data: { teamId, status: 'confirmed', ...(orderId ? { orderId } : {}) } }, 201)
     }

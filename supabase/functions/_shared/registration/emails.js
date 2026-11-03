@@ -385,12 +385,14 @@ export function freeConfirmationEmail({ event, people, payerFirstName, officeHou
  * page, `/zgoda#<token>`), dataInfoUrl (the runner data information). `reminder: true` prefixes
  * the subject with „Przypomnienie: ”. team { name } (optional) adds „w drużynie <nazwa>”.
  * `detailsOwed` (a team member, memberDetails.js): the captain left out a field the event requires,
- * so the data note says what the captain gave and the link asks for the rest. The link is the only
- * place the token appears.
+ * so the data note says what the captain gave and the link asks for the rest. `guardian` (a child
+ * whose parent is not the captain, consentRecipient): the e-mail goes to that parent and asks for
+ * the child's participation instead (guardianConsentEmail). The link is the only place the token appears.
  */
 export function consentRequestEmail({
-  event, person, registeredBy, competition, link: url, dataInfoUrl, reminder = false, team = null, detailsOwed = false,
+  event, person, registeredBy, competition, link: url, dataInfoUrl, reminder = false, team = null, detailsOwed = false, guardian = null,
 }) {
+  if (guardian) return guardianConsentEmail({ event, person, registeredBy, competition, link: url, dataInfoUrl, reminder, team })
   const day = isoDay(event.eventDate)
   const start = [day, competition?.startTime ? `godz. ${competition.startTime}` : null].filter(Boolean).join(', ')
   const facts = [
@@ -438,13 +440,70 @@ export function consentRequestEmail({
   return { subject: reminder ? `Przypomnienie: ${subject}` : subject, text, html, noTracking: true }
 }
 
+/**
+ * consentRequestEmail for a child's parent or guardian, whom the captain named on the team form: who
+ * entered the child, where, and the link to accept the child's participation. The data note is
+ * the Art. 14 notice for both the child's data and the parent's own name and address, which the
+ * captain gave. `person` is the child (first name only).
+ */
+function guardianConsentEmail({ event, person, registeredBy, competition, link: url, dataInfoUrl, reminder, team }) {
+  const day = isoDay(event.eventDate)
+  const start = [day, competition?.startTime ? `godz. ${competition.startTime}` : null].filter(Boolean).join(', ')
+  const facts = [
+    ['Konkurencja', competition?.name],
+    ['Start', start || null],
+    ['Miejsce', event.place],
+  ].filter(([, v]) => v)
+  const who = registeredBy || 'Inna osoba'
+  const child = person?.firstName ? `Twoje dziecko, ${person.firstName},` : 'Twoje dziecko'
+  const inTeam = team?.name ? ` w drużynie ${team.name}` : ''
+  const ask = 'Jako rodzic lub opiekun prawny zdecyduj, czy dziecko wystartuje: pod linkiem sprawdzisz i poprawisz jego dane i zaakceptujesz regulamin.'
+  const action = 'Zaakceptuj udział dziecka'
+  const office = 'Jeśli nie zaakceptujesz online, zgodę podpiszesz w biurze zawodów.'
+  const dataNote = `${who} podał(a) dane dziecka (imię, nazwisko, datę urodzenia, płeć i pozostałe pola zgłoszenia) oraz Twoje imię, nazwisko i adres e-mail. Kto je przetwarza, w jakim celu i jakie masz prawa:`
+  const text = [
+    'Dzień dobry,',
+    '',
+    `${who} zapisał(a) ${child} na zawody ${event.name}${inTeam}.`,
+    '',
+    ...textBlock(facts),
+    '',
+    ask,
+    '',
+    `${action}: ${url}`,
+    '',
+    office,
+    '',
+    dataNote,
+    dataInfoUrl,
+    '',
+    'LESZY.RUN',
+  ].join('\n')
+  const html = [
+    '<p>Dzień dobry,</p>',
+    `<p>${escapeHtml(who)} zapisał(a) ${escapeHtml(child)} na zawody <strong>${escapeHtml(event.name)}</strong>${escapeHtml(inTeam)}.</p>`,
+    htmlBlock(facts),
+    `<p>${escapeHtml(ask)}</p>`,
+    link(url, action),
+    `<p>${escapeHtml(office)}</p>`,
+    `<p>${escapeHtml(dataNote)} <a href="${escapeHtml(dataInfoUrl)}">${escapeHtml(dataInfoUrl)}</a></p>`,
+    '<p>LESZY.RUN</p>',
+  ].join('')
+  const subject = `Zapisano dziecko na ${event.name} — zaakceptuj udział dziecka`
+  // The link carries the token in its fragment: no click-tracking redirect may rewrite it.
+  return { subject: reminder ? `Przypomnienie: ${subject}` : subject, text, html, noTracking: true }
+}
+
 // ---------------------------------------------------------------- teams (Plan 5)
+
+const PARENT_ASKED = 'Rodzic lub opiekun, którego dane podano przy dziecku, dostanie e-mail z prośbą o zgodę na udział dziecka.'
 
 function memberLine(m) {
   const facts = [
     m.ageGroupLabel ? `kategoria ${m.ageGroupLabel}` : null,
     m.role === 'self' ? 'kapitan' : null,
-    m.role === 'minor' ? 'opiekun: kapitan' : null,
+    // A child whose parent is not the captain (parentName) waits for that parent's consent.
+    m.role === 'minor' ? (m.parentName ? `opiekun: ${m.parentName}${m.consentState === 'awaiting' ? ' (czeka na zgodę)' : ''}` : 'opiekun: kapitan') : null,
     m.transferred ? 'przejął(-ęła) pakiet' : null,
   ].filter(Boolean).join(', ')
   return facts ? `${fullName(m)} — ${facts}` : fullName(m)
@@ -452,7 +511,8 @@ function memberLine(m) {
 
 /**
  * The team confirmation, to the captain. event { name, eventDate?, place? }, team { name,
- * competition }, members [{ firstName, lastName, role: self|adult|minor, ageGroupLabel }], link
+ * competition }, members [{ firstName, lastName, role: self|adult|minor, ageGroupLabel, parentName?,
+ * consentState? }] (parentName: a child's parent who is not the captain), link
  * (the squad page). `paid` is { order, organizer, orderUrl } for a fee that was paid, which makes
  * this the payment confirmation as well; a free team and a 0 zł fee pass null (P3-R9). No bib and
  * no leg numbers.
@@ -462,9 +522,10 @@ export function teamConfirmationEmail({ event, team, members, link: url, paid = 
   const facts = [['Konkurencja', team.competition], ['Data', isoDay(event.eventDate)], ['Miejsce', event.place]].filter(([, v]) => v)
   const { amounts, payment, note } = paid ? paymentFacts(paid.order, paid.organizer) : { amounts: [], payment: [], note: null }
   const orderUrl = paid?.orderUrl ?? null
-  const awaiting = members.some((m) => m.role === 'adult')
-    ? 'Każdy dorosły członek drużyny dostanie osobny e-mail z prośbą o akceptację regulaminu.'
-    : null
+  const awaiting = [
+    members.some((m) => m.role === 'adult') ? 'Każdy dorosły członek drużyny dostanie osobny e-mail z prośbą o akceptację regulaminu.' : null,
+    members.some((m) => m.role === 'minor' && m.parentName && m.consentState === 'awaiting') ? PARENT_ASKED : null,
+  ].filter(Boolean).join(' ') || null
   const lead = 'jest na liście startowej zawodów'
   const text = [
     'Cześć,',
@@ -524,12 +585,16 @@ export function squadRemovedEmail({ event, team, firstName }) {
 /**
  * To the captain, after a swap or an add. event { name }, team { name }, members as in
  * teamConfirmationEmail, link (the squad page). removedName (first name) is null on an add.
- * consentAsked is the first name of an adult whose consent e-mail goes out now, else null.
+ * consentAsked is the first name of an adult whose consent e-mail goes out now, else null;
+ * parentAsked the name of a child's parent (not the captain) whose consent e-mail goes out now.
  */
-export function squadChangedEmail({ event, team, members, link: url, removedName = null, addedName, consentAsked = null }) {
+export function squadChangedEmail({
+  event, team, members, link: url, removedName = null, addedName, consentAsked = null, parentAsked = null,
+}) {
   const lines = members.map(memberLine)
   const changes = [removedName ? `Wypisano: ${removedName}` : null, `Dopisano: ${addedName}`].filter(Boolean)
-  const asked = consentAsked ? `${consentAsked} dostanie osobny e-mail z prośbą o akceptację regulaminu.` : null
+  const asked = parentAsked ? `${parentAsked} dostanie e-mail z prośbą o zgodę na udział dziecka.`
+    : consentAsked ? `${consentAsked} dostanie osobny e-mail z prośbą o akceptację regulaminu.` : null
   const text = [
     'Cześć,',
     '',

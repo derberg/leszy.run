@@ -208,7 +208,8 @@ function Team({ raw: shellRaw, teamId, notice, setNotice }) {
 
   function submitMember(e) {
     e.preventDefault()
-    const found = checkMember(form, { context, today, detailsLater })
+    // The captain's own address may not be the named parent's; an organizer never adds a child.
+    const found = checkMember(form, { context, today, detailsLater, captainEmail: user?.email ?? null })
     if (Object.keys(found).length) {
       setErrors(found)
       setMessage('Popraw zaznaczone pola.')
@@ -279,7 +280,9 @@ function Team({ raw: shellRaw, teamId, notice, setNotice }) {
   if (editing && !closed && context) {
     const variant = cardVariant(form.person, today)
     const minor = variant === 'minor'
-    const ready = !minor || consentsComplete(consents, accepted, serviceAccepted)
+    // A child whose parent the captain names carries none of the captain's consents.
+    const ownsChild = minor && form.parentOther !== true
+    const ready = !ownsChild || consentsComplete(consents, accepted, serviceAccepted)
     const label = form.kind === 'swap' ? 'Wymień zawodnika' : add
     const dataInfo = runnerDataInfo({
       eventName: model.title, organizerName: model.organizerName, contactEmail: model.contactEmail,
@@ -309,8 +312,23 @@ function Team({ raw: shellRaw, teamId, notice, setNotice }) {
               setForm((f) => ({ ...f, guardianConsent: v }))
               setErrors(({ guardianConsent: _gone, ...rest }) => rest)
             },
+          }}
+          parentChoice={{
+            other: form.parentOther === true, parent: form.parent,
+            onOther: (v) => {
+              setForm((f) => ({ ...f, parentOther: v }))
+              setErrors(({ guardianConsent: _g, parentFirstName: _f, parentLastName: _l, parentEmail: _e, ...rest }) => rest)
+            },
+            onParent: (patch) => {
+              setForm((f) => ({ ...f, parent: { ...f.parent, ...patch } }))
+              setErrors((e) => {
+                const next = { ...e }
+                for (const k of Object.keys(patch)) delete next[`parent${k[0].toUpperCase()}${k.slice(1)}`]
+                return next
+              })
+            },
           }} />
-        {minor && (
+        {ownsChild && (
           <ConsentList consents={consents} accepted={accepted} onToggle={(id, v) => setAccepted((a) => ({ ...a, [id]: v }))}
             serviceAccepted={serviceAccepted} onService={setServiceAccepted} regulaminUrl={model.regulaminUrl} dataInfo={dataInfo} />
         )}

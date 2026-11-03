@@ -138,7 +138,8 @@ export function validateGroup({ people = [], buyer = null } = {}, { sessionEmail
  *   other guardian fields of every past child entry, so null guardian fields alone prove nothing.
  * - An added adult was registered by an account that is not theirs, or still waits for their
  *   acceptance or was signed in the office: delete-my-account nulls registered_by when the payer
- *   deletes their account, and only an added adult is ever 'awaiting' or 'office'.
+ *   deletes their account. A child can be 'awaiting' or 'office' too (a team member whose parent is
+ *   not the captain), but the guardian fields above already made them 'minor'.
  * - A row from before groups has no registered_by_profile_id and was always the person's own.
  * @param {{ profile_id?: string|null, registered_by_profile_id?: string|null, guardian_name?: string|null,
  *   guardian_profile_id?: string|null, guardian_removed_at?: string|null, consent_state?: string|null }} row
@@ -149,6 +150,17 @@ export function registrationRole(row) {
   if (row.registered_by_profile_id != null && row.profile_id !== row.registered_by_profile_id) return 'adult'
   if (row.consent_state === 'awaiting' || row.consent_state === 'office') return 'adult'
   return 'self'
+}
+
+/**
+ * The address a consent request for this row goes to: the guardian's for a child (a team member
+ * whose parent is not the captain, named on the team form), the person's own for an added adult.
+ * null when there is none (a guardian who deleted the account). The one rule for the e-mails, the
+ * consent page's session check and the reminders.
+ */
+export function consentRecipient(row) {
+  if (!row) return null
+  return (registrationRole(row) === 'minor' ? row.guardian_email : row.email) ?? null
 }
 
 /**

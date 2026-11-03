@@ -145,3 +145,18 @@ describe('squadFailure: consents that changed', () => {
     assert.equal(f.closed, false)
   })
 })
+
+describe('TP-42 the captain\'s add or swap of a child whose parent is somebody else', () => {
+  const marta = { firstName: 'Marta', lastName: 'Leśna', email: 'marta@x.pl' }
+  it('the parent goes, no box, no consents of the captain\'s', () => {
+    const r = toMemberRequest({ ...newMember(zosia), parentOther: true, parent: marta }, { consents: [{ id: 'k1' }], today: TODAY })
+    assert.deepEqual(Object.keys(r).sort(), ['parent', 'person'])
+    assert.deepEqual(r.parent, marta)
+    assert.equal('email' in r.person, false)
+  })
+  it('checkMember refuses the captain\'s own address as the parent\'s', () => {
+    const errors = checkMember({ ...newMember(zosia), parentOther: true, parent: { ...marta, email: 'kapitan@x.pl' } },
+      { context, today: TODAY, captainEmail: 'Kapitan@x.pl' })
+    assert.match(errors.parentEmail, /To Twój adres/)
+  })
+})

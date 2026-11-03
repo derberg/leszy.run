@@ -3,7 +3,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
-import { emailHint } from '../../../supabase/functions/_shared/registration/consentAccess.js'
+import { emailHint, sessionMatches } from '../../../supabase/functions/_shared/registration/consentAccess.js'
 import { clientIp } from '../../../supabase/functions/_shared/clientIp.js'
 
 test('G-36 m3 emailHint shows the first letter, the first letter of the domain and its TLD, never the address', () => {
@@ -33,4 +33,13 @@ test('G-36 nit: one validated client-IP parser, used by auth-request-code and th
   assert.doesNotMatch(src, /function clientIp/)
   // The 429's retry-after is set whenever the limiter gave a value, 0 included (as before 4b).
   assert.match(src, /retryAfterSec != null/)
+})
+
+test('TP-12 sessionMatches: a child\'s link belongs to the guardian\'s address, never to anyone else\'s', () => {
+  const child = { email: null, guardian_name: 'Marta Leśna', guardian_email: 'marta@example.pl', consent_state: 'awaiting' }
+  assert.equal(sessionMatches({ email: 'Marta@Example.pl' }, child), true)
+  assert.equal(sessionMatches({ email: 'kapitan@example.pl' }, child), false)
+  assert.equal(sessionMatches({ email: 'ala@example.pl' }, { email: 'ala@example.pl' }), true)
+  assert.equal(sessionMatches(null, child), false)
+  assert.equal(sessionMatches({ email: 'x@example.pl' }, { email: null, guardian_name: 'Usunięte konto', guardian_email: null }), false)
 })

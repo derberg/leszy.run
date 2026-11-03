@@ -100,7 +100,8 @@ describe('G-46 RA5 consent tags', () => {
   it('no reminder for anybody else, and no tag without a known state', () => {
     assert.equal(canRemind({ role: 'adult', consentState: 'accepted' }), false)
     assert.equal(canRemind({ role: 'self', consentState: 'awaiting' }), false)
-    assert.equal(canRemind({ role: 'minor', consentState: 'awaiting' }), false)
+    // A child awaiting is reminded since TP-41 (a team child whose parent is not the captain).
+    assert.equal(canRemind({ role: 'minor', consentState: 'accepted' }), false)
     assert.equal(consentTag({ role: 'adult' }), null)
     assert.equal(consentTag({}), null)
   })
@@ -196,5 +197,15 @@ describe('G-46 fix round 1: RA5', () => {
     assert.equal(personGroupLabel({ kidsGroupLabel: 'Dzieci 2015–2017', ageGroupLabel: 'K open' }), 'Dzieci 2015–2017')
     assert.equal(personGroupLabel({ kidsGroupLabel: null, ageGroupLabel: 'K open' }), 'K open')
     assert.equal(personGroupLabel({}), null)
+  })
+})
+
+describe('TP-41 a child whose parent is not the captain: the tag waits for that parent, the captain can remind', () => {
+  it('awaiting → „CZEKA NA OPIEKUNA” with the reminder; office → „ZGODA W BIURZE”; accepted → „✓ OPIEKUN”', () => {
+    const line = { role: 'minor', consentState: 'awaiting', firstName: 'Zosia' }
+    assert.deepEqual(consentTag(line), { kind: 'awaiting', label: 'CZEKA NA OPIEKUNA', srLabel: 'czeka na zgodę rodzica lub opiekuna' })
+    assert.equal(canRemind(line), true)
+    assert.deepEqual(consentTag({ role: 'minor', consentState: 'office' }), { kind: 'office', label: 'ZGODA W BIURZE', srLabel: 'zgoda opiekuna podpisana w biurze zawodów' })
+    assert.equal(canRemind({ role: 'minor', consentState: 'accepted' }), false)
   })
 })

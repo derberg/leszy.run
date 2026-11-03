@@ -424,3 +424,37 @@ test('O-44 M1/M6 the resolve-script hints for refund_unknown, refund_pending and
   assert.equal(mixed.text.split('resolve-registration-refund.js').length - 1, 2, 'unknown and pending name the script')
   assert.match(mixed.text, /- refund_insufficient_balance: .*rezerwacja zwolniona/)
 })
+
+test('TP-13 consentRequestEmail to a parent: who entered the child, the team, „zaakceptuj udział dziecka”, the parent\'s data note', () => {
+  const m = consentRequestEmail({
+    ...consentArgs, person: { firstName: 'Zosia' }, registeredBy: 'Jan Trener', team: { name: 'Leśne Dziki' }, guardian: { name: 'Marta Leśna' },
+  })
+  assert.equal(m.subject, 'Zapisano dziecko na Bieg Leszego <2026> — zaakceptuj udział dziecka')
+  for (const part of [m.text, m.html]) {
+    assert.ok(part.includes('Dzień dobry,'))
+    assert.ok(part.includes('Jan Trener zapisał(a) Twoje dziecko, Zosia, na zawody'), part)
+    assert.ok(part.includes('Leśne Dziki'))
+    assert.ok(part.includes('Zaakceptuj udział dziecka'))
+    assert.ok(part.includes('Jan Trener podał(a) dane dziecka'), part)
+    assert.ok(part.includes('oraz Twoje imię, nazwisko i adres e-mail'))
+    assert.ok(part.includes('Jeśli nie zaakceptujesz online, zgodę podpiszesz w biurze zawodów.'))
+    assert.ok(part.includes(consentArgs.dataInfoUrl))
+    assert.ok(!part.includes('zapisał(a) Cię'))
+  }
+  assert.equal(consentRequestEmail({ ...consentArgs, guardian: { name: 'M' }, reminder: true }).subject,
+    'Przypomnienie: Zapisano dziecko na Bieg Leszego <2026> — zaakceptuj udział dziecka')
+})
+
+test('TP-14 team e-mails name a child\'s parent who is not the captain, and say that parent gets the consent e-mail', () => {
+  const members = [
+    { firstName: 'Jan', lastName: 'Trener', role: 'self' },
+    { firstName: 'Zosia', lastName: 'Leśna', role: 'minor', parentName: 'Marta Leśna', consentState: 'awaiting' },
+    { firstName: 'Kuba', lastName: 'Las', role: 'minor' },
+  ]
+  const m = teamConfirmationEmail({ ...teamArgs, members })
+  assert.ok(m.text.includes('Zosia Leśna — opiekun: Marta Leśna (czeka na zgodę)'), m.text)
+  assert.ok(m.text.includes('Kuba Las — opiekun: kapitan'))
+  assert.ok(m.text.includes('Rodzic lub opiekun, którego dane podano przy dziecku, dostanie e-mail z prośbą o zgodę na udział dziecka.'))
+  const s = squadChangedEmail({ ...teamArgs, members, addedName: 'Zosia Leśna', parentAsked: 'Marta Leśna' })
+  assert.ok(s.text.includes('Marta Leśna dostanie e-mail z prośbą o zgodę na udział dziecka.'), s.text)
+})

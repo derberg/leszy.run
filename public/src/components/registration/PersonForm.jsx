@@ -93,6 +93,49 @@ function GuardianConsent({ id, guardian }) {
   )
 }
 
+// A team child's card (TeamSignup, the captain's squad add or swap): the captain is the parent or
+// legal guardian and ticks GuardianConsent, or names the parent, who gets the consent e-mail and
+// accepts on /zgoda (validateParent in team.js). Radios, not buttons: the two labels are long.
+function GuardianChoice({ id, choice, errors }) {
+  const other = choice.other === true
+  const parent = choice.parent ?? {}
+  const set = (key) => (v) => choice.onParent({ [key]: v })
+  const radio = (value, label) => (
+    <label className="flex gap-3 items-start min-h-11 font-sans text-base text-apex-text-bright cursor-pointer">
+      <input type="radio" name={id} className="mt-0.5 w-5 h-5 shrink-0 accent-apex-yellow" checked={other === value}
+        onChange={() => choice.onOther(value)} data-testid={value ? 'parent-other' : 'parent-self'} />
+      <span>{label}</span>
+    </label>
+  )
+  return (
+    <div className="flex flex-col gap-2" data-testid="guardian-choice">
+      <div role="radiogroup" aria-labelledby={`${id}-label`} className="flex flex-col gap-1">
+        <span id={`${id}-label`} className={labelCls}>Kto jest rodzicem lub opiekunem?</span>
+        {radio(false, 'Jestem rodzicem lub opiekunem prawnym')}
+        {radio(true, 'Rodzic lub opiekun to ktoś inny')}
+      </div>
+      {other && (
+        <div className="flex flex-col gap-3 border border-apex-border bg-apex-surface p-3.5" data-testid="parent-fields">
+          <div className="grid grid-cols-2 gap-2.5 items-end">
+            <Field id={`${id}-first`} label="Imię rodzica" error={errors.parentFirstName}>
+              <TextInput id={`${id}-first`} value={parent.firstName} onChange={set('firstName')} error={errors.parentFirstName} autoComplete="off" maxLength={100} />
+            </Field>
+            <Field id={`${id}-last`} label="Nazwisko rodzica" error={errors.parentLastName}>
+              <TextInput id={`${id}-last`} value={parent.lastName} onChange={set('lastName')} error={errors.parentLastName} autoComplete="off" maxLength={100} />
+            </Field>
+          </div>
+          <Field id={`${id}-email`} label="E-mail rodzica" error={errors.parentEmail}>
+            <TextInput id={`${id}-email`} type="email" value={parent.email} onChange={set('email')} error={errors.parentEmail} autoComplete="off" maxLength={254} />
+            <span className="font-sans text-sm text-apex-muted" data-testid="parent-note">
+              Wyślemy prośbę o zgodę na udział dziecka. Do tego czasu zgłoszenie dziecka czeka na zgodę.
+            </span>
+          </Field>
+        </div>
+      )}
+    </div>
+  )
+}
+
 /**
  * @param {{ fields: { city, club, ice, nationality }, value: object, onChange: (patch) => void, errors: Record<string, string>,
  *   competition: object, raceDate: string, reckoning: string, ageGroups: object[], prefill: object|null,
@@ -109,11 +152,14 @@ function GuardianConsent({ id, guardian }) {
  * `voucher` / `extras` (Plan 7, RA2/RA3): VoucherField's and ExtrasPicker's props (without the ids,
  * which follow `idPrefix`), on a priced entry and where the competition offers extras.
  * `copied`: the team form's club and town carried over from another card, by that person's name.
+ * `parentChoice` (a team child's card): { other, onOther(other), parent, onParent(patch) }. With it a
+ * child's card asks who the parent is; `other` swaps the guardian box for the parent's fields.
  */
 export default function PersonForm({
   fields, value, onChange, errors = {}, competition, raceDate, reckoning, ageGroups, prefill, loginHref, codeNote, disabled = false,
   variant = 'self', idPrefix = 'p', guardian, notRunning = false, onNotRunning, emailReadOnly = false,
   ownHeading = 'Twoje dane', voucher = null, extras = null, copied = {}, detailsNote = null, moreFields = false, onMoreFields, owed = [],
+  parentChoice = null,
 }) {
   const minor = variant === 'minor'
   const buyer = variant === 'buyer'
@@ -272,7 +318,10 @@ export default function PersonForm({
           )}
         </div>
       )}
-      {minor && guardian && <GuardianConsent id={id('guardian')} guardian={{ ...guardian, error: guardian.error ?? errors.guardianConsent }} />}
+      {minor && parentChoice && <GuardianChoice id={id('parent')} choice={parentChoice} errors={errors} />}
+      {minor && guardian && !(parentChoice?.other === true) && (
+        <GuardianConsent id={id('guardian')} guardian={{ ...guardian, error: guardian.error ?? errors.guardianConsent }} />
+      )}
       {!buyer && (voucher || extras?.extras?.length > 0) && (
         <div className="flex flex-col gap-3" data-testid="person-cart">
           {extras?.extras?.length > 0 && (

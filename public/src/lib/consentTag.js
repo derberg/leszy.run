@@ -1,6 +1,7 @@
 // RA5 and RB4: each person's regulamin state. The person registering and an added adult who
 // accepted „✓ REGULAMIN”; one who signed in the office „PODPISANY W BIURZE”; a child „✓ OPIEKUN” (the guardian
-// accepted for them); an added adult who has not accepted yet „CZEKA NA ZGODĘ”, with
+// accepted for them), or, in a team whose captain named the child's parent, „CZEKA NA OPIEKUNA” until
+// that parent accepts; an added adult who has not accepted yet „CZEKA NA ZGODĘ”, with
 // „Wyślij przypomnienie do <imię> →” (remind-consent, 3 per registration per 24 h).
 // `role` and `consentState` come from order-status lines and my-event-registrations rows.
 
@@ -9,6 +10,9 @@
  * @param {{ role?: string, consentState?: string }} p → { kind, label, srLabel } | null
  */
 export function consentTag({ role, consentState } = {}) {
+  // A team's child whose parent is not the captain waits for that parent (or their paper consent).
+  if (role === 'minor' && consentState === 'awaiting') return { kind: 'awaiting', label: 'CZEKA NA OPIEKUNA', srLabel: 'czeka na zgodę rodzica lub opiekuna' }
+  if (role === 'minor' && consentState === 'office') return { kind: 'office', label: 'ZGODA W BIURZE', srLabel: 'zgoda opiekuna podpisana w biurze zawodów' }
   if (role === 'minor') return { kind: 'guardian', label: '✓ OPIEKUN', srLabel: 'zgoda opiekuna' }
   if (consentState === 'awaiting') return { kind: 'awaiting', label: 'CZEKA NA ZGODĘ', srLabel: 'czeka na zgodę na regulamin' }
   if (consentState === 'office') return { kind: 'office', label: 'PODPISANY W BIURZE', srLabel: 'regulamin podpisany w biurze zawodów' }
@@ -16,8 +20,8 @@ export function consentTag({ role, consentState } = {}) {
   return null
 }
 
-/** Only an added adult still awaiting can be reminded. */
-export const canRemind = (p) => p?.role === 'adult' && p?.consentState === 'awaiting'
+/** Only an added adult, or a child whose named parent has not answered, still awaiting can be reminded. */
+export const canRemind = (p) => (p?.role === 'adult' || p?.role === 'minor') && p?.consentState === 'awaiting'
 
 // Inside the person's row, so the visible text needs no name; the accessible name carries it.
 export const remindLabel = () => 'Wyślij przypomnienie →'

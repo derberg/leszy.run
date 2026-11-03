@@ -55,6 +55,9 @@ const teamColour = (t) => (t.paymentStatus === 'paid' || t.paymentStatus === 'fr
 /** → [text, colour class] of a person's consent line, or null when there is nothing to say. */
 function consentLine(r) {
   if (!LIVE.has(r.status)) return null
+  // A team's child whose parent the captain named waits for that parent, or their paper consent.
+  if (r.role === 'minor' && r.consentState === 'awaiting') return ['czeka na zgodę opiekuna', 'text-apex-cyan']
+  if (r.role === 'minor' && r.consentState === 'office') return ['zgoda opiekuna na papierze', 'text-apex-text-bright']
   if (r.consentState === 'awaiting') return ['czeka na zgodę', 'text-apex-cyan']
   if (r.consentState === 'office') return ['podpisany w biurze', 'text-apex-text-bright']
   // A runner who signed up themselves accepted on the form: nothing to show.
@@ -181,7 +184,9 @@ function OfficeConfirm({ row, busy, onYes, onNo }) {
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4">
       <div role="alertdialog" aria-modal="true" aria-labelledby={titleId} data-testid="office-confirm"
         className="w-full max-w-[420px] border border-apex-border-bright bg-apex-surface p-5 flex flex-col gap-4">
-        <p id={titleId} className="font-sans font-semibold text-base text-apex-text-bright">Potwierdzić podpis w biurze: {row.name}?</p>
+        <p id={titleId} className="font-sans font-semibold text-base text-apex-text-bright">
+          {row.role === 'minor' ? `Potwierdzić zgodę opiekuna na papierze: ${row.name}?` : `Potwierdzić podpis w biurze: ${row.name}?`}
+        </p>
         <div className="flex gap-2 justify-end">
           <button type="button" ref={no} className={btnGhost} disabled={busy} onClick={onNo}>Nie</button>
           <button type="button" className={btnPrimary} disabled={busy} onClick={onYes}>Tak</button>
