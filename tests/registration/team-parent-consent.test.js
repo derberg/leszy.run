@@ -1,5 +1,6 @@
 // A child in a relay team whose parent is not the captain (scenarios TP-20…TP-29 in
-// docs/registration/scenario-matrix.md). Migration 20261112100000_team_minor_parent_consent.sql:
+// docs/registration/scenario-matrix.md). Migrations 20261112100000_team_minor_parent_consent.sql and
+// 20261112110000_team_parent_purge_marker.sql (TP-50…TP-52):
 // the child is stored with the named parent as guardian, waits for that parent's consent, and the
 // parent accepts on /zgoda as 'guardian'. LOCAL stack only; every event and address is random.
 import { test, before, after } from 'node:test'
@@ -8,10 +9,11 @@ import crypto from 'node:crypto'
 import { EDGE_PROXY, localEnv, resetThrottle, sessionFor } from './helpers/stack.js'
 import { messagesTo, startCapture } from './helpers/emailCapture.js'
 import { acceptAgreement, callFn } from './helpers/registrationFixtures.js'
-import { consentIds, one, profileFor, rows, rpc, runnerEmail } from './helpers/orders.js'
+import { consentIds, db, one, profileFor, rows, rpc, runnerEmail } from './helpers/orders.js'
 import { adult, groupMeta, minor } from './helpers/groups.js'
 import { captain, createTeam, freeTeamEvent, squadEdit, teamOk } from './helpers/teams.js'
 import { newToken } from '../../supabase/functions/_shared/registration/tokens.js'
+import { registrationRole } from '../../supabase/functions/_shared/registration/group.js'
 
 const GUARDIAN = 'Jako opiekun zgadzam się na udział dziecka w zawodach.'
 const PARENT_SUBJECT = /^Zapisano dziecko na .+ — zaakceptuj udział dziecka$/
@@ -233,4 +235,73 @@ test('TP-29 team-squad add: a child with a named parent needs no consents of the
   assert.equal(added.consent_state, 'awaiting')
   assert.equal(added.guardian_email, parentEmail.toLowerCase())
   assert.deepEqual(await acceptancesOf(added.id), [])
+})
+
+// ---------------------------------------------------------------- fix round (20261112110000)
+
+const isoDayAgo = (days) => new Date(Date.now() - days * 86_400_000).toISOString().slice(0, 10)
+
+test('TP-50 after the 30-day purge a named parent\'s child is still a child: guardian_removed_at marks it; a captain\'s child keeps its guardian account', async () => {
+  const awaiting = await teamWithNamedParent()
+  const paper = await teamWithNamedParent()
+  assert.equal((await rpc('mark_consent_office', { p_registration_id: paper.childId, p_actor: owner.profileId })).data, true)
+  const captainsChild = await (async () => {
+    const { event, cat } = await teamEventWithGuardianConsent()
+    const out = await teamOk(event, { members: [captain(), adult(cat, 'adult'), minor(cat, { firstName: 'Kuba' })], meta: await groupMeta(event.eventId) })
+    return { event, childId: out.registrations[2].id }
+  })()
+  for (const { event } of [awaiting, paper, captainsChild]) {
+    const moved = await db().from('registration_settings').update({ event_date: isoDayAgo(31) }).eq('event_id', event.eventId)
+    assert.ifError(moved.error)
+  }
+  const run = await rpc('purge_registration_contact_data')
+  assert.ifError(run.error)
+
+  for (const { childId } of [awaiting, paper]) {
+    const child = await regOf(childId)
+    assert.equal(child.guardian_name, null)
+    assert.equal(child.guardian_email, null)
+    assert.ok(child.guardian_removed_at, 'the marker outlives the contact')
+    assert.equal(registrationRole(child), 'minor')
+  }
+  const own = await regOf(captainsChild.childId)
+  assert.equal(own.guardian_removed_at, null, 'a guardian account still says child')
+  assert.equal(registrationRole(own), 'minor')
+
+  // A second run keeps the first stamp.
+  const stamp = (await regOf(awaiting.childId)).guardian_removed_at
+  assert.ifError((await rpc('purge_registration_contact_data')).error)
+  assert.equal((await regOf(awaiting.childId)).guardian_removed_at, stamp)
+})
+
+test('TP-51 swapping out a child whose parent was named returns that parent\'s address; a captain\'s child returns none', async () => {
+  const { event, cat, out, cap, parentEmail, childId } = await teamWithNamedParent()
+  const captainProfile = await profileFor(cap.email)
+  const newcomer = { ...adult(cat, 'adult'), role: 'adult' }
+  delete newcomer.categoryId
+  const r = await squadEdit(event, out.teamId, captainProfile, { op: 'swap', registrationId: childId, person: newcomer }, { ip: '203.0.113.9', userAgent: 'test' })
+  assert.equal(r.error, null, r.error?.message)
+  assert.equal(r.data.removed[0].guardianEmail, parentEmail.toLowerCase())
+  assert.equal(r.data.removed[0].email, null)
+
+  const own = await teamEventWithGuardianConsent()
+  const ownOut = await teamOk(own.event, { members: [captain(), adult(own.cat, 'adult'), minor(own.cat, { firstName: 'Kuba' })], meta: await groupMeta(own.event.eventId) })
+  const ownCaptain = await profileFor((await regOf(ownOut.registrations[0].id)).email)
+  const other = { ...adult(own.cat, 'adult'), role: 'adult' }
+  delete other.categoryId
+  const s = await squadEdit(own.event, ownOut.teamId, ownCaptain, { op: 'swap', registrationId: ownOut.registrations[2].id, person: other }, { ip: '203.0.113.9', userAgent: 'test' })
+  assert.equal(s.error, null, s.error?.message)
+  assert.equal(s.data.removed[0].guardianEmail, null)
+})
+
+test('TP-52 team-squad tells the named parent their child left the squad', async () => {
+  const { out, cap, parentEmail, childId } = await teamWithNamedParent()
+  const captainSession = await sessionFor(cap.email)
+  const swapped = await call('team-squad', {
+    teamId: out.teamId, action: 'swap', registrationId: childId,
+    person: { firstName: 'Ala', lastName: 'Nowa', birthDate: '1990-01-01', gender: 'K', email: runnerEmail('swap-in') },
+  }, captainSession)
+  assert.equal(swapped.status, 200, JSON.stringify(swapped.body))
+  const [mail] = await waitForMail(parentEmail, (m) => /^Dziecko nie jest już w składzie drużyny /.test(m.subject))
+  assert.ok(mail, 'the parent got the removal e-mail')
 })

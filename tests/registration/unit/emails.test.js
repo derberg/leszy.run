@@ -458,3 +458,13 @@ test('TP-14 team e-mails name a child\'s parent who is not the captain, and say 
   const s = squadChangedEmail({ ...teamArgs, members, addedName: 'Zosia Leśna', parentAsked: 'Marta Leśna' })
   assert.ok(s.text.includes('Marta Leśna dostanie e-mail z prośbą o zgodę na udział dziecka.'), s.text)
 })
+
+test('TP-15 squadRemovedEmail to a named parent: the child left the squad, no consent needed any more', () => {
+  const m = squadRemovedEmail({ event: { name: 'Bieg' }, team: { name: 'Leśne Dziki' }, firstName: 'Zosia', child: true })
+  assert.equal(m.subject, 'Dziecko nie jest już w składzie drużyny Leśne Dziki')
+  for (const part of [m.text, m.html]) {
+    assert.ok(part.includes('Twoje dziecko, Zosia, nie jest już w składzie drużyny'))
+    assert.ok(part.includes('nie potrzebujemy Twojej zgody'))
+    assert.ok(!part.includes('nie jesteś już'))
+  }
+})

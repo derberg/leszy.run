@@ -133,13 +133,16 @@ export function validateGroup({ people = [], buyer = null } = {}, { sessionEmail
  * A stored registration's role in its group, from the row (registrations has no role column).
  * The one derivation for every reader (order-status, my-event-registrations,
  * list-event-registrations), final review M-2.
- * - A child's row always has a guardian: guardian_profile_id (or guardian_name) until the
- *   guardian deletes the account, guardian_removed_at after. The 30-day contact purge nulls the
- *   other guardian fields of every past child entry, so null guardian fields alone prove nothing.
+ * - A child's row always carries one of the guardian fields: guardian_profile_id (or guardian_name)
+ *   until the guardian deletes the account, guardian_removed_at after. The 30-day contact purge nulls
+ *   guardian_name and guardian_email of every past child entry, and stamps guardian_removed_at where
+ *   no guardian_profile_id is left to keep (a parent the captain named who never accepted, or signed
+ *   on paper: 20261112110000), so a child stays a child after it. Null guardian_name alone proves
+ *   nothing.
  * - An added adult was registered by an account that is not theirs, or still waits for their
  *   acceptance or was signed in the office: delete-my-account nulls registered_by when the payer
  *   deletes their account. A child can be 'awaiting' or 'office' too (a team member whose parent is
- *   not the captain), but the guardian fields above already made them 'minor'.
+ *   not the captain); the guardian fields above decide 'minor' first.
  * - A row from before groups has no registered_by_profile_id and was always the person's own.
  * @param {{ profile_id?: string|null, registered_by_profile_id?: string|null, guardian_name?: string|null,
  *   guardian_profile_id?: string|null, guardian_removed_at?: string|null, consent_state?: string|null }} row

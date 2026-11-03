@@ -59,3 +59,23 @@ test('TP-34 the office signature covers a child\'s minors-only consents; a missi
   assert.match(body('mark_consent_office'), /ec\.event_id = v_event AND \(v_child OR NOT ec\.minors_only\)/)
   assert.match(body('consent_requests_missing'), /coalesce\(r\.email, r\.guardian_email\) IS NOT NULL/)
 })
+
+// ---------------------------------------------------------------- the fix round (20261112110000)
+
+const raw2 = readFileSync(new URL('../../../supabase/migrations/20261112110000_team_parent_purge_marker.sql', import.meta.url), 'utf8')
+const sql2 = raw2.split('\n').map((l) => l.replace(/--.*$/, '')).join(' ').replace(/\s+/g, ' ')
+
+test('TP-35 the purge stamps guardian_removed_at on a child with no guardian account, and still nulls the contact', () => {
+  assert.match(sql2, /CREATE OR REPLACE FUNCTION public\.purge_registration_contact_data\(\)/)
+  assert.match(sql2, /guardian_name = NULL, guardian_email = NULL, guardian_removed_at = CASE WHEN r\.guardian_profile_id IS NULL AND \(r\.guardian_name IS NOT NULL OR r\.guardian_email IS NOT NULL\) THEN coalesce\(r\.guardian_removed_at, now\(\)\) ELSE r\.guardian_removed_at END/)
+  assert.match(sql2, /SET to_email = NULL/, 'the rest of the body is kept')
+  assert.match(sql2, /REVOKE EXECUTE ON FUNCTION public\.purge_registration_contact_data\(\) FROM public, anon, authenticated;/)
+  assert.match(sql2, /GRANT EXECUTE ON FUNCTION public\.purge_registration_contact_data\(\) TO service_role;/)
+})
+
+test('TP-36 team_squad_edit returns the named parent\'s address of a removed child, never the captain\'s', () => {
+  assert.match(sql2, /CREATE OR REPLACE FUNCTION public\.team_squad_edit\(p_team_id uuid, p_actor_profile_id uuid, p_op jsonb, p_meta jsonb,/)
+  assert.match(sql2, /'guardianEmail', CASE WHEN v_old\.email IS NULL AND v_old\.guardian_profile_id IS DISTINCT FROM v_old\.registered_by_profile_id THEN v_old\.guardian_email END/)
+  assert.match(sql2, /GRANT EXECUTE ON FUNCTION public\.team_squad_edit\(uuid, uuid, jsonb, jsonb, boolean\) TO service_role;/)
+  assert.doesNotMatch(sql2, /\bCREATE FUNCTION\b|\bDROP\b|\bDELETE FROM\b|\bTRUNCATE\b/i)
+})

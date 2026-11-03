@@ -563,8 +563,12 @@ export function teamConfirmationEmail({ event, team, members, link: url, paid = 
   return { subject: `Drużyna ${team.name} jest na liście — ${event.name}`, text, html }
 }
 
-/** To an adult swapped out of a squad. event { name }, team { name }. */
-export function squadRemovedEmail({ event, team, firstName }) {
+/**
+ * To an adult swapped out of a squad. event { name }, team { name }. `child: true`: to the parent a
+ * captain named for a child, about that child (firstName is the child's).
+ */
+export function squadRemovedEmail({ event, team, firstName, child = false }) {
+  if (child) return childRemovedEmail({ event, team, firstName })
   const greeting = firstName ? `Cześć ${firstName},` : 'Cześć,'
   const after = 'Kapitan zmienił skład, więc Twoje zgłoszenie nie jest już aktywne.'
   const text = [
@@ -580,6 +584,24 @@ export function squadRemovedEmail({ event, team, firstName }) {
     '<p>LESZY.RUN</p>',
   ].join('')
   return { subject: `Nie jesteś już w składzie drużyny ${team.name}`, text, html }
+}
+
+function childRemovedEmail({ event, team, firstName }) {
+  const who = firstName ? `Twoje dziecko, ${firstName},` : 'Twoje dziecko'
+  const after = 'Kapitan zmienił skład, więc zgłoszenie dziecka nie jest już aktywne i nie potrzebujemy Twojej zgody.'
+  const text = [
+    'Dzień dobry,',
+    '',
+    `${who} nie jest już w składzie drużyny ${team.name} na zawody ${event.name}. ${after}`,
+    '',
+    'LESZY.RUN',
+  ].join('\n')
+  const html = [
+    '<p>Dzień dobry,</p>',
+    `<p>${escapeHtml(who)} nie jest już w składzie drużyny <strong>${escapeHtml(team.name)}</strong> na zawody <strong>${escapeHtml(event.name)}</strong>. ${escapeHtml(after)}</p>`,
+    '<p>LESZY.RUN</p>',
+  ].join('')
+  return { subject: `Dziecko nie jest już w składzie drużyny ${team.name}`, text, html }
 }
 
 /**

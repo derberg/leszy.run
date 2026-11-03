@@ -197,3 +197,12 @@ test('TP-11 a child awaiting the parent\'s consent is still a minor, not an adde
   assert.equal(registrationRole({ email: null, guardian_name: 'Marta Leśna', guardian_email: 'm@x.pl', guardian_profile_id: null,
     consent_state: 'awaiting', registered_by_profile_id: 'k', profile_id: null }), 'minor')
 })
+
+test('TP-16 a named parent\'s child after the 30-day purge stays a minor: guardian_removed_at is the marker', () => {
+  const purged = { email: null, guardian_name: null, guardian_email: null, guardian_profile_id: null,
+    guardian_removed_at: '2027-01-06T01:30:00Z', consent_state: 'awaiting', registered_by_profile_id: 'k', profile_id: null }
+  assert.equal(registrationRole(purged), 'minor')
+  assert.equal(consentRecipient(purged), null)
+  // Without the marker the row would read as an added adult: the reason the purge stamps it.
+  assert.equal(registrationRole({ ...purged, guardian_removed_at: null }), 'adult')
+})

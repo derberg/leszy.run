@@ -131,6 +131,11 @@ async function tellPeople(admin, { teamId, confirmed, captainEmail, captainName,
     if (confirmed && removed?.email && removed.email.toLowerCase() !== person.email?.toLowerCase()) {
       await mail('removed', removed.email, squadRemovedEmail({ event: args.event, team: args.team, firstName: removed.firstName }))
     }
+    // A child whose parent the captain named: that parent hears of it (team_squad_edit's guardianEmail).
+    if (confirmed && removed?.guardianEmail) {
+      await mail('removed', removed.guardianEmail,
+        squadRemovedEmail({ event: args.event, team: args.team, firstName: removed.firstName, child: true }))
+    }
     if (captainEmail) await mail('summary', captainEmail, squadChangedEmail({
       ...args,
       removedName: removed?.firstName ?? null,
