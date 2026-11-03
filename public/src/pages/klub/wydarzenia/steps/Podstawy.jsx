@@ -2,6 +2,7 @@ import { lazy, Suspense, useEffect, useRef, useState } from 'react'
 import { slugify } from '@registration/slug.js'
 import { validateSection } from '@registration/sections.js'
 import TownSearch from '../../../../components/registration/TownSearch.jsx'
+import { findAddressPin } from '../../../../lib/townSearch.js'
 import { uploadDocument, uploadPoster } from '../../../../lib/organizer.js'
 import { resizePoster } from '../../../../lib/resizePoster.js'
 import { publicFileUrl } from '../../../../lib/registrationFiles.js'
@@ -124,6 +125,32 @@ export default function Podstawy({ event, queue, saveState, readOnly, reload, re
   // A slug the server refused (taken) or the shape check refuses: shown under
   // the field until it changes, and left out of the saves meanwhile.
   const refusedRef = useRef(null) // { slug, message }
+
+  // The town search pins the town's centre. The address in „Szczegóły miejsca”
+  // moves the pin to the venue when Nominatim finds it on that street of that
+  // town; otherwise the pin stays where it was.
+  const pinnedFor = useRef(`${settings.townLabel ?? ''}|${settings.placeDetails ?? ''}`)
+  async function pinAddress(f) {
+    const key = `${f.townLabel}|${f.placeDetails}`
+    if (readOnly || !f.townLabel || !f.placeDetails.trim() || key === pinnedFor.current) return
+    pinnedFor.current = key
+    let pin = null
+    try { pin = await findAddressPin(f.placeDetails, f.townLabel) } catch { return }
+    const now = formRef.current
+    if (!pin || `${now.townLabel}|${now.placeDetails}` !== key) return
+    apply({ ...now, lat: pin.lat, lng: pin.lng })
+  }
+
+  function pickTown(c, { rest }) {
+    const f = formRef.current
+    const details = !rest || f.placeDetails.includes(rest)
+      ? f.placeDetails
+      : [f.placeDetails.trim(), rest].filter(Boolean).join('\n')
+    const next = { ...f, townLabel: c.label, townArea: c.area || '', lat: c.lat, lng: c.lng, placeDetails: details }
+    apply(next)
+    pinnedFor.current = ''
+    pinAddress(next)
+  }
 
   function apply(next) {
     formRef.current = next
@@ -273,10 +300,11 @@ export default function Podstawy({ event, queue, saveState, readOnly, reload, re
       <div className="grid gap-4 grid-cols-[repeat(auto-fit,minmax(min(100%,280px),1fr))] items-start">
         <div className="space-y-4 min-w-0">
           <TownSearch id="ev-town" townLabel={form.townLabel} townArea={form.townArea} disabled={readOnly}
-            onPick={(c) => apply({ ...formRef.current, townLabel: c.label, townArea: c.area || '', lat: c.lat, lng: c.lng })} />
+            onPick={pickTown} />
           <div>
             <label htmlFor="ev-place" className={fieldLabel}>Szczegóły miejsca</label>
-            <textarea id="ev-place" rows={3} className={`${fieldInput} resize-y`} value={form.placeDetails} onChange={set('placeDetails')} />
+            <textarea id="ev-place" rows={3} className={`${fieldInput} resize-y`} value={form.placeDetails} onChange={set('placeDetails')}
+              onBlur={() => pinAddress(formRef.current)} />
             <FieldError message={errors.placeDetails} />
           </div>
         </div>
