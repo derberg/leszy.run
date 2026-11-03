@@ -2,7 +2,7 @@ import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
 import {
   initTeam, setSize, droppedBy, moveMember, removeMember, memberVariant, toTeamRequest, legOf, squadCards, checkTeam, checkCaptain,
-  teamContext, teamFailure, memberAfter, firstOpenMember, memberAgeLabel, repricedFee, carryOverMember,
+  teamContext, teamFailure, memberAfter, firstOpenMember, memberAgeLabel, repricedFee, carryOverMember, carryOverSquad, carriedIn, memberCopiedFrom,
 } from '../../src/lib/teamDraft.js'
 import { setCardOpen, setGuardianConsent, updatePerson, cardEmpty, copiedFromNames, LIST_STEP } from '../../src/lib/groupDraft.js'
 import { EMPTY_PERSON } from '../../src/lib/personFormModel.js'
@@ -393,5 +393,74 @@ describe('carryOverMember: a member starts with the club and town of the card be
     const d = carryOverMember(d0, d0.cards[m2].key)
     const req = toTeamRequest(d, { today: TODAY })
     assert.equal(req.members[1].person.club, 'KB Leszy')
+  })
+})
+
+describe('carryOverSquad: a copy follows its source after the step that made it (review #395)', () => {
+  const ON = { club: 'optional', city: 'optional' }
+  // Captain „KS Lesy”; members 2 and 3 opened and finished in turn, the way the form does it.
+  function finished() {
+    let d = initTeam(3, CAT)
+    d = updatePerson(d, d.cards[0].key, { ...me, club: 'KS Lesy', city: 'Gdynia' })
+    for (const [i, p] of [[1, piotr], [2, ewa]]) {
+      const key = d.cards[i].key
+      d = carryOverMember(d, key, ON)
+      d = updatePerson(d, key, p)
+      d = setCardOpen(d, key, false)
+    }
+    return d
+  }
+  const clubs = (d) => toTeamRequest(d, { today: TODAY }).members.map((m) => m.person.club)
+
+  it("the captain's club fixed on RB1 reaches both finished members, through the chain", () => {
+    let d = finished()
+    assert.deepEqual(clubs(d), ['KS Lesy', 'KS Lesy', 'KS Lesy'])
+    d = updatePerson(d, d.cards[0].key, { club: 'KS Leszy' })
+    d = carryOverSquad(d, ON)
+    assert.deepEqual(clubs(d), ['KS Leszy', 'KS Leszy', 'KS Leszy'])
+    assert.deepEqual(memberCopiedFrom(d, d.cards[2].key), { club: 'Piotr Leśny', city: 'Piotr Leśny' }, 'member 3 still copies member 2')
+  })
+
+  it('a member who typed their own club stops the chain there; the next one follows them', () => {
+    let d = finished()
+    d = updatePerson(d, d.cards[1].key, { club: 'AZS' })
+    d = updatePerson(d, d.cards[0].key, { club: 'KS Leszy' })
+    d = carryOverSquad(d, ON)
+    assert.deepEqual(clubs(d), ['KS Leszy', 'AZS', 'AZS'])
+  })
+
+  it('a captain who empties the club empties the copies, and the same draft comes back once settled', () => {
+    let d = finished()
+    d = carryOverSquad(updatePerson(d, d.cards[0].key, { club: '' }), ON)
+    assert.deepEqual(clubs(d), ['', '', ''])
+    assert.equal(carryOverSquad(d, ON), d)
+  })
+
+  it('a member never opened is not filled in behind their back', () => {
+    let d = initTeam(3, CAT)
+    d = updatePerson(d, d.cards[0].key, { ...me, club: 'KS Lesy' })
+    assert.equal(carryOverSquad(d, ON), d)
+  })
+
+  it('carriedIn names the fields the carryover filled, for clearing their errors', () => {
+    const d = finished()
+    const next = carryOverSquad(updatePerson(d, d.cards[0].key, { club: 'KS Leszy' }), ON)
+    assert.deepEqual(carriedIn(d, next).map(({ key, field }) => [d.cards.findIndex((c) => c.key === key), field]), [[1, 'club'], [2, 'club']])
+  })
+
+  it("a field the organizer switched off is never copied", () => {
+    let d = initTeam(2, CAT)
+    d = updatePerson(d, d.cards[0].key, { ...me, club: 'KS Lesy', city: 'Gdynia' })
+    d = carryOverMember(d, d.cards[1].key, { club: 'off', city: 'optional' })
+    assert.equal(d.cards[1].person.club, '')
+    assert.equal(d.cards[1].person.city, 'Gdynia')
+  })
+
+  it('a nameless source is named by their leg, not their request index', () => {
+    let d = initTeam(3, CAT)
+    d = updatePerson(d, d.cards[0].key, { club: 'KS Lesy' })
+    d = moveMember(d, 0, 1) // the captain runs leg 2
+    d = carryOverMember(d, d.cards[2].key, ON)
+    assert.deepEqual(memberCopiedFrom(d, d.cards[2].key), { club: 'osoba 2' })
   })
 })

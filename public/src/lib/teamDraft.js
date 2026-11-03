@@ -10,7 +10,7 @@
 import { normalizeTeamRequest, validateTeam, CAPTAIN_SELF_MESSAGE } from '../../../supabase/functions/_shared/registration/team.js'
 import { ageOn } from '../../../supabase/functions/_shared/registration/ageGroups.js'
 import {
-  addPerson, carryOver, cartOfCard, cardVariant, claimedEmail, draftConsents, erroredCards, groupFailure, LIST_STEP, newDraft, removePerson, requestPeople,
+  addPerson, carryOver, CARRY_FIELDS, copiedFromNames, cartOfCard, cardVariant, claimedEmail, draftConsents, erroredCards, groupFailure, LIST_STEP, newDraft, removePerson, requestPeople,
   withoutHiddenFields,
 } from './groupDraft.js'
 import { personContext } from './personFormModel.js'
@@ -75,16 +75,55 @@ export function squadCards(draft) {
   })
 }
 
+/** The carried fields the form shows: `fields` is fieldModes', and an 'off' field is never copied. */
+const carried = (fields) => CARRY_FIELDS.filter((k) => fields?.[k] !== 'off')
+
 /**
  * A member's step opening: the club and town come from the nearest filled card before it in the
  * squad as shown (a finished member, or the captain, who is always filled). Captain-first that is
  * the captain for member 2 and member 2 for member 3. The captain's own card never takes a copy.
  */
-export function carryOverMember(draft, key) {
+export function carryOverMember(draft, key, fields) {
   if (key === captainKey(draft)) return draft
   const before = draft.order.slice(0, Math.max(draft.order.indexOf(key), 0)).reverse()
   const from = before.find((k) => k === captainKey(draft) || draft.cards.find((c) => c.key === k)?.open === false) ?? captainKey(draft)
-  return carryOver(draft, key, from)
+  return carryOver(draft, key, from, carried(fields))
+}
+
+/**
+ * Every member already carried over (finished, or holding a copy) takes it again, in squad order,
+ * so a copy follows its source after the step that made it: the captain's club fixed on RB1 reaches
+ * member 2 and, through them, member 3. The form runs it on every change. Nothing changes → the same draft.
+ */
+export function carryOverSquad(draft, fields) {
+  let next = draft
+  for (const key of draft.order) {
+    const c = next.cards.find((x) => x.key === key)
+    if (key === captainKey(next) || (c.open && !Object.keys(c.copied ?? {}).length)) continue
+    next = carryOverMember(next, key, fields)
+  }
+  return next
+}
+
+/** What carryOver filled between two drafts: [{ key, field }], for clearing those fields' errors. */
+export function carriedIn(prev, next) {
+  const out = []
+  for (const c of next.cards) {
+    const was = prev.cards.find((x) => x.key === c.key)
+    for (const field of CARRY_FIELDS) {
+      if (c.copied?.[field] && c.person[field] !== was?.person[field]) out.push({ key: c.key, field })
+    }
+  }
+  return out
+}
+
+/** copiedFromNames with a nameless member counted by their place in the squad as shown. */
+export function memberCopiedFrom(draft, key) {
+  return copiedFromNames(draft, key, (i) => {
+    const p = draft.cards[i].person
+    const name = [p.firstName, p.lastName].map((x) => (x ?? '').trim()).filter(Boolean).join(' ')
+    return name || `osoba ${legOf(draft, draft.cards[i].key)}`
+  })
 }
 
 /** 'minor' under 18 on today's Warsaw date, otherwise 'adult': the group form's rule (T-61). */

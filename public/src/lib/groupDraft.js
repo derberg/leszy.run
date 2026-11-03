@@ -97,16 +97,17 @@ export const CARRY_FIELDS = ['club', 'city']
 /**
  * Card `key` takes `fromKey`'s club and town, where the person has typed nothing into that field
  * on this card. `copied` remembers the source card, for the form's „Skopiowano od: …”. The copy
- * follows the source while untyped: an emptied source empties it. Nothing changes → the same draft.
+ * follows the source while untyped: an emptied source empties it. `fields` leaves out a field the
+ * organizer switched off. Nothing changes → the same draft.
  */
-export function carryOver(draft, key, fromKey) {
+export function carryOver(draft, key, fromKey, fields = CARRY_FIELDS) {
   const target = draft.cards.find((c) => c.key === key)
   const source = draft.cards.find((c) => c.key === fromKey)
   if (!target || !source || key === fromKey) return draft
   const person = { ...target.person }
   const copied = { ...target.copied }
   let changed = false
-  for (const k of CARRY_FIELDS) {
+  for (const k of fields) {
     if (target.typed?.[k]) continue
     const v = source.person[k] ?? ''
     // A value the card did not get from carryOver is left alone.
@@ -121,13 +122,16 @@ export function carryOver(draft, key, fromKey) {
   return changed ? mapCard(draft, key, (c) => ({ ...c, person, copied })) : draft
 }
 
-/** The names of the cards a card's club and town were copied from: { club?: 'Jan Kowalski', city?: … }. */
-export function copiedFromNames(draft, key) {
+/**
+ * The names of the cards a card's club and town were copied from: { club?: 'Jan Kowalski', city?: … }.
+ * `nameOf(index)` names a card; the team form passes one that counts nameless members by leg.
+ */
+export function copiedFromNames(draft, key, nameOf = (i) => cardName(draft, i)) {
   const c = draft.cards.find((x) => x.key === key)
   const out = {}
   for (const [field, from] of Object.entries(c?.copied ?? {})) {
     const i = draft.cards.findIndex((x) => x.key === from)
-    out[field] = i < 0 ? 'poprzedniej osoby' : cardName(draft, i)
+    out[field] = i < 0 ? 'poprzedniej osoby' : nameOf(i)
   }
   return out
 }
