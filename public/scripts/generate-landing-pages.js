@@ -304,9 +304,25 @@ async function main() {
   }
   console.log(`Generated ${generated} landing page HTML files (${noindexCount} noindex: monthly / thin / past-month; ${totalEventLinks} static event links emitted).`)
 
-  // No /listy URLs in the sitemap: robots.txt blocks /listy since 2026-11-03 (the
-  // owner's decision, against the advice that the lists carry crawlable links to every
-  // race), and a sitemap listing blocked URLs is a Search Console error.
+  // Append to sitemap written by generate-event-pages.js
+  const sitemapPath = resolve(DIST, 'sitemap.xml')
+  if (!existsSync(sitemapPath)) { console.error('sitemap.xml not found — run generate-event-pages.js first'); process.exit(1) }
+
+  let sitemap = readFileSync(sitemapPath, 'utf-8')
+  sitemap = sitemap.replace('</urlset>', '')
+
+  // Only list indexable pages: exclude everything noindexed above (monthly, thin <4 events, past-month).
+  const indexablePaths = paths.filter(path =>
+    !isPastMonthPage(path) && isLandingIndexable(manifest[path])
+  )
+  const entries = indexablePaths.map(path => {
+    const entry = manifest[path]
+    return `  <url>\n    <loc>${entry.canonicalUrl}</loc>\n    <changefreq>${entry.sitemapChangefreq}</changefreq>\n    <priority>${entry.sitemapPriority}</priority>\n  </url>`
+  })
+
+  sitemap += entries.join('\n') + '\n</urlset>\n'
+  writeFileSync(sitemapPath, sitemap)
+  console.log(`Appended ${indexablePaths.length} landing page URLs to sitemap.xml (${paths.length - indexablePaths.length} monthly / thin / past-month pages excluded).`)
 }
 
 main().catch(err => { console.error(err); process.exit(1) })
