@@ -10,6 +10,7 @@
 // warsawToday() in _shared/registration/dates.js, kept here so this module has
 // no imports from there.
 import { pluralPl } from './plural.js'
+import { withFileUrls } from './eventFiles.js'
 
 const warsawDate = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Warsaw', year: 'numeric', month: '2-digit', day: '2-digit' })
 const warsawToday = (d) => warsawDate.format(d)
@@ -252,6 +253,8 @@ export function eventPageModel(raw, now = new Date()) {
     description: raw.description || null,
     // „Więcej informacji” under the description: http(s) only, like charityUrl.
     websiteUrl: /^https?:\/\//i.test(raw.websiteUrl ?? '') ? raw.websiteUrl : null,
+    // The organizer's poster (withFileUrls), shown beside the description.
+    posterUrl: /^https?:\/\//i.test(raw.posterUrl ?? '') ? raw.posterUrl : null,
     stats: stats(competitions, win === 'closed' ? null : daysLeftLabel(raw, now)),
     office: (raw.office?.hours ?? []).map((h) => {
       const { d, m } = ymd(h.date)
@@ -361,6 +364,15 @@ function mergeExtras(raw, items, uploads, sold) {
  * competition from the preview, false or absent shows it. Staged tiers are read
  * at `now`, as registration_raw reads the live ones.
  */
+/**
+ * The organizer preview's raw, as the public page gets it from /api/event: staged changes
+ * laid over the live raw, then the file URLs. Without withFileUrls the preview had no
+ * regulamin PDF link, no GPX and no poster, while the published page showed them.
+ */
+export function previewRaw(raw, pending, supabaseUrl) {
+  return withFileUrls(pending ? mergePending(raw, pending) : raw, supabaseUrl)
+}
+
 export function mergePending(raw, pending, now = new Date()) {
   const payload = pending?.payload
   if (!payload) return raw

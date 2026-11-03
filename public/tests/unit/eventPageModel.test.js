@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
-import { eventPageModel, mergePending, statParts } from '../../src/lib/eventPageModel.js'
+import { eventPageModel, mergePending, previewRaw, statParts } from '../../src/lib/eventPageModel.js'
 import { withFileUrls } from '../../src/lib/eventFiles.js'
 
 const BASE = 'https://proj.supabase.co'
@@ -516,6 +516,29 @@ describe('W-77 event page („Więcej informacji”)', () => {
   })
   it('mergePending shows a staged event page in the preview', () => {
     assert.equal(mergePending(RA1, { payload: { basics: { website_url: 'https://example.org/b' } } }).websiteUrl, 'https://example.org/b')
+  })
+})
+
+describe('the poster on the event page', () => {
+  it('is the uploaded poster’s public URL, and nothing when there is none', () => {
+    assert.equal(model(RA1).posterUrl, fileUrl('e1/poster/p.jpg'))
+    assert.equal(model({ ...RA1, posterPath: null }).posterUrl, null)
+  })
+  it('never anything but an http(s) address', () => {
+    assert.equal(eventPageModel({ ...RA1, posterUrl: 'javascript:alert(1)' }, NOW).posterUrl, null)
+  })
+})
+
+describe('previewRaw (Podgląd jako zawodnik)', () => {
+  it('gives the preview the file URLs the public page gets: regulamin PDF and poster', () => {
+    const raw = previewRaw(RA1, null, BASE)
+    assert.equal(raw.regulamin.url, fileUrl('e1/regulamin/r.pdf'))
+    assert.equal(raw.posterUrl, fileUrl('e1/poster/p.jpg'))
+    assert.equal(eventPageModel(raw, NOW).regulaminUrl, fileUrl('e1/regulamin/r.pdf'))
+  })
+  it('lays staged changes over the live raw before the URLs are made', () => {
+    const pending = { payload: { basics: { poster_upload_id: 'u9' } }, uploads: { u9: { path: 'e1/poster/new.jpg', meta: {} } } }
+    assert.equal(previewRaw(RA1, pending, BASE).posterUrl, fileUrl('e1/poster/new.jpg'))
   })
 })
 

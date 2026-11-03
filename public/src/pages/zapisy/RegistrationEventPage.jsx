@@ -216,22 +216,32 @@ export default function RegistrationEventPage({ raw, now, preview = false, links
           <Stat testId="stat-days" label={thirdStat.label} value={thirdStat.value} />
         </div>
 
-        {(m.description || m.websiteUrl) && (
+        {(m.description || m.websiteUrl || m.posterUrl) && (
           <section className="border border-apex-border px-3.5 py-3 flex flex-col gap-1.5 min-w-0" data-testid="event-description">
             <span className={labelCls}>O wydarzeniu</span>
-            {m.description && (
-              <p className="text-base text-apex-text-bright whitespace-pre-line break-words">
-                {linkParts(m.description).map((p, i) => (p.href
-                  ? <a key={i} href={p.href} target="_blank" rel="noopener noreferrer nofollow" className={`break-all ${linkCls}`}>{p.text}</a>
-                  : <span key={i}>{p.text}</span>))}
-              </p>
-            )}
-            {m.websiteUrl && (
-              <p className="text-base text-apex-text-bright break-words" data-testid="event-website">
-                Więcej informacji:{' '}
-                <a href={m.websiteUrl} target="_blank" rel="noopener noreferrer nofollow" className={`break-all ${linkCls}`}>{m.websiteUrl.replace(/^https?:\/\//i, '').replace(/\/$/, '')}</a>
-              </p>
-            )}
+            <div className="flex flex-col sm:flex-row-reverse gap-3.5 sm:items-start min-w-0">
+              {m.posterUrl && (
+                <a href={m.posterUrl} target="_blank" rel="noopener noreferrer" data-testid="event-poster"
+                  className="block self-center sm:self-start shrink-0 w-3/5 max-w-[240px] sm:w-[200px] border border-apex-border hover:border-apex-yellow-dim focus-visible:outline focus-visible:outline-apex-yellow">
+                  <img src={m.posterUrl} alt={`Plakat: ${m.title}`} loading="lazy" className="block w-full h-auto" />
+                </a>
+              )}
+              <div className="flex flex-col gap-1.5 min-w-0 flex-1">
+                {m.description && (
+                  <p className="text-base text-apex-text-bright whitespace-pre-line break-words">
+                    {linkParts(m.description).map((p, i) => (p.href
+                      ? <a key={i} href={p.href} target="_blank" rel="noopener noreferrer nofollow" className={`break-all ${linkCls}`}>{p.text}</a>
+                      : <span key={i}>{p.text}</span>))}
+                  </p>
+                )}
+                {m.websiteUrl && (
+                  <p className="text-base text-apex-text-bright break-words" data-testid="event-website">
+                    Więcej informacji:{' '}
+                    <a href={m.websiteUrl} target="_blank" rel="noopener noreferrer nofollow" className={`break-all ${linkCls}`}>{m.websiteUrl.replace(/^https?:\/\//i, '').replace(/\/$/, '')}</a>
+                  </p>
+                )}
+              </div>
+            </div>
           </section>
         )}
 
