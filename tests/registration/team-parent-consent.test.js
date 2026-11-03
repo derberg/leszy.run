@@ -1,6 +1,6 @@
 // A child in a relay team whose parent is not the captain (scenarios TP-20…TP-29 in
 // docs/registration/scenario-matrix.md). Migrations 20261112100000_team_minor_parent_consent.sql and
-// 20261112110000_team_parent_purge_marker.sql (TP-50…TP-52):
+// 20261112110000_team_parent_swap_notice.sql (TP-50…TP-52):
 // the child is stored with the named parent as guardian, waits for that parent's consent, and the
 // parent accepts on /zgoda as 'guardian'. LOCAL stack only; every event and address is random.
 import { test, before, after } from 'node:test'
@@ -90,6 +90,7 @@ test('TP-20 a named parent: the child is stored with that parent as guardian, aw
   assert.equal(child.guardian_email, parentEmail.toLowerCase())
   assert.equal(child.guardian_profile_id, null)
   assert.equal(child.consent_state, 'awaiting')
+  assert.equal(child.guardian_named, true)
   assert.equal(child.registered_by_profile_id, captainProfile)
   assert.deepEqual(await acceptancesOf(childId), [])
 })
@@ -241,7 +242,7 @@ test('TP-29 team-squad add: a child with a named parent needs no consents of the
 
 const isoDayAgo = (days) => new Date(Date.now() - days * 86_400_000).toISOString().slice(0, 10)
 
-test('TP-50 after the 30-day purge a named parent\'s child is still a child: guardian_removed_at marks it; a captain\'s child keeps its guardian account', async () => {
+test('TP-50 after the 30-day purge a named parent\'s child is still a child: guardian_named marks it, guardian_removed_at stays NULL; a captain\'s child keeps its guardian account', async () => {
   const awaiting = await teamWithNamedParent()
   const paper = await teamWithNamedParent()
   assert.equal((await rpc('mark_consent_office', { p_registration_id: paper.childId, p_actor: owner.profileId })).data, true)
@@ -261,17 +262,15 @@ test('TP-50 after the 30-day purge a named parent\'s child is still a child: gua
     const child = await regOf(childId)
     assert.equal(child.guardian_name, null)
     assert.equal(child.guardian_email, null)
-    assert.ok(child.guardian_removed_at, 'the marker outlives the contact')
+    assert.equal(child.guardian_removed_at, null, 'nobody deleted an account (G-53)')
+    assert.equal(child.guardian_named, true, 'the marker outlives the contact')
     assert.equal(registrationRole(child), 'minor')
   }
   const own = await regOf(captainsChild.childId)
-  assert.equal(own.guardian_removed_at, null, 'a guardian account still says child')
+  assert.equal(own.guardian_removed_at, null)
+  assert.equal(own.guardian_named, false)
+  assert.ok(own.guardian_profile_id, 'a guardian account still says child')
   assert.equal(registrationRole(own), 'minor')
-
-  // A second run keeps the first stamp.
-  const stamp = (await regOf(awaiting.childId)).guardian_removed_at
-  assert.ifError((await rpc('purge_registration_contact_data')).error)
-  assert.equal((await regOf(awaiting.childId)).guardian_removed_at, stamp)
 })
 
 test('TP-51 swapping out a child whose parent was named returns that parent\'s address; a captain\'s child returns none', async () => {

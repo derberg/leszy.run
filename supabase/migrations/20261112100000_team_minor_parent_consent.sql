@@ -4,14 +4,21 @@
 -- guardian (as before) or names the parent: first and last name and e-mail, sent as the person's
 -- `guardian` { name, email } (validateTeam / validateSquadMember in _shared/registration/team.js).
 --
--- Such a child is stored with guardian_name / guardian_email = the parent, guardian_profile_id NULL
--- and consent_state 'awaiting'; no acceptance is written for them. The consent request (Plan 4) goes
+-- Such a child is stored with guardian_name / guardian_email = the parent, guardian_profile_id NULL,
+-- guardian_named true and consent_state 'awaiting'; no acceptance is written for them. The consent request (Plan 4) goes
 -- to guardian_email (consentRecipient in group.js), and on /zgoda the parent, signed in at that
 -- address, accepts every event consent, the minors-only ones included, as 'guardian':
 -- accept_consent_request sets guardian_profile_id to the parent's account. The organizer's
 -- „Podpisany w biurze” (mark_consent_office) covers a child the same way, minors-only consents
 -- included, recorded as 'office' by the organizer like an adult's. Nothing removes a child whose
 -- parent never answers: the entry stays, flagged as awaiting, for the office.
+--
+-- registrations.guardian_named (new, default false) says the guardian is a parent the registrant
+-- named. It is what keeps such a row a child's once the 30-day purge has nulled guardian_name and
+-- guardian_email and no guardian_profile_id exists (the parent never accepted, or signed on paper):
+-- registrationRole (group.js) and the child rule of the functions below read it beside the guardian
+-- fields. guardian_removed_at keeps its one meaning, the guardian deleted the account (D4-25). The
+-- column holds no personal data, so neither the purge nor delete-my-account touches it.
 --
 -- Every function here is recreated from its latest body and changed only where marked:
 --   * registration_group_lock (20261105090000): minors_only consents are required only for a child
@@ -23,6 +30,8 @@
 -- rotate_consent_request, claim_consent_reminders and claim_consent_resends read consent_state and
 -- the request only, so the reminders already cover these children. CREATE OR REPLACE keeps every
 -- grant; the REVOKE / GRANT after each function restates it.
+
+ALTER TABLE public.registrations ADD COLUMN guardian_named boolean NOT NULL DEFAULT false;
 
 -- ---------------------------------------------------------------- registration_group_lock (from 20261105090000)
 
@@ -128,7 +137,8 @@ DECLARE
   v_reg   uuid;
   -- Changed here: a child whose parent is not the payer (`guardian` { name, email }, set by
   -- validateTeam / validateSquadMember only).
-  v_named boolean := p_person->>'role' = 'minor' AND jsonb_typeof(p_person->'guardian') = 'object';
+  -- Never NULL: a person with no `guardian` key is false, so every other path writes what it did.
+  v_named boolean := coalesce(p_person->>'role' = 'minor' AND jsonb_typeof(p_person->'guardian') = 'object', false);
   v_gname text := nullif(btrim(p_person->'guardian'->>'name'), '');
   v_gmail text := lower(btrim(p_person->'guardian'->>'email'));
 BEGIN
@@ -144,7 +154,7 @@ BEGIN
       event_id, category_id, order_id, status, profile_id, registered_by_profile_id,
       first_name, last_name, birth_date, gender, email,
       phone, city, club, ice_name, ice_phone, nationality, age_group_label, kids_group_id,
-      guardian_profile_id, guardian_name, guardian_email, consent_state, list_price, price, voucher_id, partner_id)
+      guardian_profile_id, guardian_name, guardian_email, guardian_named, consent_state, list_price, price, voucher_id, partner_id)
     VALUES (
       p_rs.event_id, (p_person->>'categoryId')::uuid, p_order_id, p_status,
       -- The account is this person's only when its address is theirs.
@@ -159,6 +169,7 @@ BEGIN
       CASE WHEN v_role = 'minor' AND NOT v_named THEN p_profile_id END,
       CASE WHEN v_named THEN v_gname WHEN v_role = 'minor' THEN p_buyer_name END,
       CASE WHEN v_named THEN v_gmail WHEN v_role = 'minor' THEN p_buyer_email END,
+      v_named,
       CASE WHEN v_role = 'adult' OR v_named THEN 'awaiting' ELSE 'accepted' END,
       coalesce(p_list_price, p_price), p_price, p_voucher_id, p_partner_id)
     RETURNING id INTO v_reg;
@@ -336,8 +347,9 @@ BEGIN
   IF r.id IS NULL OR r.status <> 'confirmed' OR r.consent_state <> 'awaiting' THEN
     RAISE EXCEPTION 'gone';
   END IF;
-  -- Changed here: registrationRole's rule names a child; the link went to the guardian's address.
-  v_child := r.guardian_name IS NOT NULL OR r.guardian_profile_id IS NOT NULL OR r.guardian_removed_at IS NOT NULL;
+  -- Changed here: registrationRole's rule names a child (guardian_named included); the link went to
+  -- the guardian's address.
+  v_child := r.guardian_named OR r.guardian_name IS NOT NULL OR r.guardian_profile_id IS NOT NULL OR r.guardian_removed_at IS NOT NULL;
   v_to := CASE WHEN v_child THEN r.guardian_email ELSE r.email END;
   IF p_profile_id IS NULL OR v_to IS NULL OR NOT EXISTS (
        SELECT 1 FROM public.profiles p WHERE p.id = p_profile_id AND lower(btrim(p.email)) = lower(btrim(v_to))) THEN
@@ -534,7 +546,7 @@ DECLARE
 BEGIN
   -- Lock order: settings FOR SHARE, then the registration (as accept_consent_request).
   -- Changed here: a child's paper consent is the guardian's, so it covers the minors_only consents.
-  SELECT event_id, guardian_name IS NOT NULL OR guardian_profile_id IS NOT NULL OR guardian_removed_at IS NOT NULL
+  SELECT event_id, guardian_named OR guardian_name IS NOT NULL OR guardian_profile_id IS NOT NULL OR guardian_removed_at IS NOT NULL
     INTO v_event, v_child FROM public.registrations WHERE id = p_registration_id;
   IF v_event IS NULL THEN
     RETURN false;

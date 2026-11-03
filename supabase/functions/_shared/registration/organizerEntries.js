@@ -18,7 +18,7 @@ const roleOf = registrationRole
 
 const REG_COLUMNS = 'id, category_id, order_id, first_name, last_name, birth_date, gender, phone, city, club, nationality, ' +
   'ice_name, ice_phone, email, age_group_label, status, created_at, price, list_price, partner_id, voucher_id, participant_id, profile_id, ' +
-  'registered_by_profile_id, consent_state, guardian_profile_id, guardian_name, guardian_removed_at, team_id'
+  'registered_by_profile_id, consent_state, guardian_profile_id, guardian_name, guardian_removed_at, guardian_named, team_id'
 
 // Who registered each added adult and child, by the rule consentRequests.js names the buyer
 // in the consent e-mail; everything but the display name comes from rows already read.

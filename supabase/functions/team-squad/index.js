@@ -47,7 +47,7 @@ async function single(query) {
 }
 
 const memberColumns = 'id, first_name, last_name, birth_date, age_group_label, team_leg, team_position, consent_state, created_at, ' +
-  'profile_id, registered_by_profile_id, guardian_name, guardian_profile_id, guardian_removed_at'
+  'profile_id, registered_by_profile_id, guardian_name, guardian_profile_id, guardian_removed_at, guardian_named'
 
 /** Whether „Zapłać” can still lead anywhere: an open, unexpired order that still fits the limit (P3-R15). */
 async function orderPayable(admin, order, captain, open) {

@@ -48,7 +48,7 @@ export const dataInfoUrl = (site, slug) => `${site}/events/${encodeURIComponent(
 // The contact columns and the role's are memberDetails.js's: whether the person still owes details.
 // guardian_email: a child's request goes to the parent (consentRecipient).
 const REG_COLUMNS = 'id, event_id, category_id, order_id, team_id, first_name, email, status, consent_state, registered_by_profile_id, ' +
-  'profile_id, guardian_name, guardian_email, guardian_profile_id, guardian_removed_at, phone, city, club, ice_name, ice_phone, nationality'
+  'profile_id, guardian_name, guardian_email, guardian_profile_id, guardian_removed_at, guardian_named, phone, city, club, ice_name, ice_phone, nationality'
 
 /** Everything the e-mails of `regs` need besides the token: → (registration) → mail builder. */
 async function mailContext(admin, regs, { registeredBy = null, site = null } = {}) {

@@ -46,7 +46,7 @@ Deno.serve(async (req) => {
     const registrationId = body?.registrationId
     if (!isUuid(registrationId)) return json(NOT_FOUND, 404, req)
     const { data: reg, error } = await admin.from('registrations')
-      .select('id, event_id, registered_by_profile_id, status, consent_state, email, profile_id, guardian_name, guardian_email, guardian_profile_id, guardian_removed_at').eq('id', registrationId).maybeSingle()
+      .select('id, event_id, registered_by_profile_id, status, consent_state, email, profile_id, guardian_name, guardian_email, guardian_profile_id, guardian_removed_at, guardian_named').eq('id', registrationId).maybeSingle()
     if (error) throw error
     if (!reg) return json(NOT_FOUND, 404, req)
 

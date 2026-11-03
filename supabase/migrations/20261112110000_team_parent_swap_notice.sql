@@ -1,93 +1,10 @@
 -- Fix round on 20261112100000_team_minor_parent_consent.sql (a team child whose parent is not the
--- captain).
+-- captain): team_squad_edit's `removed` carries `guardianEmail` for such a child, read before the
+-- swap clears the row, so team-squad tells the parent the child left the squad. A captain's own
+-- child carries none: the captain already reads the squad summary.
 --
--- 1. The 30-day contact purge nulled guardian_name and guardian_email of every past child entry. A
---    child whose named parent never accepted, or whose consent was signed on paper, also has no
---    guardian_profile_id, so nothing on the row said „child” any more: registrationRole and the SQL
---    rule (guardian_name / guardian_profile_id / guardian_removed_at) read it as an adult, in the
---    organizer panel, the CSV, the captain's pages and the exports. The purge now stamps
---    guardian_removed_at on such a row, as delete-my-account does when a guardian leaves, so the
---    marker outlives the contact. The birth date was not used instead: it would turn a child into
---    an adult on their 18th birthday, after the race they ran as a child.
--- 2. team_squad_edit's `removed` carries `guardianEmail` for such a child, read before the swap
---    clears the row, so team-squad tells the parent the child left the squad.
---
--- purge_registration_contact_data is recreated from 20261103190000, team_squad_edit from
--- 20261102120000, each changed only where marked. CREATE OR REPLACE keeps the grants; the REVOKE /
--- GRANT after each restates them.
-
--- ---------------------------------------------------------------- purge_registration_contact_data (from 20261103190000)
-
-CREATE OR REPLACE FUNCTION public.purge_registration_contact_data() RETURNS integer
-  LANGUAGE plpgsql
-  SECURITY DEFINER
-  SET search_path = ''
-AS $$
-DECLARE
-  v_cutoff date := (now() AT TIME ZONE 'Europe/Warsaw')::date - 30;
-  v_regs   integer;
-  v_parts  integer;
-  v_teams  integer;
-  v_trans  integer;
-BEGIN
-  UPDATE public.registrations r
-     SET phone = NULL, ice_name = NULL, ice_phone = NULL, guardian_name = NULL, guardian_email = NULL,
-         -- Changed here: a child whose guardian has no account here (a parent the captain named who
-         -- never accepted, or signed on paper) keeps a marker that it is a child, as a deleted
-         -- guardian's child does: registrationRole and the SQL rules read guardian_removed_at.
-         guardian_removed_at = CASE WHEN r.guardian_profile_id IS NULL
-                                     AND (r.guardian_name IS NOT NULL OR r.guardian_email IS NOT NULL)
-                                    THEN coalesce(r.guardian_removed_at, now())
-                                    ELSE r.guardian_removed_at END
-    FROM public.registration_settings rs
-   WHERE rs.event_id = r.event_id
-     AND rs.event_date IS NOT NULL
-     AND rs.event_date <= v_cutoff
-     AND (r.phone IS NOT NULL OR r.ice_name IS NOT NULL OR r.ice_phone IS NOT NULL
-          OR r.guardian_name IS NOT NULL OR r.guardian_email IS NOT NULL);
-  GET DIAGNOSTICS v_regs = ROW_COUNT;
-
-  UPDATE public.participants p
-     SET phone = NULL
-    FROM public.registrations r
-    JOIN public.registration_settings rs ON rs.event_id = r.event_id
-   WHERE p.registration_id = r.id
-     AND rs.event_date IS NOT NULL
-     AND rs.event_date <= v_cutoff
-     AND p.phone IS NOT NULL;
-  GET DIAGNOSTICS v_parts = ROW_COUNT;
-
-  SELECT coalesce(sum(public.neutralise_team_name(t.id)), 0)::integer INTO v_teams
-    FROM public.teams t
-    JOIN public.registration_settings rs ON rs.event_id = t.event_id
-   WHERE rs.event_date IS NOT NULL
-     AND rs.event_date <= v_cutoff;
-
-  -- Plan 7 (final review I-3): the address an invite was sent to. An open invite of a past race
-  -- cannot be accepted any more; it is expired first, because a pending invite must keep an address
-  -- (transfers_pending_has_address). Then every transfer of the event loses to_email; the rows stay
-  -- as the record of where a package went.
-  UPDATE public.transfers t
-     SET status = 'expired'
-    FROM public.registration_settings rs
-   WHERE rs.event_id = t.event_id
-     AND rs.event_date IS NOT NULL
-     AND rs.event_date <= v_cutoff
-     AND t.status = 'pending';
-  UPDATE public.transfers t
-     SET to_email = NULL
-    FROM public.registration_settings rs
-   WHERE rs.event_id = t.event_id
-     AND rs.event_date IS NOT NULL
-     AND rs.event_date <= v_cutoff
-     AND t.to_email IS NOT NULL;
-  GET DIAGNOSTICS v_trans = ROW_COUNT;
-
-  RETURN v_regs + v_parts + v_teams + v_trans;
-END;
-$$;
-REVOKE EXECUTE ON FUNCTION public.purge_registration_contact_data() FROM public, anon, authenticated;
-GRANT EXECUTE ON FUNCTION public.purge_registration_contact_data() TO service_role;
+-- Recreated from 20261102120000 and changed only where marked. CREATE OR REPLACE keeps the grants;
+-- the REVOKE / GRANT after it restates them.
 
 -- ---------------------------------------------------------------- team_squad_edit (from 20261102120000)
 
@@ -225,8 +142,7 @@ BEGIN
     -- Changed here: a child whose parent the captain named is told of through that parent, whose
     -- address goes only here, read before the row was cleared.
     'removed', jsonb_build_array(jsonb_build_object('id', v_old.id, 'email', v_old.email, 'firstName', v_old.first_name,
-      'guardianEmail', CASE WHEN v_old.email IS NULL AND v_old.guardian_profile_id IS DISTINCT FROM v_old.registered_by_profile_id
-                            THEN v_old.guardian_email END)));
+      'guardianEmail', CASE WHEN v_old.guardian_named THEN v_old.guardian_email END)));
 END $$;
 REVOKE EXECUTE ON FUNCTION public.team_squad_edit(uuid, uuid, jsonb, jsonb, boolean) FROM public, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.team_squad_edit(uuid, uuid, jsonb, jsonb, boolean) TO service_role;
