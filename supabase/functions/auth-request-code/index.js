@@ -1,5 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { getCorsHeaders, guardRequest, isAllowed } from '../_shared/cors.js'
+import { getCorsHeaders, guardRequest, emailLinkBase } from '../_shared/cors.js'
 import { requestLoginCode } from '../_shared/requestCode.js'
 import { clientIp } from '../_shared/clientIp.js'
 
@@ -10,13 +10,13 @@ function json(body, status, req) {
   })
 }
 
-// Pick the base URL for the magic link from the request Origin, using the SAME
-// allowlist guardRequest enforces — a second copy drifted once already: it knew
-// about :5173 and not :3002, so a login started on the port the README
-// documents mailed a link into PRODUCTION. Falls back to www.leszy.run.
+// The magic link carries a live login code, so its host must never be one the
+// caller chose: emailLinkBase allows production, and localhost only on a local
+// stack. It used to follow isAllowed, whose preview pattern matched any
+// *-derbergs-projects.vercel.app host, so a request with such an Origin mailed
+// the victim a genuine login link pointing at that host.
 function magicLinkBase(req) {
-  const origin = req.headers.get('Origin') ?? ''
-  return isAllowed(origin) ? origin : 'https://www.leszy.run'
+  return emailLinkBase(req.headers.get('Origin'), Deno.env.get('SUPABASE_URL'))
 }
 
 // `from` must be an internal path: starts with single "/", no "//", no "\", no "..".

@@ -20,6 +20,24 @@ export function isAllowed(origin) {
   return PREVIEW_ORIGIN_RE.test(origin)
 }
 
+const LOCAL_SUPABASE_RE = /^http:\/\/(?:127\.0\.0\.1|localhost|kong|host\.docker\.internal)(?::\d+)?(?:\/|$)/
+
+/**
+ * The site a link carrying a login code points at. Stricter than isAllowed: that one only decides
+ * whether a browser request may run, while this one decides where a live code is mailed to.
+ * The preview pattern is a suffix match on a host anybody can try to register on vercel.app, so a
+ * preview origin never gets a code, and localhost gets one only while the functions themselves run
+ * on a local stack (SUPABASE_URL http://, never a deployed https project). Everything else is
+ * production.
+ * @param {string|null|undefined} origin the request's Origin
+ * @param {string|null|undefined} supabaseUrl the function's SUPABASE_URL
+ */
+export function emailLinkBase(origin, supabaseUrl) {
+  if (origin === 'https://www.leszy.run') return origin
+  if (origin && LOCAL_ORIGIN_RE.test(origin) && LOCAL_SUPABASE_RE.test(String(supabaseUrl ?? '').trim())) return origin
+  return 'https://www.leszy.run'
+}
+
 export function getCorsHeaders(req) {
   const origin = req.headers.get('Origin') ?? ''
   const allowed = isAllowed(origin) ? origin : STATIC_ORIGINS[1]
