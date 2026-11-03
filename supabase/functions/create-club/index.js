@@ -2,6 +2,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { getCorsHeaders, guardRequest } from '../_shared/cors.js'
 import { getSession } from '../_shared/session.js'
 import { slugifyClub, normalizeClubName } from '../_shared/clubText.js'
+import { clubNameError, clubFieldsError } from '../_shared/clubFields.js'
 import { checkAndAwardBadges } from '../_shared/badge-check.js'
 import { logMembershipEvent } from '../_shared/membershipLog.js'
 
@@ -39,11 +40,12 @@ Deno.serve(async (req) => {
   if (!session) return json({ error: 'Authorization required' }, 401, req)
 
   try {
-    const { name, description = null, city = null, voivodeship = null, hidden_public = true } = await req.json()
-    const trimmed = (name ?? '').trim()
-    if (trimmed.length < 2 || trimmed.length > 120) {
-      return json({ error: 'Nazwa klubu jest wymagana (2–120 znaków).' }, 400, req)
-    }
+    const body = await req.json()
+    const { description = null, city = null, hidden_public = true } = body
+    const voivodeship = body.voivodeship === '' ? null : (body.voivodeship ?? null)
+    const trimmed = typeof body.name === 'string' ? body.name.trim() : ''
+    const invalid = clubNameError(trimmed) ?? clubFieldsError({ description, city, voivodeship })
+    if (invalid) return json({ error: invalid }, 400, req)
 
     // One active membership per user
     const { data: existing } = await supabaseAdmin

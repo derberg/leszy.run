@@ -10,6 +10,7 @@ import { supabase } from '../lib/supabase.js'
 import { logConsentServerSide } from '../lib/logConsent.js'
 import useInvitePreview from '../hooks/useInvitePreview.js'
 import { inviteFromPath } from '../lib/inviteLink.js'
+import { safeFromPath } from '../lib/safeFrom.js'
 
 function OnboardingForm() {
   useSeo({ title: 'Ustaw profil — Leszy.run', path: '/onboarding', noindex: true })
@@ -17,8 +18,7 @@ function OnboardingForm() {
   const { user } = useAuth()
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
-  const rawFrom = searchParams.get('from')
-  const fromParam = rawFrom && rawFrom.startsWith('/') && !rawFrom.startsWith('//') && !rawFrom.includes('\\') ? rawFrom : null
+  const fromParam = safeFromPath(searchParams.get('from'))
   const nextPath = fromParam || '/profil'
   // On the way to an invite, the club is already chosen: offering the picker
   // here would let a new account join or found another club first, and the
@@ -137,6 +137,7 @@ function OnboardingForm() {
                 type="text"
                 value={displayName}
                 onChange={e => setDisplayName(e.target.value)}
+                maxLength={80}
                 placeholder="Piotr Kowalski"
                 className={inputClass}
               />

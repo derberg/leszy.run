@@ -48,8 +48,19 @@ Deno.serve(async (req) => {
     if (error) throw error
     if (!reg) return json(NOT_FOUND, 404, req)
 
+    // organizer_transfer stores the acting organizer as registered_by_profile_id (M-4 in
+    // my-event-registrations). That entry was never "registered by" them as a payer: they may
+    // remind only while they still hold owner/admin, which the organizer path checks, so an admin
+    // removed from the club since can no longer rotate the runner's consent link.
+    let registrant = reg.registered_by_profile_id != null && reg.registered_by_profile_id === session.userId
+    if (registrant) {
+      const { data: moved, error: tErr } = await admin.from('transfers').select('id')
+        .eq('new_registration_id', reg.id).eq('kind', 'organizer').limit(1)
+      if (tErr) throw tErr
+      if (moved?.length) registrant = false
+    }
     let organizer = null
-    if (reg.registered_by_profile_id !== session.userId) {
+    if (!registrant) {
       const access = await loadOrganizerEvent(admin, reg.event_id, session, { req })
       if (access instanceof Response) return access
       if (!['owner', 'admin'].includes(access.role)) return json(NOT_FOUND, 404, req)

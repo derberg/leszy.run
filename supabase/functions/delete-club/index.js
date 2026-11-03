@@ -48,6 +48,12 @@ Deno.serve(async (req) => {
     const { error: deleteErr } = await supabaseAdmin.from('clubs').delete().eq('id', club_id)
     if (deleteErr) throw deleteErr
 
+    // The logo is stored at club-logos/<club_id>/logo.png (upload-club-logo)
+    // in a public bucket, and nothing removed it with the club. Best effort:
+    // the club is already gone, so a storage failure is logged, never a 500.
+    const { error: logoErr } = await supabaseAdmin.storage.from('club-logos').remove([`${club_id}/logo.png`])
+    if (logoErr) console.error('delete-club: logo remove failed:', logoErr.message)
+
     return json({ data: { deleted: true } }, 200, req)
   } catch (err) {
     return json({ error: err.message }, 500, req)

@@ -119,7 +119,7 @@ Deno.serve(async (req) => {
       if (await isEmailRetired(admin, registration.email)) {
         return json({ error: RETIRED_EMAIL_MESSAGE, code: 'email_retired' }, 403, req)
       }
-      const verified = await verifyCodeAndOpenSession(admin, { email: registration.email, code: String(code) })
+      const verified = await verifyCodeAndOpenSession(admin, { email: registration.email, code: String(code), ip: await clientIp(req) })
       if (!verified.ok) {
         const extra = verified.retryAfterSec ? { 'retry-after': String(verified.retryAfterSec) } : {}
         return json({ error: verified.error, ...(verified.code ? { code: verified.code } : {}) }, verified.status, req, extra)

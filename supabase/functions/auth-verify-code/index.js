@@ -1,6 +1,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { getCorsHeaders, guardRequest } from '../_shared/cors.js'
 import { verifyCodeAndOpenSession } from '../_shared/verifyCode.js'
+import { clientIp } from '../_shared/clientIp.js'
 
 function json(body, status, req, extraHeaders = {}) {
   return new Response(JSON.stringify(body), {
@@ -24,7 +25,7 @@ Deno.serve(async (req) => {
 
     // The whole login step lives in _shared/verifyCode.js, so a registration
     // form that logs someone in on the way answers exactly as this page does.
-    const result = await verifyCodeAndOpenSession(supabaseAdmin, { email, code })
+    const result = await verifyCodeAndOpenSession(supabaseAdmin, { email, code, ip: await clientIp(req) })
 
     if (!result.ok) {
       const body = result.code ? { error: result.error, code: result.code } : { error: result.error }

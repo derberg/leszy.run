@@ -2,6 +2,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { getCorsHeaders, guardRequest } from '../_shared/cors.js'
 import { getSession } from '../_shared/session.js'
 import { normalizeClubName } from '../_shared/clubText.js'
+import { clubNameError, clubFieldsError } from '../_shared/clubFields.js'
 
 function json(body, status, req) {
   return new Response(JSON.stringify(body), {
@@ -33,6 +34,8 @@ Deno.serve(async (req) => {
   try {
     const { club_id, name, description, is_public, city, voivodeship, slug } = await req.json()
     if (!club_id) return json({ error: 'club_id required' }, 400, req)
+    const fieldsInvalid = clubFieldsError({ description, city, voivodeship, is_public })
+    if (fieldsInvalid) return json({ error: fieldsInvalid }, 400, req)
 
     if (!(await requireManager(supabaseAdmin, club_id, session.userId))) {
       return json({ error: 'Brak uprawnień.' }, 403, req)
@@ -45,11 +48,13 @@ Deno.serve(async (req) => {
     const updates = {}
 
     if (name !== undefined) {
-      const trimmed = (name ?? '').trim()
-      if (trimmed.length < 2 || trimmed.length > 120) {
-        return json({ error: 'Nazwa klubu jest wymagana (2–120 znaków).' }, 400, req)
-      }
+      const trimmed = typeof name === 'string' ? name.trim() : ''
+      // The settings form sends the name on every save, so an unchanged name
+      // is not re-judged: a club named before the cap went from 120 to 100
+      // must still be able to save its description.
       if (trimmed !== current.name) {
+        const nameInvalid = clubNameError(trimmed)
+        if (nameInvalid) return json({ error: nameInvalid }, 400, req)
         const normalized = normalizeClubName(trimmed)
         const { data: dupe } = await supabaseAdmin
           .from('clubs').select('id').eq('normalized_name', normalized).neq('id', club_id).maybeSingle()
@@ -76,7 +81,7 @@ Deno.serve(async (req) => {
     if (description !== undefined) updates.description = description
     if (is_public !== undefined) updates.is_public = is_public
     if (city !== undefined) updates.city = city
-    if (voivodeship !== undefined) updates.voivodeship = voivodeship
+    if (voivodeship !== undefined) updates.voivodeship = voivodeship === '' ? null : voivodeship
 
     if (Object.keys(updates).length === 0) {
       const { data: club, error: clubErr } = await supabaseAdmin

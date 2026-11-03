@@ -357,6 +357,9 @@ test('P-34 a type other than transfer that names no order of ours → OK, logged
 test('P-34 amount edge cases: comma or three decimals → amount_mismatch once; integer grosze read as złote → amount_mismatch; a JSON number equal to the total confirms', async () => {
   const a = await pendingOrder({ tag: 'amtfmt' })
   const total = (await orderOf(a.orderId)).total
+  // These IPNs are posted by hand, not by payMock, so the mock still holds the transactions as
+  // 'created'. dpay-ipn now asks dpay before confirming (security hardening): say they are paid.
+  await dpayMode({ detailsStatus: 'paid' })
   const comma = dpayValue(total).replace('.', ',')
   for (const amount of [comma, `${dpayValue(total)}5`, String(total)]) {
     assert.equal((await postIpn(signedIpn({ id: a.txn, amount, custom: a.orderId, email: PAYER }))).text, 'OK', amount)

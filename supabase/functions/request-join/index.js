@@ -1,6 +1,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { getCorsHeaders, guardRequest } from '../_shared/cors.js'
 import { getSession } from '../_shared/session.js'
+import { removedMemberMayRejoin, REMOVED_REFUSAL } from '../_shared/clubInvites.js'
 
 function json(body, status, req) {
   return new Response(JSON.stringify(body), {
@@ -29,6 +30,14 @@ Deno.serve(async (req) => {
     const { data: club } = await supabaseAdmin.from('clubs').select('id').eq('id', club_id).maybeSingle()
     if (!club) return json({ error: 'Klub nie istnieje.' }, 404, req)
 
+    // A member an admin removed cannot reset their row to 'pending' and ask
+    // again: the way back is a direct invite (see accept-invite).
+    const { data: existing } = await supabaseAdmin.from('club_members')
+      .select('status').eq('club_id', club_id).eq('user_id', session.userId).maybeSingle()
+    if (!removedMemberMayRejoin(existing?.status)) {
+      return json({ error: REMOVED_REFUSAL }, 403, req)
+    }
+
     // Block if the caller already has an ACTIVE membership anywhere
     const { data: active } = await supabaseAdmin.from('club_members')
       .select('club_id').eq('user_id', session.userId).eq('status', 'active').maybeSingle()
@@ -46,7 +55,7 @@ Deno.serve(async (req) => {
     }
 
     // Idempotent upsert of the pending row (PK = club_id,user_id). A previous
-    // 'left'/'removed' stint reuses the row: reset lifecycle fields so the
+    // 'left' stint reuses the row (a 'removed' one was refused above): reset lifecycle fields so the
     // request is a clean re-join.
     const { error } = await supabaseAdmin.from('club_members')
       .upsert(

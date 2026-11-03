@@ -1,6 +1,6 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { guardRequest } from '../_shared/cors.js'
-import { dpayConfig, verifyIpn } from '../_shared/dpay.js'
+import { dpayConfig, transactionDetails, verifyIpn } from '../_shared/dpay.js'
 import { parseDpayAmount } from '../_shared/registration/money.js'
 import { isUuid } from '../_shared/registration/organizerEvent.js'
 import { logPaymentEvent, raiseAlert, settleConfirmOutcome } from '../_shared/registration/orderFlow.js'
@@ -22,7 +22,16 @@ import { logPaymentEvent, raiseAlert, settleConfirmOutcome } from '../_shared/re
 //   INVALID  a body that is not a signed JSON object or has an empty id (400), or one over
 //            8 KB (413). dpay will retry it; it stays invalid. An unsigned body is logged
 //            trimmed to the documented fields (forgedPayload), never as sent.
-//   ERROR    we could not decide (503 unconfigured, 500 a database error): dpay retries.
+//   ERROR    we could not decide (503 unconfigured, 500 a database error, dpay's details call
+//            failed, or dpay does not yet report the transaction paid): dpay retries.
+//
+// A signature proves dpay (or whoever holds our secret) sent the IPN, not that money arrived.
+// Before confirm_order the handler asks dpay itself (transactionDetails, the poll path's call)
+// and confirms only a paid status ('paid'/'captured', the poll path's set) whose amount equals
+// the IPN's. Not yet paid ('created', 'processing', unrecognised) is undecided → ERROR, and the
+// poll path (order-status, registration-jobs) still catches a payment that lands later.
+// 'expired' can never become paid: one `ipn_not_paid` alert, then OK (nothing left to decide).
+// A different amount at dpay is `amount_mismatch` (confirm_order's key), then OK, like ruling 6.
 //
 // Every IPN that is not oversized is written to payment_events BEFORE any decision, with
 // checksum_ok and the payer address only as email_sha256 (redactDpay drops `email`). The log is
@@ -83,6 +92,9 @@ function forgedPayload(body) {
   if (extraKeys) out.extraKeys = extraKeys
   return out
 }
+
+// dpay statuses meaning the money arrived: the same set as checkAttemptsAtDpay's DPAY_PAID (orderFlow.js).
+const DPAY_PAID = new Set(['paid', 'captured'])
 
 const scalarText = (v) => (typeof v === 'string' ? v : typeof v === 'number' && Number.isFinite(v) ? String(v) : null)
 
@@ -203,6 +215,41 @@ Deno.serve(async (req) => {
         attemptId, txn, amount: scalarText(body.amount), reason: 'unparsable_amount', source: 'ipn',
       }, { dedupeKey: `amount_mismatch:${txn}` })
       return stored ? OK() : ERROR()
+    }
+
+    // Ask dpay before confirming. Only an IPN naming an attempt of this order can confirm
+    // anything; without one confirm_order answers unknown_attempt and moves nothing, so dpay is
+    // not asked (attemptId comes from the same order_id + txn lookup confirm_order makes).
+    if (attemptId) {
+      let details
+      try {
+        details = await transactionDetails(cfg, txn)
+      } catch (err) {
+        await logPaymentEvent(admin, {
+          kind: 'status_check', orderId: order.id, attemptId,
+          payload: { txn, ok: false, httpStatus: err?.httpStatus ?? null, message: err?.message ?? null, source: 'ipn' },
+        })
+        console.error('dpay-ipn: details failed:', err?.httpStatus ?? null, err?.message)
+        return ERROR()
+      }
+      await logPaymentEvent(admin, {
+        kind: 'status_check', orderId: order.id, attemptId,
+        payload: { txn, status: details.status, grosze: details.grosze, raw: details.raw, source: 'ipn' },
+      })
+      if (!DPAY_PAID.has(details.status)) {
+        if (details.status !== 'expired') return ERROR()
+        const stored = await raiseAlert(admin, 'ipn_not_paid', order.id, {
+          attemptId, txn, status: details.status, amount: scalarText(body.amount), source: 'ipn',
+        }, { dedupeKey: `ipn_not_paid:${txn}` })
+        return stored ? OK() : ERROR()
+      }
+      if (details.grosze !== grosze) {
+        const stored = await raiseAlert(admin, 'amount_mismatch', order.id, {
+          attemptId, txn, amount: scalarText(body.amount), dpayGrosze: details.grosze,
+          reason: details.grosze === null ? 'details_amount_unreadable' : 'details_amount_differs', source: 'ipn',
+        }, { dedupeKey: `amount_mismatch:${txn}` })
+        return stored ? OK() : ERROR()
+      }
     }
 
     const { data: outcome, error: rpcErr } = await admin.rpc('confirm_order', {

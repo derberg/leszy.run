@@ -16,6 +16,7 @@ import { getCorsHeaders } from '../cors.js'
 import { getSession } from '../session.js'
 import { checkAndIncrement } from '../throttle.js'
 import { verifyCodeAndOpenSession } from '../verifyCode.js'
+import { clientIp } from '../clientIp.js'
 import { isEmailRetired, RETIRED_EMAIL_MESSAGE } from '../deletedEmails.js'
 import { clubRegistrationEnabled } from '../organizer.js'
 import { isUuid } from './organizerEvent.js'
@@ -387,7 +388,7 @@ export async function prepareRegistration(req, admin, body, { pricing, throttles
     profileId = session.userId
   } else {
     if (!code) return { response: json({ error: 'Wpisz kod wysłany na adres e-mail.', code: 'code_required' }, 401, req) }
-    const verified = await verifyCodeAndOpenSession(admin, { email, code })
+    const verified = await verifyCodeAndOpenSession(admin, { email, code, ip: await clientIp(req) })
     if (!verified.ok) {
       const extra = verified.retryAfterSec ? { 'retry-after': String(verified.retryAfterSec) } : {}
       return {

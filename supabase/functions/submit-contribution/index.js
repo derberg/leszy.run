@@ -2,6 +2,8 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { checkAndAwardBadges } from '../_shared/badge-check.js'
 import { getCorsHeaders, guardRequest } from '../_shared/cors.js'
 import { getSession } from '../_shared/session.js'
+import { checkAndIncrement } from '../_shared/throttle.js'
+import { validateContribution } from '../_shared/contributionValidation.js'
 
 function json(body, status = 200, req) {
   return new Response(JSON.stringify(body), {
@@ -11,6 +13,10 @@ function json(body, status = 200, req) {
 }
 
 const VALID_TYPES = ['event_report', 'event_submission', 'general_feedback']
+// Every contribution lands in an admin's review queue (and a submission in
+// calendar_events). Unthrottled, one account could fill the queue.
+const CONTRIBUTION_LIMIT = 20
+const DAY_SECONDS = 24 * 60 * 60
 
 Deno.serve(async (req) => {
   const guard = guardRequest(req)
@@ -27,9 +33,22 @@ Deno.serve(async (req) => {
     const session = await getSession(req, supabaseAdmin)
     if (!session) return json({ error: 'Authorization required' }, 401, req)
 
-    const { type, reference_id, payload = {} } = await req.json()
+    let body
+    try { body = await req.json() } catch { return json({ error: 'Invalid JSON' }, 400, req) }
+    if (!body || typeof body !== 'object' || Array.isArray(body)) return json({ error: 'Invalid JSON' }, 400, req)
+    const { type, reference_id, payload = {} } = body
     if (!VALID_TYPES.includes(type)) {
       return json({ error: `Invalid type. Must be one of: ${VALID_TYPES.join(', ')}` }, 400, req)
+    }
+    const invalid = validateContribution({ type, reference_id, payload })
+    if (invalid) return json({ error: `Invalid contribution: ${invalid}` }, 400, req)
+
+    const throttle = await checkAndIncrement(supabaseAdmin, `contribution:${session.userId}`, CONTRIBUTION_LIMIT, { windowSeconds: DAY_SECONDS })
+    if (!throttle.allowed) {
+      return new Response(JSON.stringify({ error: 'Zbyt wiele zgłoszeń. Spróbuj ponownie jutro.' }), {
+        status: 429,
+        headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json', 'retry-after': String(throttle.retryAfterSec) },
+      })
     }
 
     let result

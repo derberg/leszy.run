@@ -83,17 +83,23 @@ Deno.serve(async (req) => {
 
   // Direct club invites addressed to this caller (by email or username).
   // Needs profile.username, so it runs after the batch above resolves.
-  const orTarget = profile?.username
-    ? `target_email.eq.${session.email},target_username.eq.${profile.username}`
-    : `target_email.eq.${session.email}`
+  // One .eq() query per target, merged here: the email and the username used
+  // to be interpolated into a PostgREST .or() string, where a `,` or `(` in
+  // either would have added filter terms of the caller's choosing.
   const nowIso = new Date().toISOString()
-  const { data: invites } = await supabaseAdmin
+  const directInvites = () => supabaseAdmin
     .from('club_invites')
     .select('id, club_id, revoked, expires_at, max_uses, uses, clubs(name)')
     .eq('kind', 'direct')
     .eq('revoked', false)
     .or(`expires_at.is.null,expires_at.gt.${nowIso}`)
-    .or(orTarget)
+  const [byEmail, byUsername] = await Promise.all([
+    directInvites().eq('target_email', session.email),
+    profile?.username ? directInvites().eq('target_username', profile.username) : Promise.resolve({ data: [] }),
+  ])
+  const invitesById = new Map()
+  for (const i of [...(byEmail.data ?? []), ...(byUsername.data ?? [])]) invitesById.set(i.id, i)
+  const invites = [...invitesById.values()]
 
   const myClubs = []
   for (const m of activeMemberships ?? []) {
