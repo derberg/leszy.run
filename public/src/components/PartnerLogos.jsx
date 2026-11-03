@@ -25,7 +25,7 @@ export default function PartnerLogos({ partners = [], variant = 'light' }) {
     : 'bg-white rounded-sm px-8 py-4'
   const label = dark
     ? 'font-mono text-xs tracking-wider uppercase text-apex-muted'
-    : 'font-mono text-[10px] font-semibold tracking-[0.2em] uppercase text-neutral-400'
+    : 'font-mono text-[10px] font-semibold tracking-[0.2em] uppercase text-neutral-500'
   const name = dark
     ? 'font-sans text-base font-semibold text-apex-text-bright'
     : 'text-sm font-semibold text-neutral-500'

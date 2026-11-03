@@ -10,20 +10,20 @@ import useTheme from '../../hooks/useTheme.js'
 // every 1, 2, 5 or 10 km. Tiles only, no browser permission needed.
 
 // Leaflet writes these as SVG attributes, where a CSS variable is not reliable.
-const LINE = '#BBDD00'
+const LINE = '#A8C23A'
 const LINE_LIGHT = '#6B8000'
 
 function kmIcon(km) {
   return L.divIcon({
     className: '',
-    html: `<span style="display:block;transform:translate(-50%,-50%);font:500 11px 'IBM Plex Mono',monospace;color:#DDDCEC;background:#0A0A10;border:1px solid #343450;padding:0 3px;line-height:16px">${km}</span>`,
+    html: `<span style="display:block;transform:translate(-50%,-50%);font:500 11px 'IBM Plex Mono',monospace;color:#E4E6D6;background:#0D110C;border:1px solid #3F5035;padding:0 3px;line-height:16px">${km}</span>`,
     iconSize: [0, 0],
   })
 }
 
 function EndMarker({ position, label, color }) {
   return (
-    <CircleMarker center={position} radius={8} pathOptions={{ color, weight: 3, fillColor: '#0A0A10', fillOpacity: 1 }}>
+    <CircleMarker center={position} radius={8} pathOptions={{ color, weight: 3, fillColor: '#0D110C', fillOpacity: 1 }}>
       <Tooltip permanent direction="auto" offset={[10, 0]} className="leszy-course-label">{label}</Tooltip>
     </CircleMarker>
   )

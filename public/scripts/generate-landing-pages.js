@@ -107,10 +107,10 @@ function buildEventListHtml(events) {
     if (dateLabel) parts.push(dateLabel)
     if (e.location) parts.push(e.location)
     const label = escapeHtml(parts.join(' — '))
-    return `      <li style="margin:0"><a href="/kalendarz/${escapeHtml(slug)}" style="color:#B0AEC6;text-decoration:none;display:block;padding:0.25rem 0">${label}</a></li>`
+    return `      <li style="margin:0"><a href="/kalendarz/${escapeHtml(slug)}" style="color:#AEB59E;text-decoration:none;display:block;padding:0.25rem 0">${label}</a></li>`
   }).join('\n')
-  return `  <nav id="seo-event-index" aria-label="Pełna lista biegów" style="padding:1.5rem;background:#0A0A10;border-top:1px solid #1C1C2A;font-family:'Rajdhani',sans-serif">
-    <h2 style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:0.95rem;color:#DDDCEC;text-transform:uppercase;letter-spacing:0.08em;margin:0 0 0.75rem">Pełna lista biegów (${events.length})</h2>
+  return `  <nav id="seo-event-index" aria-label="Pełna lista biegów" style="padding:1.5rem;background:#0D110C;border-top:1px solid #222C1D;font-family:'Rajdhani',sans-serif">
+    <h2 style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:0.95rem;color:#E4E6D6;text-transform:uppercase;letter-spacing:0.08em;margin:0 0 0.75rem">Pełna lista biegów (${events.length})</h2>
     <ul style="list-style:none;padding:0;margin:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:0 1.25rem;font-size:0.8rem">
 ${items}
     </ul>
@@ -181,7 +181,7 @@ function buildLandingHtml(entry, cssLinks, jsScripts, ogImageUrl, pastMonth = fa
 
   const relatedLinksHtml = (entry.relatedLinks && entry.relatedLinks.length > 0)
     ? entry.relatedLinks.map(l =>
-        `      <a href="/${escapeHtml(l.path)}" style="color:#B0AEC6;font-size:0.8rem;padding:0.25rem 0.625rem;border:1px solid #262638;text-decoration:none;white-space:nowrap">${escapeHtml(l.h1)}${l.eventCount ? ` (${l.eventCount})` : ''}</a>`
+        `      <a href="/${escapeHtml(l.path)}" style="color:#AEB59E;font-size:0.8rem;padding:0.25rem 0.625rem;border:1px solid #2E3B27;text-decoration:none;white-space:nowrap">${escapeHtml(l.h1)}${l.eventCount ? ` (${l.eventCount})` : ''}</a>`
       ).join('\n')
     : ''
 
@@ -236,8 +236,8 @@ function buildLandingHtml(entry, cssLinks, jsScripts, ogImageUrl, pastMonth = fa
   <body>
     <div id="root"></div>
 ${eventListHtml}
-    ${relatedLinksHtml ? `  <nav id="seo-related" aria-label="Powiązane listy biegów" style="padding:1.25rem 1.5rem;background:#0A0A10;border-top:1px solid #1C1C2A">
-    <span style="display:block;font-family:sans-serif;font-size:0.65rem;color:#8886A0;margin-bottom:0.625rem;text-transform:uppercase;letter-spacing:0.08em">Powiązane kategorie</span>
+    ${relatedLinksHtml ? `  <nav id="seo-related" aria-label="Powiązane listy biegów" style="padding:1.25rem 1.5rem;background:#0D110C;border-top:1px solid #222C1D">
+    <span style="display:block;font-family:sans-serif;font-size:0.65rem;color:#8C947C;margin-bottom:0.625rem;text-transform:uppercase;letter-spacing:0.08em">Powiązane kategorie</span>
     <div style="display:flex;flex-wrap:wrap;gap:0.375rem">
 ${relatedLinksHtml}
     </div>

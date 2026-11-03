@@ -190,9 +190,9 @@ function buildRelatedNav(event) {
   const regionSlug = event.voivodeship ? DB_TO_REGION_SLUG[event.voivodeship] : null
   if (regionSlug) links.push({ href: `/listy/${regionSlug}`, label: `Biegi — ${event.voivodeship}` })
 
-  const items = links.map(l => `      <a href="${l.href}" style="color:#B0AEC6;font-size:0.8rem;padding:0.25rem 0.625rem;border:1px solid #262638;text-decoration:none;white-space:nowrap">${escapeHtml(l.label)}</a>`).join('\n')
-  return `  <nav aria-label="Powiązane kategorie biegów" style="padding:1.25rem 1.5rem;background:#0A0A10;border-top:1px solid #1C1C2A">
-    <span style="display:block;font-family:sans-serif;font-size:0.65rem;color:#8886A0;margin-bottom:0.625rem;text-transform:uppercase;letter-spacing:0.08em">Więcej biegów</span>
+  const items = links.map(l => `      <a href="${l.href}" style="color:#AEB59E;font-size:0.8rem;padding:0.25rem 0.625rem;border:1px solid #2E3B27;text-decoration:none;white-space:nowrap">${escapeHtml(l.label)}</a>`).join('\n')
+  return `  <nav aria-label="Powiązane kategorie biegów" style="padding:1.25rem 1.5rem;background:#0D110C;border-top:1px solid #222C1D">
+    <span style="display:block;font-family:sans-serif;font-size:0.65rem;color:#8C947C;margin-bottom:0.625rem;text-transform:uppercase;letter-spacing:0.08em">Więcej biegów</span>
     <div style="display:flex;flex-wrap:wrap;gap:0.375rem">
 ${items}
     </div>
@@ -235,11 +235,11 @@ function buildRelatedEvents(event, currentSlug, manifest, today) {
     if (dateLabel) parts.push(dateLabel)
     if (e.location) parts.push(e.location)
     const label = escapeHtml(parts.join(' \u2014 '))
-    return `      <li style="margin:0"><a href="/kalendarz/${escapeHtml(slug)}" style="color:#B0AEC6;text-decoration:none;display:block;padding:0.25rem 0">${label}</a></li>`
+    return `      <li style="margin:0"><a href="/kalendarz/${escapeHtml(slug)}" style="color:#AEB59E;text-decoration:none;display:block;padding:0.25rem 0">${label}</a></li>`
   }).join('\n')
 
-  return `  <nav aria-label="Powi\u0105zane biegi" style="padding:1.25rem 1.5rem;background:#0A0A10;border-top:1px solid #1C1C2A;font-family:'Rajdhani',sans-serif">
-    <h2 style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:0.85rem;color:#DDDCEC;text-transform:uppercase;letter-spacing:0.08em;margin:0 0 0.625rem">Powi\u0105zane biegi</h2>
+  return `  <nav aria-label="Powi\u0105zane biegi" style="padding:1.25rem 1.5rem;background:#0D110C;border-top:1px solid #222C1D;font-family:'Rajdhani',sans-serif">
+    <h2 style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:0.85rem;color:#E4E6D6;text-transform:uppercase;letter-spacing:0.08em;margin:0 0 0.625rem">Powi\u0105zane biegi</h2>
     <ul style="list-style:none;padding:0;margin:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:0 1rem;font-size:0.8rem">
 ${items}
     </ul>

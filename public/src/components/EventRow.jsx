@@ -7,7 +7,7 @@ import { slugify } from '../lib/slugify.js'
 
 const baseTag = 'font-mono text-[10px] font-semibold tracking-wide px-2 py-0.5 border uppercase'
 const typeTagClass = `${baseTag} border-apex-cyan/30 text-apex-cyan`
-const distTagClass = `${baseTag} border-[rgba(187,221,0,0.3)] text-apex-yellow-dim`
+const distTagClass = `${baseTag} border-[rgba(168,194,58,0.3)] text-apex-yellow-dim`
 
 const TYPE_LABELS = {
   trail: 'trail',
@@ -112,7 +112,7 @@ export default function EventRow({ event }) {
             <StarButton eventId={event.id} />
             <button data-testid="report-event-btn" onClick={handleReport} title="Zgłoś nieprawidłowe dane wydarzenia"
               className="text-apex-muted hover:text-apex-yellow focus:text-apex-yellow transition-colors px-2 py-1 ml-1 flex items-center gap-1.5 text-[10px] font-mono font-semibold tracking-wide uppercase border border-apex-border hover:border-apex-yellow/40 shrink-0"
-              aria-label="Zgłoś nieprawidłowe dane wydarzenia">
+              aria-label="Zgłoś poprawkę: nieprawidłowe dane wydarzenia">
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z" />
                 <line x1="4" y1="22" x2="4" y2="15" />
@@ -154,7 +154,7 @@ export default function EventRow({ event }) {
               <StarButton eventId={event.id} />
               <button data-testid="report-event-btn" onClick={handleReport}
                 className="text-apex-muted active:text-apex-yellow transition-colors px-2 py-1 inline-flex items-center gap-1.5 text-[10px] font-mono font-semibold tracking-wide uppercase border border-apex-border"
-                aria-label="Zgłoś nieprawidłowe dane wydarzenia">
+                aria-label="Zgłoś poprawkę: nieprawidłowe dane wydarzenia">
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z" />
                   <line x1="4" y1="22" x2="4" y2="15" />

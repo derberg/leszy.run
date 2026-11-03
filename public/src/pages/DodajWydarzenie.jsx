@@ -172,8 +172,8 @@ export default function DodajWydarzenie() {
         <Navbar />
         <main className="relative">
           <div className="fixed inset-0 flex items-center justify-center pointer-events-none z-0" aria-hidden="true">
-            <img src="/logo-bez-napisu.svg" alt="" className={`w-[80vh] max-w-[90vw] h-auto ${isDark ? 'opacity-[0.04]' : 'opacity-[0.06]'}`}
-              style={{ filter: isDark ? 'brightness(1.4) drop-shadow(0 0 20px rgba(45,90,39,0.6))' : 'drop-shadow(0 0 20px rgba(45,90,39,0.1))' }} />
+            <img src="/logo-bez-napisu.svg" alt="" className={`w-[80vh] max-w-[90vw] h-auto ${isDark ? 'opacity-[0.04] bg-logo-dark' : 'opacity-[0.06]'}`}
+              style={{ filter: isDark ? undefined : 'drop-shadow(0 0 20px rgba(45,90,39,0.1))' }} />
           </div>
           <div className="pt-24 pb-16 px-6 max-w-[600px] mx-auto relative z-10 text-center">
             <div className="text-apex-yellow text-4xl mb-4">🔒</div>
@@ -201,8 +201,8 @@ export default function DodajWydarzenie() {
         <Navbar />
         <main className="relative">
           <div className="fixed inset-0 flex items-center justify-center pointer-events-none z-0" aria-hidden="true">
-            <img src="/logo-bez-napisu.svg" alt="" className={`w-[80vh] max-w-[90vw] h-auto ${isDark ? 'opacity-[0.04]' : 'opacity-[0.06]'}`}
-              style={{ filter: isDark ? 'brightness(1.4) drop-shadow(0 0 20px rgba(45,90,39,0.6))' : 'drop-shadow(0 0 20px rgba(45,90,39,0.1))' }} />
+            <img src="/logo-bez-napisu.svg" alt="" className={`w-[80vh] max-w-[90vw] h-auto ${isDark ? 'opacity-[0.04] bg-logo-dark' : 'opacity-[0.06]'}`}
+              style={{ filter: isDark ? undefined : 'drop-shadow(0 0 20px rgba(45,90,39,0.1))' }} />
           </div>
           <div className="pt-24 pb-16 px-6 max-w-[600px] mx-auto relative z-10 text-center">
             <div className="text-apex-yellow text-4xl mb-4">&#10003;</div>
@@ -222,8 +222,8 @@ export default function DodajWydarzenie() {
       <Navbar />
       <main className="relative">
         <div className="fixed inset-0 flex items-center justify-center pointer-events-none z-0" aria-hidden="true">
-          <img src="/logo-bez-napisu.svg" alt="" className={`w-[80vh] max-w-[90vw] h-auto ${isDark ? 'opacity-[0.04]' : 'opacity-[0.06]'}`}
-            style={{ filter: isDark ? 'brightness(1.4) drop-shadow(0 0 20px rgba(45,90,39,0.6))' : 'drop-shadow(0 0 20px rgba(45,90,39,0.1))' }} />
+          <img src="/logo-bez-napisu.svg" alt="" className={`w-[80vh] max-w-[90vw] h-auto ${isDark ? 'opacity-[0.04] bg-logo-dark' : 'opacity-[0.06]'}`}
+            style={{ filter: isDark ? undefined : 'drop-shadow(0 0 20px rgba(45,90,39,0.1))' }} />
         </div>
         <div className="pt-20 pb-16 px-6 max-w-[600px] mx-auto relative z-10">
           <Link to="/kalendarz" className="inline-block font-mono text-[11px] text-apex-muted hover:text-apex-yellow-dim transition-colors mb-4">&larr; Kalendarz</Link>
