@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useSearchParams, Link } from 'react-router-dom'
-import { supabase } from '../lib/supabase.js'
+import { loadCalendarEvents, filterCalendarEvents } from '../lib/calendarData.js'
 import Navbar from '../components/Navbar.jsx'
 import FilterBar from '../components/FilterBar.jsx'
 import EventRow from '../components/EventRow.jsx'
@@ -34,7 +34,9 @@ function nameSimilar(a, b) {
 function dedup(events) {
   const seen = []
   return events.filter(e => {
-    const isDup = seen.some(s => s.date === e.date && nameSimilar(s.name, e.name))
+    // Same town too: "Bieg Niepodległości" in Kraków and "Bieg Niepodległości Rumia" share a
+    // date and a name prefix, and the name test alone hid one of them.
+    const isDup = seen.some(s => s.date === e.date && normName(s.location || '') === normName(e.location || '') && nameSimilar(s.name, e.name))
     if (!isDup) { seen.push(e); return true }
     return false
   })
@@ -199,63 +201,30 @@ export default function Kalendarz() {
 
   const [rawData, setRawData] = useState({ data: [], count: 0 })
 
-  // Supabase fetch — only runs when server-side query params change (NOT radius/distance/price)
+  // Every race comes from one static file written at build time (lib/calendarData.js);
+  // these are the filters Supabase used to apply. Nothing here queries the database.
   const fetchEvents = useCallback(async () => {
     setLoading(true)
     try {
-      let query = supabase
-        .from('calendar_events')
-        .select('*', { count: 'exact' })
-        .in('status', ['active', 'cancelled'])
-        .order('date', { ascending: true })
-
+      const all = await loadCalendarEvents()
       const [startDate, endDate] = getDateRange(filters.timeRange)
-      query = query.gte('date', startDate)
-      if (endDate) query = query.lte('date', endDate)
-
-      const addedSince = getAddedSince(filters.added)
-      if (addedSince) query = query.gte('created_at', addedSince)
-
-      if (filters.search) {
-        query = query.or(`name.ilike.%${filters.search}%,location.ilike.%${filters.search}%`)
-      }
-
-      if (filters.type.length === 1) {
-        query = query.contains('event_type', [filters.type[0]])
-      } else if (filters.type.length > 1) {
-        query = query.or(filters.type.map(t => `event_type.cs.{${t}}`).join(','))
-      }
-
-      if (filters.voivodeship.length === 1) {
-        query = query.eq('voivodeship', filters.voivodeship[0])
-      } else if (filters.voivodeship.length > 1) {
-        query = query.in('voivodeship', filters.voivodeship)
-      }
-
-      if (clubOnly) {
-        const clubIds = Object.keys(clubCounts)
-        // placeholder UUID → empty result instead of unfiltered when no club stars
-        query = query.in('id', clubIds.length ? clubIds : ['00000000-0000-0000-0000-000000000000'])
-      }
-
-      // Map view and client-side filters need all results (no pagination at DB level)
-      if (view === 'map' || view === 'calendar' || filters.distance.length || filters.price || userLocation) {
-        query = query.limit(2000)
-      } else {
-        const from = (page - 1) * PAGE_SIZE
-        query = query.range(from, from + PAGE_SIZE - 1)
-      }
-
-      const { data, count, error } = await query
-      if (error) console.error('Calendar fetch error:', error.message)
-
-      setRawData({ data: dedup(data || []), count: count || 0 })
+      const data = filterCalendarEvents(all, {
+        startDate,
+        endDate,
+        addedSince: getAddedSince(filters.added),
+        search: filters.search,
+        types: filters.type,
+        voivodeships: filters.voivodeship,
+        ids: clubOnly ? Object.keys(clubCounts) : null,
+      })
+      const deduped = dedup(data)
+      setRawData({ data: deduped, count: deduped.length })
     } catch (err) {
       console.error('Calendar fetch failed:', err)
       setRawData({ data: [], count: 0 })
     }
     setLoading(false)
-  }, [filters, page, view, userLocation, clubOnly, clubCounts])
+  }, [filters, clubOnly, clubCounts])
 
   useEffect(() => { fetchEvents() }, [fetchEvents])
 
@@ -317,17 +286,17 @@ export default function Kalendarz() {
       }
     }
 
-    if (userLocation || filters.distance.length || filters.price) {
-      setAllFilteredEvents(filteredData)
+    // The whole filtered set is in memory: the list shows one page, the calendar grid and
+    // the map show everything.
+    setAllFilteredEvents(filteredData)
+    setTotal(filteredData.length)
+    if (view === 'list') {
       const from = (page - 1) * PAGE_SIZE
-      setTotal(filteredData.length)
       setEvents(filteredData.slice(from, from + PAGE_SIZE))
     } else {
-      setAllFilteredEvents(filteredData)
       setEvents(filteredData)
-      setTotal(rawData.count)
     }
-  }, [rawData, radius, filters.distance, filters.price, page, userLocation])
+  }, [rawData, radius, filters.distance, filters.price, page, userLocation, view])
 
   // Sync filters to URL
   useEffect(() => {
