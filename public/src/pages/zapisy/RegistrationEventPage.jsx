@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { Fragment, useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import useSeo from '../../hooks/useSeo.js'
 import { eventPageModel, statParts } from '../../lib/eventPageModel.js'
@@ -62,14 +62,18 @@ function JumpNav({ items }) {
     document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
   }
   return (
-    <nav className="flex items-center gap-x-4 overflow-x-auto whitespace-nowrap -mx-4 px-4 sm:mx-0 sm:px-0" data-testid="jump-nav">
+    <nav className="flex items-center gap-x-2.5 overflow-x-auto whitespace-nowrap -mx-4 px-4 sm:mx-0 sm:px-0" data-testid="jump-nav">
       {items.map((it, i) => (
-        <a key={it.id} href={`#${it.id}`} onClick={(e) => go(e, it.id)} data-testid={`jump-${it.id}`}
-          className={`min-h-9 flex items-center shrink-0 font-mono text-xs tracking-wider uppercase ${i === 0
-            ? 'px-3 border border-apex-yellow-dim text-apex-yellow hover:bg-apex-yellow hover:text-apex-ink'
-            : 'text-apex-muted hover:text-apex-yellow'}`}>
-          {it.label}
-        </a>
+        <Fragment key={it.id}>
+          {/* „·” between the plain links, like the date line; the bordered first one needs none. */}
+          {i > 1 && <span className="font-mono text-xs text-apex-muted" aria-hidden="true">·</span>}
+          <a href={`#${it.id}`} onClick={(e) => go(e, it.id)} data-testid={`jump-${it.id}`}
+            className={`min-h-9 flex items-center shrink-0 font-mono text-xs tracking-wider uppercase ${i === 0
+              ? 'px-3 mr-1.5 border border-apex-yellow-dim text-apex-yellow hover:bg-apex-yellow hover:text-apex-ink'
+              : 'text-apex-muted hover:text-apex-yellow'}`}>
+            {it.label}
+          </a>
+        </Fragment>
       ))}
     </nav>
   )
