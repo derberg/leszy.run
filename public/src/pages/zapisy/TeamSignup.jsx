@@ -12,7 +12,7 @@ import {
   profilePrefill, mergePrefill, fieldModes, needsCode, categoryPreview, consentsComplete, kidsGroupLabel,
 } from '../../lib/personFormModel.js'
 import {
-  updatePerson, setCardOpen, setGuardianConsent, cardVariants, effectivePerson, cardEmpty, cardName, claimedEmail,
+  updatePerson, setCardOpen, setGuardianConsent, cardVariants, effectivePerson, cardEmpty, cardName, claimedEmail, copiedFromNames,
   erroredCards, fixMessage, formStep, LIST_STEP, setCardVoucher, setCardExtra, draftOrdersExtras, draftConsents,
 } from '../../lib/groupDraft.js'
 import { donationsOffered, orderableExtras, pickedExtras } from '../../lib/cartModel.js'
@@ -21,7 +21,7 @@ import { discountedPrice, voucherLineLabel } from '@registration/pricing.js'
 import { normalizeCode } from '@registration/vouchers.js'
 import {
   ADULT_EMAIL_NOTE, initTeam, setSize, droppedBy, moveMember, removeMember, squadCards, toTeamRequest, teamContext, checkTeam, checkCaptain,
-  firstOpenMember, memberAfter, memberAgeLabel, teamFailure, repricedFee,
+  firstOpenMember, memberAfter, memberAgeLabel, teamFailure, repricedFee, carryOverMember,
 } from '../../lib/teamDraft.js'
 import { useLeaveGuard, confirmLeave } from '../../lib/leaveGuard.js'
 import { focusCardError, useStepHistory } from '../../lib/useStepHistory.js'
@@ -144,6 +144,11 @@ export default function TeamSignup({ raw: rawProp, categoryId, preview = false, 
       setAt(s.at)
     },
   })
+
+  // A member's step opening takes the club and town of the card before it, where nothing was typed.
+  useEffect(() => {
+    if (onMember) setDraft((d) => carryOverMember(d, stepId))
+  }, [onMember, stepId])
 
   useEffect(() => {
     const key = errorFocus.current
@@ -561,7 +566,7 @@ export default function TeamSignup({ raw: rawProp, categoryId, preview = false, 
               aria-invalid={nameError ? 'true' : undefined} aria-describedby={nameError ? 'team-name-error team-name-note' : 'team-name-note'} disabled={busy}
               onChange={(e) => { const v = e.target.value; setDraft((d) => ({ ...d, teamName: v })); setNameError(null) }} />
             {nameError && <p id="team-name-error" className="text-apex-red font-sans text-sm">{nameError}</p>}
-            <p id="team-name-note" className="font-sans text-sm text-apex-muted" data-testid="team-name-public">Nazwa drużyny będzie widoczna na publicznej liście startowej.</p>
+            <p id="team-name-note" className="font-sans text-sm text-apex-muted" data-testid="team-name-public">Nazwa drużyny będzie widoczna na publicznej liście startowej. To nie jest klub — klub każdej osoby wpisujesz w jej danych.</p>
           </div>
           <div className="flex flex-col gap-1.5">
             <span id="team-size-label" className={labelCls}>Ile osób w składzie</span>
@@ -619,7 +624,7 @@ export default function TeamSignup({ raw: rawProp, categoryId, preview = false, 
         <PersonForm fields={fields} value={effectivePerson(draft, i, today)} onChange={change(c.key, i)} errors={errors[c.key] ?? {}}
           competition={competition} raceDate={context.raceDate} reckoning={context.reckoning} ageGroups={context.ageGroups} disabled={busy}
           variant={variants[i]} idPrefix={`p${n}`} prefill={null} codeNote={variants[i] === 'adult' ? ADULT_EMAIL_NOTE : undefined}
-          extras={extrasProps(c)}
+          extras={extrasProps(c)} copied={copiedFromNames(draft, c.key)}
           guardian={{
             name: cardName(draft, 0), email: draft.cards[0].person.email, checked: c.guardianConsent,
             onChange: (v) => { setDraft((d) => setGuardianConsent(d, c.key, v)); clearErrors(c.key, ['guardianConsent']) },

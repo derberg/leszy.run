@@ -10,7 +10,7 @@
 import { normalizeTeamRequest, validateTeam, CAPTAIN_SELF_MESSAGE } from '../../../supabase/functions/_shared/registration/team.js'
 import { ageOn } from '../../../supabase/functions/_shared/registration/ageGroups.js'
 import {
-  addPerson, cartOfCard, cardVariant, claimedEmail, draftConsents, erroredCards, groupFailure, LIST_STEP, newDraft, removePerson, requestPeople,
+  addPerson, carryOver, cartOfCard, cardVariant, claimedEmail, draftConsents, erroredCards, groupFailure, LIST_STEP, newDraft, removePerson, requestPeople,
   withoutHiddenFields,
 } from './groupDraft.js'
 import { personContext } from './personFormModel.js'
@@ -73,6 +73,18 @@ export function squadCards(draft) {
     const index = draft.cards.findIndex((c) => c.key === key)
     return { card: draft.cards[index], index, leg: i + 1 }
   })
+}
+
+/**
+ * A member's step opening: the club and town come from the nearest filled card before it in the
+ * squad as shown (a finished member, or the captain, who is always filled). Captain-first that is
+ * the captain for member 2 and member 2 for member 3. The captain's own card never takes a copy.
+ */
+export function carryOverMember(draft, key) {
+  if (key === captainKey(draft)) return draft
+  const before = draft.order.slice(0, Math.max(draft.order.indexOf(key), 0)).reverse()
+  const from = before.find((k) => k === captainKey(draft) || draft.cards.find((c) => c.key === k)?.open === false) ?? captainKey(draft)
+  return carryOver(draft, key, from)
 }
 
 /** 'minor' under 18 on today's Warsaw date, otherwise 'adult': the group form's rule (T-61). */

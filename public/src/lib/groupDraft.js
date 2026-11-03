@@ -25,7 +25,7 @@ export const EMPTY_VOUCHER = { code: '', state: 'idle', percent: null, price: nu
 
 const card = (categoryId, person = {}) => ({
   key: newKey(), categoryId, person: { ...EMPTY_PERSON, ...person }, guardianConsent: false, phoneTouched: false, open: true,
-  voucher: EMPTY_VOUCHER, extras: {},
+  voucher: EMPTY_VOUCHER, extras: {}, typed: {}, copied: {},
 })
 
 const ISO_DATE = /^(\d{4})-(\d{2})-(\d{2})$/
@@ -72,13 +72,64 @@ export function removePerson(draft, key) {
 
 const mapCard = (draft, key, fn) => ({ ...draft, cards: draft.cards.map((c, i) => (c.key === key ? fn(c, i) : c)) })
 
-/** A partial person patch. A phone typed on any card but card 1 is that card's own from then on. */
+/**
+ * A partial person patch. A phone typed on any card but card 1 is that card's own from then on,
+ * and so is a typed club or town: carryOver never fills it again, and its „Skopiowano od” goes.
+ */
 export function updatePerson(draft, key, patch) {
-  return mapCard(draft, key, (c, i) => ({
-    ...c,
-    person: { ...c.person, ...patch },
-    phoneTouched: c.phoneTouched || (i > 0 && 'phone' in patch),
-  }))
+  return mapCard(draft, key, (c, i) => {
+    const own = CARRY_FIELDS.filter((k) => k in patch)
+    const copied = { ...c.copied }
+    for (const k of own) delete copied[k]
+    return {
+      ...c,
+      person: { ...c.person, ...patch },
+      phoneTouched: c.phoneTouched || (i > 0 && 'phone' in patch),
+      typed: own.length ? { ...c.typed, ...Object.fromEntries(own.map((k) => [k, true])) } : (c.typed ?? {}),
+      copied,
+    }
+  })
+}
+
+/** What a squad usually shares, so the next card starts with the previous one's (carryOver). */
+export const CARRY_FIELDS = ['club', 'city']
+
+/**
+ * Card `key` takes `fromKey`'s club and town, where the person has typed nothing into that field
+ * on this card. `copied` remembers the source card, for the form's „Skopiowano od: …”. The copy
+ * follows the source while untyped: an emptied source empties it. Nothing changes → the same draft.
+ */
+export function carryOver(draft, key, fromKey) {
+  const target = draft.cards.find((c) => c.key === key)
+  const source = draft.cards.find((c) => c.key === fromKey)
+  if (!target || !source || key === fromKey) return draft
+  const person = { ...target.person }
+  const copied = { ...target.copied }
+  let changed = false
+  for (const k of CARRY_FIELDS) {
+    if (target.typed?.[k]) continue
+    const v = source.person[k] ?? ''
+    // A value the card did not get from carryOver is left alone.
+    if ((person[k] ?? '') !== '' && !copied[k]) continue
+    const from = v === '' ? undefined : fromKey
+    if (person[k] === v && copied[k] === from) continue
+    person[k] = v
+    if (from) copied[k] = from
+    else delete copied[k]
+    changed = true
+  }
+  return changed ? mapCard(draft, key, (c) => ({ ...c, person, copied })) : draft
+}
+
+/** The names of the cards a card's club and town were copied from: { club?: 'Jan Kowalski', city?: … }. */
+export function copiedFromNames(draft, key) {
+  const c = draft.cards.find((x) => x.key === key)
+  const out = {}
+  for (const [field, from] of Object.entries(c?.copied ?? {})) {
+    const i = draft.cards.findIndex((x) => x.key === from)
+    out[field] = i < 0 ? 'poprzedniej osoby' : cardName(draft, i)
+  }
+  return out
 }
 
 /**
@@ -128,9 +179,10 @@ export function setGuardianConsent(draft, key, value) {
   return mapCard(draft, key, (c) => ({ ...c, guardianConsent: value === true }))
 }
 
-/** Nothing typed or ticked on the card yet. */
+/** Nothing typed or ticked on the card yet: a club or town carryOver copied in counts as nothing. */
 export function cardEmpty(c) {
-  return !!c && c.guardianConsent !== true && Object.keys(EMPTY_PERSON).every((k) => (c.person?.[k] ?? '') === '')
+  return !!c && c.guardianConsent !== true
+    && Object.keys(EMPTY_PERSON).every((k) => (c.person?.[k] ?? '') === '' || !!c.copied?.[k])
 }
 
 /**

@@ -244,8 +244,8 @@ test('T-62 M-1 RB1 says under the name that it is public', async ({ actors }) =>
   await page.goto(`/events/${event.slug}`)
   await page.getByTestId('competition').first().click()
   const note = page.getByTestId('team-name-public')
-  await expect(note).toHaveText('Nazwa drużyny będzie widoczna na publicznej liście startowej.')
-  await expect(page.getByLabel('Nazwa drużyny')).toHaveAccessibleDescription('Nazwa drużyny będzie widoczna na publicznej liście startowej.')
+  await expect(note).toHaveText('Nazwa drużyny będzie widoczna na publicznej liście startowej. To nie jest klub — klub każdej osoby wpisujesz w jej danych.')
+  await expect(page.getByLabel('Nazwa drużyny')).toHaveAccessibleDescription('Nazwa drużyny będzie widoczna na publicznej liście startowej. To nie jest klub — klub każdej osoby wpisujesz w jej danych.')
 })
 
 for (const width of WIDTHS) {
