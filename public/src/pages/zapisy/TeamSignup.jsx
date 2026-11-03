@@ -571,7 +571,7 @@ export default function TeamSignup({ raw: rawProp, categoryId, preview = false, 
               aria-invalid={nameError ? 'true' : undefined} aria-describedby={nameError ? 'team-name-error team-name-note' : 'team-name-note'} disabled={busy}
               onChange={(e) => { const v = e.target.value; setDraft((d) => ({ ...d, teamName: v })); setNameError(null) }} />
             {nameError && <p id="team-name-error" className="text-apex-red font-sans text-sm">{nameError}</p>}
-            <p id="team-name-note" className="font-sans text-sm text-apex-muted" data-testid="team-name-public">Nazwa drużyny będzie widoczna na publicznej liście startowej. To nie jest klub — klub każdej osoby wpisujesz w jej danych.</p>
+            <p id="team-name-note" className="font-sans text-sm text-apex-muted" data-testid="team-name-public">Nazwa drużyny będzie widoczna na publicznej liście startowej. To nie jest klub. Klub podaje każda osoba osobno, a w jednej drużynie mogą być osoby z różnych klubów.</p>
           </div>
           <div className="flex flex-col gap-1.5">
             <span id="team-size-label" className={labelCls}>Ile osób w składzie</span>
