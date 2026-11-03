@@ -71997,6 +71997,29 @@
     "is_kids": null,
     "status": "active"
   },
+  "ii-sztafeta-mikolajow-wataha-i-przyjaciele-2026-12-06": {
+    "id": "ceea886d-f30f-4fab-8882-8b1b76d43c09",
+    "name": "II Sztafeta Mikołajów - Wataha i Przyjaciele",
+    "date": "2026-12-06",
+    "registration_deadline": "2026-12-03",
+    "regulamin_url": null,
+    "price_from": 200,
+    "price_to": 200,
+    "location": "Szubin",
+    "voivodeship": "Kujawsko-Pomorskie",
+    "lat": 53.01175,
+    "lng": 17.74394,
+    "distances": [
+      "60 minut"
+    ],
+    "event_type": [
+      "charytatywny"
+    ],
+    "registration_url": "https://www.leszy.run/events/ii-sztafeta-mikolajow-wataha-i-przyjaciele",
+    "website": null,
+    "is_kids": null,
+    "status": "active"
+  },
   "xv-grand-prix-krakowa-w-biegach-gorskich-2026-12-06": {
     "id": "348cdda4-1ac0-4b4b-bbbf-b0580a0766c9",
     "name": "XV Grand Prix Krakowa w biegach górskich",

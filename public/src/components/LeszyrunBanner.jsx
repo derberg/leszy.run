@@ -37,12 +37,23 @@ export default function LeszyrunBanner({ className = 'max-w-[1200px] mx-auto px-
 
     supabase
       .from('events')
-      .select('name, date, location, slug, event_url')
+      .select('id, name, date, location, slug, event_url')
       .eq('visibility', 'public')
       .gte('date', cutoffStr)
       .order('date', { ascending: true })
-      .then(({ data }) => {
-        if (data?.length) setEvents(data)
+      .then(async ({ data }) => {
+        if (!data?.length) return
+        // Type and distances live on the published calendar row, not on `events`.
+        const { data: rows } = await supabase
+          .from('calendar_events')
+          .select('leszyrun_event_id, event_type, distances')
+          .in('leszyrun_event_id', data.map(ev => ev.id))
+        const byId = Object.fromEntries((rows || []).map(r => [r.leszyrun_event_id, r]))
+        setEvents(data.map(ev => ({
+          ...ev,
+          charity: byId[ev.id]?.event_type?.includes('charytatywny') ?? false,
+          distances: byId[ev.id]?.distances || [],
+        })))
       })
   }, [])
 
@@ -73,35 +84,45 @@ export default function LeszyrunBanner({ className = 'max-w-[1200px] mx-auto px-
         const countdown = countdowns[event.slug]
         const highlights = EVENT_HIGHLIGHTS[event.slug]
 
+        const accent = event.charity
+          ? 'border-l-apex-rose bg-apex-rose/[0.07] border-apex-rose/35 hover:bg-apex-rose/[0.12] hover:border-apex-rose/50'
+          : 'border-l-apex-yellow bg-apex-yellow/[0.10] border-apex-yellow/35 hover:bg-apex-yellow/[0.16] hover:border-apex-yellow/50'
+        const chips = highlights?.options || event.distances
+
         return (
           <a key={event.slug} href={event.event_url || `/events/${event.slug}`} target={event.event_url ? '_blank' : undefined} rel={event.event_url ? 'noopener' : undefined}
-            className="block border-l-[4px] border-l-apex-yellow bg-apex-yellow/[0.06] border border-apex-yellow/20 px-5 py-5 hover:bg-apex-yellow/[0.10] hover:border-apex-yellow/30 transition-all no-underline text-inherit group relative overflow-hidden">
+            className={`block border-l-[6px] border ${accent} px-5 py-5 md:px-6 md:py-6 transition-all no-underline text-inherit group relative overflow-hidden`}>
             {/* Diagonal accent stripe */}
-            <div className="absolute top-0 right-0 w-32 h-full bg-apex-yellow/[0.04] -skew-x-12 translate-x-8" />
+            <div className={`absolute top-0 right-0 w-40 h-full ${event.charity ? 'bg-apex-rose/[0.06]' : 'bg-apex-yellow/[0.06]'} -skew-x-12 translate-x-8`} />
 
             <div className="relative flex items-center justify-between gap-4">
               <div className="min-w-0">
-                <div className="flex items-center gap-3 mb-1.5">
-                  <span className="font-mono text-[10px] font-semibold tracking-widest px-2.5 py-1 bg-apex-yellow/15 text-apex-yellow border border-apex-yellow/30 flex-shrink-0">
+                <div className="flex flex-wrap items-center gap-2 mb-2">
+                  <span className="font-mono text-[10px] font-bold tracking-widest px-2.5 py-1 bg-apex-yellow text-apex-bg flex-shrink-0">
                     POLECAMY
                   </span>
-                  {countdown && <span className="font-mono text-[11px] font-semibold text-apex-yellow">{countdown}</span>}
+                  {event.charity && (
+                    <span className="font-mono text-[10px] font-bold tracking-widest px-2.5 py-1 bg-apex-rose/15 text-apex-rose border border-apex-rose/40 flex-shrink-0 whitespace-nowrap">
+                      ♥ CHARYTATYWNY
+                    </span>
+                  )}
+                  {countdown && <span className="font-mono text-[12px] font-semibold text-apex-yellow whitespace-nowrap">{countdown}</span>}
                 </div>
-                <div className="font-display font-extrabold text-lg md:text-xl tracking-wider uppercase text-apex-text-bright group-hover:text-apex-yellow transition-colors truncate">
+                <div className="font-display font-extrabold text-xl md:text-2xl tracking-wider uppercase text-apex-text-bright group-hover:text-apex-yellow transition-colors md:truncate">
                   {event.name}
                 </div>
                 <div className="flex items-center gap-2 mt-1">
                   <span className="font-mono text-[12px] font-semibold text-apex-yellow">{dateFormatted}</span>
                   {event.location && <span className="text-[13px] text-apex-muted">· {event.location}</span>}
                 </div>
-                {highlights && (
+                {(highlights?.terrain || chips.length > 0) && (
                   <div className="flex flex-wrap items-center gap-1.5 mt-2.5">
-                    {highlights.terrain && (
+                    {highlights?.terrain && (
                       <span className="font-mono text-[10px] font-semibold tracking-widest px-2 py-0.5 bg-apex-cyan/15 text-apex-cyan border border-apex-cyan/30 uppercase">
                         {highlights.terrain}
                       </span>
                     )}
-                    {highlights.options.map(option => (
+                    {chips.map(option => (
                       <span key={option} className="font-mono text-[11px] font-medium px-2 py-0.5 bg-apex-yellow/[0.06] text-apex-text-bright border border-apex-yellow/25">
                         {option}
                       </span>
@@ -110,7 +131,7 @@ export default function LeszyrunBanner({ className = 'max-w-[1200px] mx-auto px-
                 )}
               </div>
               <div className="flex-shrink-0 hidden md:block">
-                <span className="font-display font-bold text-[12px] tracking-widest uppercase px-5 py-2.5 border-2 border-apex-yellow text-apex-yellow group-hover:bg-apex-yellow group-hover:text-apex-ink transition-all">
+                <span className="font-display font-bold text-[13px] tracking-widest uppercase px-6 py-3 bg-apex-yellow text-apex-bg border-2 border-apex-yellow group-hover:bg-transparent group-hover:text-apex-yellow transition-all whitespace-nowrap">
                   Szczegóły &rarr;
                 </span>
               </div>
