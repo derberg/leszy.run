@@ -7,6 +7,7 @@ import LandingMap from '../components/LandingMap.jsx'
 import LeszyrunBanner from '../components/LeszyrunBanner.jsx'
 import NotFound from './NotFound.jsx'
 import useSeo from '../hooks/useSeo.js'
+import { isLandingIndexable } from '../lib/landingIndexing.js'
 import {
   TYPE_SLUG_TO_DB, REGION_SLUG_TO_DB, DB_TO_REGION_SLUG, REGION_CENTER,
   MONTH_SLUG_TO_NUM, SPECIAL_SLUGS, SPECIAL_H1,
@@ -233,8 +234,8 @@ export default function LandingPage() {
     description: landingData?.description,
     path: canonicalPath,
     jsonLd,
-    // Match the static generator: zero-event landing pages are soft-404 duplicates → noindex.
-    noindex: (landingData?.eventCount || 0) === 0,
+    // The static generator's rule, so hydration never flips the robots tag.
+    noindex: !isLandingIndexable(landingData),
   })
 
   if (isUnknownSlug) return <NotFound />

@@ -74,7 +74,8 @@ function buildSchemaDescription(event) {
 function buildJsonLd(event, slug) {
   const startDate = event.date ? String(event.date).slice(0, 10) : undefined
   const eventUrl = `https://www.leszy.run/kalendarz/${slug}`
-  const datePublished = event.created_at ? String(event.created_at).slice(0, 10) : startDate
+  // Real row timestamps only. The race date is not when the page was published.
+  const datePublished = event.created_at ? String(event.created_at).slice(0, 10) : undefined
   const dateModified = event.updated_at ? String(event.updated_at).slice(0, 10) : datePublished
 
   const sportsEvent = {
@@ -92,11 +93,6 @@ function buildJsonLd(event, slug) {
     inLanguage: 'pl-PL',
     datePublished,
     dateModified,
-    organizer: {
-      '@type': 'Organization',
-      name: 'Organizator',
-      url: event.website || event.registration_url || eventUrl,
-    },
   }
 
   if (event.location) {
@@ -127,7 +123,6 @@ function buildJsonLd(event, slug) {
       highPrice: event.price_to != null ? event.price_to : event.price_from,
       priceCurrency: 'PLN',
       availability: 'https://schema.org/InStock',
-      validFrom: new Date().toISOString().slice(0, 10),
       url: event.registration_url || eventUrl,
     }
     if (event.registration_deadline) {
@@ -245,7 +240,9 @@ export default function EventPage() {
     // Stale/renamed event slugs orphan the old URL: no static file → SPA fallback → this
     // not-found state at HTTP 200 with a self-canonical reads as an indexable soft-404 and
     // Google clusters them as "duplicate, different canonical". noindex stops that bleed.
-    noindex: notFound,
+    // A past race is noindexed in the static HTML (generate-event-pages.js, same UTC-date
+    // comparison); saying "index" here flipped all of them back after hydration.
+    noindex: notFound || (event?.date ? String(event.date).slice(0, 10) < new Date().toISOString().slice(0, 10) : false),
   })
 
   // Loading state
