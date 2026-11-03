@@ -20,8 +20,9 @@ import { checkVoucherCode } from '../../lib/voucherCheck.js'
 import { discountedPrice, voucherLineLabel } from '@registration/pricing.js'
 import { normalizeCode } from '@registration/vouchers.js'
 import {
-  ADULT_EMAIL_NOTE, initTeam, setSize, droppedBy, moveMember, removeMember, squadCards, toTeamRequest, teamContext, checkTeam, checkCaptain,
-  firstOpenMember, memberAfter, memberAgeLabel, teamFailure, repricedFee, carryOverMember, carryOverSquad, carriedIn, memberCopiedFrom,
+  ADULT_EMAIL_NOTE, MEMBER_DETAILS_NOTE, setMoreFields, initTeam, setSize, droppedBy, moveMember, removeMember, squadCards, toTeamRequest,
+  teamContext, checkTeam, checkCaptain, firstOpenMember, memberAfter, memberAgeLabel, teamFailure, repricedFee, carryOverMember, carryOverSquad,
+  carriedIn, memberCopiedFrom,
 } from '../../lib/teamDraft.js'
 import { useLeaveGuard, confirmLeave } from '../../lib/leaveGuard.js'
 import { focusCardError, useStepHistory } from '../../lib/useStepHistory.js'
@@ -629,6 +630,8 @@ export default function TeamSignup({ raw: rawProp, categoryId, preview = false, 
         <PersonForm fields={fields} value={effectivePerson(draft, i, today)} onChange={change(c.key, i)} errors={errors[c.key] ?? {}}
           competition={competition} raceDate={context.raceDate} reckoning={context.reckoning} ageGroups={context.ageGroups} disabled={busy}
           variant={variants[i]} idPrefix={`p${n}`} prefill={null} codeNote={variants[i] === 'adult' ? ADULT_EMAIL_NOTE : undefined}
+          detailsNote={MEMBER_DETAILS_NOTE} moreFields={c.moreFields === true}
+          onMoreFields={(on) => setDraft((d) => setMoreFields(d, c.key, on))}
           extras={extrasProps(c)} copied={memberCopiedFrom(draft, c.key)}
           guardian={{
             name: cardName(draft, 0), email: draft.cards[0].person.email, checked: c.guardianConsent,

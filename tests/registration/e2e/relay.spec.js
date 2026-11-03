@@ -184,6 +184,12 @@ async function inviteeAccepts(context, email, token) {
   expect(code).toMatch(/^\d{6}$/)
   await page.locator('#consent-code').fill(code)
   await page.getByRole('button', { name: 'Dalej' }).click()
+  // The captain gave the name, birth date, gender and e-mail; the phone and the rest are the member's.
+  await expect(page.getByTestId('consent-owed')).toBeVisible()
+  await page.locator('#p-phone').fill('600300400')
+  for (const [id, value] of [['#p-city', 'Leszno'], ['#p-club', 'Leśne Dziki']]) {
+    if (await page.locator(id).count()) await page.locator(id).fill(value)
+  }
   await tickAll(page)
   await page.getByRole('button', { name: 'Akceptuję regulamin' }).click()
   await expect(page.getByTestId('consent-done')).toContainText('Dziękujemy — regulamin zaakceptowany.')

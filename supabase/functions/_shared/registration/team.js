@@ -81,8 +81,14 @@ export function validateTeam(req, { sessionEmail = null, competition = null, now
   const teamMin = Math.max(competition.teamMin, MIN_TEAM_SIZE)
   if (members.length < teamMin || members.length > teamMax) return refuse({}, teamSizeMessage(teamMin, teamMax))
 
+  // An adult member other than the captain may give the rest of their details on /zgoda
+  // (memberDetails.js), so the captain need not; the birth date and gender stay required here, so
+  // every rule they decide still holds.
   const group = validateGroup(
-    { people: members.map((m) => ({ categoryId, person: m.person, guardianConsent: m.guardianConsent })), buyer: null },
+    {
+      people: members.map((m, i) => ({ categoryId, person: m.person, guardianConsent: m.guardianConsent, detailsLater: i > 0 })),
+      buyer: null,
+    },
     { sessionEmail, competitions: new Map([[categoryId, competition]]), now },
   )
 

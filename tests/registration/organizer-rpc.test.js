@@ -381,6 +381,19 @@ test('O-18 organizer_edit_registration: allow-list, eligibility, the participant
   assert.equal(p.phone, '+48600700800')
 })
 
+test('O-18 a team member who has not given a phone yet (memberDetails.js): the organizer still edits the other fields; a phone is judged only when the edit changes it', async () => {
+  const event = await paidEvent()
+  const e = await paidEntry(event)
+  const { error } = await db().from('registrations').update({ phone: null }).eq('id', e.registrationId)
+  assert.ifError(error)
+  ok(await edit(e.registrationId, { lastName: 'Bezfonu' }))
+  assert.equal((await reg(e.registrationId)).last_name, 'Bezfonu')
+  refused(await edit(e.registrationId, { phone: 'abc' }), 'edit_invalid')
+  ok(await edit(e.registrationId, { phone: '+48600700801' }))
+  refused(await edit(e.registrationId, { phone: '' }), 'edit_invalid')
+  assert.equal((await reg(e.registrationId)).phone, '+48600700801')
+})
+
 test('O-18 final review M1: the adult or child check reads the age on race day, not today', async () => {
   const event = await paidEvent()
   // 17 today, 18 ten days from now, and the race is 30 days away: an adult, with an e-mail.

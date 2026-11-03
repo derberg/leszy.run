@@ -12,6 +12,7 @@ import { dataInfoOf } from '../../lib/dataInfo.js'
 import { eventPageModel } from '../../lib/eventPageModel.js'
 import { postAuthPath } from '../../lib/inviteLink.js'
 import { fieldModes, personContext } from '../../lib/personFormModel.js'
+import { missingDetailsText, stillMissing } from '@registration/memberDetails.js'
 import PersonForm from '../../components/registration/PersonForm.jsx'
 import ConsentList from '../../components/registration/ConsentList.jsx'
 import PageTop from '../../components/registration/PageTop.jsx'
@@ -25,6 +26,13 @@ import { eventPath } from './RegistrationEventPage.jsx'
 // a session whose address is the registration's. Every event consent and the LESZY.RUN service
 // regulamin are required boxes, as on the registration form. The person may correct their data
 // until registration closes (`editable`); the e-mail is never edited here.
+// A team member's captain must give only the name, birth date, gender and e-mail (memberDetails.js):
+// consent-request's `missingFields` names what the event still requires of them, the form shows
+// what the captain did fill, marks
+// those fields and the acceptance waits for them (accept-consent answers details_required too).
+// The birth date and gender stay editable as for any added adult: accept-consent and
+// accept_consent_request re-check every rule they decide (adult today, the competition's ages,
+// the age group), and a team has no rule beyond those.
 //
 // API: consent-request { token, sendCode?, code? } and accept-consent { token,
 // acceptedConsentIds, shownConsentIds, serviceRegulamin: true, edits? }; the contract is in the
@@ -217,6 +225,7 @@ function ConsentForm({ token, answer, snapshot, onAccepted, onRefused, onSession
   const [consentError, setConsentError] = useState(null)
   const [message, setMessage] = useState(null)
   const [busy, setBusy] = useState(false)
+  const owed = editable ? (answer.missingFields ?? []) : []
 
   const ready = serviceAccepted && consents.every((c) => accepted[c.id] === true)
 
@@ -250,6 +259,13 @@ function ConsentForm({ token, answer, snapshot, onAccepted, onRefused, onSession
   async function onSubmit(e) {
     e.preventDefault()
     if (busy || !ready) return
+    // The fields the event requires that this person still leaves empty: named here, before any call.
+    const empty = stillMissing(owed, person, answer.formFields)
+    if (Object.keys(empty).length) {
+      setErrors(empty)
+      setMessage('Uzupełnij zaznaczone pola.')
+      return
+    }
     setBusy(true)
     setMessage(null)
     setConsentError(null)
@@ -273,6 +289,10 @@ function ConsentForm({ token, answer, snapshot, onAccepted, onRefused, onSession
         closeEdits()
         return setMessage(err.message)
       }
+      if (err.code === 'details_required' && err.fields) {
+        setErrors(err.fields)
+        return setMessage(err.message)
+      }
       if (err.code === 'edit_invalid' && err.fields) {
         setErrors(err.fields)
         return setMessage('Popraw zaznaczone pola.')
@@ -286,7 +306,14 @@ function ConsentForm({ token, answer, snapshot, onAccepted, onRefused, onSession
     <form onSubmit={onSubmit} noValidate className="flex flex-col gap-[18px]" data-testid="consent-form">
       <PageTop right="Akceptacja regulaminu" />
       <EventStrip event={answer.event} competition={answer.competition} />
-      <h1 className="font-display font-extrabold text-[38px] leading-none uppercase text-apex-text-bright">Sprawdź dane</h1>
+      <h1 className="font-display font-extrabold text-[38px] leading-none uppercase text-apex-text-bright">
+        {owed.length ? 'Uzupełnij dane' : 'Sprawdź dane'}
+      </h1>
+      {owed.length > 0 && (
+        <p className="text-base border-l-2 border-apex-yellow pl-3" data-testid="consent-owed">
+          Osoba, która Cię zapisała, nie podała wszystkich danych. Uzupełnij: {missingDetailsText(owed)}.
+        </p>
+      )}
       {!editable && (
         <p className="text-base border-l-2 border-apex-yellow pl-3" data-testid="consent-edits-closed">
           Zapisy są zamknięte. Dane poprawisz w biurze zawodów.
@@ -294,7 +321,7 @@ function ConsentForm({ token, answer, snapshot, onAccepted, onRefused, onSession
       )}
       <PersonForm fields={fields} value={person} onChange={change} errors={errors} competition={comp}
         raceDate={ctx?.raceDate ?? answer.event.date} reckoning={ctx?.reckoning ?? 'race_day'} ageGroups={ctx?.ageGroups ?? []}
-        prefill={null} disabled={busy || !editable} variant="self" idPrefix="p" emailReadOnly />
+        prefill={null} disabled={busy || !editable} variant="self" idPrefix="p" emailReadOnly owed={owed} />
       <ConsentList consents={consents} accepted={accepted} onToggle={(id, v) => { setAccepted((a) => ({ ...a, [id]: v })); setConsentError(null) }}
         serviceAccepted={serviceAccepted} onService={(v) => { setServiceAccepted(v); setConsentError(null) }}
         regulaminUrl={model.regulaminUrl ?? answer.regulaminUrl ?? null} dataInfo={dataInfo} error={consentError} />

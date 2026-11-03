@@ -46,7 +46,8 @@ const addError = (errors, index, field, message) => {
 }
 
 /**
- * @param {{ people: object[], buyer: object|null }} group  (normalizeGroupRequest's result)
+ * @param {{ people: object[], buyer: object|null }} group  (normalizeGroupRequest's result; a person
+ *   may carry `detailsLater`, set only by validateTeam for a member who is not the captain)
  * @param {{ sessionEmail: string|null, competitions: Map<string, object>, now?: Date }} ctx
  *   competitions: categoryId → validatePerson's context (formFields, competition, raceDate, …)
  * errors: { [personIndex]: { [field]: message } } (a minor without consent: `guardianConsent`),
@@ -65,7 +66,7 @@ export function validateGroup({ people = [], buyer = null } = {}, { sessionEmail
   }
 
   const session = lower(sessionEmail)
-  const results = people.map((p) => validatePerson(p.person, { ...competitions.get(p.categoryId), now }))
+  const results = people.map((p) => validatePerson(p.person, { ...competitions.get(p.categoryId), now, detailsLater: p.detailsLater === true }))
   results.forEach((r, i) => { if (!r.ok) errors[i] = { ...r.errors } })
 
   let groupError = null

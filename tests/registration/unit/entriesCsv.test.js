@@ -2,7 +2,7 @@ import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
 import { entriesToCsv, vouchersToCsv } from '../../../supabase/functions/_shared/registration/entriesCsv.js'
 
-const HEADER = 'Nr;Imię;Nazwisko;Data urodzenia;Płeć;Kategoria;Konkurencja;Drużyna;Klub;Miejscowość;Narodowość;E-mail;Telefon;Kontakt ICE;Telefon ICE;Opiekun;E-mail opiekuna;Status;Wpłata (zł);Zwrócono (zł);Regulamin;Partner;Kod rabatowy;Data zapisu'
+const HEADER = 'Nr;Imię;Nazwisko;Data urodzenia;Płeć;Kategoria;Konkurencja;Drużyna;Klub;Miejscowość;Narodowość;E-mail;Telefon;Kontakt ICE;Telefon ICE;Opiekun;E-mail opiekuna;Status;Wpłata (zł);Zwrócono (zł);Regulamin;Partner;Kod rabatowy;Data zapisu;Brak danych'
 const quotedHeader = HEADER.split(';').map((h) => `"${h}"`).join(';')
 
 const ROW = {
@@ -26,8 +26,15 @@ describe('entriesToCsv (O-04)', () => {
     assert.deepEqual(cellsOf(lines[1]), [
       '214', 'Anna', 'Wiśniewska', '1990-05-01', 'K', 'K30–39', 'Bieg 9 km', 'Leśne Dziki', 'ZATYRANI', 'Zabrze', 'PL',
       'anna@example.pl', '500600700', 'Jan', '500600701', '', '', 'OPŁACONE', '60,50', '0,00', 'zaakceptowany', '', '',
-      '2026-10-21 00:30',
+      '2026-10-21 00:30', '',
     ])
+  })
+
+  it('names what a team member still owes, and a member with no phone yet exports', () => {
+    const owing = { ...ROW, phone: null, club: null, iceName: null, icePhone: null, missingFields: ['phone', 'iceName', 'icePhone'] }
+    const cells = cellsOf(entriesToCsv([owing]).split('\r\n').at(-1))
+    assert.equal(cells.at(-1), 'telefon, kontakt ICE')
+    assert.equal(cells[12], '')
   })
 
   it('neutralises every formula opener', () => {

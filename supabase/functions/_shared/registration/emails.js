@@ -383,10 +383,14 @@ export function freeConfirmationEmail({ event, people, payerFirstName, officeHou
  * the data did not come from them). event { name, eventDate, place? }, person { firstName },
  * registeredBy (who provided the data), competition { name, startTime }, link (the consent
  * page, `/zgoda#<token>`), dataInfoUrl (the runner data information). `reminder: true` prefixes
- * the subject with „Przypomnienie: ”. team { name } (optional) adds „w drużynie <nazwa>”. The link
- * is the only place the token appears.
+ * the subject with „Przypomnienie: ”. team { name } (optional) adds „w drużynie <nazwa>”.
+ * `detailsOwed` (a team member, memberDetails.js): the captain left out a field the event requires,
+ * so the data note says what the captain gave and the link asks for the rest. The link is the only
+ * place the token appears.
  */
-export function consentRequestEmail({ event, person, registeredBy, competition, link: url, dataInfoUrl, reminder = false, team = null }) {
+export function consentRequestEmail({
+  event, person, registeredBy, competition, link: url, dataInfoUrl, reminder = false, team = null, detailsOwed = false,
+}) {
   const day = isoDay(event.eventDate)
   const start = [day, competition?.startTime ? `godz. ${competition.startTime}` : null].filter(Boolean).join(', ')
   const facts = [
@@ -398,7 +402,10 @@ export function consentRequestEmail({ event, person, registeredBy, competition, 
   const who = registeredBy || 'Inna osoba'
   const whoInside = registeredBy || 'inna osoba'
   const office = 'Jeśli nie zaakceptujesz online, podpiszesz regulamin w biurze zawodów.'
-  const dataNote = `Twoje dane (imię, nazwisko, datę urodzenia, płeć, e-mail, telefon i pozostałe pola zgłoszenia) podał(a) ${whoInside}. Kto je przetwarza, w jakim celu i jakie masz prawa:`
+  const dataNote = detailsOwed
+    ? `Twoje imię, nazwisko, datę urodzenia, płeć, e-mail i ewentualnie inne pola zgłoszenia podał(a) ${whoInside}. Brakujące dane, np. telefon, uzupełnisz sam(a) pod linkiem. Kto przetwarza Twoje dane, w jakim celu i jakie masz prawa:`
+    : `Twoje dane (imię, nazwisko, datę urodzenia, płeć, e-mail, telefon i pozostałe pola zgłoszenia) podał(a) ${whoInside}. Kto je przetwarza, w jakim celu i jakie masz prawa:`
+  const action = detailsOwed ? 'Uzupełnij dane i zaakceptuj regulamin' : 'Zaakceptuj regulamin'
   const greeting = person?.firstName ? `Cześć ${person.firstName},` : 'Cześć,'
   const inTeam = team?.name ? ` w drużynie ${team.name}` : ''
   const text = [
@@ -408,7 +415,7 @@ export function consentRequestEmail({ event, person, registeredBy, competition, 
     '',
     ...textBlock(facts),
     '',
-    `Zaakceptuj regulamin: ${url}`,
+    `${action}: ${url}`,
     '',
     office,
     '',
@@ -421,12 +428,12 @@ export function consentRequestEmail({ event, person, registeredBy, competition, 
     `<p>${escapeHtml(greeting)}</p>`,
     `<p>${escapeHtml(who)} zapisał(a) Cię na zawody <strong>${escapeHtml(event.name)}</strong>${escapeHtml(inTeam)}.</p>`,
     htmlBlock(facts),
-    link(url, 'Zaakceptuj regulamin'),
+    link(url, action),
     `<p>${escapeHtml(office)}</p>`,
     `<p>${escapeHtml(dataNote)} <a href="${escapeHtml(dataInfoUrl)}">${escapeHtml(dataInfoUrl)}</a></p>`,
     '<p>LESZY.RUN</p>',
   ].join('')
-  const subject = `Zapisano Cię na ${event.name} — zaakceptuj regulamin`
+  const subject = `Zapisano Cię na ${event.name} — ${detailsOwed ? 'uzupełnij dane i ' : ''}zaakceptuj regulamin`
   // The link carries the token in its fragment: no click-tracking redirect may rewrite it.
   return { subject: reminder ? `Przypomnienie: ${subject}` : subject, text, html, noTracking: true }
 }

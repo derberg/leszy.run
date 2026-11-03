@@ -16,6 +16,7 @@ import { sendEmail } from '../email.js'
 import { newToken } from './tokens.js'
 import { consentRequestEmail } from './emails.js'
 import { registeredByNames } from './registeredBy.js'
+import { owedDetails } from './memberDetails.js'
 
 async function rows(query) {
   const { data, error } = await query
@@ -41,7 +42,9 @@ export const consentLink = (site, token) => `${site}/zgoda#${token}`
 /** The runner data information of the event, which the consent e-mail links (Art. 14). */
 export const dataInfoUrl = (site, slug) => `${site}/events/${encodeURIComponent(slug)}/informacja-o-danych`
 
-const REG_COLUMNS = 'id, event_id, category_id, order_id, team_id, first_name, email, status, consent_state, registered_by_profile_id'
+// The contact columns and the role's are memberDetails.js's: whether the person still owes details.
+const REG_COLUMNS = 'id, event_id, category_id, order_id, team_id, first_name, email, status, consent_state, registered_by_profile_id, ' +
+  'profile_id, guardian_name, guardian_profile_id, guardian_removed_at, phone, city, club, ice_name, ice_phone, nationality'
 
 /** Everything the e-mails of `regs` need besides the token: → (registration) → mail builder. */
 async function mailContext(admin, regs, { registeredBy = null, site = null } = {}) {
@@ -50,7 +53,7 @@ async function mailContext(admin, regs, { registeredBy = null, site = null } = {
   const teamIds = [...new Set(regs.map((r) => r.team_id).filter(Boolean))]
   const [settingsRows, comps, names, teams] = await Promise.all([
     rows(admin.from('registration_settings')
-      .select('event_id, name, slug, event_date, first_start_time, town_label, place_details').in('event_id', events)),
+      .select('event_id, name, slug, event_date, first_start_time, town_label, place_details, form_fields, closes_at').in('event_id', events)),
     rows(admin.from('competitions').select('category_id, name, start_time').in('category_id', cats)),
     registeredBy ? Promise.resolve(() => null) : registeredByNames(admin, regs),
     teamIds.length ? rows(admin.from('teams').select('id, name').in('id', teamIds)) : [],
@@ -76,6 +79,9 @@ async function mailContext(admin, regs, { registeredBy = null, site = null } = {
       dataInfoUrl: dataInfoUrl(base, settings.slug),
       reminder,
       team: teamBy.get(r.team_id) ?? null,
+      // Reminders too: a member who has not filled in their details is asked again, while /zgoda
+      // still takes edits (consent-request and accept-consent stop at closes_at too).
+      detailsOwed: Date.now() < Date.parse(settings.closes_at) && owedDetails(r, settings.form_fields ?? {}).length > 0,
     })
   }
 }

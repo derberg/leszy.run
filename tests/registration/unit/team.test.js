@@ -64,9 +64,69 @@ test('T-01 a member with the captain\'s address is the group rule\'s duplicate',
 })
 
 test('T-01 a person error comes from validatePerson under the member index', () => {
-  const r = run(request([captain(), adult(1, { phone: '' }), adult(2)]))
+  const r = run(request([captain(), adult(1, { firstName: '' }), adult(2)]))
   assert.equal(r.ok, false)
-  assert.ok(r.errors[1].phone)
+  assert.ok(r.errors[1].firstName)
+})
+
+// An adult member gives the rest of their details on /zgoda (memberDetails.js): the captain types
+// the name, birth date, gender and e-mail only. Everything those decide is still checked here.
+const formAsks = competition({ formFields: { city: 'required', club: 'required', ice: 'required', nationality: 'required' } })
+const fiveFields = (i, over = {}) => ({
+  person: { firstName: `Ala${i}`, lastName: 'Leśna', birthDate: '1990-05-01', gender: 'K', email: `ala${i}@example.pl`, ...over },
+  leg: null, guardianConsent: false,
+})
+const fullCaptain = () => captain({ city: 'Gliwice', club: 'ZATYRANI', iceName: 'Jan', icePhone: '600100201', nationality: 'PL' })
+
+test('TM-01 an adult member with only name, birth date, gender and e-mail is accepted, however much the form asks', () => {
+  const r = run(request([fullCaptain(), fiveFields(1), fiveFields(2)]), formAsks)
+  assert.equal(r.ok, true, JSON.stringify(r))
+  for (const m of r.value.members.slice(1)) {
+    assert.equal(m.role, 'adult')
+    assert.deepEqual([m.phone, m.city, m.club, m.iceName, m.icePhone, m.nationality], [null, null, null, null, null, null])
+  }
+})
+
+test('TM-02 what the captain does fill for an adult member is kept and checked like any field; a switched-off one is not taken', () => {
+  const given = fiveFields(1, { phone: '+48 600 100 200', city: 'Zabrze', club: '', nationality: 'pl' })
+  const r = run(request([fullCaptain(), given, fiveFields(2)]), formAsks)
+  assert.equal(r.ok, true, JSON.stringify(r))
+  assert.deepEqual([r.value.members[1].phone, r.value.members[1].city, r.value.members[1].club, r.value.members[1].nationality],
+    ['+48 600 100 200', 'Zabrze', null, 'PL'])
+  const bad = run(request([fullCaptain(), fiveFields(1, { phone: 'abc', icePhone: 'x', nationality: 'XX' }), fiveFields(2)]), formAsks)
+  assert.deepEqual(Object.keys(bad.errors[1]).sort(), ['icePhone', 'nationality', 'phone'])
+  const off = competition({ formFields: { city: 'off', nationality: 'off' } })
+  const dropped = run(request([captain(), fiveFields(1, { city: 'Zabrze', nationality: 'PL' }), fiveFields(2)]), off)
+  assert.equal(dropped.ok, true, JSON.stringify(dropped))
+  assert.equal(dropped.value.members[1].city, null)
+  assert.equal(dropped.value.members[1].nationality, null)
+})
+
+test('TM-03 the five fields stay required and checked for a member: name, birth date in range, gender, e-mail, duplicates', () => {
+  const ranged = competition({ competition: { minAge: 30, maxAge: null, isKids: false } })
+  assert.ok(run(request([captain(), fiveFields(1, { birthDate: yearsAgo(25) }), fiveFields(2)]), ranged).errors[1].birthDate)
+  for (const [over, field] of [[{ firstName: '' }, 'firstName'], [{ lastName: '' }, 'lastName'], [{ gender: '' }, 'gender'],
+    [{ birthDate: '' }, 'birthDate'], [{ email: '' }, 'email']]) {
+    const r = run(request([captain(), fiveFields(1, over), fiveFields(2)]))
+    assert.equal(r.ok, false, JSON.stringify(over))
+    assert.ok(r.errors[1]?.[field], `${JSON.stringify(over)} → ${JSON.stringify(r.errors)}`)
+  }
+  const dup = run(request([captain(), fiveFields(1), fiveFields(2, { email: 'ala1@example.pl' })]))
+  assert.deepEqual(dup.errors, { 2: { email: 'Ten adres jest już w tym zgłoszeniu.' } })
+})
+
+test('TM-04 the captain still fills the whole form', () => {
+  const r = run(request([captain({ phone: '' }), fiveFields(1), fiveFields(2)]), formAsks)
+  assert.equal(r.ok, false)
+  assert.deepEqual(Object.keys(r.errors[0]).sort(), ['city', 'club', 'iceName', 'icePhone', 'nationality', 'phone'])
+})
+
+test('TM-05 a child member still needs every field the form asks for: the captain gives a child\'s data', () => {
+  const child = { person: { firstName: 'Ela', lastName: 'Leśna', birthDate: yearsAgo(12), gender: 'K', email: '' }, leg: null, guardianConsent: true }
+  const r = run(request([fullCaptain(), fiveFields(1), child]), formAsks)
+  assert.equal(r.ok, false)
+  assert.deepEqual(Object.keys(r.errors[2]).sort(), ['city', 'club', 'iceName', 'icePhone', 'nationality', 'phone'])
+  assert.equal(r.errors[1], undefined)
 })
 
 test('T-02 sizes 2 and 6 against min 3 / max 5 → groupError, sizes 3 and 5 pass', () => {
@@ -286,4 +346,17 @@ test('T-05 a control character whitespace does not collapse is refused: BEL, ESC
 test('T-05 whitespace is still collapsed, not refused, and a name too short keeps the length message', () => {
   assert.equal(run(request(squad(3), { teamName: 'Wilki\tStado' })).ok, true)
   assert.equal(run(request(squad(3), { teamName: 'W' })).fieldErrors.teamName, TEAM_NAME_MESSAGE)
+})
+
+test('TM-06 validateSquadMember with detailsLater (the captain\'s add or swap): an adult needs only the five fields, a child all', () => {
+  const asks = { ...memberContext, formFields: { city: 'required', ice: 'required' } }
+  const { phone: _p, ...five } = newAdult
+  const later = validateSquadMember({ person: five }, { ...asks, detailsLater: true })
+  assert.equal(later.ok, true, JSON.stringify(later))
+  assert.equal(later.value.phone, null)
+  assert.ok(validateSquadMember({ person: { ...five, phone: 'abc' } }, { ...asks, detailsLater: true }).errors.phone, 'a given value is checked')
+  // The organizer's add stays a full form.
+  assert.deepEqual(Object.keys(validateSquadMember({ person: five }, asks).errors).sort(), ['city', 'iceName', 'icePhone', 'phone'])
+  const child = validateSquadMember({ person: newChild, guardianConsent: true }, { ...asks, detailsLater: true })
+  assert.deepEqual(Object.keys(child.errors).sort(), ['city', 'iceName', 'icePhone'])
 })

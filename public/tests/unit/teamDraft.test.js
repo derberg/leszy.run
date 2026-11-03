@@ -3,6 +3,7 @@ import assert from 'node:assert/strict'
 import {
   initTeam, setSize, droppedBy, moveMember, removeMember, memberVariant, toTeamRequest, legOf, squadCards, checkTeam, checkCaptain,
   teamContext, teamFailure, memberAfter, firstOpenMember, memberAgeLabel, repricedFee, carryOverMember, carryOverSquad, carriedIn, memberCopiedFrom,
+  setMoreFields,
 } from '../../src/lib/teamDraft.js'
 import { setCardOpen, setGuardianConsent, updatePerson, cardEmpty, copiedFromNames, LIST_STEP } from '../../src/lib/groupDraft.js'
 import { EMPTY_PERSON } from '../../src/lib/personFormModel.js'
@@ -114,6 +115,18 @@ describe('T-60 toTeamRequest', () => {
     assert.equal(body.members[1].person.email, 'piotr@x.pl')
     assert.ok(!('code' in body) && !('website' in body))
   })
+  it('an adult member sends only name, birth date, gender and e-mail while the other fields are hidden', () => {
+    const typed = { ...piotr, city: 'Zabrze', club: 'X', iceName: 'Jan', icePhone: '600', nationality: 'PL' }
+    const d = team([me, typed, ewa])
+    const [captain, member] = toTeamRequest(d, { today: TODAY }).members
+    assert.deepEqual(Object.keys(member.person).sort(), ['birthDate', 'email', 'firstName', 'gender', 'lastName'])
+    assert.equal(captain.person.phone, me.phone, 'the captain sends everything')
+    // „Pokaż więcej pól”: what the captain sees is sent; hidden again, it is not.
+    const shown = setMoreFields(d, d.cards[1].key, true)
+    assert.equal(toTeamRequest(shown, { today: TODAY }).members[1].person.city, 'Zabrze')
+    const hidden = setMoreFields(shown, d.cards[1].key, false)
+    assert.ok(!('city' in toTeamRequest(hidden, { today: TODAY }).members[1].person))
+  })
   it('the honeypot goes only when filled', () => {
     assert.equal(toTeamRequest(team(), { website: 'x', today: TODAY }).website, 'x')
   })
@@ -157,11 +170,20 @@ describe('checkTeam: the server\'s own rules, keyed by card', () => {
   })
   it('a member\'s error lands on that member\'s card', () => {
     const d = updatePerson(team(), team().cards[0].key, {}) // a fresh set of keys
-    const broken = updatePerson(d, d.cards[1].key, { phone: '' })
+    const broken = updatePerson(d, d.cards[1].key, { firstName: '' })
     const r = checkTeam(broken, { context, now: NOW })
     assert.equal(r.ok, false)
     assert.deepEqual(Object.keys(r.errors), [broken.cards[1].key])
-    assert.ok(r.errors[broken.cards[1].key].phone)
+    assert.ok(r.errors[broken.cards[1].key].firstName)
+  })
+  it('an adult member with only name, birth date, gender and e-mail passes, whatever the form asks', () => {
+    const asks = teamContext({ ...RAW, formFields: { city: 'required', club: 'required', ice: 'required', nationality: 'required' } }, COMPETITION, NOW)
+    const five = ({ phone: _p, ...p }) => p
+    const captain = { ...me, city: 'Gliwice', club: 'ZATYRANI', iceName: 'Jan', icePhone: '600100201', nationality: 'PL' }
+    const r = checkTeam(team([captain, five(piotr), five(ewa)]), { context: asks, now: NOW })
+    assert.equal(r.ok, true, JSON.stringify(r))
+    const broken = checkTeam(team([{ ...captain, club: '' }, five(piotr), five(ewa)]), { context: asks, now: NOW })
+    assert.equal(broken.ok, false, 'the captain still fills the whole form')
   })
   it('a child without the guardian box', () => {
     const d = team([me, zosia])
@@ -315,6 +337,20 @@ describe('carryOverMember: a member starts with the club and town of the card be
     assert.equal(person(d, m3).club, '', 'only the opened card is filled')
   })
 
+  it('an adult member\'s copied club and town stay off the request while „Pokaż więcej pól” is closed, and show as copied once open', () => {
+    const base = squad()
+    let d = carryOverMember(base, base.cards[m2].key)
+    d = updatePerson(d, d.cards[m2].key, { firstName: 'Piotr', lastName: 'Leśny', birthDate: '1987-01-01', gender: 'M', email: 'piotr@x.pl' })
+    const collapsed = toTeamRequest(d, { today: TODAY }).members[m2].person
+    assert.ok(!('club' in collapsed) && !('city' in collapsed), JSON.stringify(collapsed))
+    const open = setMoreFields(d, d.cards[m2].key, true)
+    assert.equal(toTeamRequest(open, { today: TODAY }).members[m2].person.club, 'KB Leszy')
+    assert.deepEqual(memberCopiedFrom(open, open.cards[m2].key), { club: 'Ola Leśna', city: 'Ola Leśna' })
+    // A child's card has no such section: the copy goes as on main.
+    const kid = updatePerson(d, d.cards[m2].key, { birthDate: '2014-05-05', gender: 'K', email: '' })
+    assert.equal(toTeamRequest(kid, { today: TODAY }).members[m2].person.club, 'KB Leszy')
+  })
+
   it('member 3 copies from a finished member 2, not from the captain', () => {
     let d = squad()
     d = carryOverMember(d, d.cards[m2].key)
@@ -388,9 +424,9 @@ describe('carryOverMember: a member starts with the club and town of the card be
     assert.equal(cardEmpty(updatePerson(d, d.cards[m2].key, { firstName: 'A' }).cards[m2]), false)
   })
 
-  it('the copied club goes in the request like a typed one', () => {
+  it('the copied club goes in the request like a typed one, on a card that shows it („Pokaż więcej pól”)', () => {
     const d0 = squad()
-    const d = carryOverMember(d0, d0.cards[m2].key)
+    const d = setMoreFields(carryOverMember(d0, d0.cards[m2].key), d0.cards[m2].key, true)
     const req = toTeamRequest(d, { today: TODAY })
     assert.equal(req.members[1].person.club, 'KB Leszy')
   })
@@ -398,12 +434,14 @@ describe('carryOverMember: a member starts with the club and town of the card be
 
 describe('carryOverSquad: a copy follows its source after the step that made it (review #395)', () => {
   const ON = { club: 'optional', city: 'optional' }
-  // Captain „KS Lesy”; members 2 and 3 opened and finished in turn, the way the form does it.
+  // Captain „KS Lesy”; members 2 and 3 opened and finished in turn, the way the form does it, each
+  // with „Pokaż więcej pól” open so the request carries what the card shows.
   function finished() {
     let d = initTeam(3, CAT)
     d = updatePerson(d, d.cards[0].key, { ...me, club: 'KS Lesy', city: 'Gdynia' })
     for (const [i, p] of [[1, piotr], [2, ewa]]) {
       const key = d.cards[i].key
+      d = setMoreFields(d, key, true)
       d = carryOverMember(d, key, ON)
       d = updatePerson(d, key, p)
       d = setCardOpen(d, key, false)

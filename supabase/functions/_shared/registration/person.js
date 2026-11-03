@@ -61,10 +61,15 @@ export function isMinorToday(birthDate, now = new Date()) {
  *   ageGroups   [{ gender, label, minAge, maxAge }]
  *   kidsGroups  [{ id, minYear, maxYear, gender|null }]
  *   now         Date (the registration instant; the minor check uses its Warsaw day)
+ *   detailsLater true for a team member (not the captain): an adult gives everything but the
+ *               name, birth date, gender and e-mail on /zgoda (memberDetails.js), so the rest is
+ *               optional here: what the captain did fill is checked and kept, a field the event
+ *               switched off is still dropped. A child's data is still the captain's in full.
  * @returns {{ ok: boolean, value: object|null, errors: Record<string, string> }}
  */
 export function validatePerson(person, {
   formFields = {}, competition = {}, raceDate, reckoning = 'race_day', ageGroups = [], kidsGroups = [], now = new Date(),
+  detailsLater = false,
 } = {}) {
   const p = person && typeof person === 'object' ? person : {}
   const errors = {}
@@ -101,9 +106,12 @@ export function validatePerson(person, {
   // given must still be an address.
   if (!(isMinor && !email) && !emailOk) errors.email = 'Podaj poprawny adres e-mail.'
 
+  // The member's own to give: an adult (by the date, or with a date still to fix) in a team.
+  const later = detailsLater && !isMinor
   const optional = {}
   for (const { key, fields, max, phone, always, label } of SWITCHED) {
-    const mode = always ? 'required' : formFields[key] ?? 'optional'
+    const asked = always ? 'required' : formFields[key] ?? 'optional'
+    const mode = later && asked === 'required' ? 'optional' : asked
     for (const field of fields) {
       const v = text(p[field])
       if (mode === 'off') { optional[field] = null; continue }
@@ -120,7 +128,8 @@ export function validatePerson(person, {
   }
 
   // Nationality (P2-R31): an ISO 3166-1 alpha-2 code from the list, off unless the event asks for it.
-  const nationalityMode = formFields.nationality ?? 'off'
+  const nationalityAsked = formFields.nationality ?? 'off'
+  const nationalityMode = later && nationalityAsked === 'required' ? 'optional' : nationalityAsked
   let nationality = null
   if (nationalityMode !== 'off') {
     const raw = p.nationality

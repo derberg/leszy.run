@@ -61,6 +61,7 @@ describe('runnerDataInfo teams (Plan 5, T-84)', () => {
     'Drużyna ma na liście startowej jeden wiersz: nazwę drużyny, imiona członków bez nazwisk, liczbę osób i miejscowość kapitana.',
     'Nazwa drużyny: 30 dni po dniu zawodów.',
     'W drużynie dane pozostałych członków podaje kapitan (art. 14 ust. 2 lit. f RODO).',
+    'Zapisując drużynę, kapitan musi podać o dorosłym członku tylko imię, nazwisko, datę urodzenia, płeć i adres e-mail; pola zgłoszenia, których kapitan nie wypełni',
     'Jeżeli kapitan usunie konto LESZY.RUN, drużyna zostaje na liście startowej pod neutralną nazwą',
   ]
 
@@ -198,7 +199,7 @@ describe('runnerDataInfo transfers (Plan 7, task 10)', () => {
     const t = JSON.stringify(section())
     assert.ok(t.includes('Osoba zaproszona dostaje wtedy e-mail, że zaproszenie cofnięto, bez Twojego imienia.'))
     const { RUNNER_DATA_INFO_VERSION } = await import('../../src/legal/runnerDataInfo.js')
-    assert.equal(RUNNER_DATA_INFO_VERSION, '2026-11-v10')
+    assert.equal(RUNNER_DATA_INFO_VERSION, '2026-11-v11')
   })
 
   it('never mentions a partner or a discount code', () => {

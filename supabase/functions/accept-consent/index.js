@@ -28,6 +28,10 @@
 //   410 invalid | expired „Ten link został już użyty albo wygasł.”
 //   422 edits_closed „Po zamknięciu zapisów dane poprawisz w biurze zawodów.” (closes_at passed)
 //   422 edit_invalid { fields: { [field]: message } }
+//   422 details_required { fields: { [field]: message } } „Uzupełnij zaznaczone pola.”: a team
+//       member's entry still lacks a field the event requires (memberDetails.js: the captain gave
+//       only the name, birth date, gender and e-mail). Only before closes_at: after it nothing is
+//       editable, so the acceptance goes through and the office takes the rest.
 //   429 throttled
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { guardRequest } from '../_shared/cors.js'
@@ -38,6 +42,7 @@ import { requiredConsents } from '../_shared/registration/consents.js'
 import { ADULT_AGE, validatePerson } from '../_shared/registration/person.js'
 import { ageOn } from '../_shared/registration/ageGroups.js'
 import { warsawToday } from '../_shared/registration/dates.js'
+import { ownsDetails, missingDetails } from '../_shared/registration/memberDetails.js'
 import {
   EDITS_CLOSED, GONE_ENTRY, GONE_LINK, IP_LIMIT, ipKey, loadByToken, personContext, personOf, sessionMatches, throttled,
   TOKEN_LIMIT, tokenHash, WRONG_SESSION,
@@ -46,6 +51,7 @@ import {
 const EDITABLE = ['firstName', 'lastName', 'phone', 'city', 'club', 'iceName', 'icePhone', 'nationality', 'birthDate', 'gender']
 const CONSENTS = 'Zaznacz wymagane zgody.'
 const INVALID = 'Popraw zaznaczone pola.'
+const OWED = 'Uzupełnij zaznaczone pola.'
 const SWITCHED_OFF = 'Tego pola nie zbieramy na tych zawodach.'
 const MINOR = 'Z tą datą urodzenia osoba byłaby niepełnoletnia. Zapisuje ją rodzic lub opiekun.'
 // The form_fields switch behind each editable field, and its mode when the event stored none.
@@ -160,13 +166,20 @@ Deno.serve(async (req) => {
 
     const { settings, ctx } = await personContext(admin, registration)
     const hasEdits = Object.keys(changed).length > 0
+    const open = Date.now() < Date.parse(settings.closes_at)
     // §14.3: nothing is editable once registration has closed (the acceptance itself still is).
-    if (hasEdits && !(Date.now() < Date.parse(settings.closes_at))) {
+    if (hasEdits && !open) {
       return json({ error: EDITS_CLOSED, code: 'edits_closed' }, 422, req)
     }
     if (hasEdits) {
       const errors = editErrors(current, changed, ctx)
       if (Object.keys(errors).length) return json({ error: INVALID, code: 'edit_invalid', fields: errors }, 422, req)
+    }
+    // A team member gives their own details here: every field the event requires must be in.
+    // The edits above are each valid, and an empty one is refused there or named here.
+    if (open && ownsDetails(registration)) {
+      const owed = missingDetails({ ...current, ...changed }, ctx.formFields)
+      if (Object.keys(owed).length) return json({ error: OWED, code: 'details_required', fields: owed }, 422, req)
     }
 
     const { data: outcome, error } = await admin.rpc('accept_consent_request', {
