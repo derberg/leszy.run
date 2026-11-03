@@ -7,6 +7,7 @@ import { resolve, dirname } from 'path'
 import { fileURLToPath } from 'url'
 import { generateAllLandingOgs } from './generate-landing-og.js'
 import { selectDisplayEvents } from './lib/displayEvents.js'
+import { isLandingIndexable } from '../src/lib/landingIndexing.js'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const ROOT = resolve(__dirname, '..')
@@ -174,9 +175,7 @@ function buildLandingHtml(entry, cssLinks, jsScripts, ogImageUrl, pastMonth = fa
   // (/listy/.../2026/lipiec): hundreds of near-identical date-sliced variants of the evergreen
   // pages. noindex both (keep follow so related-category links still pass equity); evergreen
   // pages with real inventory stay indexable. Kept out of the sitemap below.
-  const isMonthly = Boolean(entry.filters && entry.filters.month)
-  const isThin = (entry.eventCount || 0) < 4
-  const robotsContent = (pastMonth || isMonthly || isThin) ? 'noindex, follow' : 'index, follow'
+  const robotsContent = (pastMonth || !isLandingIndexable(entry)) ? 'noindex, follow' : 'index, follow'
   const eventListHtml = pastMonth ? '' : buildEventListHtml(events)
 
   const relatedLinksHtml = (entry.relatedLinks && entry.relatedLinks.length > 0)
@@ -300,7 +299,7 @@ async function main() {
     const html = buildLandingHtml(entry, cssLinks, jsScripts, ogImageUrl, pastMonth, events)
     writeFileSync(resolve(dir, 'index.html'), html)
     generated++
-    if (pastMonth || (entry.filters && entry.filters.month) || (entry.eventCount || 0) < 4) noindexCount++
+    if (pastMonth || !isLandingIndexable(entry)) noindexCount++
     totalEventLinks += events.length
   }
   console.log(`Generated ${generated} landing page HTML files (${noindexCount} noindex: monthly / thin / past-month; ${totalEventLinks} static event links emitted).`)
@@ -312,16 +311,13 @@ async function main() {
   let sitemap = readFileSync(sitemapPath, 'utf-8')
   sitemap = sitemap.replace('</urlset>', '')
 
-  const today = new Date().toISOString().slice(0, 10)
   // Only list indexable pages: exclude everything noindexed above (monthly, thin <4 events, past-month).
   const indexablePaths = paths.filter(path =>
-    !isPastMonthPage(path)
-    && !(manifest[path].filters && manifest[path].filters.month)
-    && (manifest[path].eventCount || 0) >= 4
+    !isPastMonthPage(path) && isLandingIndexable(manifest[path])
   )
   const entries = indexablePaths.map(path => {
     const entry = manifest[path]
-    return `  <url>\n    <loc>${entry.canonicalUrl}</loc>\n    <lastmod>${today}</lastmod>\n    <changefreq>${entry.sitemapChangefreq}</changefreq>\n    <priority>${entry.sitemapPriority}</priority>\n  </url>`
+    return `  <url>\n    <loc>${entry.canonicalUrl}</loc>\n    <changefreq>${entry.sitemapChangefreq}</changefreq>\n    <priority>${entry.sitemapPriority}</priority>\n  </url>`
   })
 
   sitemap += entries.join('\n') + '\n</urlset>\n'

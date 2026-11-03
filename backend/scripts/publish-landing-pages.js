@@ -7,12 +7,13 @@ import { writeFileSync, mkdirSync } from 'fs'
 import { resolve, dirname } from 'path'
 import { fileURLToPath } from 'url'
 import {
-  TYPE_SLUG_TO_DB, TYPE_H1_NOUN, TYPE_SECONDARY_KW,
+  TYPE_SLUG_TO_DB, TYPE_H1_NOUN,
   REGION_SLUG_TO_DB, REGION_LOCATIVE,
   MONTH_SLUG_TO_NUM, MONTH_NUM_TO_SLUG, MONTH_LOCATIVE,
-  SPECIAL_SLUGS, SPECIAL_H1, SPECIAL_SECONDARY_KW,
+  SPECIAL_SLUGS, SPECIAL_H1,
   slugifyCity, CITY_LOCATIVE, CITY_BLOCKLIST,
 } from './lib/biegi-mappings.js'
+import { countPhrase } from './lib/landingCopy.js'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const PROJECT_ROOT = resolve(__dirname, '..', '..')
@@ -24,24 +25,8 @@ const dryRun = !process.argv.includes('--apply')
 
 // ─── Polish helpers ───────────────────────────────────────────────────────────
 
-function inflectCount(n) {
-  if (n === 1) return '1 wydarzenie'
-  if (n >= 2 && n <= 4) return `${n} wydarzenia`
-  return `${n} wydarzeń`
-}
-
-function inflectBieg(n) {
-  if (n === 1) return '1 bieg'
-  if (n >= 2 && n <= 4) return `${n} biegi`
-  return `${n} biegów`
-}
-
-const TYPE_NOUN_GEN = {
-  przelajowe: 'biegów przełajowych', uliczne: 'biegów ulicznych',
-  ultramaratony: 'ultramaratonów', nocne: 'biegów nocnych',
-  ocr: 'biegów OCR', 'nordic-walking': 'marszów nordic walking',
-  charytatywne: 'biegów charytatywnych',
-}
+const inflectCount = n => countPhrase(n, 'wydarzenie')
+const inflectBieg = n => countPhrase(n)
 
 function buildH1(typeSlug, regionSlug, year, month) {
   const noun = typeSlug ? TYPE_H1_NOUN[typeSlug] : 'Biegi'
@@ -57,30 +42,21 @@ function buildTitle(h1, count) {
 }
 
 function buildDescription(typeSlug, regionSlug, year, month, count, special) {
-  if (special) {
-    const spNoun = { polmaratony: 'półmaratonów', maratony: 'maratonów', 'dla-dzieci': 'biegów dla dzieci', darmowe: 'darmowych biegów', 'ostatnia-szansa': 'biegów z kończącymi się zapisami' }[special]
-    const regionPart = regionSlug ? ` ${REGION_LOCATIVE[regionSlug]}` : ' w Polsce'
-    const monthPart = year && month ? ` ${MONTH_LOCATIVE[month]} ${year}` : ''
-    return `${count} ${spNoun}${regionPart}${monthPart}. ${SPECIAL_SECONDARY_KW[special]}. Zapisy, dystanse, ceny.`
-  }
-  const nounGen = typeSlug ? TYPE_NOUN_GEN[typeSlug] : 'biegów'
-  const secKw = typeSlug ? ` ${TYPE_SECONDARY_KW[typeSlug]}.` : ''
   const regionPart = regionSlug ? ` ${REGION_LOCATIVE[regionSlug]}` : ' w Polsce'
   const monthPart = year && month ? ` ${MONTH_LOCATIVE[month]} ${year}` : ''
-  return `${count} ${nounGen}${regionPart}${monthPart}.${secKw} Zapisy, dystanse, ceny.`
+  return `${countPhrase(count, special || typeSlug || 'bieg')}${regionPart}${monthPart}. Daty, dystanse, opłaty i zapisy.`
 }
 
 function buildIntro(typeSlug, regionSlug, year, month, count, distRange, special) {
   const yr = year || new Date().getFullYear()
   const dist = distRange && distRange.min !== distRange.max ? `, od ${distRange.min} km do ${distRange.max} km` : ''
   const regionPart = regionSlug ? ` ${REGION_LOCATIVE[regionSlug]}` : ' w Polsce'
-  if (special === 'polmaratony') return `${count} półmaratonów${regionPart} w ${yr} roku. Dystans 21 km.`
-  if (special === 'maratony') return `${count} maratonów${regionPart} w ${yr} roku. Dystans 42 km.`
-  if (special === 'dla-dzieci') return `${count} biegów dla dzieci${regionPart} w ${yr} roku. Krótkie dystanse dla najmłodszych biegaczy.`
-  if (special === 'darmowe') return `${count} darmowych biegów${regionPart} w ${yr} roku. Bezpłatny udział, bez opłaty startowej.`
-  if (special === 'ostatnia-szansa') return `${count} biegów${regionPart} z zapisami kończącymi się w ciągu 14 dni.`
-  const noun = typeSlug ? TYPE_H1_NOUN[typeSlug].toLowerCase() : 'listy'
-  return `${count} ${noun}${regionPart} w ${yr} roku${dist}.`.trim()
+  if (special === 'polmaratony') return `${countPhrase(count, 'polmaratony')}${regionPart} w ${yr} roku. Dystans 21 km.`
+  if (special === 'maratony') return `${countPhrase(count, 'maratony')}${regionPart} w ${yr} roku. Dystans 42 km.`
+  if (special === 'dla-dzieci') return `${countPhrase(count, 'dla-dzieci')}${regionPart} w ${yr} roku. Krótkie dystanse dla najmłodszych biegaczy.`
+  if (special === 'darmowe') return `${countPhrase(count, 'darmowe')}${regionPart} w ${yr} roku. Bezpłatny udział, bez opłaty startowej.`
+  if (special === 'ostatnia-szansa') return `${countPhrase(count)}${regionPart} z zapisami kończącymi się w ciągu 14 dni.`
+  return `${countPhrase(count, typeSlug || 'bieg')}${regionPart} w ${yr} roku${dist}.`
 }
 
 // ─── Distance parsing (mirrors Kalendarz.jsx) ─────────────────────────────────
@@ -400,7 +376,7 @@ async function main() {
       h1 = `Biegi w Polsce — kalendarz biegów ${currentYear}`
       title = `${h1} — Leszy.run`
       description = `Kalendarz biegów w Polsce ${currentYear}. Biegi przełajowe, uliczne, ultramaratony, nordic walking i więcej. Sprawdź pełny kalendarz według typu i województwa.`
-      intro = `${displayEvents.length} biegów w Polsce w ${currentYear} roku — trailowe, uliczne, ultramaratony i więcej.`
+      intro = `${countPhrase(displayEvents.length)} w Polsce w ${currentYear} roku — trailowe, uliczne, ultramaratony i więcej.`
     } else if (city) {
       const cityLoc = CITY_LOCATIVE[city]
       if (cityLoc) {

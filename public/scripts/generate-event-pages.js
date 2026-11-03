@@ -107,7 +107,8 @@ function buildMetaDescription(event) {
 function buildJsonLd(event, slug) {
   const startDate = event.date ? event.date.slice(0, 10) : undefined
   const eventUrl = `${BASE_URL}/kalendarz/${slug}`
-  const datePublished = event.created_at ? String(event.created_at).slice(0, 10) : startDate
+  // Real row timestamps only. The race date is not when the page was published.
+  const datePublished = event.created_at ? String(event.created_at).slice(0, 10) : undefined
   const dateModified = event.updated_at ? String(event.updated_at).slice(0, 10) : datePublished
 
   const sportsEvent = {
@@ -134,11 +135,6 @@ function buildJsonLd(event, slug) {
         addressCountry: 'PL',
       },
     },
-    organizer: {
-      '@type': 'Organization',
-      name: 'Organizator',
-      url: event.website || event.registration_url || eventUrl,
-    },
   }
 
   if (event.lat != null && event.lng != null) {
@@ -156,7 +152,6 @@ function buildJsonLd(event, slug) {
       highPrice: event.price_to != null ? event.price_to : event.price_from,
       priceCurrency: 'PLN',
       availability: 'https://schema.org/InStock',
-      validFrom: new Date().toISOString().slice(0, 10),
       url: event.registration_url || eventUrl,
     }
     if (event.registration_deadline) {
@@ -295,8 +290,9 @@ function buildEventHtml(event, slug, cssLinks, jsScripts, manifest, today) {
     <!-- Fonts -->
     <link rel="stylesheet" href="/fonts.css">
 
-    <!-- JSON-LD SportsEvent -->
-    <script type="application/ld+json">
+    <!-- JSON-LD SportsEvent. The id is useSeo's, so hydration replaces this block
+         instead of adding a second SportsEvent beside it. -->
+    <script type="application/ld+json" id="seo-page-jsonld">
     ${jsonLd}
     </script>
 
@@ -329,7 +325,7 @@ function buildSitemap(slugs, manifest) {
   ]
 
   const entries = staticEntries.map(e =>
-    `  <url>\n    <loc>${e.loc}</loc>\n    <lastmod>${today}</lastmod>\n    <changefreq>${e.changefreq}</changefreq>\n    <priority>${e.priority}</priority>\n  </url>`
+    `  <url>\n    <loc>${e.loc}</loc>\n    <changefreq>${e.changefreq}</changefreq>\n    <priority>${e.priority}</priority>\n  </url>`
   )
 
   let skipped = 0
@@ -339,9 +335,11 @@ function buildSitemap(slugs, manifest) {
     // Skip past events: keeps Google's crawl budget on indexable URLs and matches the
     // past-month noindex pattern in generate-landing-pages.js.
     if (eventDate && eventDate < today) { skipped++; continue }
-    const lastmod = eventDate || today
+    // No <lastmod>: the manifest has no updated_at, and the race date (used until
+    // 2026-11) told Google most pages change in the future, which teaches it to ignore
+    // lastmod for the whole sitemap.
     entries.push(
-      `  <url>\n    <loc>${BASE_URL}/kalendarz/${slug}</loc>\n    <lastmod>${lastmod}</lastmod>\n    <changefreq>weekly</changefreq>\n    <priority>0.6</priority>\n  </url>`
+      `  <url>\n    <loc>${BASE_URL}/kalendarz/${slug}</loc>\n    <changefreq>weekly</changefreq>\n    <priority>0.6</priority>\n  </url>`
     )
   }
 
