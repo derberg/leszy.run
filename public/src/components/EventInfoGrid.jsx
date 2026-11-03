@@ -1,71 +1,17 @@
+import { infoCells } from '../lib/eventFacts.js'
+
 /**
  * Adaptive 2-column info grid for event detail pages.
  * Only renders cells that have data. When odd number of cells,
- * last cell spans full width.
+ * last cell spans full width. The build script renders the same cells
+ * (scripts/generate-event-pages.js), so keep the markup in step with it.
  *
  * @param {{ event: Object }} props
  */
 export default function EventInfoGrid({ event }) {
   if (!event) return null
 
-  const cells = []
-
-  // Data
-  if (event.date) {
-    const start = new Date(event.date).toLocaleDateString('pl-PL', {
-      day: 'numeric', month: 'long', year: 'numeric',
-    })
-    cells.push({ label: 'Data', value: start })
-  }
-
-  // Lokalizacja
-  if (event.location || event.voivodeship) {
-    const parts = [event.location, event.voivodeship].filter(Boolean)
-    cells.push({ label: 'Lokalizacja', value: parts.join(', ') })
-  }
-
-  // Dystanse
-  if (event.distances?.length) {
-    cells.push({ label: 'Dystanse', value: event.distances.join(' / ') })
-  }
-
-  // Cena
-  if (event.price_from != null || event.price_to != null) {
-    let value = ''
-    const from = event.price_from
-    const to = event.price_to
-    const bothZero = from === 0 && (to == null || to === 0)
-    const fromZero = from === 0 && to != null && to > 0
-
-    if (bothZero) {
-      value = 'Za darmo'
-    } else if (fromZero) {
-      value = `od 0 zł (za darmo) do ${to} zł`
-    } else if (from != null && to != null) {
-      value = `od ${from} zł do ${to} zł`
-    } else if (from != null) {
-      value = from === 0 ? 'Za darmo' : `od ${from} zł`
-    } else {
-      value = `do ${to} zł`
-    }
-    cells.push({ label: 'Cena', value, accent: true })
-  }
-
-  // Termin zapisów
-  if (event.registration_deadline) {
-    const deadlineDate = new Date(event.registration_deadline + 'T23:59:59')
-    const isPast = deadlineDate < new Date()
-    const formatted = new Date(event.registration_deadline).toLocaleDateString('pl-PL', {
-      day: '2-digit', month: '2-digit', year: 'numeric',
-    })
-    cells.push({
-      label: 'Termin zapisów',
-      value: isPast ? `Zapisy zamknięte (${formatted})` : `do ${formatted}`,
-      accent: true,
-      closed: isPast,
-    })
-  }
-
+  const cells = infoCells(event)
   if (cells.length === 0) return null
 
   const isOdd = cells.length % 2 !== 0
