@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import useSeo from '../../hooks/useSeo.js'
 import { eventPageModel, statParts } from '../../lib/eventPageModel.js'
@@ -21,7 +22,7 @@ export const coursePath = (slug) => `/events/${slug}/trasa`
 export const formPath = (slug, categoryId) => `/events/${slug}/zapis/${categoryId}`
 export const startListPath = (slug) => `/events/${slug}/lista`
 
-/** „Zapisani” / „Wolne”: one bare number, or with team competitions one line per unit (people, teams). */
+/** „Zapisani” / „Wolne miejsca”: one bare number, or with team competitions one line per unit (people, teams). */
 function StatLines({ parts }) {
   if (parts.length === 1 && parts[0].unit == null) return parts[0].count
   return parts.map((p) => (
@@ -40,13 +41,67 @@ function HeartIcon() {
   )
 }
 
-function Stat({ label, value, sub, accent, testId }) {
+function Stat({ label, value, accent, testId }) {
   return (
-    <div className="p-2.5 border-r last:border-r-0 border-apex-border min-w-0" data-testid={testId}>
+    // A column pushing the value down, so the numbers stay level when „Wolne miejsca” wraps on a phone.
+    <div className="p-2.5 border-r last:border-r-0 border-apex-border min-w-0 flex flex-col justify-between" data-testid={testId}>
       <span className={labelCls}>{label}</span>
       <div className={`font-mono text-xl ${accent ? 'text-apex-yellow' : 'text-apex-text-bright'}`}>{value}</div>
-      {sub && <div className="font-mono text-xs text-apex-muted uppercase">{sub}</div>}
     </div>
+  )
+}
+
+// Under the title: a jump to each section the page has, so a long description never hides the
+// competitions. The scroll margin keeps a section clear of the fixed top bar.
+const jumpTarget = 'scroll-mt-[86px]'
+
+function JumpNav({ items }) {
+  if (items.length < 2) return null
+  const go = (e, id) => {
+    e.preventDefault()
+    document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
+  return (
+    <nav className="flex items-center gap-x-4 overflow-x-auto whitespace-nowrap -mx-4 px-4 sm:mx-0 sm:px-0" data-testid="jump-nav">
+      {items.map((it, i) => (
+        <a key={it.id} href={`#${it.id}`} onClick={(e) => go(e, it.id)} data-testid={`jump-${it.id}`}
+          className={`min-h-9 flex items-center shrink-0 font-mono text-xs tracking-wider uppercase ${i === 0
+            ? 'px-3 border border-apex-yellow-dim text-apex-yellow hover:bg-apex-yellow hover:text-apex-ink'
+            : 'text-apex-muted hover:text-apex-yellow'}`}>
+          {it.label}
+        </a>
+      ))}
+    </nav>
+  )
+}
+
+/** The description, cut to six lines with „Pokaż więcej” when it runs longer. */
+function Description({ text }) {
+  const ref = useRef(null)
+  const [open, setOpen] = useState(false)
+  const [long, setLong] = useState(false)
+  useEffect(() => {
+    const el = ref.current
+    if (!el || open) return undefined
+    const measure = () => setLong(el.scrollHeight > el.clientHeight + 1)
+    measure()
+    window.addEventListener('resize', measure)
+    return () => window.removeEventListener('resize', measure)
+  }, [text, open])
+  return (
+    <>
+      <p ref={ref} className={`text-base text-apex-text-bright whitespace-pre-line break-words${open ? '' : ' line-clamp-6'}`} data-testid="event-description-text">
+        {linkParts(text).map((p, i) => (p.href
+          ? <a key={i} href={p.href} target="_blank" rel="noopener noreferrer nofollow" className={`break-all ${linkCls}`}>{p.text}</a>
+          : <span key={i}>{p.text}</span>))}
+      </p>
+      {(long || open) && (
+        <button type="button" onClick={() => setOpen((o) => !o)} aria-expanded={open}
+          className={`self-start whitespace-nowrap text-[15px] ${linkCls}`} data-testid="description-toggle">
+          {open ? 'Pokaż mniej ↑' : 'Pokaż więcej ↓'}
+        </button>
+      )}
+    </>
   )
 }
 
@@ -174,6 +229,13 @@ export default function RegistrationEventPage({ raw, now, preview = false, links
     jsonLd: preview ? undefined : jsonLd(raw, m, `https://www.leszy.run${eventPath(raw.slug)}`),
   })
 
+  const jumps = [
+    { id: 'konkurencje', label: anyOpen ? 'Zapisz się ↓' : 'Konkurencje ↓' },
+    (m.description || m.websiteUrl || m.posterUrl) && { id: 'o-wydarzeniu', label: 'O wydarzeniu' },
+    m.courses.length > 0 && { id: 'trasa', label: 'Trasa' },
+    { id: 'informacje', label: 'Regulamin' },
+  ].filter(Boolean)
+
   const thirdStat = m.stats.daysLeft
     ? (m.competitions.some((c) => c.state === 'soon') ? { label: 'Zapisy od', value: opensLabel } : { label: 'Do końca', value: m.stats.daysLeft })
     : { label: 'Zapisy', value: 'zamknięte' }
@@ -188,6 +250,8 @@ export default function RegistrationEventPage({ raw, now, preview = false, links
           </div>
           <h1 className="font-display font-extrabold text-[40px] md:text-5xl leading-[0.95] uppercase text-apex-text-bright break-words">{m.title}</h1>
         </div>
+
+        <JumpNav items={jumps} />
 
         {(m.charityGoal || m.charityUrl || m.charityPercent != null) && (
           <section className="border border-apex-border border-l-[3px] border-l-apex-rose px-3.5 py-3 flex flex-col gap-1.5 min-w-0" data-testid="charity-goal">
@@ -212,12 +276,12 @@ export default function RegistrationEventPage({ raw, now, preview = false, links
 
         <div className="grid grid-cols-3 border border-apex-border">
           <Stat testId="stat-registered" label="Zapisani" value={<StatLines parts={statParts(m.stats).registered} />} accent />
-          <Stat testId="stat-free" label="Wolne" value={<StatLines parts={statParts(m.stats).free} />} />
+          <Stat testId="stat-free" label="Wolne miejsca" value={<StatLines parts={statParts(m.stats).free} />} />
           <Stat testId="stat-days" label={thirdStat.label} value={thirdStat.value} />
         </div>
 
         {(m.description || m.websiteUrl || m.posterUrl) && (
-          <section className="border border-apex-border px-3.5 py-3 flex flex-col gap-1.5 min-w-0" data-testid="event-description">
+          <section id="o-wydarzeniu" className={`border border-apex-border px-3.5 py-3 flex flex-col gap-1.5 min-w-0 ${jumpTarget}`} data-testid="event-description">
             <span className={labelCls}>O wydarzeniu</span>
             <div className="flex flex-col sm:flex-row-reverse gap-3.5 sm:items-start min-w-0">
               {m.posterUrl && (
@@ -227,13 +291,7 @@ export default function RegistrationEventPage({ raw, now, preview = false, links
                 </a>
               )}
               <div className="flex flex-col gap-1.5 min-w-0 flex-1">
-                {m.description && (
-                  <p className="text-base text-apex-text-bright whitespace-pre-line break-words">
-                    {linkParts(m.description).map((p, i) => (p.href
-                      ? <a key={i} href={p.href} target="_blank" rel="noopener noreferrer nofollow" className={`break-all ${linkCls}`}>{p.text}</a>
-                      : <span key={i}>{p.text}</span>))}
-                  </p>
-                )}
+                {m.description && <Description text={m.description} />}
                 {m.websiteUrl && (
                   <p className="text-base text-apex-text-bright break-words" data-testid="event-website">
                     Więcej informacji:{' '}
@@ -272,7 +330,7 @@ export default function RegistrationEventPage({ raw, now, preview = false, links
                 : <PlaceLine place={m.officePlace} testId="office-place" />}
             </div>
           )}
-          <div className="border border-apex-border px-3.5 py-3 flex flex-col gap-2" data-testid="event-info">
+          <div id="informacje" className={`border border-apex-border px-3.5 py-3 flex flex-col gap-2 ${jumpTarget}`} data-testid="event-info">
             <div className="flex flex-col gap-0.5 min-w-0">
               <span className={labelCls}>Regulamin</span>
               {m.regulaminUrl
@@ -292,7 +350,7 @@ export default function RegistrationEventPage({ raw, now, preview = false, links
           </div>
         </div>
 
-        <div className="flex justify-between items-baseline gap-3">
+        <div id="konkurencje" className={`flex justify-between items-baseline gap-3 ${jumpTarget}`}>
           <span className={labelCls}>{anyOpen ? 'Wybierz konkurencję' : 'Konkurencje'}</span>
           {m.showStartList && startList && (
             <Link to={startList} className={`text-base whitespace-nowrap ${linkCls}`} data-testid="start-list-link">Lista startowa →</Link>
@@ -307,7 +365,7 @@ export default function RegistrationEventPage({ raw, now, preview = false, links
         </div>
 
         {m.courses.length > 0 && (
-          <section className="flex flex-col gap-3" data-testid="event-course">
+          <section id="trasa" className={`flex flex-col gap-3 ${jumpTarget}`} data-testid="event-course">
             <div className="flex justify-between items-baseline gap-3">
               <span className={labelCls}>Trasa</span>
               {course && <Link to={course} className={`text-base whitespace-nowrap ${linkCls}`}>Pełny widok i GPX →</Link>}

@@ -382,12 +382,12 @@ describe('Final review: RA1 never adds people and teams into one number', () => 
     assert.deepEqual(m.stats, { registered: 40, confirmed: 39, free: 40, teams: { registered: 3, free: 17, only: false }, daysLeft: '27 dni' })
     assert.deepEqual(statParts(m.stats), {
       registered: [{ count: 40, unit: 'osób' }, { count: 3, unit: 'drużyny' }],
-      free: [{ count: 40, unit: 'miejsc' }, { count: 17, unit: 'dla drużyn' }],
+      free: [{ count: 40, unit: 'osób' }, { count: 17, unit: 'drużyn' }],
     })
   })
   it('I-5 only teams: the units say drużyny; only people: one bare number, as before', () => {
     const m = eventPageModel({ ...RA1, competitions: [team({ taken: 1, capacity: 2 })] }, NOW)
-    assert.deepEqual(statParts(m.stats), { registered: [{ count: 1, unit: 'drużyna' }], free: [{ count: 1, unit: 'dla drużyn' }] })
+    assert.deepEqual(statParts(m.stats), { registered: [{ count: 1, unit: 'drużyna' }], free: [{ count: 1, unit: 'drużyna' }] })
     assert.deepEqual(statParts(model().stats), { registered: [{ count: 87, unit: null }], free: [{ count: 113, unit: null }] })
   })
   it('L-2 the team line\'s limit word follows the limit', () => {

@@ -206,7 +206,7 @@ function stats(competitions, daysLeft) {
 }
 
 /**
- * RA1's „Zapisani” and „Wolne” as lines of { count, unit }. With no team competition each is one
+ * RA1's „Zapisani” and „Wolne miejsca” as lines of { count, unit }. With no team competition each is one
  * bare number, as it always was. Otherwise people and teams are separate lines with their units,
  * and the people line is left out when the event has only team competitions.
  */
@@ -218,7 +218,10 @@ export function statParts(s) {
       ...people(s.registered, pluralPl(s.registered, 'osoba', 'osoby', 'osób')),
       { count: s.teams.registered, unit: pluralPl(s.teams.registered, 'drużyna', 'drużyny', 'drużyn') },
     ],
-    free: [...people(s.free, pluralPl(s.free, 'miejsce', 'miejsca', 'miejsc')), { count: s.teams.free, unit: 'dla drużyn' }],
+    free: [
+      ...people(s.free, pluralPl(s.free, 'osoba', 'osoby', 'osób')),
+      { count: s.teams.free, unit: pluralPl(s.teams.free, 'drużyna', 'drużyny', 'drużyn') },
+    ],
   }
 }
 
