@@ -15,5 +15,8 @@ COPY backend/ backend/
 # run-weekly-digest.js imports the edge functions' deadline rule so the email and
 # the in-app badge agree. Without it the digest crashed at import in the image.
 COPY supabase/functions/_shared/deadlineSoon.js supabase/functions/_shared/
+# publish-landing-pages.js (a pipeline step) uploads the /listy manifest to
+# Supabase Storage through the public app's storage module.
+COPY public/scripts/lib/publicData.js public/scripts/lib/
 EXPOSE 3001
 CMD ["node", "--watch", "backend/src/server.js"]

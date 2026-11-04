@@ -507,7 +507,7 @@ If the new scraper covers events already in `calendar_events` from another sourc
 1. Query CE rows that match scraper_all on source_links
 2. For each: state the diff and ask user before UPDATE (CLAUDE.md "Database write safety" rule applies)
 3. Skip fields listed in `locked_fields`
-4. After updates: `node --env-file=../.env scripts/publish-event-pages.js --apply` to refresh manifest + OG images
+4. After updates: `node --env-file=../.env scripts/publish-event-pages.js --apply` to publish the manifest + OG images to Supabase Storage
 
 ## 10. Update docs
 
@@ -522,10 +522,10 @@ Two files track the scraper list — update both:
 
 ## 11. Refresh manifest
 
-After ANY change to `calendar_events` (publish + manual backfill):
+After ANY change to `calendar_events` (publish + manual backfill). The manifest and the OG images go to Supabase Storage, not git; the commit of `public/data-version.json` is what deploys them:
 ```bash
 cd backend && node --env-file=../.env scripts/publish-event-pages.js --apply
-git add public/public/kalendarz && git commit -m "data: manifest refresh after <name> scraper rollout"
+git add public/data-version.json && git commit -m "data: manifest refresh after <name> scraper rollout"
 ```
 
 ## Common pitfalls
