@@ -19,7 +19,7 @@ const NOT_FOUND = { error: 'Not found' }
 const UNCONFIRMED = 'Zwrot niepotwierdzony.'
 const INSUFFICIENT = 'Operator płatności odrzucił zwrot: brak środków.'
 const REJECTED = 'Operator płatności odrzucił zwrot.'
-const BLOCKED = 'Operator płatności blokuje zwroty tej wpłaty. Napisz do LESZY.RUN — wyjaśnimy to z nim.'
+const BLOCKED = 'Operator płatności blokuje zwroty tej wpłaty. Pieniądze nie zostały zwrócone. Zgłosiliśmy to i wyjaśniamy z operatorem; napiszemy, gdy zwrot będzie możliwy.'
 const exceedsCopy = (grosze) => `Kwota przekracza możliwą do zwrotu: ${formatPln(grosze)}.`
 
 // reserve_organizer_refund's refusals, beside `exceeds:<grosze>`.
@@ -58,6 +58,13 @@ function reserveRefusal(req, error) {
     return json({ error: text, code: msg }, status, req)
   }
   return null
+}
+
+async function wasBlocked(admin, orderId, refundId) {
+  const { data, error } = await admin.from('operator_alerts').select('payload')
+    .eq('order_id', orderId).eq('kind', 'refund_blocked')
+  if (error) return false
+  return (data ?? []).some((a) => a.payload?.refundId === refundId)
 }
 
 async function single(query) {
@@ -190,7 +197,14 @@ Deno.serve(async (req) => {
     const refund = await single(admin.from('refunds')
       .select('id, order_id, payment_attempt_id, dpay_status').eq('id', refundId).single())
     // A replay, or a refund another request claimed first: dpay is never called twice (ruling 5).
-    if (reserved.replay || !(await claimRefundRequest(admin, refundId))) return answerFor(req, refundId, refund.dpay_status)
+    if (reserved.replay || !(await claimRefundRequest(admin, refundId))) {
+      // A refund dpay blocked (409) is stored `rejected`; its replay says so again, read from the
+      // refund_blocked alert that names it.
+      if (refund.dpay_status === 'rejected' && await wasBlocked(admin, refund.order_id, refundId)) {
+        return json({ error: BLOCKED, code: 'refund_blocked', refundId }, 409, req)
+      }
+      return answerFor(req, refundId, refund.dpay_status)
+    }
 
     let finished = null
     const outcome = await executeRefund(admin, cfg, {

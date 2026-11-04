@@ -191,13 +191,14 @@ function detailsAmount(value) {
  * POST {panelBase}/api/v1/pbl/details { service, transaction_id, checksum }
  * https://docs.dpay.pl/docs/cykl-platnosci/statusy-transakcji/
  * Returns { status: one of created|processing|paid|captured|expired, or null when unrecognised,
- *           grosze: int|null, refundedGrosze: int|null, raw }. Throws DpayError on a non-2xx answer,
+ *           grosze: int|null, refundedGrosze: int|null, refundCount: int|null, raw }. Throws DpayError on a non-2xx answer,
  *           a timeout or a non-JSON body.
  * refundedGrosze is `transaction.refunded_amount` (seen in the sandbox on 2026-11-01, sandbox README:
  * dpay reports every refund there, also one made in its merchant panel); null when absent or not an
  * amount parseDpayAmount accepts, which must never be read as "nothing refunded". It counts every
  * refund dpay accepted, also one not yet carried out by the payer's bank, and does not drop when the
- * bank later refuses it (dpay, 2026-11-03).
+ * bank later refuses it (dpay, 2026-11-03). refundCount is the length of `refunds[]` (every refund
+ * of the transaction, API and panel), null when absent.
  */
 export async function transactionDetails(cfg, txnId) {
   const body = { service: cfg.service, transaction_id: txnId }
@@ -211,6 +212,7 @@ export async function transactionDetails(cfg, txnId) {
     status: KNOWN_STATUSES.has(t.status) ? t.status : null,
     grosze: detailsAmount(t.value),
     refundedGrosze: detailsAmount(t.refunded_amount),
+    refundCount: Array.isArray(json.refunds) ? json.refunds.length : null,
     raw: json,
   }
 }

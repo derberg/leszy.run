@@ -460,8 +460,9 @@ export async function refundLedger(admin, attemptId, { excludeId = null } = {}) 
   if (excludeId) query = query.neq('id', excludeId)
   const { data, error } = await query
   if (error) throw error
-  const sum = (states) => (data ?? []).filter((r) => states.includes(r.dpay_status)).reduce((n, r) => n + r.amount, 0)
-  return { recorded: sum(['accepted']), inFlight: sum(['pending', 'unknown']) }
+  const pick = (states) => (data ?? []).filter((r) => states.includes(r.dpay_status))
+  const sum = (states) => pick(states).reduce((n, r) => n + r.amount, 0)
+  return { recorded: sum(['accepted']), recordedCount: pick(['accepted']).length, inFlight: sum(['pending', 'unknown']) }
 }
 
 // The /pbl/details read after a 400 gets less than a refund call's time: the organizer is waiting.
@@ -470,10 +471,10 @@ const VERIFY_READ_TIMEOUT_MS = 5_000
 /**
  * After a 400 from /pbl/refund dpay cannot promise that nothing was refunded: the order may have
  * reached the payment operator before the error (dpay, 2026-11-03). Their advice is to wait about
- * 10 s (/pbl/details is cached), read /pbl/details and compare. `refunded_amount` against our own
- * ledger of the same payment attempt decides:
- *   dpay = accepted refunds of the attempt + this one → accepted (the 400 lied)
- *   dpay = accepted refunds of the attempt            → rejected (nothing moved)
+ * 10 s (/pbl/details is cached), read /pbl/details and check `refunds[]` and `refunded_amount`.
+ * Both against our own ledger of the same payment attempt decide:
+ *   one more refund and the total grown by exactly this one → accepted (the 400 lied)
+ *   the same number of refunds and the same total            → rejected (nothing moved)
  *   anything else, another refund of the attempt pending or unknown (it may be what dpay counts),
  *   or a read that failed → unknown: the operator compares the panel. A refund made in dpay's panel
  *   lands here too, because our ledger does not know it.
@@ -488,10 +489,16 @@ async function verifyRefund(admin, cfg, { attemptId, txn, refundId, grosze }) {
       transactionDetails({ ...cfg, timeoutMs: Math.min(cfg.timeoutMs ?? VERIFY_READ_TIMEOUT_MS, VERIFY_READ_TIMEOUT_MS) }, txn),
       refundLedger(admin, attemptId, { excludeId: refundId }),
     ])
-    const verify = { dpayRefunded: details.refundedGrosze, ...ledger }
-    if (!Number.isSafeInteger(details.refundedGrosze) || ledger.inFlight > 0) return { outcome: 'unknown', verify }
-    if (details.refundedGrosze === ledger.recorded + grosze) return { outcome: 'accepted', verify }
-    if (details.refundedGrosze === ledger.recorded) return { outcome: 'rejected', verify }
+    const verify = { dpayRefunded: details.refundedGrosze, dpayCount: details.refundCount, ...ledger }
+    if (!Number.isSafeInteger(details.refundedGrosze) || !Number.isSafeInteger(details.refundCount) || ledger.inFlight > 0) {
+      return { outcome: 'unknown', verify }
+    }
+    if (details.refundedGrosze === ledger.recorded + grosze && details.refundCount === ledger.recordedCount + 1) {
+      return { outcome: 'accepted', verify }
+    }
+    if (details.refundedGrosze === ledger.recorded && details.refundCount === ledger.recordedCount) {
+      return { outcome: 'rejected', verify }
+    }
     return { outcome: 'unknown', verify }
   } catch (err) {
     return { outcome: 'unknown', verify: { error: String(err?.message ?? err) } }
