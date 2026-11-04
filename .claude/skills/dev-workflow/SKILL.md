@@ -96,8 +96,11 @@ wrong base or another topic leaked in.
   needs its Drizzle migration (local, auto-run on backend boot) too. See CLAUDE.md
   "DDL changes MUST be applied to both" + [docs/supabase-release-runbook.md](../../../docs/supabase-release-runbook.md).
 - **Vercel** — serves the `public/` app only (landing, kalendarz, event/club pages).
-  Merging to `main` is what ships it; the build pre-generates static pages from
-  committed manifests.
+  Merging to `main` is what ships it; the build downloads the calendar
+  manifests from the private Supabase Storage bucket `calendar-manifests`
+  (`public/scripts/fetch-manifests.js`, needs `SUPABASE_SERVICE_ROLE_KEY` in the
+  Vercel env) and pre-generates static pages from them. A missing key or
+  manifest fails the build.
   The CLI link (`.vercel/project.json`, project `leszy-public`, root directory
   `public`) sits at the repo root, so run `vercel` commands from there. Run from
   `public/`, which has no link, `vercel ... --yes` creates a new empty project.
@@ -111,9 +114,10 @@ wrong base or another topic leaked in.
 ## Post-merge steps (don't skip)
 
 - **Calendar / event data changed** (`calendar_events`, published events): re-run
-  the manifest/page generators and commit the refreshed manifests, or the static
-  public pages go stale. See CLAUDE.md "Static HTML generation" +
-  `feedback_manifest_refresh`.
+  the publish scripts with `--apply` (they upload the manifests and OG images to
+  Supabase Storage) and commit `public/data-version.json`, which deploys the
+  site; otherwise the static public pages go stale. The manifests are no longer
+  in git. See CLAUDE.md "Static HTML generation" + `feedback_manifest_refresh`.
 - **Schema changed**: confirm the Drizzle migration ran locally, and that a
   committed `supabase/migrations/` file exists so the pipeline applies it to
   Supabase on merge (watch the `Supabase Release` Actions run go green).
