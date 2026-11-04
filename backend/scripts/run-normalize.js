@@ -85,7 +85,7 @@ function normalizeEventTypes(eventType, eventTypes) {
   // event_type: string from dostartu
   if (eventType) raw.push(eventType)
 
-  // event_types: array from biegiwpolsce / enrich-flags
+  // event_types: array from scrapers / enrich-flags
   if (eventTypes && Array.isArray(eventTypes)) raw.push(...eventTypes)
 
   const normalized = new Set()

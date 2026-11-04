@@ -61,7 +61,7 @@ for the full rule and the two enrichment-time gates that back it up.
 | Tier | Priority | When |
 |---|---|---|
 | Direct organizer / timing co | 3 | Hosts the canonical registration URL for its own events (timekeeper, lumisport). Beats aggregators. |
-| Structured big aggregator | 1–2 | dostartu (1), biegiwpolsce (2) — clean APIs, broad coverage |
+| Structured big aggregator | 1–2 | dostartu (1) — clean API, broad coverage (biegiwpolsce held 2 until it was dropped on 2026-11-04) |
 | Mid aggregator | 4–6 | elektronicznezapisy (4), supersport (5), zmierzymyczas (6) |
 | Weak aggregator / listing | 7–9 | datasport (7), maratonypolskie (9), pomiarczasuatelier/b4sport/raatiming (8) |
 

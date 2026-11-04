@@ -296,7 +296,7 @@ No backend server or Docker needed — scripts talk directly to Supabase.
 
 ### Step 1: Scrape raw data
 
-Fetches events from all 6 sources and stores in per-source tables (`scraper_dostartu`, `scraper_biegiwpolsce`, `scraper_timekeeper`, etc.).
+Fetches events from every source and stores in per-source tables (`scraper_dostartu`, `scraper_timekeeper`, etc.).
 
 ```bash
 cd backend && node --env-file=../.env scripts/run-scrapers.js
@@ -310,7 +310,7 @@ cd backend && node --env-file=../.env scripts/run-scrapers.js --force dostartu,e
 
 Reads all raw tables, deduplicates cross-source, merges into `scraper_all` with priority-based field resolution. dostartu data wins over all others.
 
-Priority: dostartu (1) > biegiwpolsce (2) > timekeeper (3) > elektronicznezapisy (4) > supersport (5) > zmierzymyczas (6) > datasport (7) > b4sport (8) = pomiarczasuatelier (8) > maratonypolskie (9)
+Priority: dostartu (1) > timekeeper (3) > elektronicznezapisy (4) > supersport (5) > zmierzymyczas (6) > datasport (7) > b4sport (8) = pomiarczasuatelier (8) > maratonypolskie (9)
 
 ```bash
 cd backend && node --env-file=../.env scripts/run-merge.js
@@ -422,7 +422,7 @@ Requires `claude` CLI installed locally (plus `textutil` and `pdftotext`, both p
 
 Normalizes `scraper_all` data before AI enrichment steps — ensures LLM sees clean type names, not raw scraper values.
 - Voivodeship → Title-Case (`dolnośląskie` → `Dolnośląskie`, `Śląsk` → `Śląskie`)
-- Event types: merges `event_type` (dostartu) + `event_types` (biegiwpolsce) into a single normalized `event_types` array
+- Event types: merges `event_type` (dostartu) + `event_types` (scrapers that emit an array) into a single normalized `event_types` array
 
 Type mapping:
 | Raw | Normalized |
@@ -556,6 +556,8 @@ Each scraper writes raw data into its own table. These are the raw scraper outpu
 | scraped_at | timestamptz | |
 
 ### `scraper_biegiwpolsce`
+No longer written: the scraper was removed on 2026-11-04 (see Source 4). The table and its rows stay.
+
 | Column | Type | Notes |
 |--------|------|-------|
 | id | uuid | PK |
@@ -821,93 +823,9 @@ If the external link from the signup page points to a dostartu-like domain (`dos
 
 ---
 
-## Source 4: biegiwpolsce.pl
+## ~~Source 4: biegiwpolsce.pl~~ (removed)
 
-**URL:** `https://www.biegiwpolsce.pl` (paginated: `/?page=N`)
-**Method:** HTTP fetch + Cheerio (listing pages) → fetch + Cheerio (detail pages)
-**Encoding:** UTF-8
-**Rate limit:** 1.1s between pages and detail fetches
-**Max pages:** 10
-**Events/year:** 1000+
-
-### What it scrapes
-
-**Phase 1 — Listing pages (up to 10 pages):**
-Finds `<a>` elements containing `<h2>` (event name):
-- Name: `<h2>` text
-- Date: `.date` class or regex `DD.MM.YYYY` in element text
-- Location + voivodeship: from `<p>` with pipe-separated text (`City | voivodeship | Type`)
-- Href: detail page path
-
-**Phase 2 — Detail pages (all events):**
-Fetches detail page for every event. Structured HTML, no Playwright needed:
-- City + voivodeship: from `<i class="fa-map-marker-alt">` parent → `<strong>City</strong>, voivodeship`
-- Tags from badges near `<i class="fa-tags">` — then **split** by `splitTags()`:
-  - **Distances**: `5 km` → `5 km`, `10 km` → `10 km`, `Półmaraton` → `21.1 km`, `Maraton` → `42.2 km`, `Ultramaraton` → `ultra`
-  - **Kids flag**: `Dla dzieci` → `is_kids = true`
-  - **Event types**: everything else stays as-is (e.g., `Przełaj/Cross`, `Uliczny`, `Górski`, `Charytatywny`, `NW`, `Na orientację`, `Z przeszkodami`)
-- **Regulamin**: `div.text-red-700 a[href]` — PDF link or external page with rules
-- **Zapisy (registration)**: `div.text-green-700 a[href]` — registration link (dostartu, zapisy.info, event website, etc.)
-- If the Zapisy URL points to a known scraper source domain, it's flagged as `known_source_link`
-
-### Raw output fields
-```
-{ name, date, location, voivodeship,
-  distances (from tag split: "5 km", "21.1 km", "ultra", etc.),
-  registration_url (from Zapisy button), regulamin_url (from Regulamin button),
-  event_types (pure types only, distances and kids removed),
-  is_kids (boolean, from "Dla dzieci" tag),
-  known_source_link (if reg URL is a known source domain),
-  source: 'biegiwpolsce', source_url (per-event page), source_id (href or name-date) }
-```
-
-### Tag splitting reference
-
-| Original tag | Stored in | Value |
-|---|---|---|
-| `5 km` | `distances` | `5 km` |
-| `10 km` | `distances` | `10 km` |
-| `Półmaraton` | `distances` | `21.1 km` |
-| `Maraton` | `distances` | `42.2 km` |
-| `Ultramaraton` | `distances` | `ultra` |
-| `Dla dzieci` | `is_kids` | `true` |
-| `Przełaj/Cross` | `event_types` | as-is |
-| `Uliczny` | `event_types` | as-is |
-| `Górski` | `event_types` | as-is |
-| everything else | `event_types` | as-is |
-
-### Known issues
-- `source_id` is the URL path slug — decent but not guaranteed stable
-- Distance tags are coarse (e.g., a 50 km race just gets `ultra`, no exact distance)
-
-### Flow diagram
-```
-┌──────────────────────────────┐
-│  Paginate listing pages      │
-│  (page 1..10, stop on empty) │
-│  Find <a> with <h2> name     │
-│  Extract: date, city (pipes) │
-└──────────┬───────────────────┘
-           │
-           ▼
-┌──────────────────────────────┐
-│  Phase 2: Detail pages (all) │
-│  Fetch detail → structured:  │
-│  City + voivodeship (icon)   │
-│  splitTags():                │
-│    distances ← 5/10/21/42/u │
-│    is_kids ← "Dla dzieci"   │
-│    event_types ← the rest   │
-│  Regulamin URL (red button)  │
-│  Zapisy/reg URL (grn button) │
-│  Flag known source domains   │
-└──────────┬───────────────────┘
-           │
-           ▼
-┌──────────────────────────────┐
-│  Return array of raw events  │
-└──────────────────────────────┘
-```
+Removed on 2026-11-04: the site blocks automated clients (a „Brak dostępu” page), its robots.txt disallows bulk scraping and its terms (§6, from 2026-10-23) forbid automated bulk download. The scraper had returned nothing since 2026-09-02. Rows already in `scraper_biegiwpolsce` and `scraper_all` stay.
 
 ---
 
@@ -1104,12 +1022,11 @@ Runs scrapers **sequentially** in this order:
 1. maratonypolskie
 2. datasport
 3. elektronicznezapisy
-4. biegiwpolsce
-5. dostartu
-6. timekeeper
-7. supersport
-8. zmierzymyczas
-9. b4sport
+4. dostartu
+5. timekeeper
+6. supersport
+7. zmierzymyczas
+8. b4sport
 
 Each scraper writes raw data into its own Supabase table (upsert by `source_id`):
 
@@ -1118,7 +1035,6 @@ Each scraper writes raw data into its own Supabase table (upsert by `source_id`)
 | maratonypolskie | `scraper_maratonypolskie` | `source_id` |
 | datasport | `scraper_datasport` | `source_id` |
 | elektronicznezapisy | `scraper_elektronicznezapisy` | `source_id` |
-| biegiwpolsce | `scraper_biegiwpolsce` | `source_id` |
 | dostartu | `scraper_dostartu` | `source_id` |
 | timekeeper | `scraper_timekeeper` | `source_id` |
 | supersport | `scraper_supersport` | `source_id` |
@@ -1222,19 +1138,19 @@ Admin review in /calendar-events:
 
 ## Source comparison matrix
 
-| | maratonypolskie | b4sport | datasport | elektronicznezapisy | biegiwpolsce | dostartu |
-|---|---|---|---|---|---|---|
-| **Method** | Playwright | fetch+Cheerio | fetch+Cheerio | fetch+Cheerio | fetch+Cheerio | REST API |
-| **Encoding** | UTF-8 (Playwright) | UTF-8 | Windows-1250 | UTF-8 | UTF-8 | JSON |
-| **Detail pages** | No (listing only) | No (listing + AJAX pagination) | Yes (fetch) | Yes (fetch) | Yes (fetch) | Classifications API |
-| **Volume** | 500+ | 100+ | 200+ | 300-500 | 1000+ | 250+ |
-| **Has reg URL** | No | Yes | No | Yes | Yes (Zapisy btn) | Yes |
-| **Has regulamin** | No | No | Yes (PDF) | Yes (download links) | Yes (red button) | Yes (statuteFilePl PDF or statuteLinkPl) |
-| **Has location** | Yes (listing) | Yes (listing) | Yes (listing) | Yes (detail) | Yes (detail, structured) | Yes (API) |
-| **Has coordinates** | No | No | No | Via dostartu enrichment | No | Yes (API) |
-| **Has distances** | Single from listing | From multi-distance child list text | h4 headings | Cennik pricing + dostartu enrichment | Yes (from tag split) | Classifications API (km, time, meters, named) |
-| **Distance quality** | Low | Low-Medium (only multi-distance cards) | **High** | **Medium-High** (High when enriched) | **Medium** (coarse: 5/10/21/42/ultra) | **Highest** |
-| **Has event type** | No | No | No | No | Yes (pure types after split) | Yes (numeric codes) |
-| **Has kids flag** | No | No | No | No | Yes ("Dla dzieci" tag) | Yes (playerType + keywords) |
-| **Has end_date** | No | No | No | No | No | Yes |
-| **Source ID stability** | Medium (code param) | High (numeric event ID) | High (zawody number) | High (event number) | Medium (URL slug) | High (API id) |
+| | maratonypolskie | b4sport | datasport | elektronicznezapisy | dostartu |
+|---|---|---|---|---|---|
+| **Method** | Playwright | fetch+Cheerio | fetch+Cheerio | fetch+Cheerio | REST API |
+| **Encoding** | UTF-8 (Playwright) | UTF-8 | Windows-1250 | UTF-8 | JSON |
+| **Detail pages** | No (listing only) | No (listing + AJAX pagination) | Yes (fetch) | Yes (fetch) | Classifications API |
+| **Volume** | 500+ | 100+ | 200+ | 300-500 | 250+ |
+| **Has reg URL** | No | Yes | No | Yes | Yes |
+| **Has regulamin** | No | No | Yes (PDF) | Yes (download links) | Yes (statuteFilePl PDF or statuteLinkPl) |
+| **Has location** | Yes (listing) | Yes (listing) | Yes (listing) | Yes (detail) | Yes (API) |
+| **Has coordinates** | No | No | No | Via dostartu enrichment | Yes (API) |
+| **Has distances** | Single from listing | From multi-distance child list text | h4 headings | Cennik pricing + dostartu enrichment | Classifications API (km, time, meters, named) |
+| **Distance quality** | Low | Low-Medium (only multi-distance cards) | **High** | **Medium-High** (High when enriched) | **Highest** |
+| **Has event type** | No | No | No | No | Yes (numeric codes) |
+| **Has kids flag** | No | No | No | No | Yes (playerType + keywords) |
+| **Has end_date** | No | No | No | No | Yes |
+| **Source ID stability** | Medium (code param) | High (numeric event ID) | High (zawody number) | High (event number) | High (API id) |

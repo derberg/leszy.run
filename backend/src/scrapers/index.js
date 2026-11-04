@@ -1,7 +1,6 @@
 import { scrape as scrapeMaratonypolskie } from './sources/maratonypolskie.js'
 import { scrape as scrapeDatasport } from './sources/datasport.js'
 import { scrape as scrapeElektronicznezapisy } from './sources/elektronicznezapisy.js'
-import { scrape as scrapeBiegiwpolsce } from './sources/biegiwpolsce.js'
 import { scrape as scrapeDostartu } from './sources/dostartu.js'
 import { scrape as scrapeTimekeeper } from './sources/timekeeper.js'
 import { scrape as scrapeSupersport } from './sources/supersport.js'
@@ -112,25 +111,6 @@ const sources = [
       registration_deadline: raw.registration_deadline || null,
       lat: raw.lat ?? null,
       lng: raw.lng ?? null,
-      source_id: raw.source_id,
-      source_url: raw.source_url || null,
-    }),
-  },
-  {
-    name: 'biegiwpolsce',
-    scrape: scrapeBiegiwpolsce,
-    table: 'scraper_biegiwpolsce',
-    mapRow: (raw) => ({
-      name: raw.name,
-      date: raw.date,
-      location: raw.location || null,
-      voivodeship: raw.voivodeship || null,
-      distances: raw.distances || null,
-      registration_url: raw.registration_url || null,
-      regulamin_url: raw.regulamin_url || null,
-      event_types: raw.event_types && raw.event_types.length > 0 ? raw.event_types : null,
-      is_kids: raw.is_kids || false,
-      known_source_link: raw.known_source_link || null,
       source_id: raw.source_id,
       source_url: raw.source_url || null,
     }),
@@ -1226,13 +1206,13 @@ async function mergeIntoScraperAll({ dryRun = false } = {}) {
           const isRyskaJunk = source.name === 'maratonypolskie'
             && raw.name && /u\s+Ryśka\b/i.test(raw.name)
 
-          // "ITMB Wieczorem" weekly training run (seen on maratonypolskie AND biegiwpolsce) —
+          // "ITMB Wieczorem" weekly training run (seen on maratonypolskie, and on biegiwpolsce before it was dropped) —
           // repeatedly rejected; the site renders both "ITMBWieczorem" and "Itmb Wieczorem",
           // so match whitespace-insensitively and for any source.
           const isItmbJunk = raw.name && /itmbwieczorem/i.test(raw.name.replace(/\s+/g, ''))
 
           // "Wtorki Biegowe - Maraton na Raty" recurring weekly run series (seen on
-          // maratonypolskie AND biegiwpolsce) — repeatedly rejected, block by name for any source.
+          // maratonypolskie, and on biegiwpolsce before it was dropped) — repeatedly rejected, block by name for any source.
           const isWtorkiJunk = raw.name && /wtorkibiegowe/i.test(raw.name.replace(/\s+/g, ''))
 
           // "Run & Bike" (bieg + rower relay) keeps a running leg — exempt it from

@@ -50,7 +50,7 @@ function isKidsHint(typeHint, name) {
 }
 
 // Tag detection from name + type hint. Returns null if no tags identified.
-// Tags use the same vocabulary as biegiwpolsce/dostartu so the merger and
+// Tags use the same vocabulary as dostartu and the other scrapers so the merger and
 // downstream consumers see consistent values.
 function detectEventTypes(name, typeHint) {
   const haystack = `${name || ''} ${typeHint || ''}`

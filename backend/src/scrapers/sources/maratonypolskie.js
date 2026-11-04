@@ -14,8 +14,8 @@ const MAX_RETRIES = 3
 // Event names to skip (substring match, case-insensitive, whitespace-insensitive —
 // the site renders both "ITMBWieczorem" and "Itmb Wieczorem").
 // "WtorkiBiegowe" = "Wtorki Biegowe - Maraton na Raty", a recurring weekly training
-// run series (one entry per Tuesday) — repeatedly rejected spam, also blocked in
-// biegiwpolsce scraper and at merge level.
+// run series (one entry per Tuesday) — repeatedly rejected spam, also blocked at
+// merge level.
 const IGNORED_NAMES = ['ITMBWieczorem', 'WtorkiBiegowe']
 
 function parseSearchResults(html, today) {
