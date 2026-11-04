@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase.js'
+import { loadCalendarEvents } from '../lib/calendarData.js'
+import { calendarRowsByLeszyrunId } from '../lib/calendarQueries.js'
 
 // Events with less than this many days left are considered registration-closed
 const REG_CLOSED_DAYS = 5
@@ -43,12 +45,10 @@ export default function LeszyrunBanner({ className = 'max-w-[1200px] mx-auto px-
       .order('date', { ascending: true })
       .then(async ({ data }) => {
         if (!data?.length) return
-        // Type and distances live on the published calendar row, not on `events`.
-        const { data: rows } = await supabase
-          .from('calendar_events')
-          .select('leszyrun_event_id, event_type, distances')
-          .in('leszyrun_event_id', data.map(ev => ev.id))
-        const byId = Object.fromEntries((rows || []).map(r => [r.leszyrun_event_id, r]))
+        // Type and distances live on the published calendar row, not on `events`; it is
+        // read from the build-time calendar file, never from calendar_events.
+        const rows = await loadCalendarEvents().catch(() => [])
+        const byId = calendarRowsByLeszyrunId(rows, data.map(ev => ev.id))
         setEvents(data.map(ev => ({
           ...ev,
           charity: byId[ev.id]?.event_type?.includes('charytatywny') ?? false,

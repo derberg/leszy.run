@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useParams } from 'react-router-dom'
 import Navbar from '../components/Navbar.jsx'
 import { supabase } from '../lib/supabase.js'
+import { callFunction } from '../lib/auth.js'
 import useSeo from '../hooks/useSeo.js'
 
 const sectionTitle = 'font-display font-bold text-[10px] tracking-widest uppercase text-apex-muted border-b border-apex-border pb-1 mb-3'
@@ -51,12 +52,8 @@ export default function UserProfile() {
           .eq('status', 'accepted')
           .order('created_at', { ascending: false })
           .limit(10),
-        supabase
-          .from('calendar_events')
-          .select('name, status, created_at')
-          .eq('submitted_by', p.id)
-          .order('created_at', { ascending: false })
-          .limit(10),
+        // calendar_events is not readable from a browser; this returns the live ones only.
+        callFunction('get-user-submissions', { userId: p.id }).catch(() => ({ data: [] })),
       ])
 
       setBadges(b || [])

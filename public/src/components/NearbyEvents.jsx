@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
-import { supabase } from '../lib/supabase.js'
+import { loadCalendarEvents } from '../lib/calendarData.js'
+import { nearbyEvents } from '../lib/calendarQueries.js'
 import { slugify } from '../lib/slugify.js'
 
 /**
  * "W okolicy tego weekendu" section.
- * Fetches events from the same voivodeship, date +/-3 days, limit 5, excluding current event.
+ * Lists events from the same voivodeship, date +/-3 days, limit 5, excluding current event.
  *
  * @param {{ event: Object }} props
  */
@@ -15,32 +16,15 @@ export default function NearbyEvents({ event }) {
   useEffect(() => {
     if (!event?.voivodeship || !event?.date) return
 
-    const date = new Date(event.date)
-    const from = new Date(date)
-    from.setDate(from.getDate() - 3)
-    const to = new Date(date)
-    to.setDate(to.getDate() + 3)
-
-    // Never show past events: clamp the lower bound to today, so an event in
-    // the past (e.g. a finished race) doesn't surface a window of past nearby events.
-    const todayStr = new Date().toISOString().slice(0, 10)
-    const fromStr = from.toISOString().slice(0, 10)
-    const toStr = to.toISOString().slice(0, 10)
-    const lowerStr = fromStr > todayStr ? fromStr : todayStr
-
-    supabase
-      .from('calendar_events')
-      .select('id, name, date, location, distances')
-      .eq('status', 'active')
-      .eq('voivodeship', event.voivodeship)
-      .gte('date', lowerStr)
-      .lte('date', toStr)
-      .neq('id', event.id)
-      .order('date', { ascending: true })
-      .limit(5)
-      .then(({ data }) => {
-        if (data?.length) setNearby(data)
+    // Same voivodeship, ±3 days, never in the past, from the build-time calendar file.
+    let active = true
+    loadCalendarEvents()
+      .then((events) => {
+        const list = nearbyEvents(events, event)
+        if (active && list.length) setNearby(list)
       })
+      .catch(() => {})
+    return () => { active = false }
   }, [event?.id, event?.voivodeship, event?.date])
 
   if (nearby.length === 0) return null

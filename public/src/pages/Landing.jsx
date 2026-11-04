@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase.js'
+import { loadCalendarEvents } from '../lib/calendarData.js'
+import { upcomingEvents } from '../lib/calendarQueries.js'
 import Navbar from '../components/Navbar.jsx'
 import useTheme from '../hooks/useTheme.js'
 import useSeo from '../hooks/useSeo.js'
@@ -261,16 +263,9 @@ function KalendarzTeaser() {
   const [events, setEvents] = useState([])
 
   useEffect(() => {
-    supabase
-      .from('calendar_events')
-      .select('id, name, date, location, leszyrun_event_id')
-      .gte('date', new Date().toISOString().split('T')[0])
-      .order('date', { ascending: true })
-      .limit(5)
-      .then(({ data, error }) => {
-        if (error) console.error('Calendar events fetch error:', error.message)
-        setEvents(data || [])
-      })
+    loadCalendarEvents()
+      .then(events => setEvents(upcomingEvents(events)))
+      .catch(err => console.error('Calendar events fetch error:', err.message))
   }, [])
 
   return (
