@@ -19,17 +19,18 @@ export async function adminStatsRoutes(fastify) {
     if (!supabase) return reply.code(503).send({ error: 'Supabase not configured' })
     const months = Math.min(Math.max(Number(request.query.months) || 12, 1), 36)
     try {
-      const [profiles, clubs, clubMembers, favorites, registrationEvents, registrations, orders] = await Promise.all([
+      const [profiles, clubs, clubMembers, favorites, registrationEvents, registrations, orders, refunds] = await Promise.all([
         fetchAll('profiles', 'created_at, username, deleted_at'),
         fetchAll('clubs', 'created_at'),
         fetchAll('club_members', 'joined_at, status, role'),
         fetchAll('event_favorites', 'created_at'),
         fetchAll('registration_settings', 'published_at, state'),
         fetchAll('registrations', 'created_at, status'),
-        fetchAll('orders', 'paid_at, total'),
+        fetchAll('orders', 'id, paid_at, total'),
+        fetchAll('refunds', 'order_id, amount, dpay_status, responded_at, created_at'),
       ])
       const stats = buildAdminStats(
-        { profiles, clubs, clubMembers, favorites, registrationEvents, registrations, orders },
+        { profiles, clubs, clubMembers, favorites, registrationEvents, registrations, orders, refunds },
         { months },
       )
       return { data: stats }

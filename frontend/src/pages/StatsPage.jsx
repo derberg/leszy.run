@@ -21,9 +21,11 @@ const METRICS = [
   { key: 'registrations', total: 'registrations', label: 'Zgłoszenia',
     hint: 'Potwierdzone zgłoszenia (opłacone lub darmowe) według dnia zapisu. Każdy członek drużyny liczy się osobno.' },
   { key: 'paidOrders', total: 'paidOrders', label: 'Opłacone zamówienia',
-    hint: 'Zamówienia z wpłatą, według dnia wpłaty. Także testowe i później zwrócone.' },
+    hint: 'Zamówienia z wpłatą, według dnia wpłaty, bez zwróconych w całości. Także testowe.' },
   { key: 'paidAmount', total: 'paidAmount', label: 'Wpłaty', money: true,
-    hint: 'Suma opłaconych zamówień brutto, bez odejmowania zwrotów.' },
+    hint: 'Pieniądze, które zostały u organizatorów: wpłaty minus zwroty, w miesiącu wpłaty.' },
+  { key: 'refundAmount', total: 'refundAmount', label: 'Zwroty', money: true,
+    hint: 'Przyjęte przez dpay zwroty, w miesiącu zwrotu. Nie są wliczone w wpłaty.' },
 ]
 
 const MONTH_LABEL = new Intl.DateTimeFormat('pl-PL', { month: 'long', year: 'numeric', timeZone: 'UTC' })
