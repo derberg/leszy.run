@@ -325,3 +325,18 @@ The window is set per event in the **Ustawienia RFID** tab.
 
 - [ARCHITECTURE.md](ARCHITECTURE.md) — full system design, DB schema, crossing detection algorithm, CSV formats
 - [CLAUDE.md](CLAUDE.md) — development conventions
+
+## License
+
+Copyright (C) 2026 Łukasz Górnicki.
+
+LeszyRun is free software, licensed under the
+[GNU Affero General Public License v3.0](LICENSE) (`AGPL-3.0-only`). You may
+use, modify and run it, commercially too, but anyone who runs a modified
+version as a network service must offer its users the complete source of that
+version under the same licence.
+
+Bundled third-party files keep their own licences: the fonts under
+`public/public/fonts/`, `frontend/public/fonts/`, `public/og-fonts/` and
+`vision/fonts/` (Barlow Condensed, Rajdhani, IBM Plex Mono) are under the SIL
+Open Font License 1.1.

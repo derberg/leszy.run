@@ -69,5 +69,7 @@ once. Tests that need it skip with an instruction until you do.
 
 ## Licensing
 
-No AGPL dependencies. The YOLOv8 and Ultralytics family is not used here.
-Person detection is MediaPipe, Apache 2.0.
+The project is AGPL-3.0-only (see the root LICENSE), but it takes no AGPL
+dependencies: the YOLOv8 and Ultralytics family is not used here, because
+third-party AGPL code would stop the author from ever licensing this code
+any other way. Person detection is MediaPipe, Apache 2.0.
