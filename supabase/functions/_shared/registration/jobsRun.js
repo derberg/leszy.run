@@ -5,7 +5,7 @@ import { dpayConfig, transactionDetails } from '../dpay.js'
 import { SENDGRID_TIMEOUT_MS, sendEmail } from '../email.js'
 import { operatorAlertEmail, orderExpiredEmail, paymentReminderEmail } from './emails.js'
 import {
-  checkAttemptsAtDpay, executeRefund, loadOrderView, logPaymentEvent, orderEmailArgs, raiseAlert, sendOrderConfirmation,
+  checkAttemptsAtDpay, executeRefund, loadOrderView, refundLedger, logPaymentEvent, orderEmailArgs, raiseAlert, sendOrderConfirmation,
 } from './orderFlow.js'
 import { issueConsentRequestsReport, rotateAndSend } from './consentRequests.js'
 import { notifyRefundRunner, refundNoticeArgs } from './refundNotice.js'
@@ -311,12 +311,7 @@ async function checkExternalRefund(admin, cfg, { order_id: orderId, txn }) {
     })
     if (!Number.isSafeInteger(details.refundedGrosze)) return 'error'
     // Read after dpay answered, so a refund reserved meanwhile counts as in flight.
-    const { data: refunds, error: rErr } = await admin.from('refunds').select('amount, dpay_status')
-      .eq('payment_attempt_id', attempt.id)
-    if (rErr) throw rErr
-    const sum = (states) => (refunds ?? []).filter((r) => states.includes(r.dpay_status)).reduce((n, r) => n + r.amount, 0)
-    const recorded = sum(['accepted'])
-    const inFlight = sum(['pending', 'unknown'])
+    const { recorded, inFlight } = await refundLedger(admin, attempt.id)
     if (details.refundedGrosze <= recorded + inFlight) return 'ok'
     await raiseAlert(admin, 'refund_external', orderId, {
       txn, dpayRefunded: details.refundedGrosze, recorded, inFlight, difference: details.refundedGrosze - recorded,
@@ -366,13 +361,9 @@ export async function runJobs(admin, cfg, { site, alertTo, budgetMs }) {
         const [r] = await rpcRows(admin, 'claim_refund_retries', { p_limit: 1 })
         if (!r) return
         counts.refundRetries++
-        const timeoutMs = Math.min(cfg.timeoutMs ?? 10_000, left - 1_000)
-        const outcome = await executeRefund(admin, { ...cfg, timeoutMs }, {
+        const outcome = await executeRefund(admin, { ...cfg, timeoutMs: Math.min(cfg.timeoutMs ?? 10_000, left - 1_000) }, {
           orderId: r.order_id, txn: r.txn, refundId: r.refund_id, messageId: r.message_id, attemptId: r.attempt_id,
           grosze: r.amount, reason: r.reason, partial: r.amount < r.attempt_grosze, source: 'retry',
-          // A 400 is judged after dpay's cache delay; without the time for it, an unchanged
-          // amount is stored as unknown rather than rejected.
-          verifyWait: left >= 2 * timeoutMs + (cfg.refundVerifyDelayMs ?? 10_000) + 1_000,
         })
         if (outcome === 'insufficient_balance' && r.attempts >= MAX_RETRIES) {
           // Exhausted: no further retry, and the row no longer looks due (review M4).

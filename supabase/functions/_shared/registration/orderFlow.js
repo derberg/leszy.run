@@ -446,8 +446,26 @@ async function sendRefundNotice(admin, orderId, grosze, reason) {
 // The dpay outcomes settle_refund stores, as refundTransaction names them. `unknown` is never
 // retried automatically. `pending` is no longer an answer from dpay (it was the guess for a 409); it
 // stays here for a refund an older version stored that way. refundTransaction's `failed` (400) is
-// settled by verifyRefund first, and its `blocked` (409) is stored as `rejected`.
+// settled by verifyRefund for an organizer refund and is `unknown` for an automatic one, and its
+// `blocked` (409) is stored as `rejected`.
 const SETTLED = new Set(['accepted', 'rejected', 'insufficient_balance', 'pending', 'unknown'])
+
+/**
+ * Our record of one payment attempt's refunds, as compared with dpay's `refunded_amount`:
+ * `recorded` the accepted ones, `inFlight` the pending and unknown ones (both in grosze).
+ * `excludeId` leaves out the refund being judged.
+ */
+export async function refundLedger(admin, attemptId, { excludeId = null } = {}) {
+  let query = admin.from('refunds').select('amount, dpay_status').eq('payment_attempt_id', attemptId)
+  if (excludeId) query = query.neq('id', excludeId)
+  const { data, error } = await query
+  if (error) throw error
+  const sum = (states) => (data ?? []).filter((r) => states.includes(r.dpay_status)).reduce((n, r) => n + r.amount, 0)
+  return { recorded: sum(['accepted']), inFlight: sum(['pending', 'unknown']) }
+}
+
+// The /pbl/details read after a 400 gets less than a refund call's time: the organizer is waiting.
+const VERIFY_READ_TIMEOUT_MS = 5_000
 
 /**
  * After a 400 from /pbl/refund dpay cannot promise that nothing was refunded: the order may have
@@ -456,36 +474,24 @@ const SETTLED = new Set(['accepted', 'rejected', 'insufficient_balance', 'pendin
  * ledger of the same payment attempt decides:
  *   dpay = accepted refunds of the attempt + this one → accepted (the 400 lied)
  *   dpay = accepted refunds of the attempt            → rejected (nothing moved)
- *   anything else, or another refund of the attempt still in flight or unknown, or a read that
- *   failed → unknown: the operator compares the panel. A refund made in dpay's panel lands here too,
- *   because our ledger does not know it.
- * `waited` is false when the caller could not wait the configured delay (the jobs' time budget):
- * dpay's cached answer may not show this refund yet, so an unchanged amount is unknown, not rejected.
+ *   anything else, another refund of the attempt pending or unknown (it may be what dpay counts),
+ *   or a read that failed → unknown: the operator compares the panel. A refund made in dpay's panel
+ *   lands here too, because our ledger does not know it.
  * → { outcome, verify } where verify is what was compared, for the log.
  */
-async function verifyRefund(admin, cfg, { txn, attemptId, refundId, grosze, waited = true }) {
-  const delay = waited ? (cfg.refundVerifyDelayMs ?? 10_000) : 0
+async function verifyRefund(admin, cfg, { attemptId, txn, refundId, grosze }) {
+  const delay = cfg.refundVerifyDelayMs ?? 10_000
   if (delay > 0) await new Promise((resolve) => setTimeout(resolve, delay))
   try {
-    let attempt = attemptId
-    if (!attempt) {
-      const { data, error } = await admin.from('payment_attempts').select('id').eq('dpay_transaction_id', txn).maybeSingle()
-      if (error) throw error
-      attempt = data?.id ?? null
-    }
-    if (!attempt) return { outcome: 'unknown', verify: { error: 'no_attempt' } }
-    const details = await transactionDetails(cfg, txn)
-    const { data: others, error } = await admin.from('refunds').select('amount, dpay_status')
-      .eq('payment_attempt_id', attempt).neq('id', refundId)
-    if (error) throw error
-    const recorded = (others ?? []).filter((r) => r.dpay_status === 'accepted').reduce((n, r) => n + r.amount, 0)
-    const inFlight = (others ?? []).some((r) => r.dpay_status === 'pending' || r.dpay_status === 'unknown')
-    const verify = { dpayRefunded: details.refundedGrosze, recorded, inFlight, waited }
-    if (!Number.isSafeInteger(details.refundedGrosze) || inFlight || !Number.isSafeInteger(grosze)) {
-      return { outcome: 'unknown', verify }
-    }
-    if (details.refundedGrosze === recorded + grosze) return { outcome: 'accepted', verify }
-    if (details.refundedGrosze === recorded && waited) return { outcome: 'rejected', verify }
+    if (!attemptId || !Number.isSafeInteger(grosze)) return { outcome: 'unknown', verify: { error: 'no_attempt' } }
+    const [details, ledger] = await Promise.all([
+      transactionDetails({ ...cfg, timeoutMs: Math.min(cfg.timeoutMs ?? VERIFY_READ_TIMEOUT_MS, VERIFY_READ_TIMEOUT_MS) }, txn),
+      refundLedger(admin, attemptId, { excludeId: refundId }),
+    ])
+    const verify = { dpayRefunded: details.refundedGrosze, ...ledger }
+    if (!Number.isSafeInteger(details.refundedGrosze) || ledger.inFlight > 0) return { outcome: 'unknown', verify }
+    if (details.refundedGrosze === ledger.recorded + grosze) return { outcome: 'accepted', verify }
+    if (details.refundedGrosze === ledger.recorded) return { outcome: 'rejected', verify }
     return { outcome: 'unknown', verify }
   } catch (err) {
     return { outcome: 'unknown', verify: { error: String(err?.message ?? err) } }
@@ -551,9 +557,11 @@ export async function claimRefundRequest(admin, refundId) {
  * job's claim_refund_retries), then its log row, settle_refund, and the follow-up: the refund
  * e-mail when dpay accepted, an operator alert for an outcome nobody may retry automatically
  * (rejected, unknown, blocked). insufficient_balance is left to the retry job.
- * A 400 is judged by verifyRefund before anything is stored. A 409 (`blocked`) moved no money and
- * is stored as `rejected`, with the alert `refund_blocked`: the operator writes to dpay.
- * `verifyWait` false: the caller cannot wait cfg.refundVerifyDelayMs (see verifyRefund).
+ * A 400 of an organizer refund is judged by verifyRefund before anything is stored; for an
+ * automatic one (called from the IPN, order-status and the jobs, which cannot wait 10 s) it is
+ * stored `unknown` and alerted, as nobody retries an automatic refund anyway. A 409 (`blocked`)
+ * moved no money and is stored as `rejected`, with the alert `refund_blocked`: the operator writes
+ * to dpay.
  * `grosze` is sent as the refund value only with `partial: true`; otherwise dpay refunds what is
  * left of the transaction (an automatic refund is always the whole payment).
  *
@@ -569,7 +577,7 @@ export async function claimRefundRequest(admin, refundId) {
  */
 export async function executeRefund(admin, cfg, {
   orderId, txn, refundId, messageId, attemptId = null, grosze, reason, partial = false, source = null,
-  organizer = false, onSettled = null, verifyWait = true,
+  organizer = false, onSettled = null,
 }) {
   let result
   try {
@@ -579,10 +587,12 @@ export async function executeRefund(admin, cfg, {
   }
   if (organizer && result.httpStatus === 410) result = { ...result, outcome: 'unknown' }
   let verify = null
-  if (result.outcome === 'failed') {
-    const checked = await verifyRefund(admin, cfg, { txn, attemptId, refundId, grosze, waited: verifyWait })
+  if (result.outcome === 'failed' && organizer) {
+    const checked = await verifyRefund(admin, cfg, { attemptId, txn, refundId, grosze })
     verify = checked.verify
     result = { ...result, outcome: checked.outcome }
+  } else if (result.outcome === 'failed') {
+    result = { ...result, outcome: 'unknown' }
   }
   const blocked = result.outcome === 'blocked'
   await logPaymentEvent(admin, {
@@ -614,7 +624,7 @@ export async function executeRefund(admin, cfg, {
   } else if (result.outcome !== 'insufficient_balance') {
     await raiseAlert(admin, `refund_${result.outcome}`, orderId, {
       refundId, txn, grosze, reason, httpStatus: result.httpStatus, ...(verify ? { verify } : {}),
-    }, blocked ? { dedupeKey: `refund_blocked:${txn}` } : {})
+    })
   }
   return result.outcome
 }

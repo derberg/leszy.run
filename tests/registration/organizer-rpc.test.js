@@ -98,6 +98,13 @@ test('O-11 refusals: another refund of the payment in progress, over the remaini
   const first = ok(await reserve(e.line.id, 2000))
   // A second refund of the payment waits for the first one's answer (dpay: one at a time).
   refused(await reserve(e.line.id, 1000), 'refund_in_progress')
+  // A reservation never sent, 15 minutes on (stalled_refunds has alerted it), no longer blocks; nor
+  // does a `pending` row with an answer stored (a 409 from before 2026-11-03).
+  await db().from('refunds').update({ created_at: new Date(Date.now() - 16 * 60_000).toISOString() }).eq('id', first.refundId)
+  const second = ok(await reserve(e.line.id, 500))
+  await db().from('refunds').update({ responded_at: new Date().toISOString() }).eq('id', second.refundId)
+  const third = ok(await reserve(e.line.id, 500))
+  for (const r of [second, third]) ok(await rpc('finish_organizer_refund', { p_refund_id: r.refundId, p_outcome: 'rejected' }))
   ok(await rpc('finish_organizer_refund', { p_refund_id: first.refundId, p_outcome: 'accepted' }))
   refused(await reserve(e.line.id, 4001), 'exceeds:4000')
   refused(await reserve(e.line.id, 0), 'invalid_amount')

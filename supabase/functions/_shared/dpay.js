@@ -62,10 +62,13 @@ export function dpayConfig(env) {
     else values[key] = v.trim()
   }
   if (bad.length) throw new DpayConfigError(bad)
-  // Optional, for the local test stack, whose mock answers at once: how long verifyRefund waits.
-  // Anything but a whole number of milliseconds up to a minute keeps dpay's 10 s.
+  // For the local test stack only, whose mock answers at once and caches nothing: how long
+  // verifyRefund waits. Honoured only when the panel is a plain-http (local) address, so a copied
+  // test value can never shorten the wait against dpay itself. Anything but whole milliseconds up to
+  // a minute keeps dpay's 10 s.
   const delay = read('DPAY_REFUND_VERIFY_DELAY_MS')
-  const refundVerifyDelayMs = typeof delay === 'string' && /^\d{1,5}$/.test(delay.trim()) && Number(delay) <= 60_000
+  const refundVerifyDelayMs = values.DPAY_PANEL_BASE.startsWith('http://')
+    && typeof delay === 'string' && /^\d{1,5}$/.test(delay.trim()) && Number(delay) <= 60_000
     ? Number(delay) : REFUND_VERIFY_DELAY_MS
   const noSlash = (u) => u.replace(/\/+$/, '')
   return {

@@ -60,13 +60,15 @@ BEGIN
     RAISE EXCEPTION 'not_paid';
   END IF;
   -- dpay (2026-11-03): refunds of one transaction go one at a time, each waiting for the previous
-  -- answer. Under the attempt lock, so two reservations cannot both pass. `pending` is a refund
-  -- reserved or sent with no answer stored yet; an `unknown` one may still be running at dpay for
-  -- the length of a request, so it blocks for 15 minutes after it was sent. A refund reserved and
-  -- never sent blocks until stalled_refunds' alert is resolved by the operator.
+  -- answer. Under the attempt lock, so two reservations cannot both pass. What counts as running is
+  -- a refund with no answer stored (`pending`, responded_at null) reserved or sent within the last
+  -- 15 minutes, or an `unknown` one sent within them (a timed-out request may still be running at
+  -- dpay). Older ones are past any request at dpay and already alerted (stalled_refunds after 10 and
+  -- 15 minutes); a `pending` row with an answer stored is a 409 from before this change.
   IF EXISTS (SELECT 1 FROM public.refunds r
               WHERE r.payment_attempt_id = a.id
-                AND (r.dpay_status = 'pending'
+                AND ((r.dpay_status = 'pending' AND r.responded_at IS NULL
+                      AND coalesce(r.requested_at, r.created_at) > now() - interval '15 minutes')
                      OR (r.dpay_status = 'unknown' AND r.requested_at > now() - interval '15 minutes'))) THEN
     RAISE EXCEPTION 'refund_in_progress';
   END IF;
