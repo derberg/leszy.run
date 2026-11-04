@@ -2,6 +2,7 @@
 name = "leszyrun-vision"
 version = "0.1.0"
 requires-python = ">=3.11"
+license = { text = "AGPL-3.0-only" }
 # mediapipe is pinned per platform, because no single release runs on both.
 # On macOS arm64 1.0.x aborts: the object detector asks for a Metal GPU
 # service that is not there and calls Check failed. 0.10.21 works, and it
