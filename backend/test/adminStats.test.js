@@ -40,9 +40,17 @@ describe('buildAdminStats', () => {
       { created_at: '2026-11-02T16:00:00Z', status: 'cancelled' },
     ],
     orders: [
-      { paid_at: '2026-11-03T16:05:00Z', total: 20000 },
-      { paid_at: '2026-11-03T19:05:00Z', total: 20000 },
-      { paid_at: null, total: 5000 },
+      { id: 'o1', paid_at: '2026-11-03T16:05:00Z', total: 20000 },
+      { id: 'o2', paid_at: '2026-11-03T19:05:00Z', total: 20000 },
+      { id: 'o3', paid_at: null, total: 5000 },
+      { id: 'o4', paid_at: '2026-10-02T17:00:00Z', total: 14500 }, // refunded in full in November
+      { id: 'o5', paid_at: '2026-10-02T18:00:00Z', total: 6200 }, // 2000 refunded
+    ],
+    refunds: [
+      { order_id: 'o4', amount: 14000, dpay_status: 'accepted', responded_at: '2026-11-01T10:00:00Z', created_at: '2026-11-01T09:59:00Z' },
+      { order_id: 'o4', amount: 500, dpay_status: 'accepted', responded_at: null, created_at: '2026-11-01T10:05:00Z' },
+      { order_id: 'o5', amount: 2000, dpay_status: 'accepted', responded_at: '2026-10-03T10:00:00Z', created_at: '2026-10-03T10:00:00Z' },
+      { order_id: 'o2', amount: 20000, dpay_status: 'rejected', responded_at: '2026-11-04T10:00:00Z', created_at: '2026-11-04T10:00:00Z' },
     ],
   }
   const stats = buildAdminStats(raw, { now, months: 3 })
@@ -51,12 +59,24 @@ describe('buildAdminStats', () => {
     const nov = stats.months.find((m) => m.month === '2026-11')
     assert.deepEqual(nov, {
       month: '2026-11', users: 2, onboarded: 1, clubs: 0, clubJoins: 2, favorites: 1,
-      registrationEvents: 1, registrations: 1, paidOrders: 2, paidAmount: 40000,
+      registrationEvents: 1, registrations: 1, paidOrders: 2, paidAmount: 40000, refundAmount: 14500,
     })
     const oct = stats.months.find((m) => m.month === '2026-10')
     assert.equal(oct.users, 1)
     assert.equal(oct.clubs, 1)
     assert.equal(oct.clubJoins, 0, 'the owner founding the club is not a join')
+  })
+
+  it('counts payments net of accepted refunds, in the month they were paid', () => {
+    const oct = stats.months.find((m) => m.month === '2026-10')
+    assert.equal(oct.paidOrders, 1, 'an order refunded in full is not a paid order')
+    assert.equal(oct.paidAmount, 4200)
+  })
+
+  it('shows accepted refunds separately, in the month they were made', () => {
+    const [nov, oct] = stats.months
+    assert.equal(nov.refundAmount, 14500, 'a rejected refund moved no money')
+    assert.equal(oct.refundAmount, 2000)
   })
 
   it('returns exactly the requested months, newest first, zero-filled', () => {
@@ -68,7 +88,7 @@ describe('buildAdminStats', () => {
   it('reports current totals, leaving out what no longer exists', () => {
     assert.deepEqual(stats.totals, {
       users: 2, onboarded: 1, clubs: 1, clubMembers: 2, favorites: 2,
-      registrationEvents: 1, registrations: 1, paidOrders: 2, paidAmount: 40000,
+      registrationEvents: 1, registrations: 1, paidOrders: 3, paidAmount: 44200, refundAmount: 16500,
     })
   })
 })

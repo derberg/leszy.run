@@ -22,12 +22,12 @@ export function lastMonths(fromMonth, count) {
 
 const EMPTY = {
   users: 0, onboarded: 0, clubs: 0, clubJoins: 0, favorites: 0,
-  registrationEvents: 0, registrations: 0, paidOrders: 0, paidAmount: 0,
+  registrationEvents: 0, registrations: 0, paidOrders: 0, paidAmount: 0, refundAmount: 0,
 }
 
 /**
  * @param {object} raw rows: profiles, clubs, clubMembers, favorites,
- *   registrationEvents (registration_settings), registrations, orders
+ *   registrationEvents (registration_settings), registrations, orders, refunds
  * @param {{ now?: string|Date, months?: number }} opts
  */
 export function buildAdminStats(raw, { now = new Date(), months = 12 } = {}) {
@@ -48,14 +48,23 @@ export function buildAdminStats(raw, { now = new Date(), months = 12 } = {}) {
   for (const f of raw.favorites) add(f.created_at, 'favorites')
   for (const e of raw.registrationEvents) add(e.published_at, 'registrationEvents')
   for (const r of raw.registrations) if (r.status === 'confirmed') add(r.created_at, 'registrations')
-  for (const o of raw.orders) {
-    if (!o.paid_at) continue
+  // Payments are net: money refunded is not a payment. An order refunded in
+  // full disappears; the refunds themselves are counted on their own, in the
+  // month the money went back.
+  const accepted = (raw.refunds ?? []).filter((r) => r.dpay_status === 'accepted')
+  const refundedByOrder = new Map()
+  for (const r of accepted) {
+    refundedByOrder.set(r.order_id, (refundedByOrder.get(r.order_id) ?? 0) + r.amount)
+    add(r.responded_at ?? r.created_at, 'refundAmount', r.amount)
+  }
+  const netOf = (o) => Math.max(0, (o.total ?? 0) - (refundedByOrder.get(o.id) ?? 0))
+  const paid = raw.orders.filter((o) => o.paid_at && netOf(o) > 0)
+  for (const o of paid) {
     add(o.paid_at, 'paidOrders')
-    add(o.paid_at, 'paidAmount', o.total ?? 0)
+    add(o.paid_at, 'paidAmount', netOf(o))
   }
 
   const live = raw.profiles.filter((p) => !p.deleted_at)
-  const paid = raw.orders.filter((o) => o.paid_at)
   const totals = {
     users: live.length,
     onboarded: live.filter((p) => p.username).length,
@@ -65,7 +74,8 @@ export function buildAdminStats(raw, { now = new Date(), months = 12 } = {}) {
     registrationEvents: raw.registrationEvents.filter((e) => e.published_at).length,
     registrations: raw.registrations.filter((r) => r.status === 'confirmed').length,
     paidOrders: paid.length,
-    paidAmount: paid.reduce((s, o) => s + (o.total ?? 0), 0),
+    paidAmount: paid.reduce((s, o) => s + netOf(o), 0),
+    refundAmount: accepted.reduce((s, r) => s + r.amount, 0),
   }
 
   return { totals, months: keys.map((k) => byMonth.get(k)) }
