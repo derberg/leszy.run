@@ -262,6 +262,12 @@ The `participants_public` view comment in `rls-policies.sql` says "Direct table 
 
 ### public.calendar_events
 
+> **Superseded on 2026-11-04** (migration `20261114200000_calendar_events_service_role_only.sql`):
+> `anon` and `authenticated` hold no privilege on `calendar_events` and `public_read` is dropped.
+> The public pages read build-time files (`/kalendarz/events.json`, the pre-rendered
+> `/kalendarz/<slug>/` pages) and the `get-user-submissions` edge function, so pending and
+> rejected rows are no longer readable through PostgREST.
+
 - **RLS enabled:** YES
 - **Policies:**
 
@@ -397,11 +403,16 @@ After enabling RLS on the five T2 tables, confirmed all pre-existing "anon read"
 | RLS on 37 scraper/pipeline tables | No PII in scraper tables; backend (service_role) is the only writer/reader. Enabling RLS would require adding `USING (true)` policies to avoid breaking backend queries. Low-priority. |
 | `notification_preferences` — no INSERT/UPDATE policy | Backend API handles writes via service_role; this is likely intentional. |
 | `user_badges` — public SELECT includes user_id | Minor; UUIDs not directly identifying without join. Flag for review if sensitive badges introduced. |
-| `calendar_events` public_read shows pending/rejected rows | No PII; accepted trade-off for public calendar feature. |
+| `calendar_events` public_read shows pending/rejected rows | Resolved 2026-11-04: client roles hold no privilege on the table. |
 
 ---
 
 ## Calendar events anti-scrape gap (deferred)
+
+> **Done on 2026-11-04**, by a variant of option 1 below: the public pages read build-time files
+> instead of an edge function, and anon SELECT was revoked (see the `public.calendar_events`
+> section). Upcoming races remain readable from `/kalendarz/events.json` and the rendered pages, as
+> intended; pending and rejected rows and the other columns are not.
 
 **Concern raised by operator 2026-06-04:** `calendar_events` is a monetizable data asset. RLS-level protection cannot prevent scraping because anonymous SELECT access is required for the public kalendarz page to function (Kalendarz.jsx, Landing.jsx, /listy/* pages all query Supabase directly with the anon key).
 

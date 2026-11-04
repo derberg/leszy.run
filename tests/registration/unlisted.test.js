@@ -154,8 +154,9 @@ test('W-83 the listing queries the public app runs leave an unlisted event out a
   const { data, error } = await anon.from('events').select('id').eq('visibility', 'public').in('id', [hidden.eventId, shown.eventId])
   assert.equal(error, null)
   assert.deepEqual(data.map((r) => r.id), [shown.eventId])
-  // The /kalendarz pages, the landing pages and the sitemap read calendar_events.
-  const { data: cal } = await anon.from('calendar_events').select('source_id').eq('source', 'leszyrun')
+  // The /kalendarz pages, the landing pages and the sitemap are built from calendar_events,
+  // which only the service role reads (F-24): the build's manifest leaves the hidden one out.
+  const { data: cal } = await db().from('calendar_events').select('source_id').eq('source', 'leszyrun')
     .in('source_id', [hidden.eventId, shown.eventId])
   assert.deepEqual(cal.map((r) => r.source_id), [shown.eventId])
 })
