@@ -8,6 +8,7 @@ import PodiumPage from './pages/PodiumPage.jsx'
 import ReaderDashboard from './pages/ReaderDashboard.jsx'
 import CalendarEventsList from './pages/CalendarEventsList.jsx'
 import ClubsPage from './pages/ClubsPage'
+import StatsPage from './pages/StatsPage.jsx'
 
 export default function App() {
   return (
@@ -23,6 +24,7 @@ export default function App() {
           <Route path="/calendar-events" element={<CalendarEventsList />} />
           <Route path="/moderation" element={<Navigate to="/calendar-events" replace />} />
           <Route path="/clubs" element={<ClubsPage />} />
+          <Route path="/stats" element={<StatsPage />} />
         </Route>
         {/* Public views — no nav */}
         <Route path="/events/:id/podium" element={<PodiumPage />} />
