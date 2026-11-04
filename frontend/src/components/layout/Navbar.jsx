@@ -35,7 +35,7 @@ export default function Navbar() {
       {/* Yellow left accent stripe */}
       <div className="absolute left-0 top-0 bottom-0 w-1 bg-apex-yellow" />
 
-      <div className="flex items-center justify-between pl-5 pr-6 py-0 h-14">
+      <div className="flex items-center justify-between pl-3 pr-3 sm:pl-5 sm:pr-6 py-0 h-14">
         {/* Left: logo + breadcrumb */}
         <div className="flex items-center gap-0">
           <Link
@@ -66,7 +66,7 @@ export default function Navbar() {
                 key={link.to}
                 to={link.to}
                 className={cn(
-                  'px-3 py-1 text-xs font-bold uppercase tracking-widest transition-all duration-150 border',
+                  'px-2 sm:px-3 py-1 text-xs font-bold uppercase tracking-wider sm:tracking-widest transition-all duration-150 border',
                   isActive
                     ? 'border-apex-yellow text-black bg-apex-yellow'
                     : 'border-transparent text-apex-muted hover:text-apex-text hover:border-apex-border-bright',
@@ -81,7 +81,7 @@ export default function Navbar() {
             <Link
               to="/events"
               className={cn(
-                'px-3 py-1 text-xs font-bold uppercase tracking-widest transition-all duration-150 border',
+                'px-2 sm:px-3 py-1 text-xs font-bold uppercase tracking-wider sm:tracking-widest transition-all duration-150 border',
                 location.pathname === '/events'
                   ? 'border-apex-yellow text-black bg-apex-yellow'
                   : 'border-transparent text-apex-muted hover:text-apex-text hover:border-apex-border-bright',
@@ -94,7 +94,7 @@ export default function Navbar() {
           <Link
             to="/reader"
             className={cn(
-              'px-3 py-1 text-xs font-bold uppercase tracking-widest transition-all duration-150 border',
+              'px-2 sm:px-3 py-1 text-xs font-bold uppercase tracking-wider sm:tracking-widest transition-all duration-150 border',
               location.pathname === '/reader'
                 ? 'border-apex-yellow text-black bg-apex-yellow'
                 : 'border-transparent text-apex-muted hover:text-apex-text hover:border-apex-border-bright',
@@ -106,7 +106,7 @@ export default function Navbar() {
           <Link
             to="/calendar-events"
             className={cn(
-              'px-3 py-1 text-xs font-bold uppercase tracking-widest transition-all duration-150 border',
+              'px-2 sm:px-3 py-1 text-xs font-bold uppercase tracking-wider sm:tracking-widest transition-all duration-150 border',
               location.pathname === '/calendar-events'
                 ? 'border-apex-yellow text-black bg-apex-yellow'
                 : 'border-transparent text-apex-muted hover:text-apex-text hover:border-apex-border-bright',
@@ -118,13 +118,25 @@ export default function Navbar() {
           <Link
             to="/clubs"
             className={cn(
-              'px-3 py-1 text-xs font-bold uppercase tracking-widest transition-all duration-150 border',
+              'px-2 sm:px-3 py-1 text-xs font-bold uppercase tracking-wider sm:tracking-widest transition-all duration-150 border',
               location.pathname === '/clubs'
                 ? 'border-apex-yellow text-black bg-apex-yellow'
                 : 'border-transparent text-apex-muted hover:text-apex-text hover:border-apex-border-bright',
             )}
           >
             Kluby
+          </Link>
+
+          <Link
+            to="/stats"
+            className={cn(
+              'px-2 sm:px-3 py-1 text-xs font-bold uppercase tracking-wider sm:tracking-widest transition-all duration-150 border',
+              location.pathname === '/stats'
+                ? 'border-apex-yellow text-black bg-apex-yellow'
+                : 'border-transparent text-apex-muted hover:text-apex-text hover:border-apex-border-bright',
+            )}
+          >
+            Statystyki
           </Link>
 
           {syncStatus && (syncStatus.status === 'online' || syncStatus.status === 'error' || syncStatus.pendingCount > 0) && (
