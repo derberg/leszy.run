@@ -2,7 +2,7 @@ import { supabase } from '../lib/supabaseClient.js'
 
 const NOMINATIM_URL = 'https://nominatim.openstreetmap.org/search'
 const NOMINATIM_REVERSE_URL = 'https://nominatim.openstreetmap.org/reverse'
-const USER_AGENT = 'leszy.run/1.0 (kontakt@leszy.run)'
+const USER_AGENT = 'leszy.run/1.0 (lukasz@leszy.run)'
 const RATE_LIMIT_MS = 1100
 
 let lastRequestAt = 0

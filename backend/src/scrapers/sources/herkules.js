@@ -24,7 +24,7 @@
 // `location` and let the pipeline's geocode step derive voivodeship from it.
 
 const API = 'https://herkules.org.pl/wp-json/tribe/events/v1/events'
-const UA = 'leszy.run/1.0 (kontakt@leszy.run)'
+const UA = 'leszy.run/1.0 (lukasz@leszy.run)'
 
 // Categories that mean "this is (also) a running/NW event we want". An event is
 // dropped only when ALL its categories fall outside this set (pure SUP / cycling /

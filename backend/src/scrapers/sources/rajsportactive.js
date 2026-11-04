@@ -2,7 +2,7 @@ import * as cheerio from 'cheerio'
 
 const BASE_URL = 'https://rajsportactive.pl'
 const LISTING_URL = `${BASE_URL}/zapisy`
-const USER_AGENT = 'leszy.run/1.0 (kontakt@leszy.run)'
+const USER_AGENT = 'leszy.run/1.0 (lukasz@leszy.run)'
 
 // "09.05.2026 (SOBOTA) - Wróblew" → ['2026-05-09', 'Wróblew']
 // Weekday in parens is optional; multi-word locations like "Kamień, Gmina Ceków-Kolonia" preserved.

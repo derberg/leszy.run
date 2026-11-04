@@ -101,7 +101,7 @@ export async function fetchDetailPage(eventId) {
   try {
     const url = `${BASE_URL}/event/${eventId}/strona.html`
     const res = await fetch(url, {
-      headers: { 'User-Agent': 'leszy.run/1.0 (kontakt@leszy.run)' },
+      headers: { 'User-Agent': 'leszy.run/1.0 (lukasz@leszy.run)' },
     })
     const html = await res.text()
     const $ = cheerio.load(html)
@@ -257,7 +257,7 @@ async function fetchSignupPageLinks(eventId) {
   try {
     const url = `${BASE_URL}/event/${eventId}/signup.html`
     const res = await fetch(url, {
-      headers: { 'User-Agent': 'leszy.run/1.0 (kontakt@leszy.run)' },
+      headers: { 'User-Agent': 'leszy.run/1.0 (lukasz@leszy.run)' },
     })
     const html = await res.text()
     const $ = cheerio.load(html)
@@ -286,7 +286,7 @@ async function scrape({ knownIds = new Set(), knownRows = new Map(), today } = {
   for (const category of CATEGORY_URLS) {
     try {
       const res = await fetch(category.url, {
-        headers: { 'User-Agent': 'leszy.run/1.0 (kontakt@leszy.run)' },
+        headers: { 'User-Agent': 'leszy.run/1.0 (lukasz@leszy.run)' },
       })
       const html = await res.text()
       const $ = cheerio.load(html)

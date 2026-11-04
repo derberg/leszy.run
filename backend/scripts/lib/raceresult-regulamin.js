@@ -41,7 +41,7 @@ import { join } from 'node:path'
 import { promisify } from 'node:util'
 import { verifyPdf } from '../../src/lib/verifyPdf.js'
 
-const UA = 'leszy.run/1.0 (kontakt@leszy.run)'
+const UA = 'leszy.run/1.0 (lukasz@leszy.run)'
 const BASE = 'https://my.raceresult.com'
 const RULES_LABEL = /regulamin|statut/i
 const NOT_THIS_RACE = /\bcykl|grand\s*prix|\bgp\b|klasyfikac|\bligi\b|\bliga\b|\brodo\b|prywatn|ochrony danych/i

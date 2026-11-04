@@ -44,7 +44,7 @@ function parseLocation(raw) {
 async function fetchFormularz(id) {
   try {
     const res = await fetch(`${FORMULARZ_BASE}/${id}`, {
-      headers: { 'User-Agent': 'leszy.run/1.0 (kontakt@leszy.run)' },
+      headers: { 'User-Agent': 'leszy.run/1.0 (lukasz@leszy.run)' },
     })
     if (!res.ok) return null
 
@@ -111,7 +111,7 @@ export async function scrape({ knownIds = new Set() } = {}) {
 
   try {
     const res = await fetch(LISTING_URL, {
-      headers: { 'User-Agent': 'leszy.run/1.0 (kontakt@leszy.run)' },
+      headers: { 'User-Agent': 'leszy.run/1.0 (lukasz@leszy.run)' },
     })
     if (!res.ok) {
       console.error(`[czasomierzyk] Listing page returned ${res.status}`)

@@ -45,7 +45,7 @@ async def download_pdf(url: str, timeout: int = 30) -> Optional[str]:
         async with httpx.AsyncClient(follow_redirects=True, timeout=timeout) as client:
             resp = await client.get(
                 url,
-                headers={"User-Agent": "leszy.run/1.0 (kontakt@leszy.run)"},
+                headers={"User-Agent": "leszy.run/1.0 (lukasz@leszy.run)"},
             )
         if resp.status_code >= 400:
             return None

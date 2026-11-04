@@ -93,7 +93,7 @@ Deno.serve(async (req) => {
           ? ['Dane zostały zapisane bez zmian.']
           : changed.map((f) => `${FIELD_LABELS[f]}: ${shown(f, prev?.[f])} → ${shown(f, next[f])}`)
         const text = [`Zmieniono dane do wypłat zawodów ${settings.name}.`, '', ...lines, '',
-          'Jeśli to nie Ty, napisz do nas: kontakt@leszy.run.'].join('\n')
+          'Jeśli to nie Ty, napisz do nas: lukasz@leszy.run.'].join('\n')
         await sendEmail({
           to: ownerProfile.email,
           subject: `Zmieniono dane do wypłat zawodów ${settings.name}`,

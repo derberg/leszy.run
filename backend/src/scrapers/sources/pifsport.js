@@ -34,7 +34,7 @@ import * as cheerio from 'cheerio'
 
 const POSTS_URL = 'https://pifsport.com.pl/wp-json/wp/v2/posts'
 const ACTIVE_CATEGORY = 5 // "aktualne imprezy"
-const UA = 'leszy.run/1.0 (kontakt@leszy.run)'
+const UA = 'leszy.run/1.0 (lukasz@leszy.run)'
 
 // Online registration platforms pifsport links out to. A href must match one
 // of these to be considered a registration URL — this excludes route-map links

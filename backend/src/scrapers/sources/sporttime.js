@@ -2,7 +2,7 @@ import * as cheerio from 'cheerio'
 
 const BASE_URL = 'https://sport-time.com.pl'
 const LIST_URL = `${BASE_URL}/zapisy-online`
-const USER_AGENT = 'leszy.run/1.0 (kontakt@leszy.run)'
+const USER_AGENT = 'leszy.run/1.0 (lukasz@leszy.run)'
 
 // DD/MM/YYYY → YYYY-MM-DD
 function parseDate(raw) {

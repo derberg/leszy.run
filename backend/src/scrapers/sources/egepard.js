@@ -51,7 +51,7 @@ import { pickRegulaminUrl } from '../../lib/pickRegulaminUrl.js'
 // Location voivodeship is not exposed → geocoder fills it from the city.
 const BASE_URL = 'https://www.e-gepard.eu'
 const LIST_URL = `${BASE_URL}/pl/list-contest-all?pageSize=500`
-const USER_AGENT = 'leszy.run/1.0 (kontakt@leszy.run)'
+const USER_AGENT = 'leszy.run/1.0 (lukasz@leszy.run)'
 
 // Non-running sport keywords. Matched against the event name (from the listing).
 // These never occur in plain running-event names on this source.

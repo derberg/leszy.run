@@ -67,7 +67,7 @@ async function scrape({ knownIds = new Set() } = {}) {
   let html
   try {
     const res = await fetch(LISTING_URL, {
-      headers: { 'User-Agent': 'leszy.run/1.0 (kontakt@leszy.run)' },
+      headers: { 'User-Agent': 'leszy.run/1.0 (lukasz@leszy.run)' },
     })
     html = await res.text()
   } catch (err) {

@@ -42,7 +42,7 @@
 import * as cheerio from 'cheerio'
 
 const BASE = 'https://www.biegigorskie.pl'
-const UA = 'leszy.run/1.0 (kontakt@leszy.run)'
+const UA = 'leszy.run/1.0 (lukasz@leszy.run)'
 
 const POLISH_MONTHS = {
   stycznia: '01', lutego: '02', marca: '03', kwietnia: '04',

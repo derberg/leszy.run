@@ -140,7 +140,7 @@ export async function scrape({ knownIds = new Set() } = {}) {
 
   try {
     const res = await fetch(LISTING_URL, {
-      headers: { 'User-Agent': 'leszy.run/1.0 (kontakt@leszy.run)' },
+      headers: { 'User-Agent': 'leszy.run/1.0 (lukasz@leszy.run)' },
     })
     if (!res.ok) {
       console.error(`[inessport] Listing returned ${res.status}`)

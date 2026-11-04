@@ -46,7 +46,7 @@ async function fetchDetailPage(href) {
   try {
     const url = href.startsWith('http') ? href : `${BASE_URL}${href}`
     const res = await fetch(url, {
-      headers: { 'User-Agent': 'leszy.run/1.0 (kontakt@leszy.run)' },
+      headers: { 'User-Agent': 'leszy.run/1.0 (lukasz@leszy.run)' },
     })
     if (!res.ok) return null
 
@@ -107,7 +107,7 @@ function parseFormFee(html) {
 async function fetchFormFee(url) {
   try {
     const res = await fetch(url, {
-      headers: { 'User-Agent': 'leszy.run/1.0 (kontakt@leszy.run)' },
+      headers: { 'User-Agent': 'leszy.run/1.0 (lukasz@leszy.run)' },
     })
     if (!res.ok) return null
     return parseFormFee(await res.text())
@@ -154,7 +154,7 @@ async function scrape({ knownIds = new Set(), knownRows = new Map() } = {}) {
 
   try {
     const res = await fetch(`${BASE_URL}/`, {
-      headers: { 'User-Agent': 'leszy.run/1.0 (kontakt@leszy.run)' },
+      headers: { 'User-Agent': 'leszy.run/1.0 (lukasz@leszy.run)' },
     })
     const html = await res.text()
     const $ = cheerio.load(html)

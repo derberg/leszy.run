@@ -29,7 +29,7 @@ import * as cheerio from 'cheerio'
 
 const BASE_URL = 'https://motivato.pl'
 const LIST_URL = `${BASE_URL}/kalendarz-biegowy/`
-const USER_AGENT = 'leszy.run/1.0 (kontakt@leszy.run)'
+const USER_AGENT = 'leszy.run/1.0 (lukasz@leszy.run)'
 
 // Hosts that are dedicated registration / timing platforms — a link here is a real
 // sign-up entry point. Every entry was verified on 2026-08-27 by following the full

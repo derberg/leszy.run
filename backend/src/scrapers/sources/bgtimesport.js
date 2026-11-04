@@ -3,7 +3,7 @@ import { pickRegulaminFromDom } from '../../lib/pickRegulaminUrl.js'
 
 const BASE_URL = 'https://www.bgtimesport.pl'
 const LISTING_URL = `${BASE_URL}/zawody`
-const USER_AGENT = 'leszy.run/1.0 (kontakt@leszy.run)'
+const USER_AGENT = 'leszy.run/1.0 (lukasz@leszy.run)'
 
 // Listing dates are like "10.05.2026", "6.06.2026", "13-14.06.2026", "04.01.2026 zmiana terminu".
 // For multi-day events use the first day. Strip any trailing notice text.

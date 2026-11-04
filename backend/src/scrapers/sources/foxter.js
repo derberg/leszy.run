@@ -19,7 +19,7 @@ import { pickRegulaminFromDom } from '../../lib/pickRegulaminUrl.js'
 // beats aggregators on field conflicts (see dedup.js SOURCE_PRIORITY).
 const BASE_URL = 'https://foxter-sport.pl'
 const LIST_URL = `${BASE_URL}/list`
-const USER_AGENT = 'leszy.run/1.0 (kontakt@leszy.run)'
+const USER_AGENT = 'leszy.run/1.0 (lukasz@leszy.run)'
 
 // Non-running events foxter also hosts (triathlon, open water, cycling, …).
 // The merge step filters these too, but skipping here keeps scraper_foxter

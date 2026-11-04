@@ -2,7 +2,7 @@ import crypto from 'node:crypto'
 import { test, expect } from '@playwright/test'
 import { admin } from '../helpers/stack.js'
 
-const RETIRED_TEXT = 'Ten adres e-mail należał do usuniętego konta LESZY.RUN i nie może zostać użyty ponownie. Podaj inny adres albo napisz do nas: kontakt@leszy.run.'
+const RETIRED_TEXT = 'Ten adres e-mail należał do usuniętego konta LESZY.RUN i nie może zostać użyty ponownie. Podaj inny adres albo napisz do nas: lukasz@leszy.run.'
 
 test('F-16 a retired address on the login page shows the deleted-address message', async ({ page }) => {
   const email = `retired-e2e-${Date.now()}@test.local`

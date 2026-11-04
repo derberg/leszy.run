@@ -83,7 +83,7 @@ const SKIP_DOMAINS = /raatiming\.pl|tpay\.com|facebook\.com|fb\.com|youtube\.com
 async function fetchFormDetails(formUrl) {
   try {
     const res = await fetch(formUrl, {
-      headers: { 'User-Agent': 'leszy.run/1.0 (kontakt@leszy.run)' },
+      headers: { 'User-Agent': 'leszy.run/1.0 (lukasz@leszy.run)' },
     })
     if (!res.ok) return null
 
@@ -131,7 +131,7 @@ async function fetchFormDetails(formUrl) {
 async function fetchEventDetails(eventUrl, slug) {
   try {
     const res = await fetch(eventUrl, {
-      headers: { 'User-Agent': 'leszy.run/1.0 (kontakt@leszy.run)' },
+      headers: { 'User-Agent': 'leszy.run/1.0 (lukasz@leszy.run)' },
     })
     if (!res.ok) return null
 
@@ -198,7 +198,7 @@ export async function scrape({ knownIds = new Set() } = {}) {
 
   try {
     const res = await fetch(BASE_URL, {
-      headers: { 'User-Agent': 'leszy.run/1.0 (kontakt@leszy.run)' },
+      headers: { 'User-Agent': 'leszy.run/1.0 (lukasz@leszy.run)' },
     })
     if (!res.ok) {
       console.error(`[raatiming] Main page returned ${res.status}`)

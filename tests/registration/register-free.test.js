@@ -497,7 +497,7 @@ test('W-35 a retired address → 403 with the exact Plan 1 message', async () =>
   const r = await register({ ...(await body(event, email)), code: '123456' })
   assert.equal(r.status, 403, JSON.stringify(r.body))
   assert.deepEqual(r.body, { error: RETIRED_EMAIL_MESSAGE, code: 'email_retired' })
-  assert.equal(r.body.error, 'Ten adres e-mail należał do usuniętego konta LESZY.RUN i nie może zostać użyty ponownie. Podaj inny adres albo napisz do nas: kontakt@leszy.run.')
+  assert.equal(r.body.error, 'Ten adres e-mail należał do usuniętego konta LESZY.RUN i nie może zostać użyty ponownie. Podaj inny adres albo napisz do nas: lukasz@leszy.run.')
   assert.equal((await registrationsOf(event.categoryIds[0])).length, 0)
 })
 

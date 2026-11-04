@@ -150,7 +150,7 @@ Returns array of:
 
 The bgtimesport rollout initially mixed the two patterns (emitted all but only fetched detail for new) and would have cleared distances/prices/regulamin from known rows on every re-run. Switched to the timekeeper pattern.
 
-Rate limit detail-page fetches: `await new Promise(r => setTimeout(r, 1100))` between requests. Use `User-Agent: 'leszy.run/1.0 (kontakt@leszy.run)'`.
+Rate limit detail-page fetches: `await new Promise(r => setTimeout(r, 1100))` between requests. Use `User-Agent: 'leszy.run/1.0 (lukasz@leszy.run)'`.
 
 ## 5b. Detect event_types and is_kids correctly
 

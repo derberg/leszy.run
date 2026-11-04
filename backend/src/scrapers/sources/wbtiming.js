@@ -36,7 +36,7 @@ async function fetchDetailPage(slug) {
   try {
     const url = `${BASE_URL}/${slug}`
     const res = await fetch(url, {
-      headers: { 'User-Agent': 'leszy.run/1.0 (kontakt@leszy.run)' },
+      headers: { 'User-Agent': 'leszy.run/1.0 (lukasz@leszy.run)' },
     })
     const html = await res.text()
     const $ = cheerio.load(html)
@@ -131,7 +131,7 @@ async function scrape({ knownIds = new Set() } = {}) {
 
   try {
     const res = await fetch(`${BASE_URL}/Kalendarz`, {
-      headers: { 'User-Agent': 'leszy.run/1.0 (kontakt@leszy.run)' },
+      headers: { 'User-Agent': 'leszy.run/1.0 (lukasz@leszy.run)' },
     })
     const html = await res.text()
     const $ = cheerio.load(html)

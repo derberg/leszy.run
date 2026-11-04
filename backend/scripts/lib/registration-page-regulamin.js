@@ -49,7 +49,7 @@ import { scoreRegulaminCandidate } from '../../src/lib/pickRegulaminUrl.js'
 // definition of "a distinctive token of this event's name".
 import { nameTokens, citySlug } from '../../src/scrapers/sources/b4sport.js'
 
-const UA = 'leszy.run/1.0 (kontakt@leszy.run)'
+const UA = 'leszy.run/1.0 (lukasz@leszy.run)'
 
 // A regulamin may also be a plain HTML page, but on a registration page every
 // link is an HTML page, so "it is a document" is what separates the rules file

@@ -311,7 +311,7 @@ async function verifyRegulaminPage(url, eventName, { timeoutMs = 10000, fetchImp
     const res = await fetchImpl(url, {
       redirect: 'follow',
       signal: ctrl.signal,
-      headers: { 'User-Agent': 'leszy.run/1.0 (kontakt@leszy.run)' },
+      headers: { 'User-Agent': 'leszy.run/1.0 (lukasz@leszy.run)' },
     })
     if (!res.ok) return false
     if (!(res.headers.get('content-type') || '').toLowerCase().includes('text/html')) return false
@@ -433,7 +433,7 @@ async function fetchOrganizerDetails(orgSlugs) {
     // 1. Index page — website + any regulamin links present there
     try {
       const res = await fetch(`${BASE_URL}/${slug}/index`, {
-        headers: { 'User-Agent': 'leszy.run/1.0 (kontakt@leszy.run)' },
+        headers: { 'User-Agent': 'leszy.run/1.0 (lukasz@leszy.run)' },
         redirect: 'follow',
       })
       const $ = cheerio.load(await res.text())
@@ -460,7 +460,7 @@ async function fetchOrganizerDetails(orgSlugs) {
     try {
       await new Promise(r => setTimeout(r, 300))
       const res = await fetch(`${BASE_URL}/${slug}/regulamin`, {
-        headers: { 'User-Agent': 'leszy.run/1.0 (kontakt@leszy.run)' },
+        headers: { 'User-Agent': 'leszy.run/1.0 (lukasz@leszy.run)' },
         redirect: 'follow',
       })
       if (res.ok) {
@@ -489,7 +489,7 @@ async function fetchOrganizerDetails(orgSlugs) {
       try {
         await new Promise(r => setTimeout(r, 300))
         const res = await fetch(url, {
-          headers: { 'User-Agent': 'leszy.run/1.0 (kontakt@leszy.run)' },
+          headers: { 'User-Agent': 'leszy.run/1.0 (lukasz@leszy.run)' },
           redirect: 'follow',
         })
         if (!res.ok) continue
@@ -594,7 +594,7 @@ function parseEventCards(html, { today }) {
 
 async function fetchInitialPage() {
   const res = await fetch(LIST_URL, {
-    headers: { 'User-Agent': 'leszy.run/1.0 (kontakt@leszy.run)' },
+    headers: { 'User-Agent': 'leszy.run/1.0 (lukasz@leszy.run)' },
   })
   const html = await res.text()
 
@@ -618,7 +618,7 @@ async function fetchNextPage(nextUrl, csrfToken, cookies) {
   const res = await fetch(`${BASE_URL}${url}`, {
     method: 'POST',
     headers: {
-      'User-Agent': 'leszy.run/1.0 (kontakt@leszy.run)',
+      'User-Agent': 'leszy.run/1.0 (lukasz@leszy.run)',
       'Content-Type': 'application/x-www-form-urlencoded',
       'X-Requested-With': 'XMLHttpRequest',
       'Accept': 'application/json, text/javascript, */*; q=0.01',

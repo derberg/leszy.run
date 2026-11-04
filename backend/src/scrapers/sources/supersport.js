@@ -11,7 +11,7 @@ const LIST_URL = `${BASE_URL}/zapisy-formularze.html`
 async function fetchDetailPage(url) {
   try {
     const res = await fetch(url, {
-      headers: { 'User-Agent': 'leszy.run/1.0 (kontakt@leszy.run)' },
+      headers: { 'User-Agent': 'leszy.run/1.0 (lukasz@leszy.run)' },
     })
     if (!res.ok) return null
 
@@ -129,7 +129,7 @@ export async function scrape({ knownIds = new Set() } = {}) {
 
   try {
     const res = await fetch(LIST_URL, {
-      headers: { 'User-Agent': 'leszy.run/1.0 (kontakt@leszy.run)' },
+      headers: { 'User-Agent': 'leszy.run/1.0 (lukasz@leszy.run)' },
     })
     if (!res.ok) {
       console.error(`[supersport] List page returned ${res.status}`)

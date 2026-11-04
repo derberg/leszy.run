@@ -28,7 +28,7 @@ const LISTING = 'https://time-sport.pl/zapisy/'
 // NinjaTables randomizes the ninja_table_unique_id_<rand>_2823 class per page load;
 // data-footable_id / foo_table_2823 (the table id 2823) is the stable selector.
 const TABLE_RE = /<table[^>]*(?:data-footable_id="2823"|foo_table_2823)[^>]*>([\s\S]*?)<\/table>/i
-const UA = 'leszy.run/1.0 (kontakt@leszy.run)'
+const UA = 'leszy.run/1.0 (lukasz@leszy.run)'
 
 // Discipline ("dyscyplina" column) gating.
 const SKIP_DISC = /mtb|triath|p[lł]ywan|kolar|rower/i

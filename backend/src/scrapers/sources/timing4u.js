@@ -1,7 +1,7 @@
 import * as cheerio from 'cheerio'
 
 const LIST_URL = 'https://timing4u.pl/?page_id=173'
-const USER_AGENT = 'leszy.run/1.0 (kontakt@leszy.run)'
+const USER_AGENT = 'leszy.run/1.0 (lukasz@leszy.run)'
 
 // Skip non-running events (triathlon, cycling)
 const SKIP_PATTERN = /triathl[oa]n|kolarsk[aiey]|rowerow[aey]?|\bmtb\b/i
