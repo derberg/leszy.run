@@ -19,6 +19,7 @@ const NOT_FOUND = { error: 'Not found' }
 const UNCONFIRMED = 'Zwrot niepotwierdzony.'
 const INSUFFICIENT = 'Operator płatności odrzucił zwrot: brak środków.'
 const REJECTED = 'Operator płatności odrzucił zwrot.'
+const BLOCKED = 'Operator płatności blokuje zwroty tej wpłaty. Pieniądze nie zostały zwrócone. Zgłosiliśmy to i wyjaśniamy z operatorem; napiszemy, gdy zwrot będzie możliwy.'
 const exceedsCopy = (grosze) => `Kwota przekracza możliwą do zwrotu: ${formatPln(grosze)}.`
 
 // reserve_organizer_refund's refusals, beside `exceeds:<grosze>`.
@@ -31,6 +32,8 @@ const RESERVE_REFUSALS = {
   not_found: [404, NOT_FOUND.error],
   // V-89: the dialog was opened on an entry that no longer holds the line (a transfer moved it).
   entry_changed: [409, 'Zgłoszenie zmieniło się — odśwież listę.'],
+  // dpay: refunds of one payment go one at a time; another one of this payment has no answer yet.
+  refund_in_progress: [409, 'Trwa inny zwrot z tej wpłaty. Spróbuj ponownie za kilka minut.'],
 }
 
 /** The answer for a refund in a given state: what this call learned, or a replay of the row. */
@@ -38,7 +41,8 @@ function answerFor(req, refundId, status, cancelled = []) {
   if (status === 'accepted') return json({ data: { status: 'accepted', cancelled, refundId } }, 200, req)
   if (status === 'insufficient_balance') return json({ error: INSUFFICIENT, code: status, refundId }, 409, req)
   if (status === 'rejected') return json({ error: REJECTED, code: status, refundId }, 409, req)
-  // pending (dpay 409) or unknown (timeout, 5xx, 410): only a person at the dpay panel can tell.
+  // unknown (timeout, 5xx, 410, a 400 /pbl/details could not explain), or pending from an older
+  // version: only a person at the dpay panel can tell.
   return json({ data: { status: 'unknown', refundId }, message: UNCONFIRMED }, 202, req)
 }
 
@@ -56,6 +60,13 @@ function reserveRefusal(req, error) {
   return null
 }
 
+async function wasBlocked(admin, orderId, refundId) {
+  const { data, error } = await admin.from('operator_alerts').select('payload')
+    .eq('order_id', orderId).eq('kind', 'refund_blocked')
+  if (error) return false
+  return (data ?? []).some((a) => a.payload?.refundId === refundId)
+}
+
 async function single(query) {
   const { data, error } = await query
   if (error) throw error
@@ -71,6 +82,11 @@ async function single(query) {
 async function afterSettle(admin, req, settings, { finished, outcome, refundId, refund, line, grosze, transactionId, audit }) {
   const status = finished.status ?? outcome
   if (finished.settled === 'already_settled') return answerFor(req, refundId, status)
+  // dpay's 409: stored as rejected (no money moved), but the organizer must not simply try again.
+  if (outcome === 'blocked') {
+    await logOrganizerAction(admin, req, { ...audit, action: 'refund_settled', payload: { status, grosze, cancelled: [] } })
+    return json({ error: BLOCKED, code: 'refund_blocked', refundId }, 409, req)
+  }
   const cancelled = finished.cancelled ?? []
   try {
     if (outcome === 'insufficient_balance') {
@@ -104,16 +120,19 @@ async function afterSettle(admin, req, settings, { finished, outcome, refundId, 
 //   reserve_organizer_refund (the money is reserved on the line before dpay is called; the same
 //   requestKey is a replay, never a second call) → claimRefundRequest (P3-R10: at most one dpay
 //   call) → executeRefund(…, { partial, organizer }), which logs the exchange, stores dpay's
-//   answer through finish_organizer_refund and alerts rejected / pending / unknown. A 406 is
-//   alerted here and never retried: the organizer retries by hand.
+//   answer through finish_organizer_refund and alerts rejected / unknown / blocked. A 400 is judged
+//   against /pbl/details first (verifyRefund). A 406 is alerted here and never retried: the
+//   organizer retries by hand. A 409 (dpay blocks refunds of the transaction) frees the reservation
+//   and answers 409 refund_blocked; the operator writes to dpay.
 //   200 { data: { status: 'accepted', cancelled: [registrationId], refundId } } and the club's
 //       e-mail to the payer and the entry's adult runner, claimed on runner_notified_at. Once
 //       dpay's answer is stored, the answer is that refund's state whatever fails after it (the
 //       e-mail, the audit): a failure is logged and alerted, never a 500 (review I2)
 //   202 { data: { status: 'unknown', refundId }, message: „Zwrot niepotwierdzony.” } the money stays
 //       reserved and the operator resolves it; the runner is told nothing yet
-//   409 exceeds (with remaining), race_day, not_paid, insufficient_balance, rejected,
-//       request_key_mismatch, entry_changed; 422 invalid_amount; 503 dpay not configured
+//   409 exceeds (with remaining), race_day, not_paid, insufficient_balance, rejected, refund_blocked,
+//       request_key_mismatch, entry_changed, refund_in_progress (another refund of the same payment
+//       has no answer yet); 422 invalid_amount; 503 dpay not configured
 // The owner or an admin of the event's club: a member 403, an outsider or a disabled club 404,
 // an unknown line 404. Every reservation and every outcome this call stored is in organizer_actions.
 Deno.serve(async (req) => {
@@ -178,7 +197,14 @@ Deno.serve(async (req) => {
     const refund = await single(admin.from('refunds')
       .select('id, order_id, payment_attempt_id, dpay_status').eq('id', refundId).single())
     // A replay, or a refund another request claimed first: dpay is never called twice (ruling 5).
-    if (reserved.replay || !(await claimRefundRequest(admin, refundId))) return answerFor(req, refundId, refund.dpay_status)
+    if (reserved.replay || !(await claimRefundRequest(admin, refundId))) {
+      // A refund dpay blocked (409) is stored `rejected`; its replay says so again, read from the
+      // refund_blocked alert that names it.
+      if (refund.dpay_status === 'rejected' && await wasBlocked(admin, refund.order_id, refundId)) {
+        return json({ error: BLOCKED, code: 'refund_blocked', refundId }, 409, req)
+      }
+      return answerFor(req, refundId, refund.dpay_status)
+    }
 
     let finished = null
     const outcome = await executeRefund(admin, cfg, {

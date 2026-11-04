@@ -5,7 +5,7 @@ import { dpayConfig, transactionDetails } from '../dpay.js'
 import { SENDGRID_TIMEOUT_MS, sendEmail } from '../email.js'
 import { operatorAlertEmail, orderExpiredEmail, paymentReminderEmail } from './emails.js'
 import {
-  checkAttemptsAtDpay, executeRefund, loadOrderView, logPaymentEvent, orderEmailArgs, raiseAlert, sendOrderConfirmation,
+  checkAttemptsAtDpay, executeRefund, loadOrderView, refundLedger, logPaymentEvent, orderEmailArgs, raiseAlert, sendOrderConfirmation,
 } from './orderFlow.js'
 import { issueConsentRequestsReport, rotateAndSend } from './consentRequests.js'
 import { notifyRefundRunner, refundNoticeArgs } from './refundNotice.js'
@@ -311,12 +311,7 @@ async function checkExternalRefund(admin, cfg, { order_id: orderId, txn }) {
     })
     if (!Number.isSafeInteger(details.refundedGrosze)) return 'error'
     // Read after dpay answered, so a refund reserved meanwhile counts as in flight.
-    const { data: refunds, error: rErr } = await admin.from('refunds').select('amount, dpay_status')
-      .eq('payment_attempt_id', attempt.id)
-    if (rErr) throw rErr
-    const sum = (states) => (refunds ?? []).filter((r) => states.includes(r.dpay_status)).reduce((n, r) => n + r.amount, 0)
-    const recorded = sum(['accepted'])
-    const inFlight = sum(['pending', 'unknown'])
+    const { recorded, inFlight } = await refundLedger(admin, attempt.id)
     if (details.refundedGrosze <= recorded + inFlight) return 'ok'
     await raiseAlert(admin, 'refund_external', orderId, {
       txn, dpayRefunded: details.refundedGrosze, recorded, inFlight, difference: details.refundedGrosze - recorded,

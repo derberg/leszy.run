@@ -694,9 +694,10 @@ test('V-89 reserve_organizer_refund for the entry the dialog showed: after a tra
   assert.equal((await one('order_lines', { id: line.id })).refunded, 0)
   assert.equal((await reg(out.registrationId)).refunded, 0)
   // Opened on the new holder's row, it reserves; with no registration named (a Plan 6 caller), as before.
-  ok(await rpc('reserve_organizer_refund', {
+  const held = ok(await rpc('reserve_organizer_refund', {
     p_line_id: line.id, p_grosze: 1000, p_actor: ownerId, p_request_key: crypto.randomUUID(), p_registration_id: out.registrationId,
   }))
+  ok(await rpc('finish_organizer_refund', { p_refund_id: held.refundId, p_outcome: 'accepted' }))
   ok(await rpc('reserve_organizer_refund', { p_line_id: line.id, p_grosze: 500, p_actor: ownerId, p_request_key: crypto.randomUUID() }))
   assert.equal((await one('order_lines', { id: line.id })).refunded, 1500)
 })

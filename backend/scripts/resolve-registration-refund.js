@@ -13,8 +13,16 @@
 // RUNBOOK. Check the dpay panel FIRST: find the transaction this prints, and look at its refunds.
 // Never resolve from memory or from the alert alone. A refund is in front of you because of one of
 // these operator alerts (the operator digest, [ALERT] Płatności: …):
-//   refund_unknown / refund_pending   dpay timed out, answered 5xx or 409. The panel shows the
-//                                     refund → --outcome accepted; it does not → --outcome rejected.
+//   refund_unknown / refund_pending   dpay timed out or answered 5xx, or answered 400 and
+//                                     /pbl/details could not settle it (the payload's `verify`:
+//                                     dpayRefunded is dpay's total, recorded ours). refund_pending
+//                                     is a 409 stored by the version before 2026-11-03. The panel
+//                                     shows the refund → --outcome accepted; it does not → rejected.
+//   refund_blocked                    dpay answered 409: an old refund form blocks API refunds of the
+//                                     transaction (dpay, 2026-11-03). No money moved and the refund
+//                                     is already `rejected`: nothing to resolve here. Write to dpay
+//                                     with the transaction id (txn); once they clear it the
+//                                     organizer can refund again.
 //   refund_stalled (reason organizer) the function claimed the refund and never stored an answer.
 //                                     Same as above.
 //   refund_never_sent (reason organizer) the money was reserved and dpay was never called. The panel

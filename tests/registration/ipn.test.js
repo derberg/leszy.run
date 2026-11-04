@@ -523,18 +523,22 @@ async function doublePaidUnder(tag, modes) {
   return { orderId, email }
 }
 
-for (const [label, modes, status] of [
-  ['refundPending (409)', { refundPending: true }, 'pending'],
-  ['refundRejected (400)', { refundRejected: true }, 'rejected'],
-  ['a 200 without the success body', { refundBodyOverride: { status: 'ok' } }, 'unknown'],
+for (const [label, modes, status, alert] of [
+  // dpay 2026-11-03: a 409 is a refund form blocking the transaction; nothing moved, the operator writes to dpay.
+  ['refundPending (409)', { refundPending: true }, 'rejected', 'refund_blocked'],
+  // An automatic refund answered 400 is not judged here (the IPN cannot wait dpay's 10 s): it may
+  // have gone through, so it is unknown and the operator checks the panel.
+  ['refundRejected (400)', { refundRejected: true }, 'unknown', 'refund_unknown'],
+  ['refundFailedButDone (400, carried out at dpay)', { refundFailedButDone: true }, 'unknown', 'refund_unknown'],
+  ['a 200 without the success body', { refundBodyOverride: { status: 'ok' } }, 'unknown', 'refund_unknown'],
 ]) {
-  test(`P-35b ${label} → refunds.dpay_status ${status}, no retry, an alert refund_${status}, no refund e-mail`, async () => {
-    const { orderId, email } = await doublePaidUnder(`ref${status}`, modes)
+  test(`P-35b ${label} → refunds.dpay_status ${status}, no retry, an alert ${alert}, no refund e-mail`, async () => {
+    const { orderId, email } = await doublePaidUnder(`ref${alert}`, modes)
     const [refund] = await rows('refunds', { order_id: orderId })
     assert.equal(refund.dpay_status, status)
     assert.equal(refund.next_retry_at, null)
-    assert.deepEqual((await alertsOf(orderId)).map((a) => a.kind).sort(), ['double_payment', `refund_${status}`])
-    assert.equal((await dpayRefunds()).length, 0)
+    assert.deepEqual((await alertsOf(orderId)).map((a) => a.kind).sort(), ['double_payment', alert])
+    assert.equal((await dpayRefunds()).length, modes.refundFailedButDone ? 1 : 0)
     await sleep(500)
     assert.deepEqual(subjects(await messagesTo(email)), ['Opłacone'])
   })

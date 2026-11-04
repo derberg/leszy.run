@@ -134,7 +134,17 @@ test('P-07 dpayConfig reads a plain object or a Deno.env-like getter and trims t
     ipnUrl: 'http://127.0.0.1:54321/functions/v1/dpay-ipn',
     publicSiteUrl: 'http://localhost:5173',
     timeoutMs: 10_000,
+    refundVerifyDelayMs: 10_000,
   })
   const cfgB = dpayConfig({ get: (k) => fullEnv[k] })
   assert.deepEqual(cfgB, cfgA)
+})
+
+test('P-07 DPAY_REFUND_VERIFY_DELAY_MS: whole milliseconds up to a minute on a local http panel only, anything else keeps dpay\'s 10 s', () => {
+  const delay = (v) => dpayConfig({ ...fullEnv, DPAY_REFUND_VERIFY_DELAY_MS: v }).refundVerifyDelayMs
+  assert.equal(delay('0'), 0)
+  assert.equal(delay(' 2500 '), 2500)
+  for (const v of ['', '-1', '1.5', '60001', 'abc', undefined]) assert.equal(delay(v), 10_000, String(v))
+  // Never against dpay itself: an https panel keeps the 10 s whatever the variable says.
+  assert.equal(dpayConfig({ ...fullEnv, DPAY_PANEL_BASE: 'https://panel.dpay.pl', DPAY_REFUND_VERIFY_DELAY_MS: '0' }).refundVerifyDelayMs, 10_000)
 })
