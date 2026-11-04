@@ -26,7 +26,7 @@
 // not dostartu, so the pipeline's dostartu apiEnrich won't touch these rows.
 
 const API_URL = 'https://wyniki.plus-timing.pl/api/api_dt.php?cachetimeout=10&action=api_get_zapisy_biegi'
-const UA = 'leszy.run/1.0 (kontakt@leszy.run)'
+const UA = 'leszy.run/1.0 (lukasz@leszy.run)'
 
 const RUNNING_DISCIPLINES = new Set(['bieg uliczny', 'bieg przełajowy', 'biegi przełajowe'])
 

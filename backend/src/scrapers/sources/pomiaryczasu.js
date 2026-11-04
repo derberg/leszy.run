@@ -48,7 +48,7 @@ import * as cheerio from 'cheerio'
 // Prices / regulamin / deadline are not on the pages → left for the enricher.
 const BASE_URL = 'https://www.pomiaryczasu.pl'
 const LIST_URL = `${BASE_URL}/`
-const USER_AGENT = 'leszy.run/1.0 (kontakt@leszy.run)'
+const USER_AGENT = 'leszy.run/1.0 (lukasz@leszy.run)'
 
 // "Typ zawodów" values that are running (everything else — cycling, MTB,
 // downhill, ski, triathlon, tourist — is dropped).

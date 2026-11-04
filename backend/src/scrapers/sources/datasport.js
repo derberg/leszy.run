@@ -46,7 +46,7 @@ function readDistanceHeading(text, distances) {
 async function fetchStatsDistances(eventId) {
   try {
     const res = await fetch(`${BASE_URL}/statcont/statystyki${eventId}.json`, {
-      headers: { 'User-Agent': 'leszy.run/1.0 (kontakt@leszy.run)' },
+      headers: { 'User-Agent': 'leszy.run/1.0 (lukasz@leszy.run)' },
     })
     if (!res.ok) return []
 
@@ -62,7 +62,7 @@ async function fetchDetailPage(eventId) {
   try {
     const url = `${BASE_URL}/zawody_files/zawody${eventId}.html`
     const res = await fetch(url, {
-      headers: { 'User-Agent': 'leszy.run/1.0 (kontakt@leszy.run)' },
+      headers: { 'User-Agent': 'leszy.run/1.0 (lukasz@leszy.run)' },
     })
     if (!res.ok) return null
 
@@ -163,7 +163,7 @@ async function scrape({ knownIds = new Set(), knownRows = new Map(), today } = {
 
   try {
     const res = await fetch(LIST_URL, {
-      headers: { 'User-Agent': 'leszy.run/1.0 (kontakt@leszy.run)' },
+      headers: { 'User-Agent': 'leszy.run/1.0 (lukasz@leszy.run)' },
     })
     const buffer = await res.arrayBuffer()
     const html = new TextDecoder('windows-1250').decode(buffer)

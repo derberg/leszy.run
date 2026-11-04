@@ -23,7 +23,7 @@ import { voivodeshipFromPostalCode } from '../postalCodeMapper.js'
 // price_from/price_to, and the latest tier-expiry date as registration_deadline.
 const BASE_URL = 'https://zapisyonline.pl'
 const LIST_URL = `${BASE_URL}/zapisy`
-const USER_AGENT = 'leszy.run/1.0 (kontakt@leszy.run)'
+const USER_AGENT = 'leszy.run/1.0 (lukasz@leszy.run)'
 const MAX_PAGES = 6 // safety cap; real data is currently 2 pages
 
 // Cycling / non-running events the platform also hosts. The merge step filters

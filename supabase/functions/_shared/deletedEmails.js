@@ -9,7 +9,7 @@
 // What both login functions answer for a retired address, with code
 // 'email_retired', so a form can tell this refusal apart from the others.
 export const RETIRED_EMAIL_MESSAGE =
-  'Ten adres e-mail należał do usuniętego konta LESZY.RUN i nie może zostać użyty ponownie. Podaj inny adres albo napisz do nas: kontakt@leszy.run.'
+  'Ten adres e-mail należał do usuniętego konta LESZY.RUN i nie może zostać użyty ponownie. Podaj inny adres albo napisz do nas: lukasz@leszy.run.'
 
 export function normalizeEmail(email) {
   return String(email ?? '').trim().toLowerCase()

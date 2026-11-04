@@ -28,7 +28,7 @@ if (!SUPABASE_URL || !SUPABASE_KEY) {
 }
 
 const API_URL = 'https://api.dostartu.pl'
-const HEADERS = { 'User-Agent': 'leszy.run/1.0 (kontakt@leszy.run)' }
+const HEADERS = { 'User-Agent': 'leszy.run/1.0 (lukasz@leszy.run)' }
 const RATE_LIMIT_MS = 400
 
 const dryRun = !process.argv.includes('--apply')

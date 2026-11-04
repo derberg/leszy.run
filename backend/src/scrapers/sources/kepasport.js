@@ -93,7 +93,7 @@ export async function scrape({ knownIds = new Set() } = {}) {
 
   try {
     const res = await fetch(ICAL_URL, {
-      headers: { 'User-Agent': 'leszy.run/1.0 (kontakt@leszy.run)' },
+      headers: { 'User-Agent': 'leszy.run/1.0 (lukasz@leszy.run)' },
     })
     if (!res.ok) {
       console.error(`[kepasport] iCal feed returned ${res.status}`)

@@ -108,7 +108,7 @@ function checkClaudeCli() {
   }
 }
 
-const FETCH_HEADERS = { 'User-Agent': 'leszy.run/1.0 (kontakt@leszy.run)' }
+const FETCH_HEADERS = { 'User-Agent': 'leszy.run/1.0 (lukasz@leszy.run)' }
 
 function tmpPath(ext) {
   return join(tmpdir(), `regulamin-${Date.now()}-${Math.round(Math.random() * 1e6)}.${ext}`)

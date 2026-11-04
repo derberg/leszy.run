@@ -8,7 +8,7 @@
 // If verification fails for any reason (network, timeout, wrong type), we return
 // false — the caller must drop the candidate, not write it.
 
-const UA = 'leszy.run/1.0 (kontakt@leszy.run)'
+const UA = 'leszy.run/1.0 (lukasz@leszy.run)'
 
 /**
  * @param {string} url

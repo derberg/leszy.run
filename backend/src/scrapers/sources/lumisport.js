@@ -2,7 +2,7 @@ import * as cheerio from 'cheerio'
 import { pickRegulaminFromDom } from '../../lib/pickRegulaminUrl.js'
 
 const STORE_API_URL = 'https://lumisport.eu/wp-json/wc/store/v1/products?per_page=100'
-const USER_AGENT = 'leszy.run/1.0 (kontakt@leszy.run)'
+const USER_AGENT = 'leszy.run/1.0 (lukasz@leszy.run)'
 
 const POLISH_MONTHS = {
   stycznia: 1, lutego: 2, marca: 3, kwietnia: 4, maja: 5, czerwca: 6,

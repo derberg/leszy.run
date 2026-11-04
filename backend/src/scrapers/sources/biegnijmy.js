@@ -43,7 +43,7 @@
 import * as cheerio from 'cheerio'
 
 const BASE = 'https://biegnijmy.pl'
-const UA = 'leszy.run/1.0 (kontakt@leszy.run)'
+const UA = 'leszy.run/1.0 (lukasz@leszy.run)'
 
 // JS \b doesn't recognize Polish letters — use a manual non-letter boundary.
 const NB = '[^a-ząćęłńóśźż]'

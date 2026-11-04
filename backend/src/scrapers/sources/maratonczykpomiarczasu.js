@@ -4,7 +4,7 @@ import { pickRegulaminFromDom } from '../../lib/pickRegulaminUrl.js'
 
 const BASE_URL = 'https://www.maratonczykpomiarczasu.pl'
 const LIST_URL = `${BASE_URL}/wydarzenia-biegowe`
-const UA = 'leszy.run/1.0 (kontakt@leszy.run)'
+const UA = 'leszy.run/1.0 (lukasz@leszy.run)'
 
 const SKIP = /\btenis|roller\s+cup|kolarstw|kryterium\s+uliczne|klasyk\s+szosow|gravelow|maraton\s+rowerow|\browerow(?:y|a|e|ej|ego)\b|\bMTB\b|p[lł]ywa[nń]|open\s+water|\btriathlon\b|\bduathlon\b|trimotion|duo\s+cykl|\betap\s+\d/i
 

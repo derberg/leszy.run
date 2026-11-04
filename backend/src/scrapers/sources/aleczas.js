@@ -2,7 +2,7 @@ import * as cheerio from 'cheerio'
 
 const LIST_URL = 'https://aleczas.pl/zapisy'
 const SOURCE_URL = 'https://aleczas.pl/zapisy'
-const USER_AGENT = 'leszy.run/1.0 (kontakt@leszy.run)'
+const USER_AGENT = 'leszy.run/1.0 (lukasz@leszy.run)'
 
 // DD.MM.YYYY or D.MM.YYYY → YYYY-MM-DD
 function parseDate(raw) {

@@ -15,7 +15,7 @@ import { startScratchHost } from '../helpers/hostPull.js'
 const ZT = '00000000-0000-4000-8000-0000000000c1'
 const GPX = readFileSync(new URL('../fixtures/gpx/loop-9km.gpx', import.meta.url)) // flat: one <ele> value throughout
 const GPX_HILLS = readFileSync(new URL('../fixtures/gpx/loop-9km-hills.gpx', import.meta.url))
-const RETIRED_TEXT = 'Ten adres e-mail należał do usuniętego konta LESZY.RUN i nie może zostać użyty ponownie. Podaj inny adres albo napisz do nas: kontakt@leszy.run.'
+const RETIRED_TEXT = 'Ten adres e-mail należał do usuniętego konta LESZY.RUN i nie może zostać użyty ponownie. Podaj inny adres albo napisz do nas: lukasz@leszy.run.'
 const DUPLICATE_TEXT = 'Ten adres e-mail jest już zapisany na te zawody.'
 
 const DAY_MS = 24 * 3600 * 1000

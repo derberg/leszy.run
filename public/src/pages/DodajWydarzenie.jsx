@@ -89,7 +89,7 @@ export default function DodajWydarzenie() {
         q: `${city.trim()}, Polska`, format: 'json', limit: '1', countrycodes: 'pl',
       })
       const res = await fetch(`https://nominatim.openstreetmap.org/search?${params}`, {
-        headers: { 'User-Agent': 'leszy.run/1.0 (kontakt@leszy.run)' },
+        headers: { 'User-Agent': 'leszy.run/1.0 (lukasz@leszy.run)' },
       })
       const results = await res.json()
       if (results.length > 0 && !mapMoved) {
@@ -124,7 +124,7 @@ export default function DodajWydarzenie() {
           countrycodes: 'pl',
         })
         const geoRes = await fetch(`https://nominatim.openstreetmap.org/search?${params}`, {
-          headers: { 'User-Agent': 'leszy.run/1.0 (kontakt@leszy.run)' },
+          headers: { 'User-Agent': 'leszy.run/1.0 (lukasz@leszy.run)' },
         })
         const geoResults = await geoRes.json()
         if (geoResults.length > 0) {

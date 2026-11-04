@@ -32,7 +32,7 @@ import { pickRegulaminFromDom } from '../../lib/pickRegulaminUrl.js'
 // a fresh fetch, re-emitting a known row cannot null anything.
 
 const BASE_URL = 'https://chronotex.pl'
-const USER_AGENT = 'leszy.run/1.0 (kontakt@leszy.run)'
+const USER_AGENT = 'leszy.run/1.0 (lukasz@leszy.run)'
 
 const NB = '[^a-ząćęłńóśźż]'
 

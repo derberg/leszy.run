@@ -21,7 +21,7 @@ async function fetchPage(page, dateSince) {
   }
 
   const res = await fetch(`${API_URL}/competitions?${params}`, {
-    headers: { 'User-Agent': 'leszy.run/1.0 (kontakt@leszy.run)' },
+    headers: { 'User-Agent': 'leszy.run/1.0 (lukasz@leszy.run)' },
   })
   if (!res.ok) throw new Error(`dostartu API ${res.status}`)
   const json = await res.json()
@@ -31,7 +31,7 @@ async function fetchPage(page, dateSince) {
 async function fetchCompetition(competitionId) {
   try {
     const res = await fetch(`${API_URL}/competitions/${competitionId}`, {
-      headers: { 'User-Agent': 'leszy.run/1.0 (kontakt@leszy.run)' },
+      headers: { 'User-Agent': 'leszy.run/1.0 (lukasz@leszy.run)' },
     })
     if (!res.ok) return null
     const json = await res.json()
@@ -44,7 +44,7 @@ async function fetchCompetition(competitionId) {
 async function fetchClassifications(competitionId) {
   try {
     const res = await fetch(`${API_URL}/competitions/${competitionId}/classifications`, {
-      headers: { 'User-Agent': 'leszy.run/1.0 (kontakt@leszy.run)' },
+      headers: { 'User-Agent': 'leszy.run/1.0 (lukasz@leszy.run)' },
     })
     if (!res.ok) return []
     const json = await res.json()

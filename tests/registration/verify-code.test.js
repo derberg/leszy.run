@@ -6,7 +6,7 @@ import { startCapture, lastCodeFor, clearMessages } from './helpers/emailCapture
 import { verifyCodeAndOpenSession } from '../../supabase/functions/_shared/verifyCode.js'
 import { RETIRED_EMAIL_MESSAGE } from '../../supabase/functions/_shared/deletedEmails.js'
 
-const RETIRED_TEXT = 'Ten adres e-mail należał do usuniętego konta LESZY.RUN i nie może zostać użyty ponownie. Podaj inny adres albo napisz do nas: kontakt@leszy.run.'
+const RETIRED_TEXT = 'Ten adres e-mail należał do usuniętego konta LESZY.RUN i nie może zostać użyty ponownie. Podaj inny adres albo napisz do nas: lukasz@leszy.run.'
 const run = Date.now()
 const sha256 = (s) => crypto.createHash('sha256').update(s).digest('hex')
 

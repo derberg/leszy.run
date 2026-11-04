@@ -23,7 +23,7 @@ import httpx
 
 from enricher.steps.pdf import extract_pdf_text_from_bytes
 
-_HEADERS = {"User-Agent": "leszy.run/1.0 (kontakt@leszy.run)"}
+_HEADERS = {"User-Agent": "leszy.run/1.0 (lukasz@leszy.run)"}
 
 
 def classify_doc_url(url: str, content_type: str = "") -> str:

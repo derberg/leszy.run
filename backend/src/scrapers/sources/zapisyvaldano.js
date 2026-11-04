@@ -31,7 +31,7 @@ import * as cheerio from 'cheerio'
 // the geocoder. No event-specific organizer website on the page → left null.
 const BASE_URL = 'https://zapisyvaldano.pl'
 const LIST_URL = `${BASE_URL}/events`
-const USER_AGENT = 'leszy.run/1.0 (kontakt@leszy.run)'
+const USER_AGENT = 'leszy.run/1.0 (lukasz@leszy.run)'
 
 // Listing/detail dates are "DD.MM.YYYY HH:MM" (day may be single-digit, e.g.
 // "9.08.2026"). Return YYYY-MM-DD or null.

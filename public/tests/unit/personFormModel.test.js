@@ -5,7 +5,7 @@ import {
   needsCode, consentsComplete, registrationFailure,
 } from '../../src/lib/personFormModel.js'
 
-const RETIRED = 'Ten adres e-mail należał do usuniętego konta LESZY.RUN i nie może zostać użyty ponownie. Podaj inny adres albo napisz do nas: kontakt@leszy.run.'
+const RETIRED = 'Ten adres e-mail należał do usuniętego konta LESZY.RUN i nie może zostać użyty ponownie. Podaj inny adres albo napisz do nas: lukasz@leszy.run.'
 
 const RAW = {
   eventDate: '2026-12-06', ageReckoning: 'race_day',
