@@ -697,6 +697,10 @@ same reason it **refuses to pull any `events` row whose name starts with `[e2e-t
 everything descending from it: the edge-function suite seeds throwaway events in the same prod
 Supabase project, they outlive the 30 s poll, and once pulled the suite's own cleanup can never
 reach them again. Keep that marker in step with `E2E_MARKER` in `supabase/functions/tests/helpers.js`.
+The realtime `checkpoint_observations` handler (`applyRemoteObservation` in `src/sync/realtimeObservations.js`)
+follows the same refusal: it skips a row whose checkpoint is not on this host, and logs any error instead of
+throwing. The release smoke test writes bib 902 to an `[e2e-test]` checkpoint, and before this the FK failure
+was an unhandled rejection that exited every running backend on each release (2026-11-04).
 
 **configSync host filter (online registration).** An event sold online has a `registration_settings`
 row (Supabase-only). A host pulls an event only when that row is absent (every pre-registration event:
