@@ -1,6 +1,8 @@
 import { useState, useEffect, useMemo } from 'react'
 import { Link, useLocation } from 'react-router-dom'
-import { supabase } from '../lib/supabase.js'
+import { loadCalendarEvents } from '../lib/calendarData.js'
+import { landingEvents } from '../lib/calendarQueries.js'
+import { slugify } from '../lib/slugify.js'
 import Navbar from '../components/Navbar.jsx'
 import EventRow from '../components/EventRow.jsx'
 import LandingMap from '../components/LandingMap.jsx'
@@ -14,22 +16,6 @@ import {
 } from '../lib/biegi-mappings.js'
 
 const PAGE_SIZE = 100
-
-// Mirrors parseDistanceToMeters from Kalendarz.jsx
-function parseDistanceToMeters(d) {
-  if (!d || typeof d !== 'string') return NaN
-  const s = d.toLowerCase().trim()
-  if (/\d\s*h(\b|$)/.test(s)) return NaN
-  if (s.includes('półmaraton') || s.includes('polmaraton')) return 21097
-  if (s.includes('maraton')) return 42195
-  const match = s.match(/[0-9]+([.,][0-9]+)?/)
-  if (!match) return NaN
-  const num = parseFloat(match[0].replace(',', '.'))
-  if (isNaN(num)) return NaN
-  if (/km|kilometr/.test(s)) return Math.round(num * 1000)
-  if (/\d\s*m\b|metr/.test(s)) return Math.round(num)
-  return Math.round(num * 1000)
-}
 
 // Parse URL path segments into filter parameters
 function parsePathFilters(pathname) {
@@ -112,67 +98,19 @@ export default function LandingPage() {
     let cancelled = false
     setLoading(true)
 
+    // From the build-time calendar file, never from calendar_events.
     async function fetchEvents() {
-      const today = new Date().toISOString().slice(0, 10)
-
-      let q = supabase
-        .from('calendar_events')
-        .select('*', { count: 'exact' })
-        .eq('status', 'active')
-        .gte('date', today)
-        .or(`registration_deadline.is.null,registration_deadline.gte.${today}`)
-        .order('date', { ascending: true })
-
-      const { special, typeDbVal, regionDb, year, month, city } = filters
-
-      if (special === 'polmaratony' || special === 'maratony') {
-        // Distance-based: fetch broadly then filter client-side
-        if (regionDb) q = q.eq('voivodeship', regionDb)
-        q = q.limit(2000)
-      } else if (special === 'dla-dzieci') {
-        const from = (page - 1) * PAGE_SIZE
-        q = q.contains('event_type', ['dzieci'])
-        if (regionDb) q = q.eq('voivodeship', regionDb)
-        q = q.range(from, from + PAGE_SIZE - 1)
-      } else if (special === 'darmowe') {
-        const from = (page - 1) * PAGE_SIZE
-        q = q.eq('price_from', 0)
-        if (regionDb) q = q.eq('voivodeship', regionDb)
-        q = q.range(from, from + PAGE_SIZE - 1)
-      } else if (special === 'ostatnia-szansa') {
-        const deadline14 = new Date(Date.now() + 14 * 86400000).toISOString().slice(0, 10)
-        const from = (page - 1) * PAGE_SIZE
-        q = q.not('registration_deadline', 'is', null).lte('registration_deadline', deadline14)
-        if (regionDb) q = q.eq('voivodeship', regionDb)
-        q = q.range(from, from + PAGE_SIZE - 1)
-      } else {
-        if (typeDbVal) q = q.contains('event_type', [typeDbVal])
-        if (regionDb) q = q.eq('voivodeship', regionDb)
-        if (city) q = q.ilike('location', `${city}%`)
-        if (year && month) {
-          const monthStr = String(month).padStart(2, '0')
-          const lastDay = new Date(year, month, 0).getDate()
-          q = q.gte('date', `${year}-${monthStr}-01`).lte('date', `${year}-${monthStr}-${lastDay}`)
-        }
-        const from = (page - 1) * PAGE_SIZE
-        q = q.range(from, from + PAGE_SIZE - 1)
+      let all
+      try {
+        all = await loadCalendarEvents()
+      } catch (err) {
+        if (cancelled) return
+        console.error('LandingPage fetch error:', err.message); setLoading(false); return
       }
-
-      const { data, count, error } = await q
       if (cancelled) return
-      if (error) { console.error('LandingPage fetch error:', error.message); setLoading(false); return }
-
-      let result = data || []
-
-      // Client-side distance filter for polmaratony/maratony (distance range not filterable server-side)
-      if (special === 'polmaratony') {
-        result = result.filter(e => (e.distances || []).some(d => { const m = parseDistanceToMeters(d); return m >= 19000 && m <= 23000 }))
-      } else if (special === 'maratony') {
-        result = result.filter(e => (e.distances || []).some(d => { const m = parseDistanceToMeters(d); return m >= 41000 && m <= 44000 }))
-      }
-
+      const { events: result, total } = landingEvents(all, filters, { page, pageSize: PAGE_SIZE })
       setEvents(result)
-      setTotal(['polmaratony', 'maratony'].includes(special) ? result.length : (count || 0))
+      setTotal(total)
       setLoading(false)
     }
 
@@ -215,8 +153,10 @@ export default function LandingPage() {
                   name: e.location || undefined,
                   address: { '@type': 'PostalAddress', addressLocality: e.location || undefined, addressRegion: e.voivodeship || undefined, addressCountry: 'PL' },
                 },
-                ...(e.price_from != null ? { offers: { '@type': 'Offer', price: String(e.price_from), priceCurrency: 'PLN', availability: 'https://schema.org/InStock', validFrom: e.created_at ? String(e.created_at).slice(0, 10) : String(e.date).slice(0, 10), url: e.registration_url || e.website || `https://www.leszy.run/kalendarz/${e.slug}` } } : {}),
-                ...(e.registration_url || e.website ? { url: e.registration_url || e.website } : {}),
+                ...(e.price_from != null ? { offers: { '@type': 'Offer', price: String(e.price_from), priceCurrency: 'PLN', availability: 'https://schema.org/InStock', validFrom: e.created_at ? String(e.created_at).slice(0, 10) : String(e.date).slice(0, 10), url: `https://www.leszy.run/kalendarz/${slugify(e.name, e.date)}` } } : {}),
+                // The calendar file carries no registration or website address, so each race
+                // points at its own /kalendarz page, which links both.
+                url: `https://www.leszy.run/kalendarz/${slugify(e.name, e.date)}`,
               },
             })),
           },

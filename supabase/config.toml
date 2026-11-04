@@ -98,6 +98,10 @@ entrypoint = "./functions/get-notifications/index.js"
 verify_jwt = false
 entrypoint = "./functions/get-profile-data/index.js"
 
+[functions.get-user-submissions]
+verify_jwt = false
+entrypoint = "./functions/get-user-submissions/index.js"
+
 [functions.log-consent]
 verify_jwt = false
 entrypoint = "./functions/log-consent/index.js"
