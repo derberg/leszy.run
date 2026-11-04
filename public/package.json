@@ -4,9 +4,10 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite --port 5173",
+    "dev": "node scripts/fetch-manifests.js --dev && vite --port 5173",
     "generate-og": "node scripts/generate-og-image.js",
-    "build": "node scripts/generate-og-image.js && vite build && node scripts/generate-event-pages.js && node scripts/generate-leszyrun-event-pages.js && node scripts/generate-club-pages.js && node scripts/generate-landing-pages.js && node scripts/generate-legal-pages.js",
+    "fetch-manifests": "node scripts/fetch-manifests.js",
+    "build": "node scripts/fetch-manifests.js && node scripts/generate-og-image.js && vite build && node scripts/generate-event-pages.js && node scripts/generate-leszyrun-event-pages.js && node scripts/generate-club-pages.js && node scripts/generate-landing-pages.js && node scripts/generate-legal-pages.js && node scripts/fetch-manifests.js --strip-dist",
     "preview": "vite preview",
     "test:functions": "node ../supabase/functions/tests/sweep.js && node --test ../supabase/functions/tests/*.test.js",
     "test:unit": "node --test tests/unit/*.test.js",

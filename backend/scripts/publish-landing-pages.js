@@ -1,9 +1,13 @@
 // Usage: cd backend && node --env-file=../.env scripts/publish-landing-pages.js [--apply]
-// Generates public/public/listy/.manifest.json from calendar_events Supabase data.
-// Dry run by default — use --apply to write the file.
+// Builds the /listy manifest from calendar_events Supabase data and uploads it to
+// the private Storage bucket calendar-manifests (listy.json); the Vercel build
+// downloads it to public/public/listy/.manifest.json. Not in git.
+// Dry run by default — use --apply to upload (needs SUPABASE_SERVICE_ROLE_KEY);
+// --apply also stamps public/data-version.json, which is what you commit to deploy.
 
 import { createClient } from '@supabase/supabase-js'
-import { writeFileSync, mkdirSync } from 'fs'
+import { storageConfig, writeManifest, MANIFEST_BUCKET } from '../../public/scripts/lib/publicData.js'
+import { stampPublish } from './lib/publishHelpers.js'
 import { resolve, dirname } from 'path'
 import { fileURLToPath } from 'url'
 import {
@@ -17,8 +21,6 @@ import { countPhrase } from './lib/landingCopy.js'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const PROJECT_ROOT = resolve(__dirname, '..', '..')
-const BIEGI_DIR = resolve(PROJECT_ROOT, 'public/public/listy')
-const MANIFEST_PATH = resolve(BIEGI_DIR, '.manifest.json')
 const BASE_URL = 'https://www.leszy.run'
 
 const dryRun = !process.argv.includes('--apply')
@@ -544,11 +546,14 @@ async function main() {
   for (const [k, v] of Object.entries(byType)) console.log(`  ${k}: ${v}`)
   console.log(`  TOTAL: ${total}`)
 
-  if (dryRun) { console.log('\nDry run complete. Use --apply to write files.'); return }
+  if (dryRun) { console.log('\nDry run complete. Use --apply to upload.'); return }
 
-  mkdirSync(BIEGI_DIR, { recursive: true })
-  writeFileSync(MANIFEST_PATH, JSON.stringify(manifest, null, 2))
-  console.log(`\nWrote ${MANIFEST_PATH}`)
+  if (total === 0) { console.error('Refusing to publish an empty listy manifest.'); process.exit(1) }
+  const cfg = storageConfig()
+  await writeManifest(cfg, 'listy', manifest)
+  console.log(`\nUploaded ${MANIFEST_BUCKET}/listy.json`)
+  const versionFile = stampPublish(PROJECT_ROOT, 'listy', total)
+  if (versionFile) console.log(`Commit to deploy: ${versionFile}`)
 }
 
 main().catch(err => { console.error(err); process.exit(1) })
