@@ -70,7 +70,7 @@ function hasKidsSignal(text) {
 }
 
 // Heuristic event_type tagging from the umbrella name only — keeps tag set
-// aligned with biegiwpolsce/maratonypolskie so the distinguishing-tag merge
+// aligned with maratonypolskie so the distinguishing-tag merge
 // guard passes. Subdivision buttons deliberately ignored.
 function detectEventTypes(name) {
   const blob = (name || '').toLowerCase()

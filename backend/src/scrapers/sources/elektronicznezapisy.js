@@ -14,7 +14,7 @@ const KNOWN_SOURCE_DOMAINS = [
   'maratonypolskie.pl',
   'datasport.pl',
   'liveds.datasport.pl',
-  'biegiwpolsce.pl',
+  'biegiwpolsce.pl', // no longer scraped (dropped 2026-11-04), but still never fetched: it refuses automated clients
   'dostartu.pl',
   'pomiarczasuatelier.pl',
   'timekeeper.pl',

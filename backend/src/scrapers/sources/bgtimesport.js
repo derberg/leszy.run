@@ -76,7 +76,7 @@ const isKidsEvent = hasKidsSignal
 // is overwhelmingly mountain/forest runs in Beskidy and Tatry. Subdivision
 // headings are deliberately ignored to align with other scrapers — picking
 // up an NW subdivision on a primarily-running event would create a tag-set
-// mismatch with the same row from biegiwpolsce/maratonypolskie.
+// mismatch with the same row from maratonypolskie.
 function detectEventTypes(name) {
   const blob = (name || '').toLowerCase()
   const tags = new Set()

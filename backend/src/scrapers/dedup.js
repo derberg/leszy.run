@@ -3,7 +3,6 @@ import { supabase } from '../lib/supabaseClient.js'
 // Source priority — lower number = higher priority (wins on conflict)
 const SOURCE_PRIORITY = {
   dostartu: 1,
-  biegiwpolsce: 2,
   timekeeper: 3,
   lumisport: 3,
   protiming24: 3,

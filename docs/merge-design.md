@@ -1,5 +1,7 @@
 # Scraper Merge Design — Priority-Based Dedup via `scraper_all`
 
+> The biegiwpolsce scraper (rank 2 below) was removed on 2026-11-04: the site blocks automated clients and its terms forbid bulk download. It no longer has a priority; this document keeps it as the original design's example.
+
 ## Problem
 
 Current dedup fills empty fields but **never overwrites**. First source to create a row "owns" it.
