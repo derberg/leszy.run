@@ -31,3 +31,14 @@ test('priceText matches the grid wording', () => {
   assert.equal(priceText({ price_to: 40 }), 'do 40 zł')
   assert.equal(priceText({}), null)
 })
+
+test('atest: the certified distances are the race own strings, and get a cell', async () => {
+  const { atestDistances } = await import('../../src/lib/eventFacts.js')
+  const certified = { ...race, atest: [{ km: 10, certified_on: '2024-10-15', source: 'register' }, { km: 21.0975, certified_on: '2024-10-15', source: 'both' }] }
+  assert.deepEqual([...atestDistances(certified)], ['10 km', '21 km'])
+  assert.deepEqual(infoCells(certified, NOW).map(c => c.label), ['Data', 'Lokalizacja', 'Dystanse', 'Atest PZLA', 'Cena', 'Termin zapisów'])
+  assert.equal(infoCells(certified, NOW)[3].value, '10 km / 21 km')
+  // No atest, or one for a distance the race no longer lists, shows nothing.
+  assert.equal(atestDistances(race).size, 0)
+  assert.equal(atestDistances({ ...race, atest: [{ km: 42.195 }] }).size, 0)
+})

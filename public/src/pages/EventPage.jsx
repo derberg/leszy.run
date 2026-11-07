@@ -10,7 +10,7 @@ import NearbyEvents from '../components/NearbyEvents.jsx'
 import LeszyrunBanner from '../components/LeszyrunBanner.jsx'
 import ReportEventModal from '../components/ReportEventModal.jsx'
 import StarButton from '../components/StarButton.jsx'
-import { TYPE_LABELS, typeTagClass, distTagClass, eventTypes, formatDateWithWeekday } from '../lib/eventFacts.js'
+import { TYPE_LABELS, typeTagClass, distTagClass, atestDistTagClass, atestDistances, eventTypes, formatDateWithWeekday } from '../lib/eventFacts.js'
 
 const EventMap = lazy(() => import('../components/EventMap.jsx'))
 
@@ -274,6 +274,7 @@ export default function EventPage() {
   // Computed values
   const types = eventTypes(event)
   const distances = event.distances || []
+  const atest = atestDistances(event)
   const days = daysUntil(event.date)
   const dateFormatted = formatDateWithWeekday(event.date)
 
@@ -353,7 +354,9 @@ export default function EventPage() {
                 </span>
               ))}
               {distances.map((d, i) => (
-                <span key={i} className={distTagClass}>{d}</span>
+                atest.has(d)
+                  ? <span key={i} className={atestDistTagClass} title="Trasa z atestem PZLA">{d} ✓ atest</span>
+                  : <span key={i} className={distTagClass}>{d}</span>
               ))}
             </div>
           )}

@@ -280,7 +280,8 @@ Currently known event types: ${currentTypes}
 Extract from the document:
 1. DISTANCES — look for "trasa", "dystans", "długość trasy", classification/category names, distance mentions. The document is the source of truth — override currently known distances if it says differently. If multiple regulamin sections are present, collect distances from ALL of them.
 2. EVENT TYPE — current classification: [${currentTypes}]. Verify this against the ACTUAL course description in the document and CORRECT it if wrong (e.g. "uliczny" but the course is on forest paths/trails → change to "trail"; no NW category in the document → remove "nordic walking"). The document is authoritative.
-3. IS_KIDS — does this regulamin include a dedicated children's/youth race? true if yes (biegi dla dzieci, separate category for kids/youth under 18, "mini bieg"); false if the regulamin clearly covers only adult/open-age races; null if not mentioned.${extraFields.length ? '\n4. ADDITIONAL FACTUAL FIELDS — extract directly from the PDF where stated; null if not present.' : ''}
+3. IS_KIDS — does this regulamin include a dedicated children's/youth race? true if yes (biegi dla dzieci, separate category for kids/youth under 18, "mini bieg"); false if the regulamin clearly covers only adult/open-age races; null if not mentioned.
+4. ATEST — is the course certified (atest PZLA, certyfikat AIMS / World Athletics)? certified: true if the document says the course has, or will have, a valid atest/certificate ("trasa posiada atest PZLA", "trasa z atestem"); false if it says the course has none ("trasa nie posiada atestu"); null if certification is not mentioned. distances_km: the distances the atest covers when the document names them, else [].${extraFields.length ? '\n5. ADDITIONAL FACTUAL FIELDS — extract directly from the PDF where stated; null if not present.' : ''}
 
 Return ONLY valid JSON, no other text:
 {
@@ -288,7 +289,8 @@ Return ONLY valid JSON, no other text:
   "time_based_distances": ["4h", "6h", "12h"],
   "meter_distances": ["200m", "500m"],
   "event_type": ["one or more from the list below"],
-  "is_kids": true/false/null${extraFields.length ? ',\n' + extraBlock : ''}
+  "is_kids": true/false/null,
+  "atest": { "certified": true/false/null, "distances_km": [numbers] }${extraFields.length ? ',\n' + extraBlock : ''}
 }
 
 DISTANCE RULES:
@@ -397,7 +399,7 @@ async function main() {
   while (true) {
     let query = supabase
       .from('scraper_all')
-      .select('id, source, source_id, name, date, location, voivodeship, distances, event_type, event_types, regulamin_url, regulamin_urls, price_from, price_to, registration_deadline, is_kids, enriched_regulamin_at')
+      .select('id, source, source_id, name, date, location, voivodeship, distances, event_type, event_types, regulamin_url, regulamin_urls, price_from, price_to, registration_deadline, is_kids, atest_claim, enriched_regulamin_at')
       .not('regulamin_url', 'is', null)
       // Soonest race first, so a run cut short by --limit or by a person has
       // done the most urgent rows.
@@ -546,6 +548,19 @@ async function main() {
         }
       }
 
+      // atest: what THIS edition's regulamin says about course certification.
+      // Read by run-atest.js, which publishes an atest only where the PZLA
+      // register backs it. Written only when the document said yes or no.
+      if (extracted.atest && typeof extracted.atest === 'object' && typeof extracted.atest.certified === 'boolean') {
+        const claim = {
+          certified: extracted.atest.certified,
+          distances_km: Array.isArray(extracted.atest.distances_km)
+            ? extracted.atest.distances_km.map(Number).filter((n) => Number.isFinite(n) && n > 0)
+            : [],
+        }
+        if (JSON.stringify(claim) !== JSON.stringify(row.atest_claim ?? null)) updates.atest_claim = claim
+      }
+
       // Registry-driven: fill any PDF-fillable null fields the LLM provided
       const extraFields = fieldsNeedingFill(row, PDF_FILLABLE)
       const extraUpdates = applyRegistryUpdates(row, extracted, extraFields, PDF_FILLABLE)
@@ -562,6 +577,7 @@ async function main() {
           if (updates.distances) console.log(`    ✓ distances: ${row.distances || '(none)'} → ${updates.distances}`)
           if (updates.event_types) console.log(`    ✓ types: ${row.event_types?.join(', ') || '(none)'} → ${updates.event_types.join(', ')}`)
           if (updates.is_kids !== undefined) console.log(`    ✓ is_kids: ${row.is_kids ?? '(none)'} → ${updates.is_kids}`)
+          if (updates.atest_claim) console.log(`    ✓ atest_claim: ${JSON.stringify(row.atest_claim ?? null)} → ${JSON.stringify(updates.atest_claim)}`)
           for (const k of Object.keys(extraUpdates)) {
             console.log(`    ✓ ${k}: ${row[k] ?? '(none)'} → ${JSON.stringify(extraUpdates[k])}`)
           }

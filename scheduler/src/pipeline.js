@@ -25,6 +25,9 @@ const STEPS = [
   { name: 'enricher',          type: 'enricher', cmd: ['python', '-m', 'enricher', 'run'], timeoutMs: 4 * 60 * 60 * 1000 },
   { name: 'run-dedup-2',       type: 'backend',  cmd: ['node', 'scripts/run-dedup.js', '--apply'] },
   { name: 'run-normalize-2',   type: 'backend',  cmd: ['node', 'scripts/run-normalize.js', '--apply'] },
+  // PZLA course certification from the taddziek.pl register. A failed fetch
+  // falls back to the stored register, so this step does not fail on the site.
+  { name: 'run-atest',         type: 'backend',  cmd: ['node', 'scripts/run-atest.js', '--apply'] },
   { name: 'publish-landing-pages',  type: 'backend',  cmd: ['node', 'scripts/publish-landing-pages.js', '--apply'] },
   // Read-only. warnOnly: a non-zero exit means "found something", not "broke" —
   // it must not abort the run or the audit would be worse than having none.
