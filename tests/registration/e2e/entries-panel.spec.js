@@ -90,7 +90,10 @@ test('O-50 the owner reads the tiles and chips of the seeded entries, filters by
   // Bieg 9 km is full and Piotr's order is unpaid.
   await expect(page.getByTestId('tile-awaiting')).toHaveText('CZEKA NA WPŁATĘ1 · BRAK MIEJSC')
   await expect(page.getByTestId('tile-consent')).toHaveText('CZEKA NA ZGODY3')
-  await expect(page.getByTestId('tile-income')).toHaveText('WPŁYWY DLA KLUBU400,00 zł')
+  // Gross income, and beside it dpay's commission on the four payments (0.9% each: 0,54 + 0,54 +
+  // 0,36 + 2,16 zł), which LESZY.RUN pays and invoices the club for (§8).
+  await expect(page.getByTestId('tile-income')).toHaveText('WPŁYWY DLA KLUBU400,00 złprowizja dpay 3,60 zł')
+  await expect(page.getByTestId('tile-income-note')).toHaveText('prowizja dpay 3,60 zł')
 
   const comps = page.getByTestId('competition-chips')
   await expect(comps.getByRole('button')).toHaveText(['Wszystkie · 8', 'Bieg 9 km · 3', 'Bieg 5 km · 1', 'Sztafeta · 1 drużyna'])

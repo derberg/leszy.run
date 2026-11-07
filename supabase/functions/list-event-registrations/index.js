@@ -20,8 +20,9 @@ const READERS = ['owner', 'admin']
 // guardianName, guardianRemoved, registeredBy, team) and the panel's (the split person fields for
 // „Edytuj dane”, email, bib, orderId, price, lines, paidAmount, refunded, refundUnconfirmed,
 // statusKey, autoRefundReason, partnerId, partnerName, voucherCode).
-//   counts        { paid, awaiting, free, placesLeft, teamPlacesLeft, awaitingConsent }, per person
-//                 (D5-32); placesLeft and teamPlacesLeft are people's and teams' places apart
+//   counts        { paid, awaiting, free, placesLeft, teamPlacesLeft, awaitingConsent, dpayFee }, per person
+//                 (D5-32); placesLeft and teamPlacesLeft are people's and teams' places apart;
+//                 dpayFee is dpay's commission so far (paid payments + accepted refunds), grosze
 //   teams         the teams not released: { id, name, size, consentAccepted, fee, captainId,
 //                 competition, captain, status, paymentStatus, expiresAt }
 //   competitions  the visible ones, in the event's order: [{ id, name, capacity, taken, kind }]

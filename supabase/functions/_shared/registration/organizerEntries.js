@@ -4,6 +4,7 @@
 // already checked that the session is the owner or an admin of the event's club.
 import { refundsInFlight } from './refundInFlight.js'
 import { allRows } from './allRows.js'
+import { dpayCommission } from './money.js'
 import { paymentStatusOf, registrationRole } from './group.js'
 import { entryStatusKey, unconfirmedRefundGrosze } from './entries.js'
 import { entryOwedDetails } from './memberDetails.js'
@@ -93,13 +94,14 @@ const groupBy = (items, key) => {
  * partners are the event's: [{ id, name, count }], count = the live entries attributed to each
  * (pending_payment or confirmed, not lapsed). Organizer-only, like the rows (V-38).
  * counts are per person (D5-32), with people's places (placesLeft) and teams' (teamPlacesLeft) apart;
+ * counts.dpayFee is dpay's commission on the event so far (money.js dpayCommission), grosze;
  * competitions are the visible ones (entryCounts' limit), in the event's order; a team carries
  * `captainId` (the row its ⋯ acts on) and the event its `slug` (the squad page's address).
  */
 export async function loadEntries(admin, settings, { guardianEmail = false, now = new Date() } = {}) {
   const eventId = settings.event_id
   const regColumns = guardianEmail ? `${REG_COLUMNS}, guardian_email` : REG_COLUMNS
-  const [regs, comps, orders, teamRows, lineRows, refundRows, participants, partnerRows, voucherRows, priceRows] = await Promise.all([
+  const [regs, comps, orders, teamRows, lineRows, refundRows, participants, partnerRows, voucherRows, priceRows, attemptRows] = await Promise.all([
     allRows(() => admin.from('registrations').select(regColumns)
       .eq('event_id', eventId).order('created_at').order('id')),
     // In the event's own order (the wizard's), which the panel's chips follow.
@@ -117,6 +119,9 @@ export async function loadEntries(admin, settings, { guardianEmail = false, now 
     allRows(() => admin.from('vouchers').select('id, code').eq('event_id', eventId).order('id')),
     allRows(() => admin.from('competition_prices').select('category_id, tier_id, amount, competitions!inner(event_id)')
       .eq('competitions.event_id', eventId).order('category_id').order('tier_id')),
+    // Only for dpay's commission (counts.dpayFee): every payment dpay took.
+    allRows(() => admin.from('payment_attempts').select('id, grosze, status, orders!inner(event_id)')
+      .eq('orders.event_id', eventId).in('status', ['paid', 'refunded']).order('id')),
   ])
   // V-87 (M-1): ⋯ „Przekaż pakiet” is not offered while a refund of the entry waits for dpay.
   const inFlight = await refundsInFlight(admin, regs.filter((r) => r.status === 'confirmed').map((r) => r.id))
@@ -176,7 +181,10 @@ export async function loadEntries(admin, settings, { guardianEmail = false, now 
   const teamComps = comps.filter(isTeam)
   const placesLeft = teamComps.length && teamComps.length === comps.length ? null : left(comps.filter((c) => !isTeam(c)))
   const teamPlacesLeft = teamComps.length ? left(teamComps) : null
-  const counts = { paid: 0, awaiting: 0, free: 0, placesLeft, teamPlacesLeft, awaitingConsent: 0 }
+  const counts = {
+    paid: 0, awaiting: 0, free: 0, placesLeft, teamPlacesLeft, awaitingConsent: 0,
+    dpayFee: dpayCommission({ attempts: attemptRows, refunds: refundRows }),
+  }
   const registeredBy = await registeredByNames(admin, regs, orderOf, eventId)
   const sum = (list, key) => list.reduce((n, x) => n + (x[key] ?? 0), 0)
 

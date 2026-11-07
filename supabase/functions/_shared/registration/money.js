@@ -44,6 +44,18 @@ export function dpayFee(amount) {
   return amount === 0 ? 0 : Math.max(20, Math.ceil((amount * 9) / 1000))
 }
 
+// dpay's commission on an event so far: one fee per payment dpay took (an attempt `paid`, or
+// `refunded` after it was paid) and one per refund dpay accepted, on that refund's own amount. The
+// organizer panel shows it beside the club's income, which stays gross: LESZY.RUN pays the
+// commission and invoices the club for it (§8), so it is never deducted from what runners paid.
+export function dpayCommission({ attempts = [], refunds = [] } = {}) {
+  const paid = attempts.filter((a) => a.status === 'paid' || a.status === 'refunded')
+    .reduce((n, a) => n + dpayFee(a.grosze), 0)
+  const refunded = refunds.filter((f) => f.dpay_status === 'accepted')
+    .reduce((n, f) => n + dpayFee(f.amount), 0)
+  return paid + refunded
+}
+
 function splitZloty(amount) {
   return [Math.floor(amount / 100), String(amount % 100).padStart(2, '0')]
 }

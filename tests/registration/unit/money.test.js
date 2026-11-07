@@ -7,6 +7,7 @@ import {
   formatDpayValue,
   parseDpayAmount,
   dpayFee,
+  dpayCommission,
 } from '../../../supabase/functions/_shared/registration/money.js'
 import { PAYMENT_CHANNEL_PRESELECT } from '../../../supabase/functions/_shared/registration/flags.js'
 
@@ -119,4 +120,22 @@ test('dpayFee: 0.9% rounded up, at least 0.20 zł, nothing on 0', () => {
   assert.equal(dpayFee(10000), 90)
   assert.throws(() => dpayFee(1.5), MoneyError)
   assert.throws(() => dpayFee(-1), MoneyError)
+})
+
+test('O-50 dpayCommission: one fee per payment dpay took and per refund it accepted', () => {
+  assert.equal(dpayCommission(), 0)
+  // The Wataha case: three paid payments of 200 zł, 1,80 zł each.
+  const paid = [20000, 20000, 20000].map((grosze) => ({ grosze, status: 'paid' }))
+  assert.equal(dpayCommission({ attempts: paid }), 540)
+  // A payment refunded afterwards was still taken; one never paid costs nothing.
+  assert.equal(dpayCommission({ attempts: [{ grosze: 6000, status: 'refunded' }, { grosze: 6000, status: 'created' }] }), 54)
+  // Only an accepted refund was made at dpay, each on its own amount (5 zł → the 0,20 zł minimum).
+  const refunds = [
+    { amount: 500, dpay_status: 'accepted' },
+    { amount: 20000, dpay_status: 'accepted' },
+    { amount: 20000, dpay_status: 'rejected' },
+    { amount: 20000, dpay_status: 'pending' },
+    { amount: 20000, dpay_status: 'unknown' },
+  ]
+  assert.equal(dpayCommission({ attempts: paid, refunds }), 540 + 20 + 180)
 })
