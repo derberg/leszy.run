@@ -38,10 +38,16 @@ export async function categoriesRoutes(fastify) {
 
   // Update category
   fastify.patch('/categories/:id', async (req, reply) => {
-    const allowed = ['name', 'slug', 'untimed']
+    const allowed = ['name', 'slug', 'untimed', 'teamMode', 'teamCountMembers']
     const updates = {}
     for (const key of allowed) {
       if (req.body[key] !== undefined) updates[key] = req.body[key]
+    }
+    if (updates.teamMode !== undefined && ![null, 'relay', 'together'].includes(updates.teamMode)) {
+      return reply.code(400).send({ error: "teamMode must be 'relay', 'together' or null" })
+    }
+    if (updates.teamCountMembers != null && !(Number.isInteger(updates.teamCountMembers) && updates.teamCountMembers >= 1)) {
+      return reply.code(400).send({ error: 'teamCountMembers must be a positive integer or null' })
     }
 
     const [row] = await db.update(categories).set(updates).where(eq(categories.id, req.params.id)).returning()

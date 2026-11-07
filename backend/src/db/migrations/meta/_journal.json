@@ -295,6 +295,13 @@
       "when": 1792310000000,
       "tag": "0041_registration_bridge",
       "breakpoints": true
+    },
+    {
+      "idx": 42,
+      "version": "7",
+      "when": 1792400000000,
+      "tag": "0042_team_timing",
+      "breakpoints": true
     }
   ]
 }

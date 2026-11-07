@@ -179,6 +179,22 @@ export class CrossingDetector {
 
     const gunStartTime = raceRun.startedAt ? new Date(raceRun.startedAt) : new Date()
 
+    // Relay (sztafeta): leg k>1 starts at leg k-1's finish, never on its own reads. Until that
+    // handover its reads are audited and otherwise ignored: a runner waiting in the handover
+    // zone, or wandering past the gate an hour early, must not get a start or a finish.
+    const relay = eventConfig.teamMode === 'relay' ? buildRelayChains(participantList) : null
+    const awaitingHandover = new Set()
+    const legStart = new Map()
+    if (relay) {
+      const startOf = new Map(existingResults.map(r => [r.participantId, r.startTime]))
+      for (const pid of relay.prevLeg.keys()) {
+        const start = startOf.get(pid)
+        if (start) legStart.set(pid, new Date(start))
+        else awaitingHandover.add(pid)
+      }
+      for (const w of relay.warnings) console.warn(`[Detector] Relay ${raceRun.id}: ${w}`)
+    }
+
     this.activeRaces.set(raceRun.id, {
       config: eventConfig,
       gunStartTime,
@@ -189,7 +205,13 @@ export class CrossingDetector {
       // to gate_events (see FINISH_AUDIT_WINDOW_MS). Empty after a restart, which is
       // fine: it only costs audit rows for runners who finished before the restart.
       finishAuditUntil: new Map(),
+      relay,
+      awaitingHandover,
+      // participantId -> the handover time of a relay leg k>1; the min-finish guard counts
+      // from it instead of from the gun.
+      legStart,
     })
+    if (relay) console.log(`[Detector] Relay race ${raceRun.id}: ${relay.prevLeg.size} leg(s) wait for a handover`)
     console.log(`[Detector] Started race ${raceRun.id} with ${epcMap.size} tagged participants (${startedParticipants.size} already started, ${finishedParticipants.size} already finished)`)
 
     // After gunBackfillSeconds, backfill gun time for checked-in participants whose chip start was not detected.
@@ -264,6 +286,8 @@ export class CrossingDetector {
       const missing = []
       for (const [epc, participantId] of epcMap) {
         if (race.startedParticipants.has(participantId)) continue
+        // A relay leg k>1 starts at the handover, never at the gun.
+        if (race.awaitingHandover.has(participantId)) continue
         const key = `${epc}:${raceRunId}`
         if (this.inRange.has(key)) continue
         missing.push(participantId)
@@ -390,6 +414,9 @@ export class CrossingDetector {
       // window, but later reads never re-time an existing finish.
       if (finished) continue
 
+      // A relay leg still waiting for its handover: audited above, nothing more.
+      if (race.awaitingHandover.has(participantId)) continue
+
       const key = `${event.epc}:${raceRunId}`
 
       const rfidMode        = race.config.rfidMode
@@ -404,7 +431,8 @@ export class CrossingDetector {
       if (isFinishRead) {
         // Ghost-read guard: ignore finish reads too soon after the gun
         // (runners near the start line right after the start).
-        if (race.gunStartTime && (new Date(event.receivedAt) - race.gunStartTime) < minFinishMs) continue
+        const anchor = race.legStart.get(participantId) ?? race.gunStartTime
+        if (anchor && (new Date(event.receivedAt) - anchor) < minFinishMs) continue
         this.#trackFinishPass({ event, now, raceRunId, participantId, race, confirmRssi, rfidMode, rfidTopicFinish })
         continue
       }
@@ -565,9 +593,10 @@ export class CrossingDetector {
 
       // Guard: ignore finish crossings too soon after race start (ghost reads from
       // tags still near the antenna right after the gun). Per-event configurable.
-      if (gate === 'finish' && race?.gunStartTime) {
+      const anchor = race?.legStart.get(participantId) ?? race?.gunStartTime
+      if (gate === 'finish' && anchor) {
         const minFinishMs = (race.config?.minFinishSeconds ?? DEFAULT_MIN_FINISH_SECONDS) * 1000
-        const elapsed = peakTime - race.gunStartTime
+        const elapsed = peakTime - anchor
         if (elapsed < minFinishMs) {
           // Roll back the optimistic finished mark so the real crossing still counts
           race.finishedParticipants.delete(participantId)
@@ -656,6 +685,7 @@ export class CrossingDetector {
           race.startedParticipants.add(participantId)
         }
         if (race) race.finishedParticipants.add(participantId)
+        if (race?.relay) await this.#handover(race, raceRunId, participantId, peakTime)
       }
 
       this.broadcast('rfid:crossing', {
@@ -678,6 +708,39 @@ export class CrossingDetector {
     }
   }
 
+  // Relay: the finish of one leg is the start of the next. The next leg's start is the
+  // previous leg's peak, so its netto (duration_ms) is exactly its leg time.
+  async #handover(race, raceRunId, participantId, at) {
+    const next = race.relay.nextLeg.get(participantId)
+    if (!next || !race.awaitingHandover.has(next)) return
+    race.awaitingHandover.delete(next)
+    const existing = await this.db.query.results.findFirst({
+      where: and(eq(results.raceRunId, raceRunId), eq(results.participantId, next)),
+    })
+    // An operator's DNS on the next leg stands: the team is out, nobody runs that leg.
+    if (existing?.status === 'dns') return
+    if (existing?.startTime) {
+      race.startedParticipants.add(next)
+      race.legStart.set(next, new Date(existing.startTime))
+      return
+    }
+    const set = {
+      startTime: at,
+      status: existing?.status === 'dsq' ? 'dsq' : 'started',
+      startTimeSource: 'handover',
+      startTimeTrigger: 'relay',
+    }
+    await this.db.insert(results).values({ raceRunId, participantId: next, ...set })
+      .onConflictDoUpdate({ target: [results.raceRunId, results.participantId], set })
+    race.startedParticipants.add(next)
+    race.legStart.set(next, at)
+    const updated = await this.db.query.results.findFirst({
+      where: and(eq(results.raceRunId, raceRunId), eq(results.participantId, next)),
+    })
+    if (updated) this.broadcast('result:update', updated)
+    console.log(`[Detector] Relay handover in race ${raceRunId}: ${participantId} → ${next} at ${at.toISOString()}`)
+  }
+
   /** @returns {Promise<Set<string>>} the ids among `participantIds` with a check-in */
   async #checkedInIds(participantIds) {
     if (!participantIds.length) return new Set()
@@ -698,4 +761,36 @@ export class CrossingDetector {
 function confirmRssiOf(config) {
   if (!config || config.confirmRssiCdbm === undefined) return DEFAULT_CONFIRM_RSSI
   return config.confirmRssiCdbm
+}
+
+/**
+ * Leg chains of a relay start list: participants sharing `teamId`, ordered by `teamLeg`.
+ * A team whose legs are missing or repeated gets no chain (its members are timed as
+ * individuals) and a warning, because guessing the order would hand one runner's start to
+ * another.
+ * @returns {{ nextLeg: Map<string,string>, prevLeg: Map<string,string>, warnings: string[] }}
+ */
+export function buildRelayChains(participantList) {
+  const teams = new Map()
+  for (const p of participantList) {
+    if (!p.teamId) continue
+    if (!teams.has(p.teamId)) teams.set(p.teamId, [])
+    teams.get(p.teamId).push(p)
+  }
+  const nextLeg = new Map()
+  const prevLeg = new Map()
+  const warnings = []
+  for (const [teamId, members] of teams) {
+    const legs = members.map(m => m.teamLeg)
+    if (legs.some(l => l == null) || new Set(legs).size !== legs.length) {
+      warnings.push(`team ${teamId} has missing or repeated legs (${legs.join(', ')}); timed as individuals`)
+      continue
+    }
+    const ordered = [...members].sort((a, b) => a.teamLeg - b.teamLeg)
+    for (let i = 1; i < ordered.length; i++) {
+      nextLeg.set(ordered[i - 1].id, ordered[i].id)
+      prevLeg.set(ordered[i].id, ordered[i - 1].id)
+    }
+  }
+  return { nextLeg, prevLeg, warnings }
 }

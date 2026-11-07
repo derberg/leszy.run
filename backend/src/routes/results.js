@@ -5,6 +5,7 @@ import { isRemoved } from '../lib/registrationGuards.js'
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib'
 import Papa from 'papaparse'
 import { recalcPositions, UNRANKED } from '../lib/positions.js'
+import { computeTeamResults } from '@leszyrun/ui/teamResults'
 
 const RESULT_STATUSES = ['registered', 'checked_in', 'started', 'finished', 'dnf', 'dns', 'dsq']
 
@@ -33,6 +34,28 @@ export async function resultsRoutes(fastify) {
     }
 
     return { data: rows }
+  })
+
+  // Team standings of a race run, derived from the members' own results (@leszyrun/ui
+  // computeTeamResults). The host holds no team names, so teams are labelled by their
+  // members' surnames here; the public snapshot adds the registration's names.
+  fastify.get('/races/:raceRunId/teams', async (req, reply) => {
+    const run = await db.query.raceRuns.findFirst({
+      where: eq(raceRuns.id, req.params.raceRunId),
+      with: { category: true },
+    })
+    if (!run) return reply.code(404).send({ error: 'Race run not found' })
+    const mode = run.category?.teamMode
+    if (!mode) return { data: [], mode: null }
+    const rows = await db.query.results.findMany({
+      where: eq(results.raceRunId, run.id),
+      with: { participant: true },
+    })
+    const live = rows.filter(r => !isRemoved(r.participant))
+    return {
+      mode,
+      data: computeTeamResults({ mode, results: live, countMembers: run.category.teamCountMembers ?? undefined }),
+    }
   })
 
   // All results for an event (grouped by category)

@@ -20,7 +20,9 @@ export async function reloadActiveRaces(db, detector) {
     },
   })
   for (const run of activeRuns) {
-    await detector.startRace(run, run.category.event, startListFor(run.category.participants))
+    // A team category's mode rides on the config, as at race start (routes/races.js).
+    const { event, teamMode } = run.category
+    await detector.startRace(run, teamMode ? { ...event, teamMode } : event, startListFor(run.category.participants))
   }
   return activeRuns.length
 }

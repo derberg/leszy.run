@@ -8,7 +8,8 @@
   },
   "exports": {
     ".": "./src/index.js",
-    "./eventCompleteness": "./src/lib/eventCompleteness.js"
+    "./eventCompleteness": "./src/lib/eventCompleteness.js",
+    "./teamResults": "./src/lib/teamResults.js"
   },
   "peerDependencies": {
     "react": ">=19.0.0",

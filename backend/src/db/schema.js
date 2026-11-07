@@ -41,6 +41,11 @@ export const categories = pgTable('categories', {
   name: text('name').notNull(),
   slug: text('slug').notNull(),   // human-readable import key, e.g. 'bieg-5km'
   untimed: boolean('untimed').notNull().default(false),   // no timing/classification (e.g. kids' run); hidden from public results
+  // Team category: 'relay' (sztafeta, legs one after another, leg k starts at leg k-1's finish)
+  // or 'together' (the whole squad runs at once). NULL: an individual category.
+  teamMode: text('team_mode'),
+  // 'together' only: how many finishers make the team time (NULL: every member).
+  teamCountMembers: integer('team_count_members'),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
   syncedAt: timestamp('synced_at', { withTimezone: true }),
 }, (t) => [
@@ -69,6 +74,11 @@ export const participants = pgTable('participants', {
   registrationId: uuid('registration_id'),
   // Set when the registration was cancelled or refunded after the row reached this host.
   removedAt: timestamp('removed_at', { withTimezone: true }),
+  // The team this runner belongs to (Supabase `teams.id` for a registration team; no local FK,
+  // and never its name: a team name is personal data the host does not hold) and their leg
+  // in a relay. Each member keeps their own tag, bib and result; the team is derived.
+  teamId: uuid('team_id'),
+  teamLeg: integer('team_leg'),
   updatedAt: timestamp('updated_at', { withTimezone: true }),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
   syncedAt: timestamp('synced_at', { withTimezone: true }),

@@ -13,6 +13,8 @@ const DodajWydarzenie = lazy(() => import('./pages/DodajWydarzenie.jsx'))
 const Home = lazy(() => import('./pages/Home.jsx'))
 const EventHub = lazy(() => import('./pages/EventHub.jsx'))
 const Results = lazy(() => import('./pages/Results.jsx'))
+// EXPLORATION: team result layouts, dev server only.
+const PodgladDruzyny = import.meta.env.DEV ? lazy(() => import('./pages/PodgladDruzyny.jsx')) : null
 const ZapisyTrasa = lazy(() => import('./pages/zapisy/Trasa.jsx'))
 const ZapisyZapis = lazy(() => import('./pages/zapisy/Zapis.jsx'))
 const ZapisyZapisano = lazy(() => import('./pages/zapisy/Zapisano.jsx'))
@@ -90,6 +92,7 @@ export default function App() {
           <Route path="/zamowienie/:orderId" element={<ZapisyZamowienie />} />
           <Route path="/zgoda" element={<ZapisyZgoda />} />
           <Route path="/przekazanie" element={<ZapisyPrzekazanie />} />
+          {PodgladDruzyny && <Route path="/podglad/druzyny" element={<PodgladDruzyny />} />}
           <Route path="/events/:slug/results" element={<Results />} />
           <Route path="/events/:slug/results/live" element={<Results />} />
           <Route path="/events/:slug/results/:categoryId" element={<Results />} />
