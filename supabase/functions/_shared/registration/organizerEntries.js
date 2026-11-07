@@ -111,7 +111,7 @@ export async function loadEntries(admin, settings, { guardianEmail = false, now 
     allRows(() => admin.from('teams').select('id, name, category_id, captain_registration_id, released_at').eq('event_id', eventId).order('id')),
     allRows(() => admin.from('order_lines').select('id, order_id, kind, registration_id, amount, refunded, orders!inner(event_id)')
       .eq('orders.event_id', eventId).order('id')),
-    allRows(() => admin.from('refunds').select('id, order_id, order_line_id, kind, reason, dpay_status, amount, orders!inner(event_id)')
+    allRows(() => admin.from('refunds').select('id, order_id, payment_attempt_id, order_line_id, kind, reason, dpay_status, amount, orders!inner(event_id)')
       .eq('orders.event_id', eventId).order('id')),
     allRows(() => admin.from('participants').select('id, registration_id, bib_number, removed_at, withdrawn_at')
       .eq('event_id', eventId).not('registration_id', 'is', null).order('id')),

@@ -139,3 +139,19 @@ test('O-50 dpayCommission: one fee per payment dpay took and per refund it accep
   ]
   assert.equal(dpayCommission({ attempts: paid, refunds }), 540 + 20 + 180)
 })
+
+test('O-50 dpayCommission: one dpay-panel refund recorded per line is one fee, a panel refund per payment', () => {
+  // A 10 zł payment refunded in the dpay panel, recorded as two 5 zł line shares: one 0,20 zł fee.
+  const attempts = [{ grosze: 1000, status: 'refunded' }]
+  const split = [
+    { payment_attempt_id: 'a', amount: 500, dpay_status: 'accepted', reason: 'external' },
+    { payment_attempt_id: 'a', amount: 500, dpay_status: 'accepted', reason: 'external' },
+  ]
+  assert.equal(dpayCommission({ attempts, refunds: split }), 20 + 20)
+  // Panel refunds of different payments stay separate fees.
+  const two = [{ ...split[0] }, { ...split[1], payment_attempt_id: 'b' }]
+  assert.equal(dpayCommission({ attempts: [], refunds: two }), 40)
+  // „Zwróć wpłatę” calls dpay once per line: two organizer refunds of one payment are two fees.
+  const organizer = split.map((f) => ({ ...f, reason: null }))
+  assert.equal(dpayCommission({ attempts: [], refunds: organizer }), 40)
+})
