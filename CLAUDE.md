@@ -19,9 +19,16 @@ not a state to leave the repo in.
 - Before editing OR before answering "what does the code do", run `git status -sb`.
   If HEAD is behind `origin/main`, reason about `origin/main`, not the stale tree.
 - Flow: `scripts/worktree.sh new feature/<name>` → edit in `.worktrees/<name>` →
-  `git push -u origin feature/<name>` → `gh pr create --fill` → `gh pr merge --squash` → confirm `gh pr view --json state` says
+  `git push -u origin feature/<name>` → `gh pr create --fill --title "<type>(<scope>): …"` → `gh pr merge --squash` → confirm `gh pr view --json state` says
   `MERGED` → `git push origin --delete feature/<name>` → `scripts/worktree.sh rm feature/<name>`.
   Never delete the branch before `MERGED`: a deleted head branch closes the PR unmerged.
+- **PR titles follow Conventional Commits**: `<type>(<scope>)?: <description>`, type one of
+  `feat fix docs style refactor perf test build ci chore revert`, e.g. `fix(scrapers): …`.
+  Always pass `--title` to `gh pr create` (`--fill` alone copies the commit subject). The PR is
+  squash-merged, so the title becomes the commit on `main`. The `PR title` check
+  (`.github/workflows/pr-title.yml`, rule in `backend/scripts/lib/conventionalTitle.js`) fails
+  any other title; fix it with `gh pr edit <n> --title "…"`. The pre-publish review rewrites a
+  fix agent's title to `fix: …` before it merges.
 - This is enforced by hooks: a PreToolUse **branch-guard** denies edits in the
   main checkout and on `main`/`master` anywhere, and a SessionStart reminder
   front-loads the `dev-workflow` skill. The full rules, deploy model, and

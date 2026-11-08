@@ -175,7 +175,9 @@ ${findings}
    surrounding code.
 4. Run: npm test --workspace=backend
    Every test must pass, not only yours.
-5. Commit. Then: git push -u origin ${branch} && gh pr create --fill
+5. Commit. Then: git push -u origin ${branch} && gh pr create --fill --title "fix(<scope>): <what now works>"
+   The title follows Conventional Commits: type fix, scope the scraper or module
+   (e.g. fix(zapisyonline): read the regulamin link), lower-case type, a colon and a space.
 
 ## Limits
 

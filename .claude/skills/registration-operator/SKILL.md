@@ -232,7 +232,7 @@ read back), with these differences:
    `supabase/functions/_shared/organizer.js`. The two strings must be
    identical; `public/tests/unit/agreementVersion.test.js` fails otherwise.
 4. `npm run test:unit --workspace=public` (and `npm test --workspace=backend`
-   if anything else changed), commit, push, `gh pr create`, `gh pr merge --squash`
+   if anything else changed), commit, push, `gh pr create --title "feat(registration): organizer agreement <NEW_VERSION>"`, `gh pr merge --squash`
    once checks pass. The edge function deploys from `main` via CI.
 5. After the deploy every owner sees the stale-version state and re-accepts,
    which inserts a **new** `organizer_agreements` row (UNIQUE `club_id, version`).

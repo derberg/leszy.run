@@ -55,6 +55,7 @@ import {
   needsRevision,
   planHeal,
 } from './lib/reviewAgents.js'
+import { asConventionalTitle } from './lib/conventionalTitle.js'
 import { diagnosePrompt, fixPrompt, reviewPrompt, revisePrompt } from './lib/reviewPrompts.js'
 
 const argv = process.argv
@@ -376,6 +377,11 @@ async function reviewAndMerge(fixes) {
           break
         }
         try {
+          // The squash commit takes the title, and this merge does not wait for
+          // the PR title check, so the title is made conventional here.
+          const title = sh('gh', ['pr', 'view', String(pr), '--json', 'title', '-q', '.title'], { cwd: fix.worktree }).trim()
+          const conventional = asConventionalTitle(title)
+          if (conventional !== title) sh('gh', ['pr', 'edit', String(pr), '--title', conventional], { cwd: fix.worktree })
           const [ghArgs, gitArgs] = mergeCommands(pr, fix.branch)
           sh('gh', ghArgs, { cwd: fix.worktree })
           merged++
