@@ -78,18 +78,19 @@ test('W-36 viewer sees the event page and the course of a published free event',
 
   await page.goto(`/events/${event.slug}`)
   await expect(page.getByRole('heading', { level: 1 })).toHaveText(settings.name)
-  await expect(page.getByTestId('stat-registered')).toContainText('Zapisani')
-  await expect(page.getByTestId('stat-registered')).toContainText('0')
-  await expect(page.getByTestId('stat-free')).toContainText('Wolne')
-  await expect(page.getByTestId('stat-free')).toContainText('50')
+  await expect(page.getByTestId('listed-count')).toHaveText('0 osób →')
+  await expect(page.getByTestId('competition-free')).toHaveText('wolne 50 / 50')
   await expect(page.getByTestId('office')).toContainText('17:00–19:00')
   await expect(page.getByTestId('office')).toContainText('8:00–9:30')
   await expect(page.getByTestId('office')).toContainText('Szkoła Podstawowa, ul. Szkolna 4')
   const row = page.getByTestId('competition')
   await expect(row).toHaveCount(1)
   await expect(row).toContainText('Bieg 9 km')
-  await expect(row).toContainText('start 10:00')
   await expect(row).toContainText('Bezpłatne')
+  // The start time is told once, under „Dzień zawodów”, not in the sign-up panel.
+  await expect(row).not.toContainText('10:00')
+  await expect(page.getByTestId('starts')).toContainText('10:00')
+  await expect(page.getByTestId('start-row')).toContainText('Bieg 9 km')
   await expect(page.getByTestId('registration-event-page').getByTestId('regulamin-link')).toHaveAttribute('href', 'https://example.org/regulamin.pdf')
 
   await page.getByTestId('event-course').getByRole('link', { name: 'Pełny widok i GPX →' }).click()
@@ -406,7 +407,7 @@ test('W-49 a competition hidden after publish disappears for the viewer, its for
   await expect(page.getByTestId('competition')).toHaveCount(1)
   await expect(page.getByTestId('competition')).toContainText('Bieg 9 km')
   await expect(page.getByText('Marsz 5 km')).toHaveCount(0)
-  await expect(page.getByTestId('stat-free')).toContainText('50')
+  await expect(page.getByTestId('competition-free')).toContainText('50')
 
   await page.goto(`/events/${event.slug}/zapis/${event.categoryIds[1]}`)
   await expect(page.getByTestId('competition-unavailable')).toBeVisible()

@@ -1,13 +1,15 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useParams } from 'react-router-dom'
+import Navbar from '../../components/Navbar.jsx'
+import usePublicRegistrationEvent from '../../hooks/usePublicRegistrationEvent.js'
+import NotFound from '../NotFound.jsx'
 import useSeo from '../../hooks/useSeo.js'
 import { activeFilterCount, filterStartList, splitStartList, startListCountText, startListFilterOptions, startListView } from '../../lib/startList.js'
-import PageTop from '../../components/registration/PageTop.jsx'
 import { inputCls, labelCls } from '../../components/registration/ui.js'
-import RegistrationShell from './RegistrationShell.jsx'
-import { eventPath, startListPath } from './RegistrationEventPage.jsx'
+import { EventFrame, startListPath } from './RegistrationEventPage.jsx'
 
 // RA8 (mobile cards) and RA8d (desktop table): everyone on the list of a published
+// event, in the event page's frame (EventFrame: header, tabs, sign-up panel).
 // event, with filters. People and teams are two lists; a team shows its whole named squad. Ruling P3-R14: an entry awaiting payment is only counted
 // („+N czeka na wpłatę”), never listed by name, so there is no „Wpłata” filter or
 // column (D4-19), and a minor's town is never shown; „opłacone” marks an entry that
@@ -257,8 +259,6 @@ function StartList({ raw }) {
   const parts = useMemo(() => (shown ? splitStartList(shown.entries) : null), [shown])
   return (
     <div className="flex flex-col gap-3.5" data-testid="start-list">
-      <PageTop back={{ to: eventPath(raw.slug), label: 'Zawody' }} right={raw.name} />
-      <h1 className="font-display font-extrabold text-4xl md:text-[40px] leading-none uppercase text-apex-text-bright">Lista startowa</h1>
       {state.status === 'loading' && (
         <div className="flex flex-col gap-2" aria-busy="true">
           <div className="h-20 bg-apex-surface" /><div className="h-16 bg-apex-surface" /><div className="h-16 bg-apex-surface" />
@@ -311,9 +311,29 @@ function Seo({ raw }) {
 
 export default function ListaStartowa() {
   const { slug } = useParams()
+  const { status, raw } = usePublicRegistrationEvent(slug)
+  if (status === 'missing') return <NotFound />
   return (
-    <RegistrationShell slug={slug} wide>
-      {(raw) => <><Seo raw={raw} /><StartList raw={raw} /></>}
-    </RegistrationShell>
+    <>
+      <Navbar />
+      <main id="main-content" className="bg-apex-bg min-h-[70vh]">
+        {status === 'loading'
+          ? (
+            <div className="max-w-[1200px] mx-auto px-4 sm:px-6 pt-[88px] flex flex-col gap-4" aria-busy="true">
+              <div className="h-12 w-3/4 bg-apex-surface" />
+              <div className="h-12 bg-apex-surface" />
+              <div className="h-64 bg-apex-surface" />
+            </div>
+          )
+          : (
+            <>
+              <Seo raw={raw} />
+              <EventFrame raw={raw} tab="list">
+                {() => <StartList raw={raw} />}
+              </EventFrame>
+            </>
+          )}
+      </main>
+    </>
   )
 }

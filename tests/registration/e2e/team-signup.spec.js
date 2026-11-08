@@ -228,15 +228,19 @@ test('T-62 (a)(b) on a paid team: „Zapłać” refused → the member\'s e-mai
   await expect(page.locator('#p2-first')).toHaveValue('Piotr')
 })
 
-test('T-62 RA1: the team card reads „Drużyny N–M osób · <cena> / drużyna · X / Y DRUŻYN”', async ({ actors }) => {
+test('T-62 RA1: the panel reads the team price „za drużynę” and its places; „Dzień zawodów” the team size', async ({ actors }) => {
   const event = await paidEvent()
   const page = await setUp(actors.viewer, 390)
   await page.goto(`/events/${event.slug}`)
-  await expect(page.getByTestId('team-line')).toHaveText('Drużyny 2–4 osób · 240 zł / drużyna · 0 / 20 DRUŻYN')
+  const row = page.getByTestId('competition')
+  await expect(row).toContainText('240 zł')
+  await expect(row).toContainText('za drużynę')
+  await expect(page.getByTestId('competition-free')).toHaveText('wolne 20 / 20')
+  await expect(page.getByTestId('start-row')).toContainText('drużyna 2–4 os.')
   // Final review I-5: an event of teams only counts drużyny, never people.
-  await expect(page.getByTestId('stat-registered')).toContainText('0 drużyn')
-  await expect(page.getByTestId('stat-registered')).not.toContainText('osób')
-  await expect(page.getByTestId('stat-free')).toContainText('20 drużyn')
+  await expect(page.getByTestId('listed-count')).toHaveText('0 drużyn →')
+  await expect(page.getByTestId('tab-start-list')).toContainText('0 drużyn')
+  await expect(page.getByTestId('tab-start-list')).not.toContainText('osób')
 })
 
 test('T-62 M-1 RB1 says under the name that it is public', async ({ actors }) => {
