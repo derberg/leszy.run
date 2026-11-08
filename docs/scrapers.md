@@ -740,15 +740,16 @@ Fetches `zawody_files/zawodyNNN.html` for each event.
 
 ## Source 3: elektronicznezapisy.pl
 
-**URL:** `https://elektronicznezapisy.pl/1/bieg.html` + `/2/nordic-walking.html`
+**URL:** one listing per running/NW discipline, `https://elektronicznezapisy.pl/<id>/<slug>.html` (`CATEGORY_URLS`: 1 bieg, 2 nordic walking, 14, 19, 23, 28, 32, 37, 48, 52, 57, 62, 64, 65, 71)
 **Method:** HTTP fetch + Cheerio (listing) → fetch + Cheerio (detail pages)
 **Encoding:** UTF-8
-**Rate limit:** 1.1s between detail page fetches
+**Rate limit:** 1.1s between listing fetches and between detail page fetches
 **Events/year:** 300-500
 
 ### What it scrapes
 
-**Phase 1 — Listing pages (2 category pages):**
+**Phase 1 — Listing pages (15 discipline pages):**
+The organizer picks the disciplines, and many running events are filed only under a narrower one (bieg przełajowy, ULTRA, bieg górski, Bieg Niepodległości, biegi dla dzieci). Until 2026-11-08 only `/1/` and `/2/` were read and those events never reached us. An event in several listings is fetched once.
 Parses `<tr>` rows with 4+ `<td>` cells:
 - Event ID: from href `/event/NNN`
 - Date: `YYYY-MM-DD` from 3rd cell

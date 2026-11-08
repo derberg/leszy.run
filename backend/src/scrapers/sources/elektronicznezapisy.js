@@ -3,9 +3,36 @@ import { isDostartuLikeUrl, enrichFromUrl } from '../apiEnrich.js'
 
 const BASE_URL = 'https://elektronicznezapisy.pl'
 
-const CATEGORY_URLS = [
+// One listing per discipline. The organizer picks the disciplines, and plenty of
+// running events are filed only under a narrower one than "bieg": on 2026-05-09..11
+// the portal held 8 running events outside disciplines 1 and 2 (an ultra, three
+// cross-country races, a mountain festival, a Cooper test, a kids race), and on
+// 2026-11-08 a night marathon (48 only) and four Bieg Niepodległości races (57
+// only). Reading just /1/ and /2/ missed every one of them.
+//
+// Running and NW disciplines only, ids from the archive's discipline filter
+// (events/archive.html). 14 and 65 were empty on 2026-11-08 and cost one request
+// each. Left out on purpose: 11 inne (strength classes, sauna evenings), 7 bieg na
+// orientację, 86 Kids Cup (a series that includes cycling), 40/60 timing-company
+// tags (any sport), the dog races (90/91) and every non-running sport. An event listed under several disciplines
+// is fetched once (dedup by eventId below). The slug after the id is ignored by
+// the portal; it is kept readable.
+export const CATEGORY_URLS = [
   { url: `${BASE_URL}/1/bieg.html`, type: 'running' },
   { url: `${BASE_URL}/2/nordic-walking.html`, type: 'nordic' },
+  { url: `${BASE_URL}/14/bieg-sztafetowy.html`, type: 'running' },
+  { url: `${BASE_URL}/19/biegi-dla-dzieci.html`, type: 'running' },
+  { url: `${BASE_URL}/23/bieg-ekstremalny.html`, type: 'running' },
+  { url: `${BASE_URL}/28/rajd-nordic-walking.html`, type: 'nordic' },
+  { url: `${BASE_URL}/32/biegi-ocr.html`, type: 'running' },
+  { url: `${BASE_URL}/37/tropem-wilczym.html`, type: 'running' },
+  { url: `${BASE_URL}/48/bieg-przelajowy.html`, type: 'running' },
+  { url: `${BASE_URL}/52/ultra.html`, type: 'running' },
+  { url: `${BASE_URL}/57/bieg-niepodleglosci.html`, type: 'running' },
+  { url: `${BASE_URL}/62/bieg-gorski.html`, type: 'running' },
+  { url: `${BASE_URL}/64/bieg-z-przeszkodami.html`, type: 'running' },
+  { url: `${BASE_URL}/65/backyard-ultra.html`, type: 'running' },
+  { url: `${BASE_URL}/71/bieg-na-czas.html`, type: 'running' },
 ]
 
 // Known scraper source domains — if the event links to one of these, save the link
@@ -278,12 +305,14 @@ async function fetchSignupPageLinks(eventId) {
 }
 
 
-async function scrape({ knownIds = new Set(), knownRows = new Map(), today } = {}) {
+async function scrape({ knownIds = new Set(), knownRows = new Map(), today, pauseMs = 1100 } = {}) {
   const asOf = today || new Date().toISOString().slice(0, 10)
   // Step 1: collect event IDs + basic data from listing pages
   const eventEntries = []
 
-  for (const category of CATEGORY_URLS) {
+  for (const [i, category] of CATEGORY_URLS.entries()) {
+    // Fifteen listings now, so they get the same pause as the detail pages.
+    if (i > 0 && pauseMs) await new Promise(r => setTimeout(r, pauseMs))
     try {
       const res = await fetch(category.url, {
         headers: { 'User-Agent': 'leszy.run/1.0 (lukasz@leszy.run)' },

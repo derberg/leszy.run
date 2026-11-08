@@ -191,6 +191,7 @@ test('a known row with no distances is scraped again', async () => {
         ['13847', { source_id: '13847', date: '2026-09-19', distances: '10 km, 21.1 km' }],
       ]),
       today: '2026-09-21',
+      pauseMs: 0,
     })
 
     const found = events.find(e => e.source_id === '16096')
