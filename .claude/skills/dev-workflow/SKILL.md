@@ -64,7 +64,7 @@ scripts/worktree.sh new feature/<short-name>   # 1. fresh worktree off origin/ma
 # open .worktrees/feature-<short-name> and work THERE
 # ... make changes ...
 git push -u origin feature/<short-name>        # 2. push
-# 3. open a PR:  gh pr create --fill
+# 3. open a PR:  gh pr create --fill --title "<type>(<scope>): <description>"   (Conventional Commits)
 # 4. review, then merge:  gh pr merge --squash          (no --delete-branch, see below)
 # 5. confirm it merged:    gh pr view --json state -q .state   → must print MERGED
 # 6. only then delete:     git push origin --delete feature/<short-name>
@@ -80,6 +80,13 @@ does not know whether the merge worked. On 2026-10-25 #299 hit a merge
 conflict, its branch was deleted anyway, and GitHub closed the PR unmerged and
 refused to reopen it, so the change had to go in as #303. On a conflict:
 rebase onto `origin/main`, push, and merge again.
+
+**The PR title must be a Conventional Commits title**: `<type>(<scope>)?: <description>`,
+type one of `feat fix docs style refactor perf test build ci chore revert`, lower case,
+a colon and a space (`fix(scrapers): read the biegnijmy archive`, `feat(registration): …`).
+The squash merge makes the title the commit on `main`, and the `PR title` CI check
+(`.github/workflows/pr-title.yml`) fails anything else. `--fill` alone copies the commit
+subject, so always pass `--title`; correct a wrong one with `gh pr edit <n> --title "…"`.
 
 Before opening the PR, verify isolation: `git log --oneline origin/main..HEAD`
 must show **only your own commits** — anything else means you branched off the
