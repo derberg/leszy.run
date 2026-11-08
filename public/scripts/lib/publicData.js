@@ -100,18 +100,47 @@ export async function downloadObject(cfg, bucket, path, fetchImpl = fetch) {
   throw await failure(res, `Download ${bucket}/${path} failed`)
 }
 
+// About 2-3 % of uploads from the operator's Mac fail at the network level
+// (measured 2026-11-08): "fetch failed" with cause UND_ERR_SOCKET ("other side
+// closed"), and with a fresh connection per upload ERR_SSL_..._BAD_RECORD_MAC,
+// i.e. the TLS record arrived damaged. Lowering concurrency does not help (8
+// and 2 at a time alike), no HTTP status is ever returned and the same file
+// succeeds on another try, so it is the network path, not a Storage limit.
+// The upload is an upsert, so it is simply sent again, up to 6 times, pausing
+// 1, 2, 4, 8 and 16 s: the failures come in bursts of a few seconds, and short
+// pauses fell inside the same burst. Before this every bootstrap run lost
+// about 65 of 3035 images and stopped before the manifests. An HTTP answer is
+// never retried.
+const UPLOAD_ATTEMPTS = 6
+/** The first pause between attempts, doubled each time. Tests set it to 0. */
+export const uploadRetry = { backoffMs: 1000 }
+
+function connectionFailed(err) {
+  const code = err?.cause?.code ?? ''
+  return err instanceof TypeError && (['UND_ERR_SOCKET', 'ECONNRESET', 'EPIPE', 'ETIMEDOUT'].includes(code) || code.startsWith('ERR_SSL'))
+}
+
 /** Upload (create or replace) one object. */
 export async function uploadObject(cfg, bucket, path, body, contentType, { cacheControl = 3600 } = {}, fetchImpl = fetch) {
-  const res = await fetchImpl(`${cfg.url}/storage/v1/object/${bucket}/${encodePath(path)}`, {
-    method: 'POST',
-    headers: {
-      ...authHeaders(cfg),
-      'content-type': contentType,
-      'cache-control': `max-age=${cacheControl}`,
-      'x-upsert': 'true',
-    },
-    body,
-  })
+  let res
+  for (let attempt = 1; ; attempt++) {
+    try {
+      res = await fetchImpl(`${cfg.url}/storage/v1/object/${bucket}/${encodePath(path)}`, {
+        method: 'POST',
+        headers: {
+          ...authHeaders(cfg),
+          'content-type': contentType,
+          'cache-control': `max-age=${cacheControl}`,
+          'x-upsert': 'true',
+        },
+        body,
+      })
+      break
+    } catch (err) {
+      if (attempt >= UPLOAD_ATTEMPTS || !connectionFailed(err)) throw err
+      await new Promise(r => setTimeout(r, uploadRetry.backoffMs * 2 ** (attempt - 1)))
+    }
+  }
   if (!res.ok) throw await failure(res, `Upload ${bucket}/${path} failed`)
 }
 

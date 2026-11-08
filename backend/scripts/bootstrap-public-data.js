@@ -98,6 +98,20 @@ async function main() {
       done++
       if (done % 250 === 0) console.log(`  uploaded ${done}/${slugs.length} images`)
     })
+    // A few uploads still fail at the network level after uploadObject's own
+    // retries when 8 run at once (measured 2026-11-08: 4 of 3035); sent one at a
+    // time they go through, so the leftovers get a last pass on their own.
+    if (failed.length) {
+      console.log(`  ${failed.length} images failed; sending them again one at a time`)
+      const leftovers = failed.splice(0)
+      for (const { slug } of leftovers) {
+        try {
+          await uploadOg(cfg, slug, readFileSync(join(kalendarzDir, slug, 'og.png')))
+        } catch (err) {
+          failed.push({ slug, message: err.message })
+        }
+      }
+    }
     if (failed.length) {
       for (const f of failed.slice(0, 20)) console.error(`  ${f.slug}: ${f.message}`)
       throw new Error(`${failed.length} image uploads failed; re-run the same command (uploads replace)`)

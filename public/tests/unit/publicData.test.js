@@ -5,7 +5,7 @@ import { tmpdir } from 'os'
 import { join } from 'path'
 import {
   storageConfig, downloadObject, uploadObject, listFolder, removeObjects,
-  readManifest, writeManifest, stampDataVersion, mapLimit, MANIFEST_BUCKET, OG_BUCKET,
+  readManifest, writeManifest, stampDataVersion, mapLimit, uploadRetry, MANIFEST_BUCKET, OG_BUCKET,
 } from '../../scripts/lib/publicData.js'
 import { validateManifest, fetchManifests, stripDist } from '../../scripts/fetch-manifests.js'
 
@@ -57,6 +57,53 @@ test('upload replaces the object and names its type', async () => {
   const h = f.calls[0].init.headers
   assert.equal(h['x-upsert'], 'true')
   assert.equal(h['content-type'], 'image/png')
+})
+
+// Measured 2026-11-08: 2-3 % of uploads from the operator's Mac fail at the
+// network level ("fetch failed", cause UND_ERR_SOCKET or ERR_SSL_*_BAD_RECORD_MAC),
+// at any concurrency, and succeed on another try. Nothing reached Storage, and
+// the upload is an upsert, so sending again is safe.
+uploadRetry.backoffMs = 0
+
+function socketClosed() {
+  const err = new TypeError('fetch failed')
+  err.cause = Object.assign(new Error('other side closed'), { code: 'UND_ERR_SOCKET' })
+  return err
+}
+
+test('an upload whose connection was closed under it is sent again', async () => {
+  let n = 0
+  const f = async () => { n++; if (n < 3) throw socketClosed(); return json({}) }
+  await uploadObject(cfg, OG_BUCKET, 'kalendarz/a/og.png', Buffer.from('png'), 'image/png', {}, f)
+  assert.equal(n, 3)
+})
+
+test('a TLS record damaged in transit is retried too', async () => {
+  let n = 0
+  const f = async () => {
+    n++
+    if (n === 1) throw Object.assign(new TypeError('fetch failed'), { cause: Object.assign(new Error('bad record mac'), { code: 'ERR_SSL_SSL/TLS_ALERT_BAD_RECORD_MAC' }) })
+    return json({})
+  }
+  await uploadObject(cfg, OG_BUCKET, 'kalendarz/a/og.png', Buffer.from('png'), 'image/png', {}, f)
+  assert.equal(n, 2)
+})
+
+test('an upload gives up after 6 closed connections and says why', async () => {
+  let n = 0
+  const f = async () => { n++; throw socketClosed() }
+  await assert.rejects(uploadObject(cfg, OG_BUCKET, 'kalendarz/a/og.png', Buffer.from('png'), 'image/png', {}, f), /fetch failed/)
+  assert.equal(n, 6)
+})
+
+test('an HTTP refusal or any other error is never retried', async () => {
+  const refused = fakeFetch({ 'POST /storage/v1/object/calendar-og/kalendarz/a/og.png': () => json({ error: 'nope' }, 403) })
+  await assert.rejects(uploadObject(cfg, OG_BUCKET, 'kalendarz/a/og.png', Buffer.from('png'), 'image/png', {}, refused), /HTTP 403/)
+  assert.equal(refused.calls.length, 1)
+  let n = 0
+  const other = async () => { n++; throw new Error('boom') }
+  await assert.rejects(uploadObject(cfg, OG_BUCKET, 'kalendarz/a/og.png', Buffer.from('png'), 'image/png', {}, other), /boom/)
+  assert.equal(n, 1)
 })
 
 test('listFolder pages until a short page', async () => {
