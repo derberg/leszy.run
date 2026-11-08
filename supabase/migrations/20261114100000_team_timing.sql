@@ -12,14 +12,40 @@
 
 -- ---------------------------------------------------------------- columns
 
+-- team_mode: 'relay' (fixed leg order), 'relay_free' (any order, laps per team, a member may
+-- run several), 'together' (the squad runs at once). team_lap_count: laps of a 'relay_free'
+-- team, NULL = one per member.
 ALTER TABLE public.categories
-  ADD COLUMN team_mode text CHECK (team_mode IN ('relay', 'together')),
-  ADD COLUMN team_count_members integer CHECK (team_count_members >= 1);
+  ADD COLUMN team_mode text CHECK (team_mode IN ('relay', 'relay_free', 'together')),
+  ADD COLUMN team_count_members integer CHECK (team_count_members >= 1),
+  ADD COLUMN team_lap_count integer CHECK (team_lap_count >= 1);
 
 ALTER TABLE public.participants
   ADD COLUMN team_id uuid,
   ADD COLUMN team_leg integer CHECK (team_leg >= 1);
 CREATE INDEX participants_team_id_idx ON public.participants (team_id) WHERE team_id IS NOT NULL;
+
+-- One lap of a 'relay_free' team, credited to the member whose tag closed it. Written by the
+-- timing host and pushed like results; public like results (the results snapshot reads it).
+CREATE TABLE public.team_laps (
+  id              uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  race_run_id     uuid NOT NULL REFERENCES public.race_runs(id) ON DELETE CASCADE,
+  team_id         uuid NOT NULL,
+  lap_number      integer NOT NULL CHECK (lap_number >= 1),
+  participant_id  uuid NOT NULL REFERENCES public.participants(id) ON DELETE CASCADE,
+  closed_at       timestamptz NOT NULL,
+  lap_ms          bigint NOT NULL CHECK (lap_ms >= 0),
+  peak_rssi_cdbm  integer,
+  source          text NOT NULL DEFAULT 'chip' CHECK (source IN ('chip', 'manual')),
+  created_at      timestamptz DEFAULT now(),
+  synced_at       timestamptz,
+  UNIQUE (race_run_id, team_id, lap_number)
+);
+CREATE INDEX team_laps_race_run_id_idx ON public.team_laps (race_run_id);
+ALTER TABLE public.team_laps ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON public.team_laps FROM anon, authenticated;
+GRANT SELECT ON public.team_laps TO anon, authenticated;
+CREATE POLICY "Public team laps" ON public.team_laps FOR SELECT TO anon, authenticated USING (true);
 
 -- ---------------------------------------------------------------- participants follow their registration
 
@@ -64,7 +90,9 @@ CREATE TRIGGER registrations_team_to_participant
 
 -- ---------------------------------------------------------------- the category's mode from its competition
 
--- A team competition with leg order collected is a relay, one without is a team run. Set when
+-- A team competition with leg order collected is a relay with a fixed order; one without is a
+-- relay in any order (the Szubin case). A team that runs together is the operator's choice on
+-- the host (PATCH /api/categories/:id). Set when
 -- the competition becomes a team one or its leg order changes; any other time the category's
 -- value (an operator's choice on the host, pushed back) stands.
 CREATE FUNCTION public.competition_team_mode_to_category() RETURNS trigger
@@ -79,7 +107,7 @@ BEGIN
     UPDATE public.categories c
        SET team_mode = CASE WHEN NEW.kind <> 'team' THEN NULL
                             WHEN NEW.leg_order_enabled THEN 'relay'
-                            ELSE 'together' END
+                            ELSE 'relay_free' END
      WHERE c.id = NEW.category_id;
   END IF;
   RETURN NULL;
@@ -98,7 +126,7 @@ UPDATE public.participants p
  WHERE r.id = p.registration_id AND r.team_id IS NOT NULL;
 
 UPDATE public.categories c
-   SET team_mode = CASE WHEN k.leg_order_enabled THEN 'relay' ELSE 'together' END
+   SET team_mode = CASE WHEN k.leg_order_enabled THEN 'relay' ELSE 'relay_free' END
   FROM public.competitions k
  WHERE k.category_id = c.id AND k.kind = 'team';
 

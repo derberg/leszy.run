@@ -41,9 +41,14 @@ export const categories = pgTable('categories', {
   name: text('name').notNull(),
   slug: text('slug').notNull(),   // human-readable import key, e.g. 'bieg-5km'
   untimed: boolean('untimed').notNull().default(false),   // no timing/classification (e.g. kids' run); hidden from public results
-  // Team category: 'relay' (sztafeta, legs one after another, leg k starts at leg k-1's finish)
-  // or 'together' (the whole squad runs at once). NULL: an individual category.
+  // Team category. NULL: an individual category.
+  //   'relay'      sztafeta with a fixed leg order: leg k starts at leg k-1's finish
+  //   'relay_free' sztafeta in any order: laps are counted per team, each lap belongs to whoever
+  //                closed it, a member may run several (team_laps)
+  //   'together'   the whole squad runs at once
   teamMode: text('team_mode'),
+  // 'relay_free' only: laps a team runs. NULL: one per member.
+  teamLapCount: integer('team_lap_count'),
   // 'together' only: how many finishers make the team time (NULL: every member).
   teamCountMembers: integer('team_count_members'),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
@@ -111,6 +116,23 @@ export const gateEvents = pgTable('gate_events', {
   receivedAt: timestamp('received_at', { withTimezone: true }).notNull(),
   crossingId: uuid('crossing_id'),
 })
+
+// One lap of a 'relay_free' team, closed by the tag of the member who ran it.
+export const teamLaps = pgTable('team_laps', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  raceRunId: uuid('race_run_id').notNull().references(() => raceRuns.id, { onDelete: 'cascade' }),
+  teamId: uuid('team_id').notNull(),
+  lapNumber: integer('lap_number').notNull(),
+  participantId: uuid('participant_id').notNull().references(() => participants.id, { onDelete: 'cascade' }),
+  closedAt: timestamp('closed_at', { withTimezone: true }).notNull(),
+  lapMs: bigint('lap_ms', { mode: 'number' }).notNull(),
+  peakRssiCdbm: integer('peak_rssi_cdbm'),
+  source: text('source').notNull().default('chip'),   // 'chip' | 'manual'
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+  syncedAt: timestamp('synced_at', { withTimezone: true }),
+}, (t) => [
+  unique().on(t.raceRunId, t.teamId, t.lapNumber),
+])
 
 export const gateCrossings = pgTable('gate_crossings', {
   id: uuid('id').primaryKey().defaultRandom(),

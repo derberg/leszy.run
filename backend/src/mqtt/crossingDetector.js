@@ -1,5 +1,5 @@
 import { eq, and, isNotNull, sql, inArray } from 'drizzle-orm'
-import { checkins, gateCrossings, gateEvents, results } from '../db/schema.js'
+import { checkins, gateCrossings, gateEvents, results, teamLaps } from '../db/schema.js'
 import { recalcPositions } from '../lib/positions.js'
 
 /**
@@ -134,14 +134,19 @@ const DEFAULT_MIN_FINISH_SECONDS = 300
 const FINISH_QUIET_MS = 2000
 // ...and never later than this after its first read.
 const FINISH_MAX_PASS_MS = 6000
+// Relay in any order: a pass closes a team lap only when its tag had been silent this long
+// before it (the runner came in from the course). A teammate waiting at the gate is read
+// continuously and so never closes a lap.
+const LAP_ARRIVAL_SILENCE_MS = 60_000
 
 
 export class CrossingDetector {
-  constructor({ db, broadcast, finishQuietMs = FINISH_QUIET_MS, finishMaxPassMs = FINISH_MAX_PASS_MS }) {
+  constructor({ db, broadcast, finishQuietMs = FINISH_QUIET_MS, finishMaxPassMs = FINISH_MAX_PASS_MS, lapArrivalSilenceMs = LAP_ARRIVAL_SILENCE_MS }) {
     this.db = db
     this.broadcast = broadcast
     this.finishQuietMs = finishQuietMs
     this.finishMaxPassMs = finishMaxPassMs
+    this.lapArrivalSilenceMs = lapArrivalSilenceMs
 
     // Map<raceRunId, { config, epcToParticipant, startedParticipants, finishedParticipants }>
     this.activeRaces = new Map()
@@ -212,6 +217,18 @@ export class CrossingDetector {
       legStart,
     })
     if (relay) console.log(`[Detector] Relay race ${raceRun.id}: ${relay.prevLeg.size} leg(s) wait for a handover`)
+
+    // Relay in any order: laps per team, restored from team_laps after a restart.
+    if (eventConfig.teamMode === 'relay_free') {
+      const laps = await this.db.select().from(teamLaps).where(eq(teamLaps.raceRunId, raceRun.id))
+      const freeRelay = buildFreeRelay(participantList, laps, {
+        gunStartTime,
+        lapCount: eventConfig.teamLapCount ?? null,
+        minLapMs: (eventConfig.minFinishSeconds ?? DEFAULT_MIN_FINISH_SECONDS) * 1000,
+      })
+      this.activeRaces.get(raceRun.id).freeRelay = freeRelay
+      console.log(`[Detector] Relay (any order) race ${raceRun.id}: ${freeRelay.teams.size} team(s), ${laps.length} lap(s) already recorded`)
+    }
     console.log(`[Detector] Started race ${raceRun.id} with ${epcMap.size} tagged participants (${startedParticipants.size} already started, ${finishedParticipants.size} already finished)`)
 
     // After gunBackfillSeconds, backfill gun time for checked-in participants whose chip start was not detected.
@@ -288,6 +305,8 @@ export class CrossingDetector {
         if (race.startedParticipants.has(participantId)) continue
         // A relay leg k>1 starts at the handover, never at the gun.
         if (race.awaitingHandover.has(participantId)) continue
+        // A relay in any order is timed in laps from the gun: no start per runner.
+        if (race.freeRelay?.teamOf.has(participantId)) continue
         const key = `${epc}:${raceRunId}`
         if (this.inRange.has(key)) continue
         missing.push(participantId)
@@ -416,6 +435,13 @@ export class CrossingDetector {
 
       // A relay leg still waiting for its handover: audited above, nothing more.
       if (race.awaitingHandover.has(participantId)) continue
+
+      // Relay in any order: every member's reads count toward the team's laps only.
+      const freeTeamId = race.freeRelay?.teamOf.get(participantId)
+      if (freeTeamId) {
+        this.#trackLap({ event, now, raceRunId, participantId, teamId: freeTeamId, race, confirmRssi })
+        continue
+      }
 
       const key = `${event.epc}:${raceRunId}`
 
@@ -708,6 +734,67 @@ export class CrossingDetector {
     }
   }
 
+  // Relay in any order. A pass opens only for a tag that comes in after LAP_ARRIVAL_SILENCE_MS
+  // of silence (from the course, not standing at the gate) and at least min_finish_seconds
+  // after the team's previous lap. It is timed at its peak like a finish pass, and closes one
+  // lap of the team, credited to this runner. Whoever runs next, and how often, does not matter.
+  #trackLap({ event, now, raceRunId, participantId, teamId, race, confirmRssi }) {
+    const fr = race.freeRelay
+    const team = fr.teams.get(teamId)
+    const at = new Date(event.receivedAt)
+    const prevSeen = fr.lastSeen.get(participantId)
+    fr.lastSeen.set(participantId, at.getTime())
+    if (team.done) return
+
+    const key = `${event.epc}:${raceRunId}:lap`
+    const close = () => {
+      const pass = this.inRange.get(key)
+      if (!pass) return
+      clearTimeout(pass.goneTimer)
+      this.inRange.delete(key)
+      if (confirmRssi !== null && pass.peakRssi < confirmRssi) return
+      if (team.done || pass.peakTime - team.lastBoundary < fr.minLapMs) return
+      const lapMs = pass.peakTime - team.lastBoundary
+      team.laps += 1
+      team.lastBoundary = pass.peakTime
+      if (team.laps >= team.target) team.done = true
+      this.#recordLap({ raceRunId, teamId, lapNumber: team.laps, participantId, closedAt: pass.peakTime, lapMs, peakRssi: pass.peakRssi })
+    }
+
+    let pass = this.inRange.get(key)
+    if (pass && (now - pass.firstAt >= this.finishMaxPassMs || now - pass.peakAt >= this.finishQuietMs)) {
+      close()
+      return
+    }
+    if (!pass) {
+      const arrived = prevSeen === undefined || at.getTime() - prevSeen >= this.lapArrivalSilenceMs
+      if (!arrived || at - team.lastBoundary < fr.minLapMs) return
+      pass = { epc: event.epc, raceRunId, firstAt: now, peakAt: now, peakRssi: -Infinity, peakTime: null, antennaPort: null, topic: null, goneTimer: null }
+      this.inRange.set(key, pass)
+    }
+    if (event.rssiCdbm > pass.peakRssi) {
+      pass.peakRssi = event.rssiCdbm
+      pass.peakTime = at
+      pass.antennaPort = event.antennaPort
+      pass.topic = event.topic
+      pass.peakAt = now
+      clearTimeout(pass.goneTimer)
+      const untilCap = this.finishMaxPassMs - (now - pass.firstAt)
+      pass.goneTimer = setTimeout(close, Math.min(this.finishQuietMs, untilCap))
+    }
+  }
+
+  async #recordLap({ raceRunId, teamId, lapNumber, participantId, closedAt, lapMs, peakRssi }) {
+    try {
+      const row = { raceRunId, teamId, lapNumber, participantId, closedAt, lapMs, peakRssiCdbm: peakRssi, source: 'chip' }
+      await this.db.insert(teamLaps).values(row)
+      this.broadcast('team:lap', row)
+      console.log(`[Detector] Lap ${lapNumber} of team ${teamId} in race ${raceRunId}: ${participantId}, ${Math.round(lapMs / 1000)} s`)
+    } catch (err) {
+      console.error('[Detector] Failed to record a team lap:', err)
+    }
+  }
+
   // Relay: the finish of one leg is the start of the next. The next leg's start is the
   // previous leg's peak, so its netto (duration_ms) is exactly its leg time.
   async #handover(race, raceRunId, participantId, at) {
@@ -793,4 +880,30 @@ export function buildRelayChains(participantList) {
     }
   }
   return { nextLeg, prevLeg, warnings }
+}
+
+/**
+ * Team state of a relay in any order: which team each member is in, how many laps each team
+ * owes (`lapCount`, else one per member), and how far it got (from recorded `laps`).
+ */
+export function buildFreeRelay(participantList, laps, { gunStartTime, lapCount, minLapMs }) {
+  const teamOf = new Map()
+  const size = new Map()
+  for (const p of participantList) {
+    if (!p.teamId) continue
+    teamOf.set(p.id, p.teamId)
+    size.set(p.teamId, (size.get(p.teamId) ?? 0) + 1)
+  }
+  const teams = new Map()
+  for (const [teamId, n] of size) {
+    teams.set(teamId, { target: lapCount ?? n, laps: 0, lastBoundary: gunStartTime, done: false })
+  }
+  for (const lap of laps) {
+    const t = teams.get(lap.teamId)
+    if (!t || lap.lapNumber <= t.laps) continue
+    t.laps = lap.lapNumber
+    t.lastBoundary = new Date(lap.closedAt)
+  }
+  for (const t of teams.values()) t.done = t.laps >= t.target
+  return { teamOf, teams, lastSeen: new Map(), minLapMs }
 }

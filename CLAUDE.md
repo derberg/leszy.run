@@ -333,7 +333,12 @@ result; a team is never timed by a tag of its own, and its standing is derived b
 `computeTeamResults()` in `@leszyrun/ui` (`GET /api/races/:raceRunId/teams`). Membership is
 `participants.team_id` / `team_leg` (from Supabase `registrations`; the host never holds a team
 name). `'together'`: plain individual timing, team time = the `team_count_members`-th finisher's
-brutto (all members when NULL). `'relay'`: leg k>1 starts at leg k-1's confirmed finish
+brutto (all members when NULL). `'relay_free'` (any order, Sztafeta Mikołajów): the team runs
+`team_lap_count` laps (NULL: one per member) in any order, a member may run several; a pass
+closes a team lap only when its tag had been silent 60 s before it (came in from the course, so a
+teammate waiting at the gate never counts) and `min_finish_seconds` after the team's previous
+lap; each lap is a `team_laps` row (pushed and pulled like `results`) credited to that runner.
+`'relay'`: leg k>1 starts at leg k-1's confirmed finish
 (`startTimeSource = 'handover'`); until then its reads are audited and otherwise ignored, it is
 skipped by gun-time backfill, and its `min_finish_seconds` counts from the handover. A team with a
 missing or repeated leg gets no chain and is timed as individuals (logged). A missed leg finish

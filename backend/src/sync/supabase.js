@@ -1,7 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
 import { eq, isNull, isNotNull, inArray, and, sql, getTableColumns } from 'drizzle-orm'
 import { events, categories, participants, raceRuns, gateCrossings, results,
-         checkpoints, checkpointObservations, eventDocuments } from '../db/schema.js'
+         checkpoints, checkpointObservations, eventDocuments, teamLaps } from '../db/schema.js'
 import { broadcast } from '../ws/broadcaster.js'
 import { pushCheckpointLinks } from './checkpointLinks.js'
 import { applyRemoteObservation, realtimeIo } from './realtimeObservations.js'
@@ -96,6 +96,7 @@ const SYNC_TABLES = [
   { table: raceRuns, name: 'race_runs' },
   { table: gateCrossings, name: 'gate_crossings' },
   { table: results, name: 'results' },
+  { table: teamLaps, name: 'team_laps' },
   { table: checkpoints, name: 'checkpoints' },
   { table: checkpointObservations, name: 'checkpoint_observations' },
   { table: eventDocuments, name: 'event_documents' },

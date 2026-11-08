@@ -16,7 +16,7 @@
 // `checkinRows` stands in for the checkins table: [{ participantId, checkedInAt }].
 // The stub does not evaluate the WHERE clause, so it returns only rows with a
 // checkedInAt, which is the one condition the detector cares about.
-export function createFakeDb({ resultsRows = [], checkinRows = [] } = {}) {
+export function createFakeDb({ resultsRows = [], checkinRows = [], lapRows = [] } = {}) {
   const rows = resultsRows.map((r) => ({ ...r }))
   const checkins = checkinRows.filter((c) => c.checkedInAt)
   const inserts = { gate_crossings: [], gate_events: [], results: [] }
@@ -56,6 +56,7 @@ export function createFakeDb({ resultsRows = [], checkinRows = [] } = {}) {
             ? [{ count: inserts.gate_crossings.length }]
             : name === 'results' ? rows
             : name === 'checkins' ? checkins
+            : name === 'team_laps' ? lapRows
             : []
           const mk = () => {
             const p = Promise.resolve(value)

@@ -27,9 +27,10 @@ const memberName = (m) => anonymizedName(m.participant).displayName
 function TeamStatus({ team }) {
   if (team.status === 'finished') return null
   const live = team.status === 'racing' && team.currentLeg
+  const unit = team.runners ? 'Okrążenie' : 'Zmiana'
   return (
     <span className={`text-xs font-bold uppercase tracking-widest whitespace-nowrap ${STATUS_CLS[team.status]}`}>
-      {live ? `Zmiana ${team.currentLeg}/${team.size}` : STATUS_LABEL[team.status]}
+      {live ? `${unit} ${team.currentLeg}/${team.size}` : STATUS_LABEL[team.status]}
     </span>
   )
 }
@@ -69,7 +70,7 @@ export function TeamStandings({ teams, mode, formatDuration, defaultOpen = false
               <span className="flex-1 min-w-0">
                 <span className="block font-semibold text-apex-text-bright truncate">{t.name}</span>
                 <span className="block text-xs text-apex-muted truncate">
-                  {t.members.map(m => m.participant?.lastName).filter(Boolean).join(' · ')}
+                  {(t.runners ?? t.members).map(m => m.participant?.lastName).filter(Boolean).join(' · ')}
                 </span>
               </span>
               <TeamStatus team={t} />
@@ -89,11 +90,11 @@ export function TeamStandings({ teams, mode, formatDuration, defaultOpen = false
                     {t.members.map(m => (
                       <tr key={m.id} className={m.counted === false ? 'opacity-50' : ''}>
                         <td className="py-1.5 pr-2 w-16 text-apex-muted uppercase tracking-wider font-bold whitespace-nowrap">
-                          {mode === 'relay' ? `Zm. ${m.leg}` : (m.counted ? 'Liczy się' : 'Poza')}
+                          {mode === 'relay' ? `Zm. ${m.leg}` : mode === 'relay_free' ? `Okr. ${m.leg}` : (m.counted ? 'Liczy się' : 'Poza')}
                         </td>
                         <td className="py-1.5 pr-2 w-12 font-mono">#{m.participant?.bibNumber}</td>
                         <td className="py-1.5 pr-2 truncate">{memberName(m)}</td>
-                        {mode === 'relay' && (
+                        {(mode === 'relay' || mode === 'relay_free') && (
                           <td className="py-1.5 pr-2 text-right font-mono whitespace-nowrap">
                             {m.legMs != null ? formatDuration(m.legMs) : '—'}<LegRank rank={m.legRank} />
                           </td>

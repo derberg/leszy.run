@@ -1,5 +1,5 @@
 import { eq, and, asc, desc } from 'drizzle-orm'
-import { results, participants, raceRuns, categories, events, checkpointImports, checkpointReadings } from '../db/schema.js'
+import { results, participants, raceRuns, categories, events, checkpointImports, checkpointReadings, teamLaps } from '../db/schema.js'
 import { broadcast } from '../ws/broadcaster.js'
 import { isRemoved } from '../lib/registrationGuards.js'
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib'
@@ -52,9 +52,16 @@ export async function resultsRoutes(fastify) {
       with: { participant: true },
     })
     const live = rows.filter(r => !isRemoved(r.participant))
+    const laps = mode === 'relay_free'
+      ? await db.select().from(teamLaps).where(eq(teamLaps.raceRunId, run.id))
+      : []
     return {
       mode,
-      data: computeTeamResults({ mode, results: live, countMembers: run.category.teamCountMembers ?? undefined }),
+      data: computeTeamResults({
+        mode, results: live, laps,
+        countMembers: run.category.teamCountMembers ?? undefined,
+        lapCount: run.category.teamLapCount ?? undefined,
+      }),
     }
   })
 
