@@ -1070,6 +1070,7 @@ Each scraper writes raw data into its own Supabase table (upsert by `source_id`)
 | ststiming | `scraper_ststiming` | `source_id` (EventON post id) |
 | biegiwlkp | `scraper_biegiwlkp` | `source_id` (event slug from `/events/<slug>/`) |
 | ultimasport | `scraper_ultimasport` | `source_id` (form id from `formularz.ultimasport.pl/<id>`) |
+| catchtime | `scraper_catchtime` | `source_id` (race page slug, e.g. `bieg-niepodleglosci-11112026`) |
 
 **All steps are manual** — run each script in order. No automatic chaining.
 

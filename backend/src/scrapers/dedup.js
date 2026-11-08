@@ -42,6 +42,7 @@ const SOURCE_PRIORITY = {
   ststiming: 3,
   biegiwlkp: 6,
   ultimasport: 3,
+  catchtime: 3,
 }
 
 // Fields only set by LLM enricher or manual edits — scrapers never touch these
