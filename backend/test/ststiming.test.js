@@ -172,6 +172,7 @@ test('running types are kept, triathlon and cycling are not', () => {
 
 test('style comes from the name; an option adds Nordic Walking only when the name has no style', () => {
   assert.deepEqual(detectEventTypes('Iławskie RunO Leśne'), ['trail'])
+  assert.deepEqual(detectEventTypes('OLEŚNICKI BIEG NIEPODLEGŁOŚCI'), [])
   assert.deepEqual(detectEventTypes('Bieg Motyli', { options: ['5 km - 50 zł', 'Nordic Walking 5 km - 40 zł'] }), ['nordic walking'])
   assert.deepEqual(detectEventTypes('Cross Leśny', { options: ['Nordic Walking 5 km'] }), ['trail'])
   assert.deepEqual(detectEventTypes('Garmin Ultra Race Gdańsk', { types: ['ultra'] }), ['ultra'])
