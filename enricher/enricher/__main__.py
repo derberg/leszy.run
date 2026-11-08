@@ -27,7 +27,7 @@ def run(limit, dry_run, resume, force, incomplete):
     if force and incomplete:
         raise click.UsageError("--force and --incomplete are mutually exclusive")
     config = load_config()
-    click.echo(f"Enricher ready. Ollama: {config.ollama_url}, SearXNG: {config.searxng_url}")
+    click.echo(f"Enricher ready. Ollama: {config.ollama_url}, SearXNG: {config.searxng_url}, Brave: {'on' if config.brave_api_key else 'off'}")
     if dry_run:
         click.echo("=== DRY RUN ===")
     asyncio.run(run_pipeline(config, limit, dry_run, resume, force, incomplete))

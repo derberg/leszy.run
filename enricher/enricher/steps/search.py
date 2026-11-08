@@ -1,4 +1,5 @@
 import re
+import time
 import unicodedata
 from urllib.parse import urlparse
 
@@ -28,7 +29,7 @@ _IS_REGULAMIN = re.compile(r"regulamin|regulation|statut|\brules?\b", re.IGNOREC
 
 
 def search_missing_urls(event: dict, missing_fields: list[str], config) -> dict:
-    """Search SearXNG for missing URLs. Returns {field_name: url} for found candidates.
+    """Search the web (Brave, else SearXNG) for missing URLs. Returns {field_name: url} for found candidates.
 
     Candidates must pass a relevance check (domain allowed AND event name tokens
     appear in the result title or snippet). Irrelevant results are dropped —
@@ -63,12 +64,68 @@ def search_missing_urls(event: dict, missing_fields: list[str], config) -> dict:
     return results
 
 
+BRAVE_ENDPOINT = "https://api.search.brave.com/res/v1/web/search"
+
+# Brave's free and base plans allow one request a second. The enricher sends
+# two queries per event back to back, so space them out rather than eat a 429.
+_BRAVE_MIN_INTERVAL_S = 1.1
+_last_brave_call = 0.0
+
+
 def _searxng_search(query: str, name_tokens: set[str], config, declares=None) -> str | None:
-    """Call SearXNG and return the first relevant, non-aggregator URL.
+    """Search and return the first relevant, non-aggregator URL.
+
+    Uses the Brave Search API when `config.brave_api_key` is set, SearXNG
+    otherwise, and SearXNG again when Brave fails. Measured 2026-11-08: SearXNG
+    returned nothing for 47 of 48 enricher queries, because every engine it
+    proxies answered with a CAPTCHA, a 429 or an access denial, and what was left
+    was unrelated junk. The same queries through Brave returned the race's own
+    page first.
 
     `declares` is an optional pattern the result URL or title must match, for
     fields where the wrong document costs more than an empty one.
     """
+    results = None
+    if getattr(config, "brave_api_key", ""):
+        results = _brave_results(query, config)
+    if results is None:
+        results = _searxng_results(query, config)
+    return _first_relevant(results or [], name_tokens, config, declares)
+
+
+def _brave_results(query: str, config) -> list[dict] | None:
+    """Brave web results as [{url, title, content}], or None when the call failed."""
+    global _last_brave_call
+    wait = _BRAVE_MIN_INTERVAL_S - (time.monotonic() - _last_brave_call)
+    if wait > 0:
+        time.sleep(wait)
+    try:
+        with httpx.Client(timeout=15) as client:
+            resp = client.get(
+                BRAVE_ENDPOINT,
+                params={"q": query, "count": 10, "country": "PL", "search_lang": "pl"},
+                headers={
+                    "Accept": "application/json",
+                    "X-Subscription-Token": config.brave_api_key,
+                },
+            )
+        _last_brave_call = time.monotonic()
+        resp.raise_for_status()
+        items = (resp.json().get("web") or {}).get("results") or []
+        return [
+            {
+                "url": item.get("url", ""),
+                "title": item.get("title", "") or "",
+                "content": item.get("description", "") or "",
+            }
+            for item in items
+        ]
+    except Exception:
+        _last_brave_call = time.monotonic()
+        return None
+
+
+def _searxng_results(query: str, config) -> list[dict]:
     try:
         with httpx.Client(timeout=15) as client:
             resp = client.get(
@@ -81,28 +138,30 @@ def _searxng_search(query: str, name_tokens: set[str], config, declares=None) ->
                 },
             )
             resp.raise_for_status()
+        return resp.json().get("results", [])
+    except Exception:
+        return []
 
-        data = resp.json()
-        for item in data.get("results", []):
-            url = item.get("url", "")
-            title = item.get("title", "") or ""
-            content = item.get("content", "") or ""
 
-            if not url:
-                continue
-            if _is_blocklisted(url):
-                continue
-            if _is_aggregator(url, config.aggregator_domains):
-                continue
-            if not _tld_accepted(url):
-                continue
-            if not _is_relevant(name_tokens, title, content, url):
-                continue
-            if declares is not None and not (declares.search(url) or declares.search(title)):
-                continue
-            return url
-    except (httpx.HTTPError, Exception):
-        pass
+def _first_relevant(results: list[dict], name_tokens: set[str], config, declares=None) -> str | None:
+    for item in results:
+        url = item.get("url", "")
+        title = item.get("title", "") or ""
+        content = item.get("content", "") or ""
+
+        if not url:
+            continue
+        if _is_blocklisted(url):
+            continue
+        if _is_aggregator(url, config.aggregator_domains):
+            continue
+        if not _tld_accepted(url):
+            continue
+        if not _is_relevant(name_tokens, title, content, url):
+            continue
+        if declares is not None and not (declares.search(url) or declares.search(title)):
+            continue
+        return url
     return None
 
 

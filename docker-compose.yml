@@ -118,6 +118,7 @@ services:
       OLLAMA_URL: http://host.docker.internal:11434
       OLLAMA_MODEL: qwen3.6:27b
       SEARXNG_URL: http://searxng:8080
+      BRAVE_SEARCH_API_KEY: ${BRAVE_SEARCH_API_KEY:-}
     extra_hosts:
       - "host.docker.internal:host-gateway"
     depends_on:

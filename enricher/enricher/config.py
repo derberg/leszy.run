@@ -10,6 +10,8 @@ class Config:
     ollama_url: str = "http://localhost:11434"
     ollama_model: str = "qwen3.6:27b"
     searxng_url: str = "http://localhost:8888"
+    # Brave Search API key. When set, search uses Brave and falls back to SearXNG.
+    brave_api_key: str = ""
     url_timeout: int = 10
     max_page_chars: int = 6_000
     # Raised from 6k: the opłata startowa table frequently lives on page 3-4 of a
@@ -51,4 +53,5 @@ def load_config() -> Config:
         ollama_url=os.getenv("OLLAMA_URL", "http://localhost:11434"),
         ollama_model=os.getenv("OLLAMA_MODEL", "qwen3.6:27b"),
         searxng_url=os.getenv("SEARXNG_URL", "http://localhost:8888"),
+        brave_api_key=os.getenv("BRAVE_SEARCH_API_KEY", ""),
     )
