@@ -48,6 +48,7 @@ import { sameAtest } from '../lib/atestMatch.js'
 import { looksVirtual } from '../lib/virtualEvent.js'
 import { looksMultisport } from '../lib/multisportEvent.js'
 import { looksWalkingRally, looksUnracedRajd } from '../lib/walkingRally.js'
+import { decideDateMove, rowKeys, warsawToday } from '../lib/publishDateMove.js'
 
 // Sources that handle their own API enrichment in-scraper (avoid double API calls)
 const SELF_ENRICHING_SOURCES = new Set(['dostartu', 'elektronicznezapisy'])
@@ -1630,7 +1631,7 @@ async function publishToCalendar({ dryRun = false } = {}) {
   while (true) {
     const { data, error } = await supabase
       .from('calendar_events')
-      .select('id, name, date, status, source, source_id, source_links, locked_fields, location, voivodeship, lat, lng, distances, event_type, registration_url, regulamin_url, website, price_from, price_to, registration_deadline, atest')
+      .select('id, name, date, status, source, source_id, source_links, locked_fields, community_locked_fields, location, voivodeship, lat, lng, distances, event_type, registration_url, regulamin_url, website, price_from, price_to, registration_deadline, atest')
       .range(from, from + pageSize - 1)
 
     if (error) break
@@ -1680,13 +1681,14 @@ async function publishToCalendar({ dryRun = false } = {}) {
 
   console.log(`[publish] ${[...existingByDate.values()].reduce((s, g) => s + g.length, 0)} calendar_events loaded for fuzzy dedup`)
 
-  function fuzzyMatch(saEvent, candidatesEvent) {
+  function fuzzyMatch(saEvent, excludeId = null) {
     // saEvent: { name, date, location, is_kids, event_types, event_type } from scraper_all
-    // candidatesEvent same shape from CE (we pre-fetch event_type/is_kids for the dedup pool below)
+    // (or a CE row about to move to a new date, with excludeId = its own id)
     const candidates = existingByDate.get(saEvent.date)
     if (!candidates) return null
     const saTags = distinguishingTags(saEvent)
     for (const c of candidates) {
+      if (excludeId && c.id === excludeId) continue
       // Same distinguishing-tag guard as the merge step — kids vs adult,
       // Maraton vs Półmaraton, trail vs uliczny, etc. Prevents publish from
       // suppressing a legitimate new CE row by misidentifying it as duplicate
@@ -1876,7 +1878,26 @@ async function publishToCalendar({ dryRun = false } = {}) {
   const fuzzyLog = []
   const createdLog = []
   const updatedLog = []
+  const dateMoveLog = []  // every date move made or refused, for the report
   const now = new Date().toISOString()
+  const today = warsawToday()
+
+  // Dates of every scraper_all row that resolves to each CE row. Two rows that
+  // disagree move nothing (decideDateMove 'conflicting_sources').
+  const saDatesByCe = new Map()
+  for (const raw of allRows) {
+    const keys = rowKeys(raw)
+    if (keys.some(k => rejectedKeys.has(k))) continue
+    const found = keys.map(k => existingByLink.get(k)).find(Boolean)
+    if (!found?.id || !raw.date) continue
+    const set = saDatesByCe.get(found.id) || new Set()
+    set.add(raw.date)
+    saDatesByCe.set(found.id, set)
+  }
+  const findDateCollision = (ce) => (date, excludeId) => {
+    const hit = fuzzyMatch({ name: ce.name, date, location: ce.location, event_type: ce.event_type }, excludeId)
+    return hit ? hit.matched : null
+  }
 
   for (const raw of allRows) {
     // Resolve existing CE row by primary source or any source_links entry
@@ -1910,6 +1931,37 @@ let existingCE = null
     // Existing row → diff & update path
     if (existingCE) {
       const { upd, skipped: skippedFields } = buildUpdateRow(existingCE, raw)
+
+      // The date: a moved race takes its source's new date. See publishDateMove.js.
+      const dateMove = existingCE.id
+        ? decideDateMove({
+            ce: existingCE,
+            sa: raw,
+            today,
+            saDates: saDatesByCe.get(existingCE.id),
+            findCollision: findDateCollision(existingCE),
+          })
+        : null
+      if (dateMove && !dateMoveLog.some(m => m.ce_id === existingCE.id && m.sa_date === raw.date)) {
+        dateMoveLog.push({
+          ce_id: existingCE.id,
+          name: existingCE.name,
+          ce_date: existingCE.date,
+          sa_date: raw.date,
+          source: raw.source,
+          source_id: raw.source_id,
+          moved: dateMove.move,
+          reason: dateMove.move ? null : dateMove.reason,
+          collides_with: dateMove.collides_with || null,
+        })
+      }
+      if (dateMove) {
+        if (dateMove.move) {
+          upd.date = dateMove.date
+        } else {
+          skippedFields.push({ field: 'date', reason: `date_${dateMove.reason}`, ce_value: existingCE.date, sa_value: raw.date })
+        }
+      }
       if (Object.keys(upd).length === 0) {
         unchanged++
         if (skippedFields.length > 0) {
@@ -1989,6 +2041,17 @@ let existingCE = null
           // Refresh in-memory cache so a later scraper_all row matching the same
           // CE doesn't re-update with the same values
           for (const k of candidateKeys) existingByLink.set(k, { ...existingCE, ...upd })
+          // A moved row now sits on its new date for the fuzzy dedup.
+          if (upd.date) {
+            const old = existingByDate.get(existingCE.date)
+            const entry = old?.find(r => r.id === existingCE.id)
+            if (entry) {
+              existingByDate.set(existingCE.date, old.filter(r => r !== entry))
+              const group = existingByDate.get(upd.date) || []
+              group.push({ ...entry, date: upd.date })
+              existingByDate.set(upd.date, group)
+            }
+          }
         }
       }
       continue
@@ -2123,7 +2186,7 @@ let existingCE = null
     }
   }
 
-  return { created, updated, unchanged, rejectedSkipped, rajdSkipped, fuzzySkipped, errors, fuzzyLog, createdLog, updatedLog }
+  return { created, updated, unchanged, rejectedSkipped, rajdSkipped, fuzzySkipped, errors, fuzzyLog, createdLog, updatedLog, dateMoveLog }
 }
 
 export { runPipeline, mergeIntoScraperAll, publishToCalendar, toIntPrice, sources }

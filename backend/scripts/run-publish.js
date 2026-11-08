@@ -5,6 +5,8 @@ import { writeRunLog } from './lib/run-log.js'
 // Pushes scraper_all rows into calendar_events.
 //   - new event (no matching CE row) → INSERT as 'pending'
 //   - existing CE row, scraper_all has fresher data → UPDATE non-locked, fill-empty fields
+//   - existing CE row whose own source record moved the race → UPDATE date
+//     (guards in src/lib/publishDateMove.js; every move made or refused is listed)
 //   - rejected CE row → never touched
 //   - fuzzy match (same date + similar name) → skipped, surfaced for admin
 // Dry run by default — use --apply to write to DB.
@@ -61,7 +63,7 @@ function fmtVal(v) {
 }
 
 publishToCalendar({ dryRun })
-  .then(async ({ created, updated, unchanged, rejectedSkipped, fuzzySkipped, errors, createdLog, updatedLog, fuzzyLog }) => {
+  .then(async ({ created, updated, unchanged, rejectedSkipped, fuzzySkipped, errors, createdLog, updatedLog, fuzzyLog, dateMoveLog }) => {
     // ─── Created ─────────────────────────────────────────────────
     if (createdLog && createdLog.length > 0) {
       console.log(c.bold + HR_HEAVY + c.reset)
@@ -187,6 +189,28 @@ publishToCalendar({ dryRun })
       }
     }
 
+    // ─── Date moves ──────────────────────────────────────────────
+    // Always shown, refused ones too: a refused move is a race whose public
+    // date may be wrong, and only an admin can settle it.
+    if (dateMoveLog && dateMoveLog.length > 0) {
+      const moved = dateMoveLog.filter(m => m.moved)
+      const refused = dateMoveLog.filter(m => !m.moved)
+      console.log()
+      console.log(c.bold + HR_HEAVY + c.reset)
+      console.log(c.bold + `  Date moves: ${moved.length} ${dryRun ? 'would move' : 'moved'}, ${refused.length} refused` + c.reset)
+      console.log(c.gray + HR_LIGHT + c.reset)
+      for (const m of dateMoveLog) {
+        const mark = m.moved ? c.yellow + '→' + c.reset : c.red + '✗' + c.reset
+        console.log(
+          `  ${mark} `
+          + c.cyan + `[${m.ce_date} → ${m.sa_date}]` + c.reset
+          + ' ' + c.bold + `"${m.name}"` + c.reset
+          + c.gray + `  (ce.id=${m.ce_id}, ${m.source}:${m.source_id})` + c.reset
+          + (m.moved ? '' : '  ' + c.yellow + m.reason + c.reset + (m.collides_with ? c.gray + ` with ce.id=${m.collides_with}` + c.reset : ''))
+        )
+      }
+    }
+
     // ─── Fuzzy-skipped ───────────────────────────────────────────
     if (fuzzyLog && fuzzyLog.length > 0) {
       console.log()
@@ -294,6 +318,7 @@ publishToCalendar({ dryRun })
           no_op: !!u.no_op,
         })),
         fuzzy_log: fuzzyLog || [],
+        date_moves: dateMoveLog || [],
       })
       console.log(c.dim + `\nRun log: ${logFile}` + c.reset)
     }
