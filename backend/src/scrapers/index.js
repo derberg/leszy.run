@@ -37,6 +37,7 @@ import { scrape as scrapeBotaniczna5 } from './sources/botaniczna5.js'
 import { scrape as scrapeStstiming } from './sources/ststiming.js'
 import { scrape as scrapeBiegiwlkp } from './sources/biegiwlkp.js'
 import { scrape as scrapeUltimasport } from './sources/ultimasport.js'
+import { scrape as scrapeCatchtime } from './sources/catchtime.js'
 import { SOURCE_PRIORITY, jaccardSimilarity, citiesMatch, citiesConflict, tokenize, distinguishingTags, hasDistinguishingConflict } from './dedup.js'
 import { supabase } from '../lib/supabaseClient.js'
 import { enrichFromUrl, isDostartuLikeUrl } from './apiEnrich.js'
@@ -895,6 +896,29 @@ const sources = [
     name: 'ultimasport',
     scrape: scrapeUltimasport,
     table: 'scraper_ultimasport',
+    mapRow: (raw) => ({
+      name: raw.name,
+      date: raw.date,
+      location: raw.location || null,
+      distances: raw.distances || null,
+      registration_url: raw.registration_url || null,
+      registration_deadline: raw.registration_deadline || null,
+      regulamin_url: raw.regulamin_url || null,
+      website: raw.website || null,
+      is_kids: raw.is_kids || false,
+      event_types: raw.event_types && raw.event_types.length > 0 ? raw.event_types : null,
+      price_from: raw.price_from ?? null,
+      price_to: raw.price_to ?? null,
+      lat: raw.lat ?? null,
+      lng: raw.lng ?? null,
+      source_id: raw.source_id,
+      source_url: raw.source_url || null,
+    }),
+  },
+  {
+    name: 'catchtime',
+    scrape: scrapeCatchtime,
+    table: 'scraper_catchtime',
     mapRow: (raw) => ({
       name: raw.name,
       date: raw.date,
