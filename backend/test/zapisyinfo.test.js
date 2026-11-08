@@ -130,6 +130,11 @@ test('Nordic Walking from the name; distances from every march', () => {
 
 test('style: one from the name, NW from a race only when the name has none', () => {
   assert.deepEqual(detectEventTypes('Pomerania Ultra Trail'), ['trail', 'ultra'])
+  // leśn only at the start of a word (#433): Oleśnica and Oleśno are towns, not forests.
+  assert.deepEqual(detectEventTypes('OLEŚNICKI BIEG NIEPODLEGŁOŚCI'), [])
+  assert.deepEqual(detectEventTypes('Bieg Olesno'), [])
+  assert.deepEqual(detectEventTypes('Leśna Dycha'), ['trail'])
+  assert.deepEqual(detectEventTypes('Bieg Lesny'), ['trail'])
   assert.deepEqual(detectEventTypes('Bieg Orłów', ['Marsz Nordic Walking 5 km']), ['nordic walking'])
   assert.deepEqual(detectEventTypes('Cross Festival', ['Marsz Nordic Walking 5 km']), ['trail'])
 })
