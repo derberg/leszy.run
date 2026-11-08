@@ -86,7 +86,9 @@ export function hasKidsSignal(text) {
 }
 
 const STYLE_RULES = [
-  ['trail', /g[oó]rsk|leśn|lesn|\btrail\b|cross(?:owy|owa|owe)?\b|przełaj|przelaj/],
+  // leśn only at the start of a word: OLEŚNICKI BIEG NIEPODLEGŁOŚCI is a street
+  // race in Oleśnica, not a forest one.
+  ['trail', /g[oó]rsk|(?:^|[^a-ząćęłńóśźż])le[sś]n|\btrail\b|cross(?:owy|owa|owe)?\b|przełaj|przelaj/],
   ['nordic walking', /nordic\s*walking|\bnw\b|marsz\s+z\s+kijami/],
   ['ocr', /\bocr\b/],
 ]
