@@ -1059,6 +1059,7 @@ Each scraper writes raw data into its own Supabase table (upsert by `source_id`)
 | biegigorskie | `scraper_biegigorskie` | `source_id` (`<name-slug>-<YYYY-MM-DD>`) |
 | chronotex | `scraper_chronotex` | `source_id` (`id_zawodow`) |
 | botaniczna5 | `scraper_botaniczna5` | `source_id` (event slug from `/events/<slug>/`) |
+| ststiming | `scraper_ststiming` | `source_id` (EventON post id) |
 
 **All steps are manual** — run each script in order. No automatic chaining.
 
