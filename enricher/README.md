@@ -134,6 +134,7 @@ Two distinct jobs:
 | `registration_deadline` | **Regulamin only** | YYYY-MM-DD. Rejects deadlines >1 year from event date (catches hallucinations). |
 | `voivodeship` / `location` | **Regulamin only** (only if empty) | NEVER overwrites existing — scraper's geocoded value is more reliable. |
 | `is_kids` | **Regulamin only** | true if any distance ≤ 1 km OR dedicated children's category exists. |
+| `atest_claim` | **Regulamin only** | `{ certified, distances_km }`: whether the regulamin says the course has a PZLA atest. Written only when the document mentions atest, certyfikat or AIMS (`atest_claim_from`), never from the registration-page fallback. The backend's `run-atest.js` publishes an atest only where the PZLA register backs it. |
 
 ## How it works
 

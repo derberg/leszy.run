@@ -5,7 +5,7 @@ import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'fs'
 import { resolve, dirname } from 'path'
 import { fileURLToPath } from 'url'
 import { CALENDAR_FIELDS } from '../src/lib/calendarData.js'
-import { TYPE_LABELS, typeTagClass, distTagClass, eventTypes, formatDateWithWeekday, infoCells } from '../src/lib/eventFacts.js'
+import { TYPE_LABELS, typeTagClass, distTagClass, atestDistTagClass, atestDistances, eventTypes, formatDateWithWeekday, infoCells } from '../src/lib/eventFacts.js'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const ROOT = resolve(__dirname, '..')
@@ -252,12 +252,15 @@ function buildEventBody(event) {
   const now = new Date()
   const types = eventTypes(event)
   const distances = event.distances || []
+  const atest = atestDistances(event)
   const cells = infoCells(event, now)
 
   const tags = (types.length || distances.length)
     ? `<div class="flex flex-wrap gap-1.5 mb-6">${[
       ...types.map(t => `<span class="${typeTagClass(t)}">${escapeHtml(TYPE_LABELS[t] || t)}</span>`),
-      ...distances.map(d => `<span class="${distTagClass}">${escapeHtml(d)}</span>`),
+      ...distances.map(d => atest.has(d)
+        ? `<span class="${atestDistTagClass}" title="Trasa z atestem PZLA">${escapeHtml(d)} ✓ atest</span>`
+        : `<span class="${distTagClass}">${escapeHtml(d)}</span>`),
     ].join('')}</div>`
     : ''
 

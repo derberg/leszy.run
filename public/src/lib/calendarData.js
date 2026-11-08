@@ -11,7 +11,21 @@ export const CALENDAR_DATA_PATH = '/kalendarz/events.json'
 export const CALENDAR_FIELDS = [
   'id', 'name', 'date', 'location', 'voivodeship', 'lat', 'lng', 'distances', 'event_type',
   'price_from', 'price_to', 'registration_deadline', 'status', 'leszyrun_event_id', 'created_at',
+  'atest',
 ]
+
+import { atestDistances } from './eventFacts.js'
+
+/**
+ * The „Atest PZLA” filter: the race has a certified distance, and when the distance
+ * filter is on, a certified one inside it („Półmaraton” + atest = a certified half,
+ * not a race whose 5 km is certified next to an uncertified half).
+ * @param {(distance: string) => boolean} [inRange] the distance filter, if any
+ */
+export function hasCertifiedDistance(event, inRange = () => true) {
+  for (const d of atestDistances(event)) if (inRange(d)) return true
+  return false
+}
 
 let cached = null
 

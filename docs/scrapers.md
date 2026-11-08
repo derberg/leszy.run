@@ -67,6 +67,13 @@ cd backend && node --env-file=../.env scripts/run-enrich-from-regulamin.js --app
 # Step 5.5: run some scripts cause AI might add some dumb things
 cd backend && node --env-file=../.env scripts/run-dedup.js --apply && node --env-file=../.env scripts/run-enrich-flags.js --apply && node --env-file=../.env scripts/run-normalize.js --apply
 
+# Step 5.7: PZLA course atest. Reads the taddziek.pl register of certified courses
+# into atest_register, matches it with each race's regulamin claim (step 5.2) and
+# writes scraper_all.atest; prints a review list of what it did not write.
+# See "Course atest" in CLAUDE.md.
+cd backend && node --env-file=../.env scripts/run-atest.js
+cd backend && node --env-file=../.env scripts/run-atest.js --apply
+
 # Step 5.9: Review what is about to publish. One agent per event that would
 # publish without enough data, tracing the missing field down to the code that
 # dropped it. Report-only by default; --apply lets the fix agents open and merge
@@ -144,6 +151,7 @@ Every `--apply` run writes a JSON summary to disk so you can see what happened i
 | `run-enrich-flags.js` | `backend/logs/enrich-flags-<ts>.json` |
 | `run-normalize.js` | `backend/logs/normalize-<ts>.json` |
 | `run-enrich-search.js` | `backend/logs/enrich-search-<ts>.json` |
+| `run-atest.js` | `backend/logs/atest-<ts>.json` |
 | `run-publish.js` | `backend/logs/publish-<ts>.json` |
 | `run-revert-publish.js` | `backend/logs/revert-publish-<ts>.json` |
 | `publish-event-pages.js` | `backend/logs/publish-event-pages-<ts>.json` |

@@ -4,6 +4,7 @@ import ReportEventModal from './ReportEventModal.jsx'
 import StarButton from './StarButton.jsx'
 import useFavorites from '../hooks/useFavorites.js'
 import { slugify } from '../lib/slugify.js'
+import { atestDistances, atestDistTagClass } from '../lib/eventFacts.js'
 
 const baseTag = 'font-mono text-[10px] font-semibold tracking-wide px-2 py-0.5 border uppercase'
 const typeTagClass = `${baseTag} border-apex-cyan/30 text-apex-cyan`
@@ -69,6 +70,10 @@ export default function EventRow({ event }) {
     : distancesArr.length > MAX_DISTANCES_SHOWN
       ? `${distancesArr.slice(0, MAX_DISTANCES_SHOWN).join(' / ')} +${distancesArr.length - MAX_DISTANCES_SHOWN}`
       : distancesArr.join(' / ')
+  const certified = atestDistances(event).size > 0
+  const atestTag = certified
+    ? <span title="Trasa z atestem PZLA" className={atestDistTagClass}>✓ atest</span>
+    : null
   const regClosed = event.registration_deadline
     && new Date(event.registration_deadline + 'T23:59:59') < new Date()
 
@@ -103,6 +108,7 @@ export default function EventRow({ event }) {
               )}
               {types.map(t => <TypeTag key={t} label={t} />)}
               <DistTag label={distanceLabel} />
+              {atestTag}
               {isLeszyrun && (
                 <span className="font-mono text-[9px] font-semibold tracking-wide px-2 py-0.5 bg-apex-yellow/10 text-apex-yellow border border-apex-yellow/20">
                   LESZY.RUN
@@ -130,7 +136,7 @@ export default function EventRow({ event }) {
             {city && (
               <div className="text-[12px] text-apex-muted mt-0.5">{city}</div>
             )}
-            {(types.length > 0 || distanceLabel || regClosed || isCancelled || clubCount > 0) && (
+            {(types.length > 0 || distanceLabel || certified || regClosed || isCancelled || clubCount > 0) && (
               <div className="flex gap-1 mt-1.5 flex-wrap">
                 {isCancelled && (
                   <span data-testid="cancelled-badge" className={`${baseTag} border-apex-red/30 text-apex-red bg-apex-red/10`}>Odwołany</span>
@@ -143,6 +149,7 @@ export default function EventRow({ event }) {
                 )}
                 {types.map(t => <TypeTag key={t} label={t} />)}
                 <DistTag label={distanceLabel} />
+                {atestTag}
                 {isLeszyrun && (
                   <span className="font-mono text-[9px] font-semibold tracking-wide px-2 py-0.5 bg-apex-yellow/10 text-apex-yellow border border-apex-yellow/20">
                     LESZY.RUN

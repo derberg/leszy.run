@@ -46,3 +46,15 @@ test('loadCalendarEvents fetches once and retries after a failure', async () => 
   await loadCalendarEvents(ok)
   assert.equal(calls, 2)
 })
+
+test('the atest filter: a certified distance, inside the distance filter when it is on', async () => {
+  const { hasCertifiedDistance, CALENDAR_FIELDS } = await import('../../src/lib/calendarData.js')
+  assert.ok(CALENDAR_FIELDS.includes('atest'))
+  const race = { distances: ['5 km', '21.1 km'], atest: [{ km: 5, certified_on: '2024-01-01', source: 'register' }] }
+  assert.equal(hasCertifiedDistance(race), true)
+  assert.equal(hasCertifiedDistance({ distances: ['5 km'], atest: null }), false)
+  // „Półmaraton” + atest: the half is not the certified course here, the 5 km is.
+  const half = (d) => d === '21.1 km'
+  assert.equal(hasCertifiedDistance(race, half), false)
+  assert.equal(hasCertifiedDistance(race, (d) => d === '5 km'), true)
+})

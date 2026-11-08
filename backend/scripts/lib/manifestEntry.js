@@ -26,6 +26,8 @@ export function buildManifestEntry(event) {
     registration_url: event.registration_url || null,
     website: event.website || null,
     is_kids: event.is_kids ?? null,
+    // PZLA course certification, [{ km, certified_on, source }] (run-atest.js).
+    atest: Array.isArray(event.atest) && event.atest.length ? event.atest : null,
     status: event.status || null,
     // Read by the /kalendarz calendar (public/src/lib/calendarData.js): the "Dodane"
     // filter and the leszy.run badge. Neither is drawn on the share image.
@@ -36,7 +38,7 @@ export function buildManifestEntry(event) {
 
 // Fields that change what the share image shows. A change limited to the others must not
 // regenerate it: adding created_at to every entry would otherwise redraw 3,000 images.
-export const NOT_ON_SHARE_IMAGE = ['created_at', 'leszyrun_event_id']
+export const NOT_ON_SHARE_IMAGE = ['created_at', 'leszyrun_event_id', 'atest']
 
 /** The entry as the share-image diff sees it. */
 export function shareImageView(entry) {

@@ -1157,7 +1157,7 @@ docker compose exec scheduler npm run pipeline
 ./scripts/daily-pipeline.sh
 ```
 
-**The scheduler runs scrape + enrich only — it does NOT publish and does NOT run any claude-CLI step.** Specifically it runs (in `scheduler/src/pipeline.js` `STEPS`): run-scrapers → run-merge → run-dedup → run-geocode → run-enrich-flags → run-normalize → Python enricher (Ollama) → run-dedup → run-normalize → publish-landing-pages → run-data-audit. It deliberately omits `run-publish.js` (publishing to `calendar_events` is a manual, human-reviewed host step) and the `claude`-CLI scripts `run-enrich-search.js` / `run-enrich-from-regulamin.js` (the backend image has no `claude`; run those on the host). On any non-zero exit it sends a SendGrid failure email; on full success with zero `scraper_all` rows merged/enriched today it sends a `[WARN]`. The final `run-data-audit` step is **`warnOnly`**: it writes nothing, and exit 2 means "found suspect rows" — the scheduler mails a `[WARN]` with the report and CONTINUES rather than aborting the run. A 10:00 watchdog emails `[ALERT]` if the pipeline didn't run in the last 26h.
+**The scheduler runs scrape + enrich only — it does NOT publish and does NOT run any claude-CLI step.** Specifically it runs (in `scheduler/src/pipeline.js` `STEPS`): run-scrapers → run-merge → run-dedup → run-geocode → run-enrich-flags → run-normalize → Python enricher (Ollama) → run-dedup → run-normalize → run-atest → publish-landing-pages → run-data-audit. It deliberately omits `run-publish.js` (publishing to `calendar_events` is a manual, human-reviewed host step) and the `claude`-CLI scripts `run-enrich-search.js` / `run-enrich-from-regulamin.js` (the backend image has no `claude`; run those on the host). On any non-zero exit it sends a SendGrid failure email; on full success with zero `scraper_all` rows merged/enriched today it sends a `[WARN]`. The final `run-data-audit` step is **`warnOnly`**: it writes nothing, and exit 2 means "found suspect rows" — the scheduler mails a `[WARN]` with the report and CONTINUES rather than aborting the run. A 10:00 watchdog emails `[ALERT]` if the pipeline didn't run in the last 26h.
 
 To run individual steps manually (debugging):
 
@@ -1194,6 +1194,9 @@ cd backend && node --env-file=../.env scripts/run-normalize.js --apply          
 # `pdftotext` and `textutil`, so it is host-only like steps 8 and 8.1. Default is
 # report-only. `--apply` lets the fix agents open and merge pull requests.
 cd backend && node --env-file=../.env scripts/run-prepublish-review.js                   # 10.5 (host)
+# Step 10.2 decides the PZLA course atest (see "Course atest" below). The scheduler runs
+# it too, but run it again after 8.1, which is where the regulamin's own claim comes from.
+cd backend && node --env-file=../.env scripts/run-atest.js --apply                       # 10.2
 cd backend && node --env-file=../.env scripts/run-publish.js --apply                     # 11
 cd backend && node --env-file=../.env scripts/publish-event-pages.js --apply             # post (manifest + OG images)
 cd backend && node --env-file=../.env scripts/run-data-audit.js                          # post (read-only report; exit 2 = findings)
@@ -1238,6 +1241,7 @@ It does **NOT** enrich `website` — that field was intentionally dropped from t
 - `registration_deadline` — format YYYY-MM-DD, within 1 year of event date
 - `voivodeship` / `location` — only fills empty, never overwrites scraper's geocoded value
 - `is_kids` — true if any distance ≤ 1 km or dedicated children's category exists
+- `atest_claim` — whether the regulamin says the course has a PZLA atest (`{ certified, distances_km }`), only from a regulamin that mentions certification; `run-atest.js` checks it against the PZLA register
 
 **Performance:** ~2 min/event (LLM inference on 32B model).
 
@@ -1468,6 +1472,36 @@ Two further gates run at enrichment time, both in `run-enrich-from-regulamin.js`
 
 `scripts/run-data-audit.js` reports violations that already exist in the DB (see the
 pipeline step list below).
+
+## Course atest (PZLA certification)
+
+A race page marks a distance „✓ atest” and lists it under „Atest PZLA” when that
+course is in the PZLA register of certified courses
+(http://www.taddziek.pl/rejestr_tras_atestowanych.html, plain http: its https serves
+the hosting company's certificate). It is the only national list. It certifies a
+course, not an edition, and has no date or URL, so it is matched by town, distance
+(±50 m) and name (`backend/src/lib/atestMatch.js`), together with what the regulamin
+says (`scraper_all.atest_claim`, extracted from the regulamin by both step 7, the Ollama enricher
+(`atest_claim_from` in `enricher/steps/merge.py`), and step 8.1, Claude, behind the same
+evidence gate: the document must mention atest, certyfikat or AIMS):
+
+- **published** (`scraper_all.atest` → `calendar_events.atest`, `[{ km, certified_on, source }]`):
+  the regulamin claims it and a valid register row matches at least half the name
+  (`both`), or no claim but a strict match: every word of the shorter name, the town
+  removed from both names, a shared word that is not generic (niepodległości,
+  półmaraton, …) unless both names carry the town (`register`);
+- **review only** (printed by `run-atest.js`, never shown): a regulamin that says the
+  course has no atest (it wins over the register), a claim the register cannot back
+  or backs with a void row, and a same-town same-distance near miss.
+
+/kalendarz has an „Atest PZLA” filter (`?atest=1`, `hasCertifiedDistance` in
+`public/src/lib/calendarData.js`); with the distance filter on, a race passes only when a
+certified distance is inside it, so „Półmaraton” + atest means a certified half. List rows
+carry a „✓ atest” tag. `atest` is one of `CALENDAR_FIELDS`, so it is in `events.json`.
+
+A register row with any status („nie rozgrywa się”, expired, course changed) or
+certified five or more years before the race does not count. The register is stored
+in `atest_register` (service_role only); a failed fetch uses the stored copy.
 
 ## Fixing a scraper is not enough — force the re-merge
 

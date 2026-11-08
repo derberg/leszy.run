@@ -97,6 +97,11 @@ function onlyOfferedToSomeEntrants(amount, text) {
  * @param {string} text       the document the extraction came from
  * @returns {string[]}        names of the fields that were dropped
  */
+/** True when the document mentions course certification: "atest", "certyfikat", "AIMS". */
+export function hasAtestEvidence(text) {
+  return /atest|certyfik|\baims\b|pomiar\w*\s+tras/i.test(String(text || ''))
+}
+
 export function dropUnsupportedFields(extracted, text) {
   const dropped = []
   if (!extracted || typeof extracted !== 'object') return dropped
@@ -120,6 +125,16 @@ export function dropUnsupportedFields(extracted, text) {
     if (!onlyOfferedToSomeEntrants(extracted[f], text)) continue
     delete extracted[f]
     dropped.push(f)
+  }
+
+  // The course certification: a "yes" or a "no" needs the document to talk
+  // about it at all. A model asked whether the course is certified answers
+  // something rather than null, and a guessed atest would be shown on the page.
+  if (extracted.atest && typeof extracted.atest === 'object' && extracted.atest.certified != null) {
+    if (!hasAtestEvidence(text)) {
+      delete extracted.atest
+      dropped.push('atest')
+    }
   }
 
   if (!hasDeadlineEvidence(text)) {

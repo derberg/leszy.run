@@ -40,6 +40,7 @@ import { supabase } from '../lib/supabaseClient.js'
 import { enrichFromUrl, isDostartuLikeUrl } from './apiEnrich.js'
 import { TRACKED_FIELDS, missingTrackedFields, missingRequiredFields, isReadyToAccept } from '@leszyrun/ui/eventCompleteness'
 import { looksNonPolish } from '../lib/polishLocation.js'
+import { sameAtest } from '../lib/atestMatch.js'
 import { looksVirtual } from '../lib/virtualEvent.js'
 import { looksMultisport } from '../lib/multisportEvent.js'
 import { looksWalkingRally, looksUnracedRajd } from '../lib/walkingRally.js'
@@ -1528,7 +1529,7 @@ async function publishToCalendar({ dryRun = false } = {}) {
   while (true) {
     const { data, error } = await supabase
       .from('calendar_events')
-      .select('id, name, date, status, source, source_id, source_links, locked_fields, location, voivodeship, lat, lng, distances, event_type, registration_url, regulamin_url, website, price_from, price_to, registration_deadline')
+      .select('id, name, date, status, source, source_id, source_links, locked_fields, location, voivodeship, lat, lng, distances, event_type, registration_url, regulamin_url, website, price_from, price_to, registration_deadline, atest')
       .range(from, from + pageSize - 1)
 
     if (error) break
@@ -1676,6 +1677,14 @@ async function publishToCalendar({ dryRun = false } = {}) {
     fillIfEmpty('registration_deadline', raw.registration_deadline || null)
     alwaysOverwrite('price_from', raw.price_from ?? null)
     alwaysOverwrite('price_to', raw.price_to ?? null)
+
+    // atest: run-atest.js recomputes it from the PZLA register every run, so the
+    // latest decision wins, including taking it away (null).
+    if (locked.has('atest')) {
+      if (!sameAtest(ce.atest, raw.atest)) skipped.push({ field: 'atest', reason: 'locked', ce_value: ce.atest, sa_value: raw.atest })
+    } else if (!sameAtest(ce.atest, raw.atest)) {
+      upd.atest = raw.atest ?? null
+    }
 
     // distances: scraper_all stores comma string, ce stores text[]
     if (locked.has('distances')) {
@@ -1945,6 +1954,7 @@ let existingCE = null
       price_from: raw.price_from ?? null,
       price_to: raw.price_to ?? null,
       website: raw.website || null,
+      atest: raw.atest ?? null,
       source: raw.source,
       source_id: raw.source_id,
       source_url: raw.source_url || null,
@@ -1985,6 +1995,7 @@ let existingCE = null
           price_from: raw.price_from ?? null,
           price_to: raw.price_to ?? null,
           registration_deadline: raw.registration_deadline || null,
+          atest: raw.atest ?? null,
           locked_fields: [],
         }
         if (raw.source && raw.source_id) existingByLink.set(`${raw.source}:${raw.source_id}`, insertedCE)

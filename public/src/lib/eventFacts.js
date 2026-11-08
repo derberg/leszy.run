@@ -25,6 +25,43 @@ export function typeTagClass(type) {
 
 export const distTagClass = `${baseTag} border-[rgba(168,194,58,0.3)] text-apex-yellow-dim`
 
+// A distance whose course holds a valid PZLA atest: the same chip, brighter, with the mark.
+export const atestDistTagClass = `${baseTag} border-apex-yellow/60 bg-apex-yellow/10 text-apex-yellow`
+
+// "21.1 km" → 21.1, "Półmaraton" → 21.0975. The same rule as the backend's distanceKm
+// (backend/src/lib/atestMatch.js), which decided the atest; null for "6h" and the like.
+function distanceKm(d) {
+  if (typeof d !== 'string') return null
+  const s = d.toLowerCase().replace(/ł/g, 'l').normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim()
+  if (/\d\s*h(\b|$)/.test(s)) return null
+  if (/polmaraton|half/.test(s)) return 21.0975
+  if (/maraton|marathon/.test(s)) return 42.195
+  const m = s.match(/\d+(?:[.,]\d+)?/)
+  if (!m) return null
+  const n = parseFloat(m[0].replace(',', '.'))
+  if (!Number.isFinite(n) || n <= 0) return null
+  if (/\d\s*m\b|metr/.test(s) && !/km|kilometr/.test(s)) return n / 1000
+  if (n === 21) return 21.0975
+  if (n === 42) return 42.195
+  return n
+}
+
+/**
+ * The race's distances whose course is in the PZLA register of certified courses
+ * (event.atest, written by backend/scripts/run-atest.js), as the race's own strings.
+ * @returns {Set<string>}
+ */
+export function atestDistances(event) {
+  const certified = (Array.isArray(event?.atest) ? event.atest : []).map(a => Number(a.km)).filter(Number.isFinite)
+  const out = new Set()
+  if (!certified.length) return out
+  for (const d of event.distances || []) {
+    const km = distanceKm(d)
+    if (km != null && certified.some(c => Math.abs(c - km) <= 0.05)) out.add(d)
+  }
+  return out
+}
+
 const TZ = 'Europe/Warsaw'
 
 /** "11 listopada 2026" */
@@ -76,6 +113,8 @@ export function infoCells(event, now = new Date()) {
     cells.push({ label: 'Lokalizacja', value: [event.location, event.voivodeship].filter(Boolean).join(', ') })
   }
   if (event.distances?.length) cells.push({ label: 'Dystanse', value: event.distances.join(' / ') })
+  const atest = [...atestDistances(event)]
+  if (atest.length) cells.push({ label: 'Atest PZLA', value: atest.join(' / ') })
   const price = priceText(event)
   if (price) cells.push({ label: 'Cena', value: price, accent: true })
   const deadline = deadlineState(event, now)

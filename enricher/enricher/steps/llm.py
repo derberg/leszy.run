@@ -117,6 +117,7 @@ RESPOND WITH THIS EXACT JSON STRUCTURE (use null for any field not found in cont
   "location": null,
   "voivodeship": null,
   "is_kids": false,
+  "atest": {{"certified": null, "distances_km": []}},
   "registration_url": "<REPLACE-WITH-REAL-OR-NULL>",
   "regulamin_url": "<REPLACE-WITH-REAL-OR-NULL>",
   "url_is_regulamin": true,
@@ -175,7 +176,11 @@ URLs — extract ONLY if the regulamin text itself states them; otherwise null:
 - url_is_regulamin: true if the content you read above is genuinely race regulations
 - url_is_registration: true only if registration_url points to an actual sign-up page
 
-is_kids: true if any distance ≤ 1 km OR dedicated children's category exists"""
+is_kids: true if any distance ≤ 1 km OR dedicated children's category exists
+
+ATEST (course certification, atest PZLA / certyfikat AIMS / World Athletics):
+- certified: true if the regulamin says the course has, or will have, a valid atest ("trasa posiada atest PZLA", "trasa z atestem"); false if it says the course has none ("trasa nie posiada atestu"); null if certification is not mentioned
+- distances_km: the distances (numbers, km) the atest covers when the document names them, else []"""
 
 
 def call_ollama(prompt: str, config) -> Optional[dict]:
