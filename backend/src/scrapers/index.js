@@ -223,6 +223,10 @@ const sources = [
     name: 'b4sport',
     scrape: scrapeB4sport,
     table: 'scraper_b4sport',
+    // date: a reused registration form is a new edition or a moved date, see
+    // editionKey() in sources/b4sport.js. regulamin_url and website are read
+    // back so a re-emitted row does not erase them.
+    knownColumns: 'source_id, date, regulamin_url, website',
     mapRow: (raw) => ({
       name: raw.name,
       date: raw.date,
