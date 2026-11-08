@@ -1,4 +1,4 @@
-// calendar_events is service-role only (migration 20261114200000_calendar_events_service_role_only.sql):
+// calendar_events is service-role only (migration 20261117100000_calendar_events_service_role_only.sql):
 // the publishable key used to page through the whole race calendar, pending and rejected rows
 // included. Scenario F-24 in docs/registration/scenario-matrix.md. Runs against the LOCAL stack only (`supabase db reset` first).
 import { test, after } from 'node:test'

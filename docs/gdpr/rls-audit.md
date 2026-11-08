@@ -262,7 +262,7 @@ The `participants_public` view comment in `rls-policies.sql` says "Direct table 
 
 ### public.calendar_events
 
-> **Superseded on 2026-11-04** (migration `20261114200000_calendar_events_service_role_only.sql`):
+> **Superseded on 2026-11-04** (migration `20261117100000_calendar_events_service_role_only.sql`):
 > `anon` and `authenticated` hold no privilege on `calendar_events` and `public_read` is dropped.
 > The public pages read build-time files (`/kalendarz/events.json`, the pre-rendered
 > `/kalendarz/<slug>/` pages) and the `get-user-submissions` edge function, so pending and
