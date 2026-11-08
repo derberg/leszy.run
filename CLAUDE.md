@@ -340,6 +340,11 @@ team is never timed by a tag of its own, and its standing is derived by `compute
   one closed. `team_lap_count` fixes the number of laps (NULL: as many as possible) and
   `team_time_limit_seconds` stops counting laps that long after the gun (NULL, the default: until
   the operator stops the race; a lap pass still open at the stop closes as a lap).
+- Lap corrections (the admin's „okrążenia drużyn” panel on Wyniki, `TeamLapsPanel`): `GET`/`POST
+  /api/races/:raceRunId/team-laps`, `PATCH /api/team-laps/:id` `{ participantId?, closedAt?, deleted? }`
+  (`lib/teamLapEdits.js` holds the rules: a teammate only, between the gun and now). A lap's number
+  and time are derived on read, so a correction changes one row; a removed lap keeps its row with
+  `deleted_at` (a DELETE would not reach the other hosts), and the detector re-reads the laps.
 - `'relay'` (fixed order, set by the operator): leg k>1 starts at leg k-1's confirmed finish
   (`startTimeSource = 'handover'`); until then its reads are audited and otherwise ignored, it is
   skipped by gun-time backfill, and its `min_finish_seconds` counts from the handover. A team with
@@ -1057,6 +1062,10 @@ The results page (`/events/:slug/results`), "Blisko Mety" and the bib search rea
 - While a run is active, `Vercel-CDN-Cache-Control` is `max-age=5`, and pages poll every 5 s. Otherwise it is `max-age=60`, and pages poll every 60 s. Either way Supabase sees about one build per event per interval per CDN region, whatever the number of viewers. Polling pauses while the tab is hidden.
 - `stale-while-revalidate=600, stale-if-error=600` and an 8 s timeout on the Supabase fetch keep a stale copy on screen while Supabase is slow. Vercel collapses background revalidation into one function run, but not requests that find no cached copy, so a short stale window would let every poll start its own build against a struggling database. An error answers `no-store` and is never cached.
 - The response carries a `version` hash of the data. `public/src/lib/snapshotStore.js` re-renders only when it changes. A result reaches the page up to about 10 s after it reaches Supabase during a race.
+- A relay category adds `teams` (null for every other event, so their snapshot is unchanged): each
+  team category's mode, who is in which team, the live (not removed) laps, and the names from
+  `results_team_names()`. Each of those reads is optional, so a failing one, or a database without
+  the team migration, shows the runners as individuals instead of failing the page.
 - The endpoint answers 400 to anything but one lowercase `event` id, because the CDN keys its cache on the whole query string.
 - The function runs in `dub1` (`regions` in `public/vercel.json`), next to the Supabase project in `eu-west-1`.
 - `vite dev` serves the same handler through the `vercelApi` plugin in `public/vite.config.js`.
