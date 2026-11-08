@@ -26,7 +26,9 @@ test('a name carrying the word ultra contributes no style tag', () => {
 test('the styles that describe a course still guard the merge', () => {
   const trail = distinguishingTags({ name: 'Bieg Leśny', event_types: ['trail'] })
   const ocr = distinguishingTags({ name: 'Bieg Leśny', event_types: ['ocr'] })
-  const nw = distinguishingTags({ name: 'Bieg Leśny', event_types: ['trail', 'nordic walking'] })
+  // A subset merges unless the extra style is stated in the bigger side's name
+  // (see styleSubset.test.js).
+  const nw = distinguishingTags({ name: 'Bieg Leśny Nordic Walking', event_types: ['trail', 'nordic walking'] })
   assert.equal(hasDistinguishingConflict(trail, ocr), true)
   assert.equal(hasDistinguishingConflict(trail, nw), true)
 })

@@ -118,8 +118,9 @@ function distancesOverlap(a, b) {
   return [...setA].some((d) => setB.has(d))
 }
 
-// hasDistinguishingConflict is deliberately strict for AUTO-MERGE: it treats
-// style:{nw,trail} vs style:{nw} as a conflict. For review that is wrong — a
+// hasDistinguishingConflict is stricter for AUTO-MERGE: a style subset merges
+// there only when the extra style is not stated in the bigger side's name. For
+// review any subset is fine — a
 // subset means one source simply saw more sub-races than the other, which is
 // the normal shape of a cross-source duplicate. The Krajenka pair is exactly
 // this and was invisible until the rule was relaxed here.
@@ -130,6 +131,7 @@ function distancesOverlap(a, b) {
 function hasHardConflict(tagsA, tagsB) {
   const categories = new Set()
   for (const t of [...tagsA, ...tagsB]) categories.add(t.split(':')[0])
+  categories.delete('named') // qualifies style: only, see hasDistinguishingConflict
   for (const cat of categories) {
     const inA = [...tagsA].filter((t) => t.startsWith(cat + ':'))
     const inB = [...tagsB].filter((t) => t.startsWith(cat + ':'))

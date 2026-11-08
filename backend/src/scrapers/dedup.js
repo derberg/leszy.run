@@ -270,9 +270,12 @@ function distinguishingTags(event) {
     else if (t === 'nordic walking') tags.add('style:nw')
     else if (t === 'ocr') tags.add('style:ocr')
   }
-  if (/nordic\s*walking|\bnw\b/i.test(n)) tags.add('style:nw')
-  if (/\bocr\b/i.test(n)) tags.add('style:ocr')
-  if (/cross(owy|owa|owe)\b|\btrail\b/i.test(n)) tags.add('style:trail')
+  // A style stated in the NAME is also recorded as `named:<style>`, so the
+  // guard can tell it from one that only event_types carry (the LLM enricher, or
+  // a scraper reading sub-races or the surface). See hasDistinguishingConflict.
+  if (/nordic\s*walking|\bnw\b/i.test(n)) { tags.add('style:nw'); tags.add('named:nw') }
+  if (/\bocr\b/i.test(n)) { tags.add('style:ocr'); tags.add('named:ocr') }
+  if (/cross(owy|owa|owe)\b|\btrail\b/i.test(n)) { tags.add('style:trail'); tags.add('named:trail') }
 
   // Edition — Nth occurrence. Different stated editions on the same date with a
   // generic shared name = different events. One-sided absence is tolerated by
@@ -288,11 +291,35 @@ function distinguishingTags(event) {
  * Conflict = within a category, A and B have different tag sets (different
  * presence, or different specific tags). Identical sets in all categories
  * (including both empty) → no conflict, merge can proceed.
+ *
+ * Style is the one category where a strict SUBSET is tolerated: {trail} against
+ * {trail, nw} merges, unless an extra style on the bigger side is stated in that
+ * side's own name (`named:`). An extra style that only event_types carry is
+ * almost always the enricher or a scraper seeing a side race of the same event:
+ * Leśna Piątka Odwrotnie (biegnijmy {trail} vs an LLM-enriched {trail, nw})
+ * stayed a duplicate this way. Measured on scraper_all 2026-11-08: 11 dedup
+ * pairs and 1 merge pair were blocked only by a style subset, all 12 one event;
+ * the rule merges 11 of them and keeps apart the one whose name says
+ * "oraz marsz Nordic Walking" (a conservative miss). A name that states the
+ * extra style is how a separate NW race reads ("Wataha 7 km Nordic Walking").
+ * Disjoint style sets ({trail} vs {ocr}) still conflict.
  */
+function styleSubsetTolerated(inA, inB, tagsA, tagsB) {
+  const aInB = inA.every(t => inB.includes(t))
+  const bInA = inB.every(t => inA.includes(t))
+  if (aInB === bInA) return false
+  const [small, big, bigTags] = aInB ? [inA, inB, tagsB] : [inB, inA, tagsA]
+  return big
+    .filter(t => !small.includes(t))
+    .every(t => !bigTags.has(`named:${t.slice('style:'.length)}`))
+}
+
 function hasDistinguishingConflict(tagsA, tagsB) {
   const categories = new Set()
   for (const t of tagsA) categories.add(t.split(':')[0])
   for (const t of tagsB) categories.add(t.split(':')[0])
+  // `named:` only qualifies `style:`; it is never compared on its own.
+  categories.delete('named')
   for (const cat of categories) {
     const inA = [...tagsA].filter(t => t.startsWith(cat + ':'))
     const inB = [...tagsB].filter(t => t.startsWith(cat + ':'))
@@ -309,8 +336,9 @@ function hasDistinguishingConflict(tagsA, tagsB) {
       if (cat === 'kids') return true
       continue
     }
-    if (inA.length !== inB.length) return true
-    if (!inA.every(t => inB.includes(t))) return true
+    if (inA.length === inB.length && inA.every(t => inB.includes(t))) continue
+    if (cat === 'style' && styleSubsetTolerated(inA, inB, new Set(tagsA), new Set(tagsB))) continue
+    return true
   }
   return false
 }
