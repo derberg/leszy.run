@@ -41,6 +41,16 @@ export const categories = pgTable('categories', {
   name: text('name').notNull(),
   slug: text('slug').notNull(),   // human-readable import key, e.g. 'bieg-5km'
   untimed: boolean('untimed').notNull().default(false),   // no timing/classification (e.g. kids' run); hidden from public results
+  // Team category. NULL: an individual category.
+  //   'relay_free' sztafeta in any order (the default for a team competition): laps are counted
+  //                per team, each belongs to whoever closed it, a member may run several (team_laps)
+  //   'relay'      sztafeta with a fixed leg order: leg k starts at leg k-1's finish
+  teamMode: text('team_mode'),
+  // 'relay_free' only: a fixed number of laps. NULL: as many as the team can.
+  teamLapCount: integer('team_lap_count'),
+  // 'relay_free' only: laps closed later than this after the gun do not count. NULL: no limit
+  // (the operator stops the race).
+  teamTimeLimitSeconds: integer('team_time_limit_seconds'),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
   syncedAt: timestamp('synced_at', { withTimezone: true }),
 }, (t) => [
@@ -69,6 +79,11 @@ export const participants = pgTable('participants', {
   registrationId: uuid('registration_id'),
   // Set when the registration was cancelled or refunded after the row reached this host.
   removedAt: timestamp('removed_at', { withTimezone: true }),
+  // The team this runner belongs to (Supabase `teams.id` for a registration team; no local FK,
+  // and never its name: a team name is personal data the host does not hold) and their leg
+  // in a relay. Each member keeps their own tag, bib and result; the team is derived.
+  teamId: uuid('team_id'),
+  teamLeg: integer('team_leg'),
   updatedAt: timestamp('updated_at', { withTimezone: true }),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
   syncedAt: timestamp('synced_at', { withTimezone: true }),
@@ -100,6 +115,22 @@ export const gateEvents = pgTable('gate_events', {
   raw: jsonb('raw').notNull(),
   receivedAt: timestamp('received_at', { withTimezone: true }).notNull(),
   crossingId: uuid('crossing_id'),
+})
+
+// One lap of a 'relay_free' team: the moment the member who ran it crossed the gate. A lap's
+// number and time are derived when read (its team's live laps in closed_at order), so a
+// correction changes one row. Removed by `deleted_at`, never DELETE: deletes do not sync.
+export const teamLaps = pgTable('team_laps', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  raceRunId: uuid('race_run_id').notNull().references(() => raceRuns.id, { onDelete: 'cascade' }),
+  teamId: uuid('team_id').notNull(),
+  participantId: uuid('participant_id').notNull().references(() => participants.id, { onDelete: 'cascade' }),
+  closedAt: timestamp('closed_at', { withTimezone: true }).notNull(),
+  peakRssiCdbm: integer('peak_rssi_cdbm'),
+  source: text('source').notNull().default('chip'),   // 'chip' | 'manual'
+  deletedAt: timestamp('deleted_at', { withTimezone: true }),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+  syncedAt: timestamp('synced_at', { withTimezone: true }),
 })
 
 export const gateCrossings = pgTable('gate_crossings', {

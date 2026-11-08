@@ -328,6 +328,29 @@ Flow per reading (above `rssi_threshold`; weaker reads are ignored entirely):
 
 See the mermaid flowchart at the top of `crossingDetector.js` for a full diagram.
 
+**Team categories (`categories.team_mode`).** Every team member keeps their own tag and bib; a
+team is never timed by a tag of its own, and its standing is derived by `computeTeamResults()` in
+`@leszyrun/ui` (`GET /api/races/:raceRunId/teams`). Membership is `participants.team_id` /
+`team_leg` (from Supabase `registrations`; the host never holds a team name).
+- `'relay_free'` (any order, the default for a team competition; Sztafeta Mikołajów): the team runs
+  laps in any order, a member may run several. A pass closes a team lap only when its tag had been
+  silent 60 s before it (came in from the course, so a teammate waiting at the gate never counts)
+  and `min_finish_seconds` after the team's previous lap. Each lap is a `team_laps` row (pushed and
+  pulled like `results`) credited to that runner. Teams rank by laps done, then by when the last
+  one closed. `team_lap_count` fixes the number of laps (NULL: as many as possible) and
+  `team_time_limit_seconds` stops counting laps that long after the gun (NULL, the default: until
+  the operator stops the race; a lap pass still open at the stop closes as a lap).
+- Lap corrections (the admin's „okrążenia drużyn” panel on Wyniki, `TeamLapsPanel`): `GET`/`POST
+  /api/races/:raceRunId/team-laps`, `PATCH /api/team-laps/:id` `{ participantId?, closedAt?, deleted? }`
+  (`lib/teamLapEdits.js` holds the rules: a teammate only, between the gun and now). A lap's number
+  and time are derived on read, so a correction changes one row; a removed lap keeps its row with
+  `deleted_at` (a DELETE would not reach the other hosts), and the detector re-reads the laps.
+- `'relay'` (fixed order, set by the operator): leg k>1 starts at leg k-1's confirmed finish
+  (`startTimeSource = 'handover'`); until then its reads are audited and otherwise ignored, it is
+  skipped by gun-time backfill, and its `min_finish_seconds` counts from the handover. A team with
+  a missing or repeated leg gets no chain and is timed as individuals (logged). A missed leg finish
+  stalls the chain until an operator assigns a start (`assign-gun-start` releases the waiting leg).
+
 Configurable per event (stored in `events` table):
 - `rssi_threshold`: default `-9000` cdbm (was `-6500` until 2026-10-15, `-5000` before 2026-08-17), below anything the R700 reports, so every read is followed. The **tracking floor**: reads weaker than it are ignored and not persisted to `gate_events`. Raw `rfid:raw` broadcast is unaffected. Peak-of-pass timing on both gates is what makes a missing floor safe: a weak read can no longer set a time. Events created before the change keep their stored value, so check it before a race: Wilczy Półmaraton 2026 still had `-5000`, which would have timed almost nobody.
 - `confirm_rssi_cdbm`: **NULL by default = disabled.** The **crossing bar**: when set, the PEAK of a start or finish pass must reach it, or the pass is dropped. It is the per-event answer to a tag heard from far away (a runner on a stretch of course near the gate, a bib in a bag by the tent) becoming a crossing. `stopRace`'s pending flush applies the same bar. It stays off by default because a runner 5 m before the antennas reads −70…−77 dBm (measured 2026-10-15), so a bar near the old floor drops real passes.
@@ -681,7 +704,7 @@ Sync is disabled when `SUPABASE_URL` env var is missing.
 **Reverse sync — config + results (`src/sync/configSync.js`):** so an event created/edited
 on one device (e.g. the Mac) appears automatically on every other device (e.g. a Pi acting
 as a second backend). Polls Supabase every 30s and upserts these tables Supabase → local:
-`events, categories, participants, checkpoints, race_runs, results, event_documents`.
+`events, categories, participants, checkpoints, race_runs, results, team_laps, event_documents`.
 `checkpoint_categories` (which categories pass a checkpoint; none = all) has no id or
 `synced_at`, so it rides on its checkpoint row (`src/sync/checkpointLinks.js`): a link change
 dirties the checkpoint, the push replaces that checkpoint's link set in Supabase before marking
@@ -1039,6 +1062,10 @@ The results page (`/events/:slug/results`), "Blisko Mety" and the bib search rea
 - While a run is active, `Vercel-CDN-Cache-Control` is `max-age=5`, and pages poll every 5 s. Otherwise it is `max-age=60`, and pages poll every 60 s. Either way Supabase sees about one build per event per interval per CDN region, whatever the number of viewers. Polling pauses while the tab is hidden.
 - `stale-while-revalidate=600, stale-if-error=600` and an 8 s timeout on the Supabase fetch keep a stale copy on screen while Supabase is slow. Vercel collapses background revalidation into one function run, but not requests that find no cached copy, so a short stale window would let every poll start its own build against a struggling database. An error answers `no-store` and is never cached.
 - The response carries a `version` hash of the data. `public/src/lib/snapshotStore.js` re-renders only when it changes. A result reaches the page up to about 10 s after it reaches Supabase during a race.
+- A relay category adds `teams` (null for every other event, so their snapshot is unchanged): each
+  team category's mode, who is in which team, the live (not removed) laps, and the names from
+  `results_team_names()`. Each of those reads is optional, so a failing one, or a database without
+  the team migration, shows the runners as individuals instead of failing the page.
 - The endpoint answers 400 to anything but one lowercase `event` id, because the CDN keys its cache on the whole query string.
 - The function runs in `dub1` (`regions` in `public/vercel.json`), next to the Supabase project in `eu-west-1`.
 - `vite dev` serves the same handler through the `vercelApi` plugin in `public/vite.config.js`.
@@ -1723,7 +1750,7 @@ The mapping files (`biegi-mappings.js` in both `backend/scripts/lib/` and `publi
 - Do not use Next.js (use Vite)
 - Do not dockerize Mosquitto (hardware constraint — R700 needs LAN access)
 - Do not use `docker compose down -v` unless explicitly asked
-- Do not pull data from Supabase into local DB EXCEPT via the sanctioned reverse-sync workers: `checkins`/`checkin_documents` (`checkinSync.js`), `checkpoint_observations` (realtime in `supabase.js`), and event config + results (`configSync.js` — `events, categories, participants, checkpoints, race_runs, results, event_documents`, plus `checkpoint_categories` via `checkpointLinks.js`). Any NEW reverse-pull must stamp `synced_at = now()` and guard the ON CONFLICT update with `synced_at IS NOT NULL` (never clobber a locally-dirty row) — see `configSync.js`.
+- Do not pull data from Supabase into local DB EXCEPT via the sanctioned reverse-sync workers: `checkins`/`checkin_documents` (`checkinSync.js`), `checkpoint_observations` (realtime in `supabase.js`), and event config + results (`configSync.js` — `events, categories, participants, checkpoints, race_runs, results, team_laps, event_documents`, plus `checkpoint_categories` via `checkpointLinks.js`). Any NEW reverse-pull must stamp `synced_at = now()` and guard the ON CONFLICT update with `synced_at IS NOT NULL` (never clobber a locally-dirty row) — see `configSync.js`.
 - Do not add TypeScript type annotations or `.ts` files
 - Do not add an AGPL dependency to `vision/`. The YOLOv8 and Ultralytics family is banned; LeszyRun itself is AGPL-3.0-only, but only because its author chose so: third-party AGPL code would remove the author's freedom to license it any other way. Person detection is MediaPipe, Apache 2.0, and it is enough.
 - Do not report a vision read rate measured on runners the model trained on. Race photographs may train the torso reader only with runners held out by bib number, and only the held-out runners measure it. Do not commit the torso reader's labels, crops or weights: they come from photographs of people.

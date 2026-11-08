@@ -1,6 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { sql } from 'drizzle-orm'
-import { events, categories, participants, checkpoints, raceRuns, results, eventDocuments } from '../db/schema.js'
+import { events, categories, participants, checkpoints, raceRuns, results, eventDocuments, teamLaps } from '../db/schema.js'
 import { pullCheckpointLinks } from './checkpointLinks.js'
 
 // Reverse sync: Supabase → local, for event CONFIG + results — so an event created/edited
@@ -58,6 +58,7 @@ const PULL_TABLES = [
   { name: 'checkpoints', table: checkpoints },
   { name: 'race_runs', table: raceRuns },
   { name: 'results', table: results },
+  { name: 'team_laps', table: teamLaps },
   { name: 'event_documents', table: eventDocuments },
 ]
 
@@ -96,6 +97,7 @@ export function isTestRow(name, remote, skip, settingsByEvent = new Map(), known
     case 'race_runs':
       return skip.categories.has(remote.category_id)
     case 'results':
+    case 'team_laps':
       return skip.raceRuns.has(remote.race_run_id)
     default:
       return false

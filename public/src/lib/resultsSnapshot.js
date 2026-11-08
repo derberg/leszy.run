@@ -77,7 +77,58 @@ export async function buildResultsSnapshot(supabase, eventId) {
   const observations = firstGun === null ? []
     : allObservations.filter(o => Date.parse(o.observed_at) >= firstGun)
 
-  return { categories, checkpoints, checkpointCategories, raceRuns, participants, results, observations, partners }
+  const teams = await readTeams(supabase, eventId, categoryIds, shownRuns)
+
+  return { categories, checkpoints, checkpointCategories, raceRuns, participants, results, observations, partners, teams }
+}
+
+// A failed optional read leaves its part out instead of failing the page.
+async function optional(read, fallback) {
+  try { return await read() } catch { return fallback }
+}
+
+/**
+ * The team part of a relay's results: each team category's mode, who is in which team, the
+ * laps of a relay in any order, and the teams' names. null for an event with no team category,
+ * which is every event but a relay, so their snapshot does not change.
+ *
+ * Every read is optional: these columns arrive with a migration, and until it runs (or if a read
+ * fails) the page shows the relay's runners as individuals rather than no results at all.
+ * Names come from results_team_names(), the names start_list() already publishes; a team
+ * without one is labelled by its members on the page.
+ */
+async function readTeams(supabase, eventId, categoryIds, shownRuns) {
+  if (!categoryIds.length) return null
+  const modes = await optional(() => readAll(() => supabase.from('categories')
+    .select('id, team_mode, team_lap_count').eq('event_id', eventId).order('id')), [])
+  const teamCats = modes.filter(c => c.team_mode && categoryIds.includes(c.id))
+  if (!teamCats.length) return null
+  const teamCatIds = teamCats.map(c => c.id)
+  const freeRunIds = shownRuns
+    .filter(r => teamCats.some(c => c.id === r.category_id && c.team_mode === 'relay_free'))
+    .map(r => r.id)
+
+  const [members, laps, names] = await Promise.all([
+    optional(() => readAll(() => supabase.from('participants_public')
+      .select('id, team_id, team_leg').in('category_id', teamCatIds).order('id')), []),
+    freeRunIds.length ? optional(() => readAll(() => supabase.from('team_laps')
+      .select('id, race_run_id, team_id, participant_id, closed_at, deleted_at')
+      .in('race_run_id', freeRunIds).order('id')), []) : [],
+    optional(async () => {
+      const { data, error } = await supabase.rpc('results_team_names', { p_event_id: eventId })
+      if (error) throw new Error(error.message)
+      return data ?? []
+    }, []),
+  ])
+  return {
+    categories: Object.fromEntries(teamCats.map(c => [c.id, { mode: c.team_mode, lapCount: c.team_lap_count ?? null }])),
+    members: Object.fromEntries(members.filter(m => m.team_id).map(m => [m.id, { teamId: m.team_id, teamLeg: m.team_leg ?? null }])),
+    // A removed lap is the operator's correction: the public never sees it.
+    laps: laps.filter(l => !l.deleted_at).map(l => ({
+      id: l.id, raceRunId: l.race_run_id, teamId: l.team_id, participantId: l.participant_id, closedAt: l.closed_at,
+    })),
+    names: Object.fromEntries(names.map(n => [n.team_id, n.name])),
+  }
 }
 
 /** Whether a run of the event is under way, so the page needs fresh data often. */
@@ -85,7 +136,7 @@ export function isLive(snapshot) {
   return snapshot.raceRuns.some(r => r.status === 'active')
 }
 
-const EMPTY_CATEGORY = { category: null, raceRun: null, results: [], checkpoints: [], observations: [], loaded: false }
+const EMPTY_CATEGORY = { category: null, raceRun: null, results: [], checkpoints: [], observations: [], team: null, loaded: false }
 
 /**
  * The category's latest started run.
@@ -124,11 +175,22 @@ export function categoryView(snapshot, categoryId) {
   const category = cat ? { id: cat.id, name: cat.name } : null
   const checkpoints = categoryCheckpoints(snapshot, categoryId)
   const run = latestRun(snapshot.raceRuns, categoryId)
-  if (!run) return { category, raceRun: null, results: [], checkpoints, observations: [], loaded: true }
+  const teamCat = snapshot.teams?.categories[categoryId] ?? null
+  const team = teamCat && run ? {
+    mode: teamCat.mode,
+    lapCount: teamCat.lapCount,
+    names: snapshot.teams.names,
+    laps: snapshot.teams.laps.filter(l => l.raceRunId === run.id),
+  } : null
+  if (!run) return { category, raceRun: null, results: [], checkpoints, observations: [], team: null, loaded: true }
 
+  const members = snapshot.teams?.members ?? {}
   const pMap = Object.fromEntries(snapshot.participants
     .filter(p => p.category_id === categoryId)
-    .map(p => [p.id, { ...p, firstName: p.first_name, lastName: p.last_name, bibNumber: p.bib_number }]))
+    .map(p => [p.id, {
+      ...p, firstName: p.first_name, lastName: p.last_name, bibNumber: p.bib_number,
+      ...(members[p.id] ? { teamId: members[p.id].teamId, teamLeg: members[p.id].teamLeg } : {}),
+    }]))
 
   const results = snapshot.results
     .filter(r => r.race_run_id === run.id)
@@ -174,7 +236,7 @@ export function categoryView(snapshot, categoryId) {
       observedAt: o.observed_at,
     }))
 
-  return { category, raceRun: run, results, checkpoints, observations, loaded: true }
+  return { category, raceRun: run, results, checkpoints, observations, team, loaded: true }
 }
 
 /**

@@ -9,6 +9,7 @@ import { Badge } from '../components/ui/badge.jsx'
 import { Input } from '../components/ui/input.jsx'
 import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/card.jsx'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogBody, DialogFooter } from '../components/ui/dialog.jsx'
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '../components/ui/select.jsx'
 import { AlertDialog, AlertDialogTrigger, AlertDialogContent, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogAction, AlertDialogCancel } from '../components/ui/alert-dialog.jsx'
 import ParticipantsTable from '../components/ParticipantsTable/ParticipantsTable.jsx'
 import ImportSection from '../components/ImportWizard/ImportSection.jsx'
@@ -79,6 +80,8 @@ function buildRpiCommand({ eventId, checkpointId, pin, readerIp, mqttHost, reade
     'npm start',
   ].join('\n')
 }
+
+const TEAM_MODE_LABEL = { relay_free: 'Sztafeta · dowolna kolejność', relay: 'Sztafeta · stała kolejność' }
 
 export default function EventDetail() {
   const { id } = useParams()
@@ -158,7 +161,7 @@ export default function EventDetail() {
   }
 
   const [catDialog, setCatDialog] = useState(false)
-  const [catForm, setCatForm] = useState({ name: '', slug: '', untimed: false })
+  const [catForm, setCatForm] = useState({ name: '', slug: '', untimed: false, teamMode: 'none', teamLapCount: '' })
   const [slugManuallyEdited, setSlugManuallyEdited] = useState(false)
   const [editingCat, setEditingCat] = useState(null)
   const [slugError, setSlugError] = useState('')
@@ -185,7 +188,7 @@ export default function EventDetail() {
 
   const closeCatDialog = () => {
     setCatDialog(false)
-    setCatForm({ name: '', slug: '', untimed: false })
+    setCatForm({ name: '', slug: '', untimed: false, teamMode: 'none', teamLapCount: '' })
     setSlugManuallyEdited(false)
     setEditingCat(null)
     setSlugError('')
@@ -255,11 +258,16 @@ export default function EventDetail() {
                     {cat.untimed && (
                       <span className="ml-3 text-[10px] font-bold uppercase tracking-widest px-1.5 py-0.5 border border-apex-border text-apex-muted">bez pomiaru</span>
                     )}
+                    {cat.teamMode && (
+                      <span className="ml-3 text-[10px] font-bold uppercase tracking-widest px-1.5 py-0.5 border border-apex-border text-apex-muted">
+                        {TEAM_MODE_LABEL[cat.teamMode]}
+                      </span>
+                    )}
                   </div>
                   <div className="flex items-center gap-1">
                   <Button variant="ghost" size="icon" className="text-apex-text hover:text-apex-text-bright" onClick={() => {
                     setEditingCat(cat)
-                    setCatForm({ name: cat.name, slug: cat.slug, untimed: !!cat.untimed })
+                    setCatForm({ name: cat.name, slug: cat.slug, untimed: !!cat.untimed, teamMode: cat.teamMode ?? 'none', teamLapCount: cat.teamLapCount ?? '' })
                     setSlugManuallyEdited(true)
                     setCatDialog(true)
                   }}>
@@ -716,13 +724,36 @@ export default function EventDetail() {
                 <span className="text-xs text-apex-muted">Kategoria nie będzie pokazywana w publicznych wynikach (np. bieg dzieci).</span>
               </span>
             </label>
+            <div>
+              <span className="text-xs font-bold uppercase tracking-widest text-apex-muted mb-1 block">Drużyny</span>
+              <Select value={catForm.teamMode} onValueChange={v => setCatForm(f => ({ ...f, teamMode: v }))}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Bieg indywidualny</SelectItem>
+                  <SelectItem value="relay_free">{TEAM_MODE_LABEL.relay_free}</SelectItem>
+                  <SelectItem value="relay">{TEAM_MODE_LABEL.relay}</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            {catForm.teamMode === 'relay_free' && (
+              <label className="block">
+                <span className="text-xs font-bold uppercase tracking-widest text-apex-muted mb-1 block">Liczba okrążeń</span>
+                <Input type="number" min="1" value={catForm.teamLapCount} placeholder="bez limitu"
+                  onChange={e => setCatForm(f => ({ ...f, teamLapCount: e.target.value }))} />
+              </label>
+            )}
           </DialogBody>
           <DialogFooter>
             <Button variant="outline" onClick={() => setCatDialog(false)}>Anuluj</Button>
             <Button
               disabled={!catForm.name || !catForm.slug || !!slugError || createCat.isPending || updateCat.isPending}
               onClick={() => {
-                const body = { ...catForm }
+                const { teamMode, teamLapCount, ...rest } = catForm
+                const body = {
+                  ...rest,
+                  teamMode: teamMode === 'none' ? null : teamMode,
+                  teamLapCount: teamMode === 'relay_free' && teamLapCount !== '' ? Number(teamLapCount) : null,
+                }
                 if (editingCat) {
                   updateCat.mutate({ id: editingCat.id, ...body })
                 } else {

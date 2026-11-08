@@ -54,7 +54,7 @@ export async function participantsRoutes(fastify) {
 
   // Update participant (inline edit)
   fastify.patch('/participants/:id', async (req, reply) => {
-    const allowed = ['firstName', 'lastName', 'email', 'gender', 'birthDate', 'club', 'bibNumber', 'categoryId', 'rfidEpc', 'phone', 'tshirtSize']
+    const allowed = ['firstName', 'lastName', 'email', 'gender', 'birthDate', 'club', 'bibNumber', 'categoryId', 'rfidEpc', 'phone', 'tshirtSize', 'teamId', 'teamLeg']
     const updates = {}
     for (const key of allowed) {
       if (req.body[key] !== undefined) updates[key] = req.body[key] === '' ? null : req.body[key]

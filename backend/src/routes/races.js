@@ -76,7 +76,7 @@ export async function racesRoutes(fastify) {
         db.select().from(settings).where(eq(settings.key, 'mqtt_topic_main')).then(r => r[0]?.value ?? 'leszyrun'),
         db.select().from(settings).where(eq(settings.key, 'mqtt_topic_finish')).then(r => r[0]?.value ?? 'leszyrun/finish'),
       ])
-      await detector.startRace(run, { ...category.event, rfidTopicMain: rowMain, rfidTopicFinish: rowFinish }, allParticipants)
+      await detector.startRace(run, { ...category.event, rfidTopicMain: rowMain, rfidTopicFinish: rowFinish, teamMode: category.teamMode, teamLapCount: category.teamLapCount, teamTimeLimitSeconds: category.teamTimeLimitSeconds }, allParticipants)
     }
 
     broadcast('race:update', { raceRunId: run.id, status: 'active', categoryId: run.categoryId })
@@ -271,7 +271,12 @@ export async function racesRoutes(fastify) {
     if (detector) {
       const race = detector.activeRaces.get(raceRunId)
       if (race) {
-        for (const pid of participantIds) if (!removedIds.has(pid)) race.startedParticipants.add(pid)
+        for (const pid of participantIds) {
+          if (removedIds.has(pid)) continue
+          race.startedParticipants.add(pid)
+          // The operator decided this relay leg is on course: stop waiting for its handover.
+          race.awaitingHandover?.delete(pid)
+        }
       }
     }
 

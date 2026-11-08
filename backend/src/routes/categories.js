@@ -23,14 +23,18 @@ export async function categoriesRoutes(fastify) {
 
   // Create category
   fastify.post('/events/:eventId/categories', async (req, reply) => {
-    const { name, slug, untimed } = req.body
+    const { name, slug, untimed, teamMode, teamLapCount } = req.body
     if (!name || !slug) return reply.code(400).send({ error: 'name and slug are required' })
+    const teamError = teamFieldsError({ teamMode, teamLapCount })
+    if (teamError) return reply.code(400).send({ error: teamError })
 
     const [row] = await db.insert(categories).values({
       eventId: req.params.eventId,
       name,
       slug: slug.toLowerCase().replace(/\s+/g, '-'),
       ...(untimed !== undefined ? { untimed: !!untimed } : {}),
+      ...(teamMode !== undefined ? { teamMode } : {}),
+      ...(teamLapCount !== undefined ? { teamLapCount } : {}),
     }).returning()
 
     return reply.code(201).send({ data: row })
@@ -38,11 +42,13 @@ export async function categoriesRoutes(fastify) {
 
   // Update category
   fastify.patch('/categories/:id', async (req, reply) => {
-    const allowed = ['name', 'slug', 'untimed']
+    const allowed = ['name', 'slug', 'untimed', 'teamMode', 'teamLapCount', 'teamTimeLimitSeconds']
     const updates = {}
     for (const key of allowed) {
       if (req.body[key] !== undefined) updates[key] = req.body[key]
     }
+    const teamError = teamFieldsError(updates)
+    if (teamError) return reply.code(400).send({ error: teamError })
 
     const [row] = await db.update(categories).set(updates).where(eq(categories.id, req.params.id)).returning()
     if (!row) return reply.code(404).send({ error: 'Category not found' })
@@ -106,4 +112,13 @@ export async function categoriesRoutes(fastify) {
 
     return { data: { imported, updated, skipped, errors: importErrors } }
   })
+}
+
+const positiveIntOrNull = (v) => v == null || (Number.isInteger(v) && v >= 1)
+
+function teamFieldsError({ teamMode, teamLapCount, teamTimeLimitSeconds }) {
+  if (teamMode !== undefined && ![null, 'relay', 'relay_free'].includes(teamMode)) return "teamMode must be 'relay_free', 'relay' or null"
+  if (!positiveIntOrNull(teamLapCount)) return 'teamLapCount must be a positive integer or null'
+  if (!positiveIntOrNull(teamTimeLimitSeconds)) return 'teamTimeLimitSeconds must be a positive integer or null'
+  return null
 }

@@ -150,6 +150,13 @@ export const api = {
       request('POST', `/races/${raceRunId}/checkpoint-imports?label=${encodeURIComponent(label)}`, formData, true),
   },
 
+  // Relay in any order: a team's laps and the operator's corrections
+  teamLaps: {
+    list: (raceRunId) => request('GET', `/races/${raceRunId}/team-laps`),
+    create: (raceRunId, body) => request('POST', `/races/${raceRunId}/team-laps`, body),
+    update: (id, body) => request('PATCH', `/team-laps/${id}`, body),
+  },
+
   // Event Documents
   documents: {
     list: (eventId) => request('GET', `/events/${eventId}/documents`),
