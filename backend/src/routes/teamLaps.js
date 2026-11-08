@@ -7,14 +7,19 @@ import { lapEdit } from '../lib/teamLapEdits.js'
 // Operator corrections of a relay-in-any-order lap: add one the chip missed, move one to the
 // teammate who really ran it, fix its time, remove a false one (and undo that). A removed lap
 // keeps its row with deleted_at set, because a DELETE would never reach the other hosts.
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+const isUuid = (v) => typeof v === 'string' && UUID.test(v)
+
 export async function teamLapsRoutes(fastify) {
   const { db } = fastify
 
-  const loadRun = (id) => db.query.raceRuns.findFirst({ where: eq(raceRuns.id, id), with: { category: true } })
-  const loadParticipant = (id) => id ? db.query.participants.findFirst({ where: eq(participants.id, id) }) : null
+  // A malformed id is a missing row, not a database error.
+  const loadRun = (id) => isUuid(id) ? db.query.raceRuns.findFirst({ where: eq(raceRuns.id, id), with: { category: true } }) : null
+  const loadParticipant = (id) => isUuid(id) ? db.query.participants.findFirst({ where: eq(participants.id, id) }) : null
 
   // Every lap of the run, removed ones included (the panel shows them struck through).
-  fastify.get('/races/:raceRunId/team-laps', async (req) => {
+  fastify.get('/races/:raceRunId/team-laps', async (req, reply) => {
+    if (!isUuid(req.params.raceRunId)) return reply.code(404).send({ error: 'Race run not found' })
     const rows = await db.select().from(teamLaps).where(eq(teamLaps.raceRunId, req.params.raceRunId))
     return { data: rows }
   })
@@ -31,7 +36,7 @@ export async function teamLapsRoutes(fastify) {
   })
 
   fastify.patch('/team-laps/:id', async (req, reply) => {
-    const lap = await db.query.teamLaps.findFirst({ where: eq(teamLaps.id, req.params.id) })
+    const lap = isUuid(req.params.id) ? await db.query.teamLaps.findFirst({ where: eq(teamLaps.id, req.params.id) }) : null
     if (!lap) return reply.code(404).send({ error: 'Lap not found' })
     const run = await loadRun(lap.raceRunId)
     const body = req.body ?? {}

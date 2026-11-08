@@ -14,6 +14,7 @@ import { useWsEvent } from '../lib/ws.js'
 import { volunteerFinishAt, volunteerFinishCheck } from '../lib/volunteerFinish.js'
 import { chipTies, chipTieCount, chipTieSpreadMs, finishToLeadGroup, sessionAt } from '../lib/chipTie.js'
 import TieFramesDialog from '../components/TieFramesDialog.jsx'
+import TeamLapsPanel from '../components/TeamLaps/TeamLapsPanel.jsx'
 import { sortOverviewRows, overviewGroup } from '../lib/overviewOrder.js'
 
 const GENDER_VIEWS = [
@@ -519,6 +520,11 @@ export default function Results() {
           <Button variant="outline" size="sm"><ExternalLink size={12} /> Widok publiczny</Button>
         </Link>
       </div>
+
+      {categories.filter(c => c.teamMode === 'relay_free').map(c => {
+        const run = (c.raceRuns || []).find(r => r.status === 'active' || r.status === 'finished')
+        return run ? <TeamLapsPanel key={c.id} category={c} run={run} /> : null
+      })}
 
       <div className="flex-1 min-h-0">
         <RaceOverview eventId={id} categories={categories} />
