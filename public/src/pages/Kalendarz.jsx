@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useSearchParams, Link } from 'react-router-dom'
-import { loadCalendarEvents, filterCalendarEvents } from '../lib/calendarData.js'
+import { loadCalendarEvents, filterCalendarEvents, hasCertifiedDistance } from '../lib/calendarData.js'
 import Navbar from '../components/Navbar.jsx'
 import FilterBar from '../components/FilterBar.jsx'
 import EventRow from '../components/EventRow.jsx'
@@ -170,6 +170,7 @@ export default function Kalendarz() {
     timeRange: searchParams.get('when') || '',
     price: searchParams.get('price') || '',
     added: searchParams.get('added') || '',
+    atest: searchParams.get('atest') === '1',
   })
 
   const handleLocationRequest = useCallback(() => {
@@ -259,16 +260,18 @@ export default function Kalendarz() {
 
     setAutoExpanded(isAutoExpanded)
 
+    const ranges = filters.distance.map(r => r.split('-').map(Number))
+    const inRange = (d) => {
+      const m = parseDistanceToMeters(d)
+      if (isNaN(m)) return false
+      return ranges.some(([minDist, maxDist]) => m >= minDist && m <= maxDist)
+    }
     if (filters.distance.length > 0 && filteredData.length > 0) {
-      const ranges = filters.distance.map(r => r.split('-').map(Number))
-      filteredData = filteredData.filter(e => {
-        if (!e.distances || e.distances.length === 0) return false
-        return e.distances.some(d => {
-          const m = parseDistanceToMeters(d)
-          if (isNaN(m)) return false
-          return ranges.some(([minDist, maxDist]) => m >= minDist && m <= maxDist)
-        })
-      })
+      filteredData = filteredData.filter(e => (e.distances || []).some(inRange))
+    }
+
+    if (filters.atest && filteredData.length > 0) {
+      filteredData = filteredData.filter(e => hasCertifiedDistance(e, ranges.length ? inRange : undefined))
     }
 
     if (filters.price && filteredData.length > 0) {
@@ -296,7 +299,7 @@ export default function Kalendarz() {
     } else {
       setEvents(filteredData)
     }
-  }, [rawData, radius, filters.distance, filters.price, page, userLocation, view])
+  }, [rawData, radius, filters.distance, filters.price, filters.atest, page, userLocation, view])
 
   // Sync filters to URL
   useEffect(() => {
@@ -308,6 +311,7 @@ export default function Kalendarz() {
     if (filters.timeRange) params.set('when', filters.timeRange)
     if (filters.price) params.set('price', filters.price)
     if (filters.added) params.set('added', filters.added)
+    if (filters.atest) params.set('atest', '1')
     if (view !== 'list') params.set('view', view)
     if (userLocation && radius !== 50) params.set('r', String(radius))
     if (page > 1) params.set('page', String(page))

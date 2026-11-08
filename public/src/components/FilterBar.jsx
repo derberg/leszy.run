@@ -79,6 +79,7 @@ function activeFilterCount(filters, userLocation) {
   if (filters.timeRange) count++
   if (filters.price) count++
   if (filters.added) count++
+  if (filters.atest) count++
   if (userLocation) count++
   return count
 }
@@ -559,10 +560,28 @@ export default function FilterBar({ filters, onChange, view, onViewChange, userL
             onChange={(val) => update('added', val)}
           />
 
+          {/* Races with a course in the PZLA register of certified courses (run-atest.js). */}
+          <button
+            type="button"
+            onClick={() => update('atest', !filters.atest)}
+            className={`${selectClass} pr-3.5 text-left whitespace-nowrap flex items-center gap-2 ${filters.atest ? 'border-apex-yellow-dim text-apex-text-bright' : ''}`}
+            aria-pressed={!!filters.atest}
+            aria-label="Tylko trasy z atestem PZLA"
+          >
+            <span className={`w-4 h-4 flex-shrink-0 border ${filters.atest ? 'bg-apex-yellow border-apex-yellow' : 'border-apex-border-mid'} flex items-center justify-center`}>
+              {filters.atest && (
+                <svg className="w-3 h-3 text-apex-ink" viewBox="0 0 12 12" fill="none">
+                  <path d="M2 6l3 3 5-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+              )}
+            </span>
+            Atest PZLA
+          </button>
+
           {count > 0 && (
             <button
               type="button"
-              onClick={() => onChange({ search: '', type: [], voivodeship: [], distance: [], timeRange: '', price: '', added: '' })}
+              onClick={() => onChange({ search: '', type: [], voivodeship: [], distance: [], timeRange: '', price: '', added: '', atest: false })}
               className="font-mono text-[11px] tracking-wide text-apex-yellow hover:text-apex-yellow-bright transition-colors flex-shrink-0 px-2 py-2.5"
             >
               Wyczyść filtry ✕

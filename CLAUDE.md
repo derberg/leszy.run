@@ -1490,6 +1490,11 @@ says (`scraper_all.atest_claim`, extracted by step 8.1 behind an evidence gate):
   course has no atest (it wins over the register), a claim the register cannot back
   or backs with a void row, and a same-town same-distance near miss.
 
+/kalendarz has an „Atest PZLA” filter (`?atest=1`, `hasCertifiedDistance` in
+`public/src/lib/calendarData.js`); with the distance filter on, a race passes only when a
+certified distance is inside it, so „Półmaraton” + atest means a certified half. List rows
+carry a „✓ atest” tag. `atest` is one of `CALENDAR_FIELDS`, so it is in `events.json`.
+
 A register row with any status („nie rozgrywa się”, expired, course changed) or
 certified five or more years before the race does not count. The register is stored
 in `atest_register` (service_role only); a failed fetch uses the stored copy.
