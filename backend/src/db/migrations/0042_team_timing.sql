@@ -1,5 +1,5 @@
 -- Team timing (relay in any order / relay with a fixed order). Mirrors Supabase migration
--- 20261114100000_team_timing.sql.
+-- 20261118100000_team_timing.sql.
 ALTER TABLE "categories" ADD COLUMN IF NOT EXISTS "team_mode" text;
 --> statement-breakpoint
 ALTER TABLE "categories" ADD COLUMN IF NOT EXISTS "team_time_limit_seconds" integer;
