@@ -704,7 +704,7 @@ Sync is disabled when `SUPABASE_URL` env var is missing.
 **Reverse sync — config + results (`src/sync/configSync.js`):** so an event created/edited
 on one device (e.g. the Mac) appears automatically on every other device (e.g. a Pi acting
 as a second backend). Polls Supabase every 30s and upserts these tables Supabase → local:
-`events, categories, participants, checkpoints, race_runs, results, event_documents`.
+`events, categories, participants, checkpoints, race_runs, results, team_laps, event_documents`.
 `checkpoint_categories` (which categories pass a checkpoint; none = all) has no id or
 `synced_at`, so it rides on its checkpoint row (`src/sync/checkpointLinks.js`): a link change
 dirties the checkpoint, the push replaces that checkpoint's link set in Supabase before marking
@@ -1731,7 +1731,7 @@ The mapping files (`biegi-mappings.js` in both `backend/scripts/lib/` and `publi
 - Do not use Next.js (use Vite)
 - Do not dockerize Mosquitto (hardware constraint — R700 needs LAN access)
 - Do not use `docker compose down -v` unless explicitly asked
-- Do not pull data from Supabase into local DB EXCEPT via the sanctioned reverse-sync workers: `checkins`/`checkin_documents` (`checkinSync.js`), `checkpoint_observations` (realtime in `supabase.js`), and event config + results (`configSync.js` — `events, categories, participants, checkpoints, race_runs, results, event_documents`, plus `checkpoint_categories` via `checkpointLinks.js`). Any NEW reverse-pull must stamp `synced_at = now()` and guard the ON CONFLICT update with `synced_at IS NOT NULL` (never clobber a locally-dirty row) — see `configSync.js`.
+- Do not pull data from Supabase into local DB EXCEPT via the sanctioned reverse-sync workers: `checkins`/`checkin_documents` (`checkinSync.js`), `checkpoint_observations` (realtime in `supabase.js`), and event config + results (`configSync.js` — `events, categories, participants, checkpoints, race_runs, results, team_laps, event_documents`, plus `checkpoint_categories` via `checkpointLinks.js`). Any NEW reverse-pull must stamp `synced_at = now()` and guard the ON CONFLICT update with `synced_at IS NOT NULL` (never clobber a locally-dirty row) — see `configSync.js`.
 - Do not add TypeScript type annotations or `.ts` files
 - Do not add an AGPL dependency to `vision/`. The YOLOv8 and Ultralytics family is banned; LeszyRun itself is AGPL-3.0-only, but only because its author chose so: third-party AGPL code would remove the author's freedom to license it any other way. Person detection is MediaPipe, Apache 2.0, and it is enough.
 - Do not report a vision read rate measured on runners the model trained on. Race photographs may train the torso reader only with runners held out by bib number, and only the held-out runners measure it. Do not commit the torso reader's labels, crops or weights: they come from photographs of people.
