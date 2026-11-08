@@ -224,7 +224,7 @@ SMS (backend, optional — SMS disabled if missing):
 - `SMSAPI_SENDER` — sender name registered with SMSAPI
 
 Scraper (backend, optional — URL resolver disabled if missing):
-- `BRAVE_SEARCH_API_KEY` — API key from https://brave.com/search/api/ (1000 queries/month free tier)
+- `BRAVE_SEARCH_API_KEY` — API key from https://brave.com/search/api/. Also the Python enricher's search (two queries per event, at most one a second); without it the enricher falls back to SearXNG
 
 Pipeline scheduler / alerting (scheduler container, optional — alerts disabled if missing):
 - `SENDGRID_API_KEY` — SendGrid API key (reused from zatyrani.pl). Without this the scheduler still runs the pipeline but cannot send failure emails.
@@ -1254,11 +1254,11 @@ cd backend && node --env-file=../.env scripts/run-data-audit.js                 
 
 **Tech stack:**
 - **Ollama** — local LLM (qwen3.6:27b, called with thinking off) for field extraction
-- **SearXNG** — Docker-based web search for URL discovery
+- **Brave Search API** — web search for URL discovery when `BRAVE_SEARCH_API_KEY` is set (passed to the enricher container by docker-compose). **SearXNG** (Docker) is the fallback when the key is missing or a Brave call fails. Measured 2026-11-08: SearXNG returned nothing for 47 of 48 queries, because every engine it proxies answered with a CAPTCHA, a 429 or an access denial; it had been that way since at least mid-October
 - **Crawl4AI** — headless browser for crawling SPAs (dostartu.pl, etc.)
 - **Docling** — PDF text extraction for regulamin documents
 
-**What it finds (URLs):** SearXNG search for the two source-of-truth URLs only:
+**What it finds (URLs):** a web search (Brave, else SearXNG) for the two source-of-truth URLs only:
 - `registration_url` — sign-up page (search + verification gate)
 - `regulamin_url` — rules PDF/page (search + verification gate)
 

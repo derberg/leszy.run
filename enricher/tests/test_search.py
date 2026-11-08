@@ -139,3 +139,87 @@ def test_search_empty_missing_fields():
         config=config,
     )
     assert result == {}
+
+
+# --- Brave Search API -------------------------------------------------------
+
+from enricher.steps import search as search_mod
+
+BRAVE_URL = "https://api.search.brave.com/res/v1/web/search"
+BRAVE_RESPONSE = {
+    "web": {
+        "results": [
+            {"url": "https://maratonypolskie.pl/x", "title": "Bieg Leszka", "description": ""},
+            {"url": "https://biegleszka.pl/zapisy", "title": "Zapisy", "description": "Bieg Leszka 2026"},
+        ]
+    }
+}
+
+
+def _brave_config():
+    search_mod._last_brave_call = 0.0
+    search_mod._BRAVE_MIN_INTERVAL_S = 0
+    return Config(brave_api_key="test-key")
+
+
+def test_brave_used_when_key_set_and_snippet_counts_for_relevance():
+    cfg = _brave_config()
+    with respx.mock:
+        brave = respx.get(BRAVE_URL).mock(return_value=httpx.Response(200, json=BRAVE_RESPONSE))
+        searx = respx.get("http://localhost:8888/search").mock(
+            return_value=httpx.Response(200, json=SEARXNG_RESPONSE)
+        )
+        result = search_missing_urls(
+            event={"name": "Bieg Leszka", "date": "2026-05-10", "location": "Warszawa"},
+            missing_fields=["registration_url"],
+            config=cfg,
+        )
+    assert result.get("registration_url") == "https://biegleszka.pl/zapisy"
+    assert brave.called and not searx.called
+    assert brave.calls[0].request.headers["X-Subscription-Token"] == "test-key"
+
+
+def test_brave_failure_falls_back_to_searxng():
+    cfg = _brave_config()
+    with respx.mock:
+        respx.get(BRAVE_URL).mock(return_value=httpx.Response(429))
+        searx = respx.get("http://localhost:8888/search").mock(
+            return_value=httpx.Response(200, json=SEARXNG_RESPONSE)
+        )
+        result = search_missing_urls(
+            event={"name": "Bieg Leszka", "date": "2026-05-10", "location": "Warszawa"},
+            missing_fields=["registration_url"],
+            config=cfg,
+        )
+    assert searx.called
+    assert result.get("registration_url") == "https://biegleszka.pl/zapisy"
+
+
+def test_brave_empty_answer_does_not_fall_back():
+    cfg = _brave_config()
+    with respx.mock:
+        respx.get(BRAVE_URL).mock(return_value=httpx.Response(200, json={"web": {"results": []}}))
+        searx = respx.get("http://localhost:8888/search").mock(
+            return_value=httpx.Response(200, json=SEARXNG_RESPONSE)
+        )
+        result = search_missing_urls(
+            event={"name": "Bieg Leszka", "date": "2026-05-10", "location": "Warszawa"},
+            missing_fields=["registration_url"],
+            config=cfg,
+        )
+    assert not searx.called
+    assert result == {}
+
+
+def test_no_key_keeps_searxng():
+    with respx.mock:
+        brave = respx.get(BRAVE_URL).mock(return_value=httpx.Response(200, json=BRAVE_RESPONSE))
+        respx.get("http://localhost:8888/search").mock(
+            return_value=httpx.Response(200, json=SEARXNG_RESPONSE)
+        )
+        search_missing_urls(
+            event={"name": "Bieg Leszka", "date": "2026-05-10", "location": "Warszawa"},
+            missing_fields=["registration_url"],
+            config=Config(),
+        )
+    assert not brave.called
