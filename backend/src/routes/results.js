@@ -61,6 +61,7 @@ export async function resultsRoutes(fastify) {
         mode, results: live, laps,
         lapCount: run.category.teamLapCount ?? undefined,
         raceFinished: run.status === 'finished' || run.status === 'cancelled',
+        gunStartedAt: run.startedAt,
       }),
     }
   })

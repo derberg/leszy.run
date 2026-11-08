@@ -117,22 +117,21 @@ export const gateEvents = pgTable('gate_events', {
   crossingId: uuid('crossing_id'),
 })
 
-// One lap of a 'relay_free' team, closed by the tag of the member who ran it.
+// One lap of a 'relay_free' team: the moment the member who ran it crossed the gate. A lap's
+// number and time are derived when read (its team's live laps in closed_at order), so a
+// correction changes one row. Removed by `deleted_at`, never DELETE: deletes do not sync.
 export const teamLaps = pgTable('team_laps', {
   id: uuid('id').primaryKey().defaultRandom(),
   raceRunId: uuid('race_run_id').notNull().references(() => raceRuns.id, { onDelete: 'cascade' }),
   teamId: uuid('team_id').notNull(),
-  lapNumber: integer('lap_number').notNull(),
   participantId: uuid('participant_id').notNull().references(() => participants.id, { onDelete: 'cascade' }),
   closedAt: timestamp('closed_at', { withTimezone: true }).notNull(),
-  lapMs: bigint('lap_ms', { mode: 'number' }).notNull(),
   peakRssiCdbm: integer('peak_rssi_cdbm'),
   source: text('source').notNull().default('chip'),   // 'chip' | 'manual'
+  deletedAt: timestamp('deleted_at', { withTimezone: true }),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
   syncedAt: timestamp('synced_at', { withTimezone: true }),
-}, (t) => [
-  unique().on(t.raceRunId, t.teamId, t.lapNumber),
-])
+})
 
 export const gateCrossings = pgTable('gate_crossings', {
   id: uuid('id').primaryKey().defaultRandom(),

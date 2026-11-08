@@ -23,7 +23,11 @@
  *                                 teamLeg } }. Rows without participant.teamId are ignored.
  * @param {Object<string,string>} [opts.teamNames] teamId → display name; missing ones get a
  *                                 label from the members' surnames
- * @param {Array}    [opts.laps]  'relay_free': { id, teamId, lapNumber, participantId, lapMs }
+ * @param {Array}    [opts.laps]  'relay_free': team_laps rows { id, teamId, participantId, closedAt,
+ *                                 deletedAt?, source? }. A lap's number and time are derived: the
+ *                                 team's live laps in closedAt order, each timed from the one before
+ *                                 (the first from the gun).
+ * @param {string|Date} [opts.gunStartedAt] 'relay_free': the race run's gun
  * @param {number}   [opts.lapCount] 'relay_free': a fixed number of laps; none = as many as possible
  * @param {boolean}  [opts.raceFinished] the race run is over: every team still running is done
  * @returns {Array<TeamStanding>} sorted by standing
@@ -45,7 +49,7 @@
 const UNRANKED_TEAM = { dnf: 1, dsq: 2, dns: 3 }
 const STATUS_ORDER = { finished: 0, racing: 1, 'not-started': 2, dnf: 3, dsq: 4, dns: 5 }
 
-export function computeTeamResults({ mode, results, teamNames = {}, laps = [], lapCount, raceFinished = false } = {}) {
+export function computeTeamResults({ mode, results, teamNames = {}, laps = [], lapCount, raceFinished = false, gunStartedAt = null } = {}) {
   const byTeam = new Map()
   for (const r of results ?? []) {
     const teamId = r.participant?.teamId
@@ -55,13 +59,14 @@ export function computeTeamResults({ mode, results, teamNames = {}, laps = [], l
   }
   const lapsByTeam = new Map()
   for (const l of laps) {
+    if (l.deletedAt) continue
     if (!lapsByTeam.has(l.teamId)) lapsByTeam.set(l.teamId, [])
     lapsByTeam.get(l.teamId).push(l)
   }
 
   const free = mode === 'relay_free'
   const teams = [...byTeam].map(([teamId, rows]) => free
-    ? freeRelayTeam(teamId, rows, lapsByTeam.get(teamId) ?? [], lapCount, raceFinished)
+    ? freeRelayTeam(teamId, rows, lapsByTeam.get(teamId) ?? [], lapCount, raceFinished, gunStartedAt)
     : relayTeam(teamId, rows))
 
   for (const t of teams) t.name = teamNames[t.teamId] || defaultTeamName(t.runners ?? t.members)
@@ -146,20 +151,25 @@ function relayTeam(teamId, rows) {
   }
 }
 
-function freeRelayTeam(teamId, rows, teamLaps, lapCount, raceFinished) {
+function freeRelayTeam(teamId, rows, teamLaps, lapCount, raceFinished, gunStartedAt) {
   const byPid = new Map(rows.map(r => [r.participantId, r]))
-  const ordered = [...teamLaps].sort((a, b) => a.lapNumber - b.lapNumber)
+  const gun = gunStartedAt ? new Date(gunStartedAt).getTime() : null
+  const ordered = [...teamLaps].sort((a, b) => new Date(a.closedAt) - new Date(b.closedAt))
   const counted = lapCount ? ordered.slice(0, lapCount) : ordered
-  let cum = 0
-  const members = counted.map(l => {
-    cum += Number(l.lapMs)
+  let prev = gun
+  const members = counted.map((l, i) => {
+    const at = new Date(l.closedAt).getTime()
+    const legMs = prev != null ? at - prev : null
+    prev = at
     const r = byPid.get(l.participantId)
-    return { id: l.id ?? `${teamId}:${l.lapNumber}`, participantId: l.participantId, participant: r?.participant ?? {},
-      status: 'finished', leg: l.lapNumber, legMs: Number(l.lapMs), cumulativeMs: cum }
+    return { id: l.id ?? `${teamId}:${i + 1}`, lapId: l.id ?? null, participantId: l.participantId, participant: r?.participant ?? {},
+      status: 'finished', leg: i + 1, legMs, cumulativeMs: gun != null ? at - gun : null, closedAt: l.closedAt, source: l.source ?? 'chip' }
   })
+  const cum = members.length ? members[members.length - 1].cumulativeMs : null
   const runners = rows.map(r => {
     const own = members.filter(m => m.participantId === r.participantId)
-    return { ...r, laps: own.length, bestLapMs: own.length ? Math.min(...own.map(m => m.legMs)) : null }
+    const timed = own.filter(m => m.legMs != null)
+    return { ...r, laps: own.length, bestLapMs: timed.length ? Math.min(...timed.map(m => m.legMs)) : null }
   }).sort((a, b) => b.laps - a.laps || (a.bestLapMs ?? Infinity) - (b.bestLapMs ?? Infinity))
 
   const completed = members.length
@@ -198,7 +208,8 @@ function compareFree(a, b) {
 
 // Relay in any order: every lap of the race ranked against every other (Najszybsze okrążenia).
 function rankAllLaps(teams) {
-  const all = teams.flatMap(t => t.members).sort((a, b) => a.legMs - b.legMs)
+  for (const t of teams) for (const m of t.members) m.legRank = null
+  const all = teams.flatMap(t => t.members).filter(m => m.legMs != null).sort((a, b) => a.legMs - b.legMs)
   all.forEach((m, i) => { m.legRank = i + 1 })
 }
 

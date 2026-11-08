@@ -26,23 +26,24 @@ ALTER TABLE public.participants
   ADD COLUMN team_leg integer CHECK (team_leg >= 1);
 CREATE INDEX participants_team_id_idx ON public.participants (team_id) WHERE team_id IS NOT NULL;
 
--- One lap of a 'relay_free' team, credited to the member whose tag closed it. Written by the
--- timing host and pushed like results; public like results (the results snapshot reads it).
+-- One lap of a 'relay_free' team: when the member who ran it crossed the gate. Written by the
+-- timing host (the chip, or an operator's correction) and pushed like results; public like
+-- results (the results snapshot reads it). A lap's number and time are derived from its team's
+-- live laps in closed_at order. A removed lap keeps its row with deleted_at set: a DELETE would
+-- never reach the other hosts.
 CREATE TABLE public.team_laps (
   id              uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   race_run_id     uuid NOT NULL REFERENCES public.race_runs(id) ON DELETE CASCADE,
   team_id         uuid NOT NULL,
-  lap_number      integer NOT NULL CHECK (lap_number >= 1),
   participant_id  uuid NOT NULL REFERENCES public.participants(id) ON DELETE CASCADE,
   closed_at       timestamptz NOT NULL,
-  lap_ms          bigint NOT NULL CHECK (lap_ms >= 0),
   peak_rssi_cdbm  integer,
   source          text NOT NULL DEFAULT 'chip' CHECK (source IN ('chip', 'manual')),
+  deleted_at      timestamptz,
   created_at      timestamptz DEFAULT now(),
-  synced_at       timestamptz,
-  UNIQUE (race_run_id, team_id, lap_number)
+  synced_at       timestamptz
 );
-CREATE INDEX team_laps_race_run_id_idx ON public.team_laps (race_run_id);
+CREATE INDEX team_laps_race_run_team_idx ON public.team_laps (race_run_id, team_id);
 ALTER TABLE public.team_laps ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON public.team_laps FROM anon, authenticated;
 GRANT SELECT ON public.team_laps TO anon, authenticated;

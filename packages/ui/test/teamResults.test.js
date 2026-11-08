@@ -84,29 +84,44 @@ test('formatTeamMs', () => {
   assert.equal(formatTeamMs(3_725_000), '1:02:05')
 })
 
-const lap = (teamId, lapNumber, participantId, min) => ({ id: `${teamId}${lapNumber}`, teamId, lapNumber, participantId, lapMs: min * MIN })
+const GUN = '2026-12-06T10:00:00.000Z'
+// Laps of one team in running order: [[participantId, minutes], ...] → team_laps rows.
+const lapsOf = (teamId, list) => {
+  let t = new Date(GUN).getTime()
+  return list.map(([participantId, min], i) => {
+    t += min * MIN
+    return { id: `${teamId}${i + 1}`, teamId, participantId, closedAt: new Date(t).toISOString() }
+  })
+}
 
 test('relay_free with a fixed lap count: laps in any order, one runner may run several', () => {
   const a = row('A', null, { lastName: 'Nowak' }), b = row('A', null, { lastName: 'Lis' })
-  const [t] = computeTeamResults({
-    mode: 'relay_free', lapCount: 3, results: [a, b],
-    laps: [lap('A', 2, a.participantId, 11), lap('A', 1, a.participantId, 10), lap('A', 3, b.participantId, 12)],
-  })
+  const laps = lapsOf('A', [[a.participantId, 10], [a.participantId, 11], [b.participantId, 12]]).reverse() // order in the array does not matter
+  const [t] = computeTeamResults({ mode: 'relay_free', lapCount: 3, results: [a, b], laps, gunStartedAt: GUN })
   assert.equal(t.status, 'finished')
   assert.equal(t.totalMs, 33 * MIN)
-  assert.deepEqual(t.members.map(m => [m.leg, m.participant.lastName, m.cumulativeMs / MIN]), [[1, 'Nowak', 10], [2, 'Nowak', 21], [3, 'Lis', 33]])
+  assert.deepEqual(t.members.map(m => [m.leg, m.participant.lastName, m.legMs / MIN, m.cumulativeMs / MIN]),
+    [[1, 'Nowak', 10, 10], [2, 'Nowak', 11, 21], [3, 'Lis', 12, 33]])
   assert.deepEqual(t.runners.map(r => [r.participant.lastName, r.laps, r.bestLapMs / MIN]), [['Nowak', 2, 10], ['Lis', 1, 12]])
+})
+
+test('relay_free: a deleted lap is skipped and the next one is timed from the lap before it', () => {
+  const a = row('A', null)
+  const laps = lapsOf('A', [[a.participantId, 10], [a.participantId, 1], [a.participantId, 10]])
+  laps[1].deletedAt = '2026-12-06T11:00:00Z' // a false read, removed by the operator
+  const [t] = computeTeamResults({ mode: 'relay_free', results: [{ ...a, status: 'started' }], laps, gunStartedAt: GUN })
+  assert.deepEqual(t.members.map(m => [m.leg, m.legMs / MIN]), [[1, 10], [2, 11]])
 })
 
 test('relay_free, open-ended: most laps wins, then the earlier last lap; gaps in laps or time', () => {
   const a = row('A', null), b = row('B', null), c = row('C', null)
   const live = (r) => ({ ...r, status: 'started' })
   const teams = computeTeamResults({
-    mode: 'relay_free', results: [live(a), live(b), live(c)],
+    mode: 'relay_free', results: [live(a), live(b), live(c)], gunStartedAt: GUN,
     laps: [
-      lap('A', 1, a.participantId, 10), lap('A', 2, a.participantId, 10),
-      lap('B', 1, b.participantId, 9), lap('B', 2, b.participantId, 10), lap('B', 3, b.participantId, 10),
-      lap('C', 1, c.participantId, 10), lap('C', 2, c.participantId, 11),
+      ...lapsOf('A', [[a.participantId, 10], [a.participantId, 10]]),
+      ...lapsOf('B', [[b.participantId, 9], [b.participantId, 10], [b.participantId, 10]]),
+      ...lapsOf('C', [[c.participantId, 10], [c.participantId, 11]]),
     ],
   })
   assert.deepEqual(teams.map(t => [t.teamId, t.position, t.completed, t.gapLaps, t.gapMs]),
@@ -118,8 +133,8 @@ test('relay_free, open-ended: most laps wins, then the earlier last lap; gaps in
 test('relay_free: when the race is over every team with laps is finished; a team that gave up keeps its laps', () => {
   const a = row('A', null), b = row('B', null, { status: 'dnf' })
   const teams = computeTeamResults({
-    mode: 'relay_free', raceFinished: true, results: [{ ...a, status: 'started' }, b],
-    laps: [lap('A', 1, a.participantId, 10), lap('B', 1, b.participantId, 9), lap('B', 2, b.participantId, 9)],
+    mode: 'relay_free', raceFinished: true, gunStartedAt: GUN, results: [{ ...a, status: 'started' }, b],
+    laps: [...lapsOf('A', [[a.participantId, 10]]), ...lapsOf('B', [[b.participantId, 9], [b.participantId, 9]])],
   })
   assert.deepEqual(teams.map(t => [t.teamId, t.status, t.position]), [['B', 'dnf', 1], ['A', 'finished', 2]])
 })
@@ -127,8 +142,8 @@ test('relay_free: when the race is over every team with laps is finished; a team
 test('teamRunners: best lap and most laps, across teams', () => {
   const a = row('A', null, { lastName: 'Nowak' }), b = row('A', null, { lastName: 'Lis' }), c = row('B', null, { lastName: 'Wrona' })
   const teams = computeTeamResults({
-    mode: 'relay_free', results: [a, b, c],
-    laps: [lap('A', 1, a.participantId, 11), lap('A', 2, a.participantId, 12), lap('A', 3, b.participantId, 10), lap('B', 1, c.participantId, 9)],
+    mode: 'relay_free', results: [a, b, c], gunStartedAt: GUN,
+    laps: [...lapsOf('A', [[a.participantId, 11], [a.participantId, 12], [b.participantId, 10]]), ...lapsOf('B', [[c.participantId, 9]])],
   })
   assert.deepEqual(teamRunners(teams, 'best').map(r => r.participant.lastName), ['Wrona', 'Lis', 'Nowak'])
   assert.deepEqual(teamRunners(teams, 'laps').map(r => [r.participant.lastName, r.laps]), [['Nowak', 2], ['Wrona', 1], ['Lis', 1]])

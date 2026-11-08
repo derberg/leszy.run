@@ -20,16 +20,16 @@ CREATE TABLE IF NOT EXISTS "team_laps" (
   "id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
   "race_run_id" uuid NOT NULL REFERENCES "race_runs"("id") ON DELETE CASCADE,
   "team_id" uuid NOT NULL,
-  "lap_number" integer NOT NULL,
   "participant_id" uuid NOT NULL REFERENCES "participants"("id") ON DELETE CASCADE,
   "closed_at" timestamp with time zone NOT NULL,
-  "lap_ms" bigint NOT NULL,
   "peak_rssi_cdbm" integer,
   "source" text DEFAULT 'chip' NOT NULL,
+  "deleted_at" timestamp with time zone,
   "created_at" timestamp with time zone DEFAULT now(),
-  "synced_at" timestamp with time zone,
-  CONSTRAINT "team_laps_race_run_id_team_id_lap_number_unique" UNIQUE ("race_run_id", "team_id", "lap_number")
+  "synced_at" timestamp with time zone
 );
+--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "team_laps_race_run_team_idx" ON "team_laps" ("race_run_id", "team_id");
 --> statement-breakpoint
 CREATE TRIGGER trg_reset_synced_at_team_laps
   BEFORE UPDATE ON team_laps

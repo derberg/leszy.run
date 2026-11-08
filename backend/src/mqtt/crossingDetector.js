@@ -798,13 +798,24 @@ export class CrossingDetector {
 
   async #recordLap({ raceRunId, teamId, lapNumber, participantId, closedAt, lapMs, peakRssi }) {
     try {
-      const row = { raceRunId, teamId, lapNumber, participantId, closedAt, lapMs, peakRssiCdbm: peakRssi, source: 'chip' }
+      const row = { raceRunId, teamId, participantId, closedAt, peakRssiCdbm: peakRssi, source: 'chip' }
       await this.db.insert(teamLaps).values(row)
-      this.broadcast('team:lap', row)
+      this.broadcast('team:lap', { ...row, lapNumber, lapMs })
       console.log(`[Detector] Lap ${lapNumber} of team ${teamId} in race ${raceRunId}: ${participantId}, ${Math.round(lapMs / 1000)} s`)
     } catch (err) {
       console.error('[Detector] Failed to record a team lap:', err)
     }
+  }
+
+  /**
+   * An operator corrected a relay-in-any-order lap: re-read the run's laps so the next lap is
+   * numbered and timed from the corrected state. A no-op for a run that is not active here.
+   */
+  async reloadTeamLaps(raceRunId) {
+    const race = this.activeRaces.get(raceRunId)
+    if (!race?.freeRelay) return
+    const laps = await this.db.select().from(teamLaps).where(eq(teamLaps.raceRunId, raceRunId))
+    applyLaps(race.freeRelay.teams, laps, race.freeRelay.gunStartTime)
   }
 
   // Relay: the finish of one leg is the start of the next. The next leg's start is the
@@ -911,12 +922,20 @@ export function buildFreeRelay(participantList, laps, { gunStartTime, lapCount, 
   for (const [teamId, n] of size) {
     teams.set(teamId, { target: lapCount ?? Infinity, laps: 0, lastBoundary: gunStartTime, done: false })
   }
+  applyLaps(teams, laps, gunStartTime)
+  return { teamOf, teams, lastSeen: new Map(), minLapMs, timeLimitMs, gunStartTime }
+}
+
+// Each team's lap count and last lap from its live (not deleted) laps.
+function applyLaps(teams, laps, gunStartTime) {
+  for (const t of teams.values()) { t.laps = 0; t.lastBoundary = gunStartTime }
   for (const lap of laps) {
+    if (lap.deletedAt) continue
     const t = teams.get(lap.teamId)
-    if (!t || lap.lapNumber <= t.laps) continue
-    t.laps = lap.lapNumber
-    t.lastBoundary = new Date(lap.closedAt)
+    if (!t) continue
+    t.laps += 1
+    const at = new Date(lap.closedAt)
+    if (at > t.lastBoundary) t.lastBoundary = at
   }
   for (const t of teams.values()) t.done = t.laps >= t.target
-  return { teamOf, teams, lastSeen: new Map(), minLapMs, timeLimitMs, gunStartTime }
 }

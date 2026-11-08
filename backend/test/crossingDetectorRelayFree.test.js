@@ -35,9 +35,11 @@ test('a runner coming in from the course closes a lap credited to them', async (
   await wait(5)
   detector.processEvent(read('E1', -3500))
   await wait(QUIET + 60)
-  assert.deepEqual(laps(db).map(l => [l.lapNumber, l.participantId, l.peakRssiCdbm]), [[1, 'p1', -3500]])
-  assert.ok(laps(db)[0].lapMs >= 60_000)
-  assert.equal(broadcast.sent.filter(s => s.event === 'team:lap').length, 1)
+  assert.deepEqual(laps(db).map(l => [l.participantId, l.peakRssiCdbm, l.source]), [['p1', -3500, 'chip']])
+  const sent = broadcast.sent.filter(s => s.event === 'team:lap').map(s => s.payload)
+  assert.equal(sent.length, 1)
+  assert.equal(sent[0].lapNumber, 1)
+  assert.ok(sent[0].lapMs >= 60_000)
 })
 
 test('the same runner may run the next lap too; any order works', async (t) => {
@@ -47,7 +49,7 @@ test('the same runner may run the next lap too; any order works', async (t) => {
   detector.processEvent(read('E1')); await wait(QUIET + 60)         // lap 2: p1 again
   await wait(ARRIVAL + 20)
   detector.processEvent(read('E2')); await wait(QUIET + 60)         // lap 3: p2
-  assert.deepEqual(laps(db).map(l => [l.lapNumber, l.participantId]), [[1, 'p1'], [2, 'p1'], [3, 'p2']])
+  assert.deepEqual(laps(db).map(l => l.participantId), ['p1', 'p1', 'p2'])
 })
 
 test('a teammate standing at the gate never closes a lap', async (t) => {
@@ -68,8 +70,9 @@ test('no lap closes sooner than min_finish_seconds after the previous one', asyn
 
 test('the team stops at its lap count; a restart resumes from recorded laps', async (t) => {
   const recorded = [
-    { teamId: 'T', lapNumber: 1, closedAt: new Date(Date.now() - 40_000) },
-    { teamId: 'T', lapNumber: 2, closedAt: new Date(Date.now() - 20_000) },
+    { teamId: 'T', closedAt: new Date(Date.now() - 40_000) },
+    { teamId: 'T', closedAt: new Date(Date.now() - 30_000), deletedAt: new Date() }, // removed: not counted
+    { teamId: 'T', closedAt: new Date(Date.now() - 20_000) },
   ]
   const { detector, db } = await makeRace(t, { lapRows: recorded, cfg: config({ teamLapCount: 2 }) })
   detector.processEvent(read('E2')); await wait(QUIET + 60)
@@ -102,7 +105,19 @@ test('stopping the race closes a lap pass still open as a lap, never as a start 
   detector.processEvent(read('E1', -3500))
   await wait(5)
   await detector.stopRace('rr1')               // the operator clicks stop mid-pass
-  assert.deepEqual(laps(db).map(l => [l.lapNumber, l.participantId]), [[1, 'p1']])
+  assert.deepEqual(laps(db).map(l => l.participantId), ['p1'])
   assert.equal(broadcast.crossings().length, 0, 'no gate crossing was made of it')
   assert.equal((db._inserts().results ?? []).length, 0)
+})
+
+test('reloadTeamLaps: a lap removed by the operator frees the team to count again', async (t) => {
+  const lapRows = [{ teamId: 'T', closedAt: new Date(Date.now() - 20_000) }, { teamId: 'T', closedAt: new Date(Date.now() - 10_000) }]
+  const { detector, db } = await makeRace(t, { lapRows, cfg: config({ teamLapCount: 2 }) })
+  detector.processEvent(read('E1')); await wait(QUIET + 60)
+  assert.equal(laps(db).length, 0, 'done at 2 laps')
+  lapRows[1].deletedAt = new Date()
+  await detector.reloadTeamLaps('rr1')
+  await wait(ARRIVAL + 20)
+  detector.processEvent(read('E1')); await wait(QUIET + 60)
+  assert.equal(laps(db).length, 1)
 })
