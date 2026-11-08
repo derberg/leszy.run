@@ -22,7 +22,11 @@ import { looksMultisport } from '../../lib/multisportEvent.js'
 //     So two requests to sts-timing.pl cover the whole listing, and nothing
 //     reads the 400 single-event pages.
 //   - robots.txt disallows only /tmp/, /private/, /admin/, but declares
-//     `Crawl-delay: 2000`. Two requests a day to sts-timing.pl honour it.
+//     `Crawl-delay: 2000`, which this scraper does NOT honour: each run makes
+//     4 sequential requests to sts-timing.pl (the /wydarzenia/ page, the
+//     EventON AJAX call, and the two wp-json reads in fetchTypes) with no delay
+//     between them, let alone 2000 s. The registration pages on
+//     zapisy.sts-timing.pl are fetched DETAIL_DELAY_MS (1.1 s) apart.
 //     zapisy.sts-timing.pl has no robots.txt (404).
 //
 // registration_url — the card's "Zapisy do wydarzenia" button (EventON's

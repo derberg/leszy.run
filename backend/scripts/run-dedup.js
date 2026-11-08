@@ -171,6 +171,7 @@ async function main() {
     const { data, error } = await supabase
       .from('scraper_all')
       .select('*')
+      .order('id')
       .range(from, from + pageSize - 1)
 
     if (error) { console.error('Fetch error:', error.message); break }

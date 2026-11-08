@@ -123,3 +123,10 @@ test('kids races named in the description set is_kids', () => {
   const [knurow] = parseListing(LISTING)
   assert.equal(buildRow(knurow, parseDetail(html, '1364')).is_kids, true)
 })
+
+test('detectEventTypes: leśn tags trail only at the start of a word', () => {
+  assert.deepEqual(detectEventTypes('OLEŚNICKI BIEG NIEPODLEGŁOŚCI'), [])
+  assert.deepEqual(detectEventTypes('Bieg Olesno 10 km'), [])
+  assert.deepEqual(detectEventTypes('Leśna Dycha'), ['trail'])
+  assert.deepEqual(detectEventTypes('Bieg Lesny'), ['trail'])
+})

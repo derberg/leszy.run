@@ -50,6 +50,7 @@ import { looksMultisport } from '../lib/multisportEvent.js'
 import { looksWalkingRally, looksUnracedRajd } from '../lib/walkingRally.js'
 import { decideDateMove, rowKeys, warsawToday, collectSaDates, collisionFinder, applyDateMove, refileByDate } from '../lib/publishDateMove.js'
 import { fuzzyMatchIn } from './publishFuzzy.js'
+import { fetchAllRows } from '../lib/fetchAllRows.js'
 
 // Sources that handle their own API enrichment in-scraper (avoid double API calls)
 const SELF_ENRICHING_SOURCES = new Set(['dostartu', 'elektronicznezapisy'])
@@ -999,11 +1000,16 @@ async function runPipeline({ force = [], only = [] } = {}) {
         // that wants to re-check incomplete rows declares `knownColumns` and reads
         // the stored values back through knownRows. Tables differ in shape, so the
         // default stays the id-only select every table supports.
-        const { data: existing } = await supabase
-          .from(source.table)
-          .select(source.knownColumns || 'source_id')
-        knownIds = new Set((existing || []).map(r => r.source_id))
-        knownRows = new Map((existing || []).map(r => [r.source_id, r]))
+        // Paged: PostgREST caps a response at 1000 rows, and an id past the cap
+        // would look new (a needless detail fetch, or a duplicate row for b4sport's
+        // editionKey). A failed read throws: an empty known set would re-insert
+        // the whole table.
+        const existing = await fetchAllRows(
+          () => supabase.from(source.table).select(source.knownColumns || 'source_id').order('id'),
+          { label: `${source.table} known ids` },
+        )
+        knownIds = new Set(existing.map(r => r.source_id))
+        knownRows = new Map(existing.map(r => [r.source_id, r]))
         console.log(`[pipeline] ${source.name}: ${knownIds.size} events already in DB`)
       }
 
@@ -1337,6 +1343,7 @@ async function mergeIntoScraperAll({ dryRun = false } = {}) {
           .from(source.table)
           .select('*')
           .is('merged_at', null)
+          .order('id')
           .range(from, from + pageSize - 1)
 
         if (error) { stats.errors.push({ message: `Fetch failed: ${error.message}` }); break }
@@ -1611,6 +1618,7 @@ async function publishToCalendar({ dryRun = false } = {}) {
     const { data, error } = await supabase
       .from('scraper_all')
       .select('*')
+      .order('id')
       .range(from, from + pageSize - 1)
 
     if (error) return { created: 0, skipped: 0, errors: [{ message: `Fetch failed: ${error.message}` }] }
@@ -1633,6 +1641,7 @@ async function publishToCalendar({ dryRun = false } = {}) {
     const { data, error } = await supabase
       .from('calendar_events')
       .select('id, name, date, status, source, source_id, source_links, locked_fields, community_locked_fields, location, voivodeship, lat, lng, distances, event_type, registration_url, regulamin_url, website, price_from, price_to, registration_deadline, atest')
+      .order('id')
       .range(from, from + pageSize - 1)
 
     if (error) break
@@ -1669,6 +1678,7 @@ async function publishToCalendar({ dryRun = false } = {}) {
       .from('calendar_events')
       .select('id, name, date, status, location, event_type, source_links')
       .in('status', ['active', 'rejected', 'cancelled', 'pending'])
+      .order('id')
       .range(from, from + pageSize - 1)
 
     if (error) break
