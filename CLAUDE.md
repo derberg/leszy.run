@@ -1482,6 +1482,19 @@ Two further gates run at enrichment time, both in `run-enrich-from-regulamin.js`
   extracted `price_from`/`price_to` when the source text contains no fee token at
   all, and likewise for `registration_deadline`. It only ever rejects.
 
+A rejected `regulamin_url` never stays. `huntRegulamin()`
+(`backend/scripts/lib/regulaminHunt.js`) first walks two clicks from that page, the
+registration page and the website, following links labelled regulamin (and same-site
+pages whose label names the race). It takes a document that passes `looksLikeRegulamin()`
+for the race's name, carries the race's year and names the race or its date, preferring
+the one that states the date. Found, it replaces the URL; not found, step 8.1 clears it
+(the old `--null-bad-regulamin` flag is a no-op). `looksLikeRegulamin(text, { eventName })`
+accepts a short one-page announcement (3+ sections, at most 6000 characters) that names
+the race, and a document titled REGULAMIN whose last page is a consent form.
+`scripts/verify-regulamin-urls.js` applies the same check to every future row whatever
+its `enriched_regulamin_at` (dry run by default, `--apply` writes `scraper_all` only), for
+URLs written before these gates: the search step wrote its hits unchecked until #103.
+
 `scripts/run-data-audit.js` reports violations that already exist in the DB (see the
 pipeline step list below).
 
