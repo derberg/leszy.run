@@ -1069,6 +1069,7 @@ Each scraper writes raw data into its own Supabase table (upsert by `source_id`)
 | botaniczna5 | `scraper_botaniczna5` | `source_id` (event slug from `/events/<slug>/`) |
 | ststiming | `scraper_ststiming` | `source_id` (EventON post id) |
 | biegiwlkp | `scraper_biegiwlkp` | `source_id` (event slug from `/events/<slug>/`) |
+| ultimasport | `scraper_ultimasport` | `source_id` (form id from `formularz.ultimasport.pl/<id>`) |
 
 **All steps are manual** — run each script in order. No automatic chaining.
 
