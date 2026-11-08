@@ -328,21 +328,22 @@ Flow per reading (above `rssi_threshold`; weaker reads are ignored entirely):
 
 See the mermaid flowchart at the top of `crossingDetector.js` for a full diagram.
 
-**Team categories (`categories.team_mode`).** Every team member keeps their own tag, bib and
-result; a team is never timed by a tag of its own, and its standing is derived by
-`computeTeamResults()` in `@leszyrun/ui` (`GET /api/races/:raceRunId/teams`). Membership is
-`participants.team_id` / `team_leg` (from Supabase `registrations`; the host never holds a team
-name). `'together'`: plain individual timing, team time = the `team_count_members`-th finisher's
-brutto (all members when NULL). `'relay_free'` (any order, Sztafeta Mikołajów): the team runs
-`team_lap_count` laps (NULL: one per member) in any order, a member may run several; a pass
-closes a team lap only when its tag had been silent 60 s before it (came in from the course, so a
-teammate waiting at the gate never counts) and `min_finish_seconds` after the team's previous
-lap; each lap is a `team_laps` row (pushed and pulled like `results`) credited to that runner.
-`'relay'`: leg k>1 starts at leg k-1's confirmed finish
-(`startTimeSource = 'handover'`); until then its reads are audited and otherwise ignored, it is
-skipped by gun-time backfill, and its `min_finish_seconds` counts from the handover. A team with a
-missing or repeated leg gets no chain and is timed as individuals (logged). A missed leg finish
-stalls the chain until an operator assigns a start (`assign-gun-start` releases the waiting leg).
+**Team categories (`categories.team_mode`).** Every team member keeps their own tag and bib; a
+team is never timed by a tag of its own, and its standing is derived by `computeTeamResults()` in
+`@leszyrun/ui` (`GET /api/races/:raceRunId/teams`). Membership is `participants.team_id` /
+`team_leg` (from Supabase `registrations`; the host never holds a team name).
+- `'relay_free'` (any order, the default for a team competition; Sztafeta Mikołajów): the team runs
+  laps in any order, a member may run several. A pass closes a team lap only when its tag had been
+  silent 60 s before it (came in from the course, so a teammate waiting at the gate never counts)
+  and `min_finish_seconds` after the team's previous lap. Each lap is a `team_laps` row (pushed and
+  pulled like `results`) credited to that runner. Teams rank by laps done, then by when the last
+  one closed. `team_lap_count` fixes the number of laps (NULL: as many as possible) and
+  `team_time_limit_seconds` stops counting laps that long after the gun (NULL: until the race stops).
+- `'relay'` (fixed order, set by the operator): leg k>1 starts at leg k-1's confirmed finish
+  (`startTimeSource = 'handover'`); until then its reads are audited and otherwise ignored, it is
+  skipped by gun-time backfill, and its `min_finish_seconds` counts from the handover. A team with
+  a missing or repeated leg gets no chain and is timed as individuals (logged). A missed leg finish
+  stalls the chain until an operator assigns a start (`assign-gun-start` releases the waiting leg).
 
 Configurable per event (stored in `events` table):
 - `rssi_threshold`: default `-9000` cdbm (was `-6500` until 2026-10-15, `-5000` before 2026-08-17), below anything the R700 reports, so every read is followed. The **tracking floor**: reads weaker than it are ignored and not persisted to `gate_events`. Raw `rfid:raw` broadcast is unaffected. Peak-of-pass timing on both gates is what makes a missing floor safe: a weak read can no longer set a time. Events created before the change keep their stored value, so check it before a race: Wilczy Półmaraton 2026 still had `-5000`, which would have timed almost nobody.

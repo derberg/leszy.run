@@ -134,7 +134,7 @@ test('after a restart a leg that already took over keeps racing; one that did no
 })
 
 test('outside relay mode team members are plain individuals', async (t) => {
-  const { detector, broadcast } = await makeRace(t, { cfg: config({ teamMode: 'together' }) })
+  const { detector, broadcast } = await makeRace(t, { cfg: config({ teamMode: null }) })
   detector.processEvent(read('E2', -3500))
   await wait(GONE_MS + 80)
   assert.deepEqual(broadcast.crossings().map(c => [c.participantId, c.gate]), [['p2', 'start']])

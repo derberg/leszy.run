@@ -59,8 +59,8 @@ export async function resultsRoutes(fastify) {
       mode,
       data: computeTeamResults({
         mode, results: live, laps,
-        countMembers: run.category.teamCountMembers ?? undefined,
         lapCount: run.category.teamLapCount ?? undefined,
+        raceFinished: run.status === 'finished' || run.status === 'cancelled',
       }),
     }
   })

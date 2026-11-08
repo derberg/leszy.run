@@ -76,7 +76,7 @@ export async function racesRoutes(fastify) {
         db.select().from(settings).where(eq(settings.key, 'mqtt_topic_main')).then(r => r[0]?.value ?? 'leszyrun'),
         db.select().from(settings).where(eq(settings.key, 'mqtt_topic_finish')).then(r => r[0]?.value ?? 'leszyrun/finish'),
       ])
-      await detector.startRace(run, { ...category.event, rfidTopicMain: rowMain, rfidTopicFinish: rowFinish, teamMode: category.teamMode, teamLapCount: category.teamLapCount }, allParticipants)
+      await detector.startRace(run, { ...category.event, rfidTopicMain: rowMain, rfidTopicFinish: rowFinish, teamMode: category.teamMode, teamLapCount: category.teamLapCount, teamTimeLimitSeconds: category.teamTimeLimitSeconds }, allParticipants)
     }
 
     broadcast('race:update', { raceRunId: run.id, status: 'active', categoryId: run.categoryId })

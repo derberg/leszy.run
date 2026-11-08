@@ -224,6 +224,7 @@ export class CrossingDetector {
       const freeRelay = buildFreeRelay(participantList, laps, {
         gunStartTime,
         lapCount: eventConfig.teamLapCount ?? null,
+        timeLimitMs: eventConfig.teamTimeLimitSeconds ? eventConfig.teamTimeLimitSeconds * 1000 : null,
         minLapMs: (eventConfig.minFinishSeconds ?? DEFAULT_MIN_FINISH_SECONDS) * 1000,
       })
       this.activeRaces.get(raceRun.id).freeRelay = freeRelay
@@ -754,6 +755,12 @@ export class CrossingDetector {
       this.inRange.delete(key)
       if (confirmRssi !== null && pass.peakRssi < confirmRssi) return
       if (team.done || pass.peakTime - team.lastBoundary < fr.minLapMs) return
+      // A lap closed after the time limit does not count (the race is over for this team).
+      if (fr.timeLimitMs !== null && pass.peakTime - fr.gunStartTime > fr.timeLimitMs) {
+        team.done = true
+        console.log(`[Detector] Team ${teamId} in race ${raceRunId}: lap after the time limit not counted`)
+        return
+      }
       const lapMs = pass.peakTime - team.lastBoundary
       team.laps += 1
       team.lastBoundary = pass.peakTime
@@ -883,10 +890,11 @@ export function buildRelayChains(participantList) {
 }
 
 /**
- * Team state of a relay in any order: which team each member is in, how many laps each team
- * owes (`lapCount`, else one per member), and how far it got (from recorded `laps`).
+ * Team state of a relay in any order: which team each member is in, how far it got (from
+ * recorded `laps`), and when it stops: after `lapCount` laps, or at `timeLimitMs` after the gun,
+ * or never (both null: as many laps as it can until the operator stops the race).
  */
-export function buildFreeRelay(participantList, laps, { gunStartTime, lapCount, minLapMs }) {
+export function buildFreeRelay(participantList, laps, { gunStartTime, lapCount, minLapMs, timeLimitMs = null }) {
   const teamOf = new Map()
   const size = new Map()
   for (const p of participantList) {
@@ -896,7 +904,7 @@ export function buildFreeRelay(participantList, laps, { gunStartTime, lapCount, 
   }
   const teams = new Map()
   for (const [teamId, n] of size) {
-    teams.set(teamId, { target: lapCount ?? n, laps: 0, lastBoundary: gunStartTime, done: false })
+    teams.set(teamId, { target: lapCount ?? Infinity, laps: 0, lastBoundary: gunStartTime, done: false })
   }
   for (const lap of laps) {
     const t = teams.get(lap.teamId)
@@ -905,5 +913,5 @@ export function buildFreeRelay(participantList, laps, { gunStartTime, lapCount, 
     t.lastBoundary = new Date(lap.closedAt)
   }
   for (const t of teams.values()) t.done = t.laps >= t.target
-  return { teamOf, teams, lastSeen: new Map(), minLapMs }
+  return { teamOf, teams, lastSeen: new Map(), minLapMs, timeLimitMs, gunStartTime }
 }

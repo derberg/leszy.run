@@ -1,52 +1,51 @@
 /**
- * Team standings for a team category, derived from the members' individual results.
+ * Team standings for a team category, derived from the members' own results and laps.
  *
- * Every member of a team carries their own tag and bib and keeps their own result row; the
- * team is never timed by a tag of its own. Its standing is computed here from those rows, so
- * an operator's edit of one member's finish re-derives the team without anything stored.
+ * Every member of a team carries their own tag and bib; the team is never timed by a tag of
+ * its own. Its standing is computed here, so an operator's correction re-derives the team
+ * without anything stored.
  *
  * Two modes:
- *  - 'relay' (sztafeta): members run one after another in leg order. Leg 1 starts at the gun,
- *    leg k starts when leg k-1 finishes (the handover at the gate). A leg's time is the
- *    difference between the two brutto times; the team's time is the last leg's brutto time.
- *  - 'relay_free' (sztafeta w dowolnej kolejności): the team runs `lapCount` laps (default one
- *    per member) in any order; one member may run several. Each lap comes from `laps` (team_laps
- *    rows), credited to whoever closed it. `members` are then the laps, in order, and `runners`
+ *  - 'relay' (sztafeta, stała kolejność): members run one after another in leg order. Leg 1
+ *    starts at the gun, leg k when leg k-1 finishes. A leg's time is the difference between the
+ *    two brutto times; the team's time is the last leg's brutto time. Ranked by that time.
+ *  - 'relay_free' (sztafeta, dowolna kolejność, the default): the team runs laps in any order,
+ *    one member may run several. Each lap comes from `laps` (team_laps rows), credited to whoever
+ *    closed it. Ranked by laps done (most first), then by when the last of them was closed
+ *    (earliest first). `lapCount` caps the laps when the race has a fixed number; without it the
+ *    team runs as many as it can (Sztafeta Mikołajów). `members` are the laps in order, `runners`
  *    sums them per person.
- *  - 'together' (bieg drużynowy): all members start at the gun and run together. The team's time
- *    is the brutto time of its `countMembers`-th finisher (default: every member, i.e. the last
- *    one in), and `spreadMs` is how far apart its counted members came in.
  *
  * @param {object}   opts
- * @param {'relay'|'together'} opts.mode
- * @param {Array}    opts.results  result rows: { id, participantId, finishTime, durationMs,
- *                                 gunDurationMs, status, participant: { bibNumber, firstName,
- *                                 lastName, teamId, teamLeg } }. Rows without participant.teamId
- *                                 are ignored.
+ * @param {'relay'|'relay_free'} opts.mode
+ * @param {Array}    opts.results  result rows: { id, participantId, finishTime, gunDurationMs,
+ *                                 status, participant: { bibNumber, firstName, lastName, teamId,
+ *                                 teamLeg } }. Rows without participant.teamId are ignored.
  * @param {Object<string,string>} [opts.teamNames] teamId → display name; missing ones get a
  *                                 label from the members' surnames
- * @param {number}   [opts.countMembers] 'together' only: how many finishers make the team time
- * @param {Array}    [opts.laps]  'relay_free' only: { id, teamId, lapNumber, participantId, lapMs, closedAt }
- * @param {number}   [opts.lapCount] 'relay_free' only: laps a team runs (default: its size)
+ * @param {Array}    [opts.laps]  'relay_free': { id, teamId, lapNumber, participantId, lapMs }
+ * @param {number}   [opts.lapCount] 'relay_free': a fixed number of laps; none = as many as possible
+ * @param {boolean}  [opts.raceFinished] the race run is over: every team still running is done
  * @returns {Array<TeamStanding>} sorted by standing
  *
  * @typedef {object} TeamStanding
  * @property {string} teamId
  * @property {string} name
  * @property {'finished'|'racing'|'not-started'|'dnf'|'dsq'|'dns'} status
- * @property {number|null} position      only for 'finished'
- * @property {number|null} totalMs       brutto team time, finished teams only
- * @property {number|null} gapMs         behind the leading team
- * @property {number} completed          legs (relay) or members (together) finished
- * @property {number} size
- * @property {number|null} currentLeg    relay: the leg on course now
- * @property {number|null} spreadMs      together: first to last counted member
- * @property {Array} members             each row plus { leg, legMs, legRank, cumulativeMs, counted }
+ * @property {number|null} position
+ * @property {number|null} totalMs       relay: the team's time; relay_free: when its last lap closed
+ * @property {number|null} gapMs         behind the leader (relay_free: only on the same lap count)
+ * @property {number|null} gapLaps       relay_free: laps behind the leader
+ * @property {number} completed          legs or laps done
+ * @property {number|null} size          legs, or the fixed lap count (null: open)
+ * @property {number|null} currentLeg    the leg or lap on course now
+ * @property {Array} members             legs or laps: { leg, legMs, legRank, cumulativeMs, participant }
+ * @property {Array} [runners]           relay_free: each member with { laps, bestLapMs }
  */
 const UNRANKED_TEAM = { dnf: 1, dsq: 2, dns: 3 }
 const STATUS_ORDER = { finished: 0, racing: 1, 'not-started': 2, dnf: 3, dsq: 4, dns: 5 }
 
-export function computeTeamResults({ mode, results, teamNames = {}, countMembers, laps = [], lapCount } = {}) {
+export function computeTeamResults({ mode, results, teamNames = {}, laps = [], lapCount, raceFinished = false } = {}) {
   const byTeam = new Map()
   for (const r of results ?? []) {
     const teamId = r.participant?.teamId
@@ -54,31 +53,57 @@ export function computeTeamResults({ mode, results, teamNames = {}, countMembers
     if (!byTeam.has(teamId)) byTeam.set(teamId, [])
     byTeam.get(teamId).push(r)
   }
-
   const lapsByTeam = new Map()
   for (const l of laps) {
     if (!lapsByTeam.has(l.teamId)) lapsByTeam.set(l.teamId, [])
     lapsByTeam.get(l.teamId).push(l)
   }
 
-  const teams = [...byTeam].map(([teamId, rows]) =>
-    mode === 'relay' ? relayTeam(teamId, rows)
-      : mode === 'relay_free' ? freeRelayTeam(teamId, rows, lapsByTeam.get(teamId) ?? [], lapCount)
-        : togetherTeam(teamId, rows, countMembers))
+  const free = mode === 'relay_free'
+  const teams = [...byTeam].map(([teamId, rows]) => free
+    ? freeRelayTeam(teamId, rows, lapsByTeam.get(teamId) ?? [], lapCount, raceFinished)
+    : relayTeam(teamId, rows))
 
   for (const t of teams) t.name = teamNames[t.teamId] || defaultTeamName(t.runners ?? t.members)
 
-  if (mode === 'relay') rankLegs(teams)
-  if (mode === 'relay_free') rankAllLaps(teams)
+  if (free) {
+    rankAllLaps(teams)
+    teams.sort(compareFree)
+    const leader = teams.find(isRankedFree)
+    let pos = 0
+    for (const t of teams) {
+      const ranked = isRankedFree(t)
+      t.position = ranked ? ++pos : null
+      t.gapLaps = ranked && leader ? leader.completed - t.completed : null
+      t.gapMs = ranked && leader && t.gapLaps === 0 ? t.totalMs - leader.totalMs : null
+    }
+    return teams
+  }
 
+  rankLegs(teams)
   teams.sort(compareTeams)
   const leader = teams.find(t => t.status === 'finished')
   let pos = 0
   for (const t of teams) {
     t.position = t.status === 'finished' ? ++pos : null
     t.gapMs = t.status === 'finished' && leader ? t.totalMs - leader.totalMs : null
+    t.gapLaps = null
   }
   return teams
+}
+
+/**
+ * Relay in any order, one row per runner across every team, for the individual views:
+ * by: 'best' (Najszybsze okrążenie: best lap, fastest first) or 'laps' (Najwięcej okrążeń: most
+ * laps, then the fastest best lap). Runners with no lap are left out.
+ */
+export function freeRelayRunners(teams, by = 'best') {
+  const rows = teams.flatMap(t => (t.runners ?? []).filter(r => r.laps > 0).map(r => ({ ...r, teamId: t.teamId, teamName: t.name })))
+  rows.sort(by === 'laps'
+    ? (a, b) => b.laps - a.laps || a.bestLapMs - b.bestLapMs
+    : (a, b) => a.bestLapMs - b.bestLapMs || b.laps - a.laps)
+  rows.forEach((r, i) => { r.rank = i + 1 })
+  return rows
 }
 
 function relayTeam(teamId, rows) {
@@ -94,7 +119,6 @@ function relayTeam(teamId, rows) {
     // A leg's time needs the previous leg's finish: without it the handover is unknown.
     m.cumulativeMs = cum
     m.legMs = cum != null && !chainBroken ? cum - prevCum : null
-    m.counted = true
     if (cum == null) chainBroken = true
     else { prevCum = cum; if (!chainBroken) completed++ }
   }
@@ -114,48 +138,58 @@ function relayTeam(teamId, rows) {
     currentLeg: status === 'racing' ? Math.min(completed + 1, members.length) : null,
     // For ordering teams still on course: the later the leg and the earlier its handover, the better.
     lastSplitMs: completed ? members[completed - 1].cumulativeMs : null,
-    spreadMs: null,
     members,
   }
 }
 
-function freeRelayTeam(teamId, rows, teamLaps, lapCount) {
+function freeRelayTeam(teamId, rows, teamLaps, lapCount, raceFinished) {
   const byPid = new Map(rows.map(r => [r.participantId, r]))
-  const target = lapCount ?? rows.length
-  const ordered = [...teamLaps].sort((a, b) => a.lapNumber - b.lapNumber).slice(0, target)
+  const ordered = [...teamLaps].sort((a, b) => a.lapNumber - b.lapNumber)
+  const counted = lapCount ? ordered.slice(0, lapCount) : ordered
   let cum = 0
-  const members = ordered.map(l => {
+  const members = counted.map(l => {
     cum += Number(l.lapMs)
     const r = byPid.get(l.participantId)
     return { id: l.id ?? `${teamId}:${l.lapNumber}`, participantId: l.participantId, participant: r?.participant ?? {},
-      status: 'finished', leg: l.lapNumber, legMs: Number(l.lapMs), cumulativeMs: cum, counted: true }
+      status: 'finished', leg: l.lapNumber, legMs: Number(l.lapMs), cumulativeMs: cum }
   })
   const runners = rows.map(r => {
     const own = members.filter(m => m.participantId === r.participantId)
-    return { ...r, laps: own.length, bestLapMs: own.length ? Math.min(...own.map(m => m.legMs)) : null,
-      totalLapMs: own.reduce((a, m) => a + m.legMs, 0) }
+    return { ...r, laps: own.length, bestLapMs: own.length ? Math.min(...own.map(m => m.legMs)) : null }
   }).sort((a, b) => b.laps - a.laps || (a.bestLapMs ?? Infinity) - (b.bestLapMs ?? Infinity))
 
   const completed = members.length
+  const gaveUp = rows.length > 0 && rows.every(r => r.status === 'dnf' || r.status === 'dns') && rows.some(r => r.status === 'dnf')
   let status
   if (rows.some(r => r.status === 'dsq')) status = 'dsq'
-  else if (completed >= target) status = 'finished'
-  else if (rows.every(r => r.status === 'dns')) status = 'dns'
-  else if (rows.some(r => r.status === 'dnf')) status = 'dnf'
+  else if (lapCount && completed >= lapCount) status = 'finished'
+  else if (!completed && rows.every(r => r.status === 'dns')) status = 'dns'
+  else if (gaveUp) status = 'dnf'
+  else if (raceFinished) status = completed ? 'finished' : 'dns'
   else status = completed || rows.some(r => r.startTime || r.status === 'started') ? 'racing' : 'not-started'
 
   return {
     teamId,
     status,
-    totalMs: status === 'finished' ? cum : null,
+    totalMs: completed ? cum : null,
     completed,
-    size: target,
+    size: lapCount ?? null,
     currentLeg: status === 'racing' ? completed + 1 : null,
     lastSplitMs: completed ? cum : null,
-    spreadMs: null,
     members,
     runners,
   }
+}
+
+// A relay in any order ranks every team that has done a lap and is not disqualified, also one
+// that gave up: its laps still count, as in a timed relay.
+const isRankedFree = (t) => t.completed > 0 && t.status !== 'dsq'
+
+function compareFree(a, b) {
+  const ra = isRankedFree(a), rb = isRankedFree(b)
+  if (ra !== rb) return ra ? -1 : 1
+  if (ra) return b.completed - a.completed || a.totalMs - b.totalMs
+  return STATUS_ORDER[a.status] - STATUS_ORDER[b.status] || a.name.localeCompare(b.name, 'pl')
 }
 
 // Relay in any order: every lap of the race ranked against every other (Najszybsze okrążenia).
@@ -164,46 +198,11 @@ function rankAllLaps(teams) {
   all.forEach((m, i) => { m.legRank = i + 1 })
 }
 
-function togetherTeam(teamId, rows, countMembers) {
-  const members = [...rows].map(r => ({ ...r, leg: null, legMs: null, legRank: null, cumulativeMs: isTimed(r) ? r.gunDurationMs : null }))
-  const need = Math.min(countMembers ?? members.length, members.length)
-  const finishers = members.filter(m => m.cumulativeMs != null).sort((a, b) => a.cumulativeMs - b.cumulativeMs)
-  const counted = new Set(finishers.slice(0, need).map(m => m.id))
-  for (const m of members) m.counted = counted.has(m.id)
-  members.sort((a, b) => (a.cumulativeMs ?? Infinity) - (b.cumulativeMs ?? Infinity)
-    || (a.participant.bibNumber ?? Infinity) - (b.participant.bibNumber ?? Infinity))
-
-  const done = finishers.length >= need
-  // With countMembers below the squad size a member's DNF does not sink the team, as long as
-  // enough others finished.
-  const status = done
-    ? (members.some(m => m.status === 'dsq') ? 'dsq' : 'finished')
-    : teamStatus(members, {
-        allDone: false,
-        anyStarted: members.some(m => m.startTime || m.finishTime || m.status === 'started' || m.status === 'finished'),
-        firstLegDns: members.every(m => m.status === 'dns'),
-        // A team that can still reach `need` finishers is still racing.
-        stillPossible: members.filter(m => !UNRANKED_TEAM[m.status]).length >= need,
-      })
-  const countedTimes = finishers.slice(0, need).map(m => m.cumulativeMs)
-  return {
-    teamId,
-    status,
-    totalMs: status === 'finished' ? countedTimes[countedTimes.length - 1] : null,
-    completed: finishers.length,
-    size: members.length,
-    currentLeg: null,
-    lastSplitMs: finishers.length ? finishers[finishers.length - 1].cumulativeMs : null,
-    spreadMs: done && countedTimes.length > 1 ? countedTimes[countedTimes.length - 1] - countedTimes[0] : null,
-    members,
-  }
-}
-
-function teamStatus(members, { allDone, anyStarted, firstLegDns, stillPossible = false }) {
+function teamStatus(members, { allDone, anyStarted, firstLegDns }) {
   if (members.some(m => m.status === 'dsq')) return 'dsq'
   if (allDone) return 'finished'
   if (firstLegDns) return 'dns'
-  if (!stillPossible && members.some(m => m.status === 'dnf' || m.status === 'dns')) return 'dnf'
+  if (members.some(m => m.status === 'dnf' || m.status === 'dns')) return 'dnf'
   return anyStarted ? 'racing' : 'not-started'
 }
 

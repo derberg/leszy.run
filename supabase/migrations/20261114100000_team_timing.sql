@@ -1,4 +1,4 @@
--- Team timing: a relay (sztafeta) or a team run, timed through each member's own tag.
+-- Team timing: a relay (sztafeta), in any order or a fixed one, timed through each member's own tag.
 --
 -- A team is never timed by a tag of its own. Every member keeps their bib, their tag and their
 -- `results` row; the team's standing is derived from those rows (@leszyrun/ui computeTeamResults).
@@ -12,13 +12,14 @@
 
 -- ---------------------------------------------------------------- columns
 
--- team_mode: 'relay' (fixed leg order), 'relay_free' (any order, laps per team, a member may
--- run several), 'together' (the squad runs at once). team_lap_count: laps of a 'relay_free'
--- team, NULL = one per member.
+-- team_mode: 'relay_free' (any order, laps per team, a member may run several; the default for a
+-- team competition) or 'relay' (fixed leg order). For 'relay_free': team_lap_count is a fixed
+-- number of laps (NULL: as many as the team can) and team_time_limit_seconds stops counting laps
+-- that long after the gun (NULL: the operator stops the race).
 ALTER TABLE public.categories
-  ADD COLUMN team_mode text CHECK (team_mode IN ('relay', 'relay_free', 'together')),
-  ADD COLUMN team_count_members integer CHECK (team_count_members >= 1),
-  ADD COLUMN team_lap_count integer CHECK (team_lap_count >= 1);
+  ADD COLUMN team_mode text CHECK (team_mode IN ('relay', 'relay_free')),
+  ADD COLUMN team_lap_count integer CHECK (team_lap_count >= 1),
+  ADD COLUMN team_time_limit_seconds integer CHECK (team_time_limit_seconds >= 1);
 
 ALTER TABLE public.participants
   ADD COLUMN team_id uuid,
@@ -90,24 +91,19 @@ CREATE TRIGGER registrations_team_to_participant
 
 -- ---------------------------------------------------------------- the category's mode from its competition
 
--- A team competition with leg order collected is a relay with a fixed order; one without is a
--- relay in any order (the Szubin case). A team that runs together is the operator's choice on
--- the host (PATCH /api/categories/:id). Set when
--- the competition becomes a team one or its leg order changes; any other time the category's
--- value (an operator's choice on the host, pushed back) stands.
+-- A team competition is a relay in any order by default (the Szubin case), whether or not the
+-- form collected a leg order: a collected order is a wish, not a rule. A fixed order is the
+-- operator's choice on the host (PATCH /api/categories/:id, pushed back). Set only when the
+-- competition becomes a team one or stops being one.
 CREATE FUNCTION public.competition_team_mode_to_category() RETURNS trigger
   LANGUAGE plpgsql
   SECURITY DEFINER
   SET search_path = ''
 AS $$
 BEGIN
-  IF TG_OP = 'INSERT'
-     OR NEW.kind IS DISTINCT FROM OLD.kind
-     OR NEW.leg_order_enabled IS DISTINCT FROM OLD.leg_order_enabled THEN
+  IF TG_OP = 'INSERT' OR NEW.kind IS DISTINCT FROM OLD.kind THEN
     UPDATE public.categories c
-       SET team_mode = CASE WHEN NEW.kind <> 'team' THEN NULL
-                            WHEN NEW.leg_order_enabled THEN 'relay'
-                            ELSE 'relay_free' END
+       SET team_mode = CASE WHEN NEW.kind = 'team' THEN 'relay_free' END
      WHERE c.id = NEW.category_id;
   END IF;
   RETURN NULL;
@@ -115,7 +111,7 @@ END $$;
 REVOKE EXECUTE ON FUNCTION public.competition_team_mode_to_category() FROM public, anon, authenticated;
 
 CREATE TRIGGER competitions_team_mode_to_category
-  AFTER INSERT OR UPDATE OF kind, leg_order_enabled ON public.competitions
+  AFTER INSERT OR UPDATE OF kind ON public.competitions
   FOR EACH ROW EXECUTE FUNCTION public.competition_team_mode_to_category();
 
 -- ---------------------------------------------------------------- backfill
@@ -126,7 +122,7 @@ UPDATE public.participants p
  WHERE r.id = p.registration_id AND r.team_id IS NOT NULL;
 
 UPDATE public.categories c
-   SET team_mode = CASE WHEN k.leg_order_enabled THEN 'relay' ELSE 'relay_free' END
+   SET team_mode = 'relay_free'
   FROM public.competitions k
  WHERE k.category_id = c.id AND k.kind = 'team';
 

@@ -28,9 +28,11 @@ function TeamStatus({ team }) {
   if (team.status === 'finished') return null
   const live = team.status === 'racing' && team.currentLeg
   const unit = team.runners ? 'Okrążenie' : 'Zmiana'
+  const label = !live ? STATUS_LABEL[team.status]
+    : team.size ? `${unit} ${team.currentLeg}/${team.size}` : `${unit} ${team.currentLeg}`
   return (
     <span className={`text-xs font-bold uppercase tracking-widest whitespace-nowrap ${STATUS_CLS[team.status]}`}>
-      {live ? `${unit} ${team.currentLeg}/${team.size}` : STATUS_LABEL[team.status]}
+      {label}
     </span>
   )
 }
@@ -46,7 +48,7 @@ function LegRank({ rank }) {
 
 /**
  * @param {Array} teams          computeTeamResults() output
- * @param {'relay'|'together'} mode
+ * @param {'relay'|'relay_free'} mode
  * @param {Function} formatDuration
  * @param {boolean} [defaultOpen] unfold every squad at first render
  */
@@ -72,15 +74,22 @@ export function TeamStandings({ teams, mode, formatDuration, defaultOpen = false
                 <span className="block text-xs text-apex-muted truncate">
                   {(t.runners ?? t.members).map(m => m.participant?.lastName).filter(Boolean).join(' · ')}
                 </span>
+                <span className="block sm:hidden mt-0.5"><TeamStatus team={t} /></span>
               </span>
-              <TeamStatus team={t} />
-              <span className="text-right shrink-0">
-                {t.totalMs != null && <span className="block font-mono font-bold text-apex-yellow-bright">{formatDuration(t.totalMs)}</span>}
-                {t.gapMs > 0 && <span className="block font-mono text-[11px] text-apex-muted">+{formatDuration(t.gapMs)}</span>}
-                {mode === 'together' && t.spreadMs != null && (
-                  <span className="block font-mono text-[11px] text-apex-muted">rozrzut {formatDuration(t.spreadMs)}</span>
-                )}
-              </span>
+              <span className="hidden sm:inline"><TeamStatus team={t} /></span>
+              {mode === 'relay_free' ? (
+                <span className="text-right shrink-0">
+                  <span className="block font-mono font-bold text-apex-yellow-bright">{t.completed} okr.</span>
+                  {t.totalMs != null && <span className="block font-mono text-[11px] text-apex-muted">{formatDuration(t.totalMs)}</span>}
+                  {t.gapLaps > 0 && <span className="block font-mono text-[11px] text-apex-muted">−{t.gapLaps} okr.</span>}
+                  {!t.gapLaps && t.gapMs > 0 && <span className="block font-mono text-[11px] text-apex-muted">+{formatDuration(t.gapMs)}</span>}
+                </span>
+              ) : (
+                <span className="text-right shrink-0">
+                  {t.totalMs != null && <span className="block font-mono font-bold text-apex-yellow-bright">{formatDuration(t.totalMs)}</span>}
+                  {t.gapMs > 0 && <span className="block font-mono text-[11px] text-apex-muted">+{formatDuration(t.gapMs)}</span>}
+                </span>
+              )}
               <span className="font-mono text-apex-yellow w-3 shrink-0">{isOpen ? '−' : '+'}</span>
             </button>
             {isOpen && (
@@ -88,17 +97,15 @@ export function TeamStandings({ teams, mode, formatDuration, defaultOpen = false
                 <table className="w-full text-xs">
                   <tbody className="divide-y divide-apex-border">
                     {t.members.map(m => (
-                      <tr key={m.id} className={m.counted === false ? 'opacity-50' : ''}>
+                      <tr key={m.id}>
                         <td className="py-1.5 pr-2 w-16 text-apex-muted uppercase tracking-wider font-bold whitespace-nowrap">
-                          {mode === 'relay' ? `Zm. ${m.leg}` : mode === 'relay_free' ? `Okr. ${m.leg}` : (m.counted ? 'Liczy się' : 'Poza')}
+                          {mode === 'relay' ? `Zm. ${m.leg}` : `Okr. ${m.leg}`}
                         </td>
                         <td className="py-1.5 pr-2 w-12 font-mono">#{m.participant?.bibNumber}</td>
                         <td className="py-1.5 pr-2 truncate">{memberName(m)}</td>
-                        {(mode === 'relay' || mode === 'relay_free') && (
-                          <td className="py-1.5 pr-2 text-right font-mono whitespace-nowrap">
-                            {m.legMs != null ? formatDuration(m.legMs) : '—'}<LegRank rank={m.legRank} />
-                          </td>
-                        )}
+                        <td className="py-1.5 pr-2 text-right font-mono whitespace-nowrap">
+                          {m.legMs != null ? formatDuration(m.legMs) : '—'}<LegRank rank={m.legRank} />
+                        </td>
                         <td className="py-1.5 text-right font-mono text-apex-muted w-20">
                           {m.cumulativeMs != null ? formatDuration(m.cumulativeMs) : (STATUS_LABEL[m.status] ?? '—')}
                         </td>

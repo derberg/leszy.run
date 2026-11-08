@@ -42,15 +42,15 @@ export const categories = pgTable('categories', {
   slug: text('slug').notNull(),   // human-readable import key, e.g. 'bieg-5km'
   untimed: boolean('untimed').notNull().default(false),   // no timing/classification (e.g. kids' run); hidden from public results
   // Team category. NULL: an individual category.
+  //   'relay_free' sztafeta in any order (the default for a team competition): laps are counted
+  //                per team, each belongs to whoever closed it, a member may run several (team_laps)
   //   'relay'      sztafeta with a fixed leg order: leg k starts at leg k-1's finish
-  //   'relay_free' sztafeta in any order: laps are counted per team, each lap belongs to whoever
-  //                closed it, a member may run several (team_laps)
-  //   'together'   the whole squad runs at once
   teamMode: text('team_mode'),
-  // 'relay_free' only: laps a team runs. NULL: one per member.
+  // 'relay_free' only: a fixed number of laps. NULL: as many as the team can.
   teamLapCount: integer('team_lap_count'),
-  // 'together' only: how many finishers make the team time (NULL: every member).
-  teamCountMembers: integer('team_count_members'),
+  // 'relay_free' only: laps closed later than this after the gun do not count. NULL: no limit
+  // (the operator stops the race).
+  teamTimeLimitSeconds: integer('team_time_limit_seconds'),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
   syncedAt: timestamp('synced_at', { withTimezone: true }),
 }, (t) => [

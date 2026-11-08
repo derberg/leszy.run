@@ -75,8 +75,23 @@ test('the team stops at its lap count; a restart resumes from recorded laps', as
   assert.equal(laps(db).length, 0, 'the team is done')
 })
 
-test('buildFreeRelay: one lap per member when no count is set', () => {
+test('without a lap count or time limit a team keeps lapping', async (t) => {
+  const { detector, db } = await makeRace(t, { cfg: config({ teamLapCount: null }) })
+  for (let i = 0; i < 4; i++) {
+    detector.processEvent(read(i % 2 ? 'E2' : 'E1')); await wait(QUIET + 60)
+    await wait(ARRIVAL + 20)
+  }
+  assert.equal(laps(db).length, 4)
+})
+
+test('a lap closed after the time limit does not count', async (t) => {
+  const { detector, db } = await makeRace(t, { cfg: config({ teamLapCount: null, teamTimeLimitSeconds: 30 }), gunAgoMs: 60_000 })
+  detector.processEvent(read('E1')); await wait(QUIET + 60)
+  assert.equal(laps(db).length, 0)
+})
+
+test('buildFreeRelay: no lap count means no end', () => {
   const fr = buildFreeRelay(TEAM, [], { gunStartTime: new Date(0), lapCount: null, minLapMs: 0 })
-  assert.equal(fr.teams.get('T').target, 2)
+  assert.equal(fr.teams.get('T').target, Infinity)
   assert.equal(fr.teamOf.get('p2'), 'T')
 })

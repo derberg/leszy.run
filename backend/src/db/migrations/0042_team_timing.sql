@@ -1,14 +1,14 @@
--- Team timing (relay / relay in any order / team run). Mirrors Supabase migration
+-- Team timing (relay in any order / relay with a fixed order). Mirrors Supabase migration
 -- 20261114100000_team_timing.sql.
 ALTER TABLE "categories" ADD COLUMN IF NOT EXISTS "team_mode" text;
 --> statement-breakpoint
-ALTER TABLE "categories" ADD COLUMN IF NOT EXISTS "team_count_members" integer;
+ALTER TABLE "categories" ADD COLUMN IF NOT EXISTS "team_time_limit_seconds" integer;
 --> statement-breakpoint
 ALTER TABLE "categories" ADD COLUMN IF NOT EXISTS "team_lap_count" integer;
 --> statement-breakpoint
 ALTER TABLE "categories" DROP CONSTRAINT IF EXISTS "categories_team_mode_check";
 --> statement-breakpoint
-ALTER TABLE "categories" ADD CONSTRAINT "categories_team_mode_check" CHECK ("team_mode" IN ('relay', 'relay_free', 'together'));
+ALTER TABLE "categories" ADD CONSTRAINT "categories_team_mode_check" CHECK ("team_mode" IN ('relay', 'relay_free'));
 --> statement-breakpoint
 ALTER TABLE "participants" ADD COLUMN IF NOT EXISTS "team_id" uuid;
 --> statement-breakpoint
