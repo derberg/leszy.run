@@ -5,5 +5,5 @@ export { estimatePositions } from '../../../packages/ui/src/lib/positionEstimati
 export { anonymizedName } from '../../../packages/ui/src/lib/anonymizedName.js'
 export { RunnerResultCard } from '../../../packages/ui/src/components/RunnerResultCard.jsx'
 export { findRunners, runnerSummary } from '../../../packages/ui/src/lib/runnerLookup.js'
-export { TeamStandings, RelayLegMatrix, TeamTag } from '../../../packages/ui/src/components/TeamResults.jsx'
+export { TeamStandings, RelayLegMatrix, TeamTag, TeamRunnersList, TeamResultsTabs } from '../../../packages/ui/src/components/TeamResults.jsx'
 export { computeTeamResults, teamRunners } from '../../../packages/ui/src/lib/teamResults.js'

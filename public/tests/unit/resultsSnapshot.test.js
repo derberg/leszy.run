@@ -4,10 +4,11 @@ import { buildResultsSnapshot, categoryView, latestRun, nearFinishInputs, isLive
 
 // A Supabase client over in-memory tables that understands the calls the
 // builder makes. Every page read is logged as "<table> <from>".
-function fakeSupabase(tables, { failOn } = {}) {
+function fakeSupabase(tables, { failOn, rpc } = {}) {
   const reads = []
   return {
     reads,
+    ...(rpc ? { rpc: async (name, args) => rpc(name, args) } : {}),
     from(table) {
       const filters = []
       const builder = {
@@ -225,5 +226,56 @@ describe('nearFinishInputs', () => {
     assert.equal(inputs.observations.length, 1)
     assert.deepEqual(inputs.participants, [1])
     assert.deepEqual(inputs.results, [2])
+  })
+})
+
+describe('buildResultsSnapshot teams', () => {
+  const relay = {
+    ...tables,
+    categories: [
+      { id: 'c10', event_id: 'e1', name: '10 km', untimed: false, team_mode: null },
+      { id: 'sz', event_id: 'e1', name: 'Sztafeta', untimed: false, team_mode: 'relay_free', team_lap_count: null },
+    ],
+    race_runs: [...tables.race_runs, { id: 'srun', category_id: 'sz', status: 'active', started_at: '2026-12-06T10:00:00Z', created_at: '2026-12-06T09:55:00Z' }],
+    participants_public: [
+      ...tables.participants_public,
+      { id: 's1', category_id: 'sz', bib_number: 301, first_name: 'Ola', last_name: 'Lis', team_id: 'T' },
+      { id: 's2', category_id: 'sz', bib_number: 302, first_name: 'Jan', last_name: 'Wrona', team_id: 'T' },
+    ],
+    results: [...tables.results, { id: 'sr1', race_run_id: 'srun', participant_id: 's1', status: 'started' }, { id: 'sr2', race_run_id: 'srun', participant_id: 's2', status: 'started' }],
+    team_laps: [
+      { id: 'l1', race_run_id: 'srun', team_id: 'T', participant_id: 's1', closed_at: '2026-12-06T10:10:00Z', deleted_at: null },
+      { id: 'l2', race_run_id: 'srun', team_id: 'T', participant_id: 's1', closed_at: '2026-12-06T10:10:30Z', deleted_at: '2026-12-06T10:12:00Z' },
+    ],
+  }
+  const names = (name, args) => ({ data: name === 'results_team_names' && args.p_event_id === 'e1' ? [{ team_id: 'T', name: 'Zatyrani' }] : [], error: null })
+
+  it('is null for an event with no team category, so its snapshot is unchanged', async () => {
+    assert.equal((await buildResultsSnapshot(fakeSupabase(tables), 'e1')).teams, null)
+  })
+
+  it('carries the mode, the members, the live laps (never a removed one) and the names', async () => {
+    const snap = await buildResultsSnapshot(fakeSupabase(relay, { rpc: names }), 'e1')
+    assert.deepEqual(snap.teams.categories, { sz: { mode: 'relay_free', lapCount: null } })
+    assert.deepEqual(snap.teams.members, { s1: { teamId: 'T', teamLeg: null }, s2: { teamId: 'T', teamLeg: null } })
+    assert.deepEqual(snap.teams.laps.map(l => l.id), ['l1'])
+    assert.deepEqual(Object.keys(snap.teams.laps[0]).sort(), ['closedAt', 'id', 'participantId', 'raceRunId', 'teamId'])
+    assert.deepEqual(snap.teams.names, { T: 'Zatyrani' })
+  })
+
+  it('a failing team read leaves the rest of the page intact', async () => {
+    const snap = await buildResultsSnapshot(fakeSupabase(relay, { failOn: 'team_laps' }), 'e1')
+    assert.deepEqual(snap.teams.laps, [])
+    assert.deepEqual(snap.teams.names, {}, 'no rpc: no names, labels come from the members')
+    assert.equal(snap.results.length, 3)
+  })
+
+  it('categoryView hands a team category its run\'s laps and its members\' teams', async () => {
+    const snap = await buildResultsSnapshot(fakeSupabase(relay, { rpc: names }), 'e1')
+    const view = categoryView(snap, 'sz')
+    assert.equal(view.team.mode, 'relay_free')
+    assert.deepEqual(view.team.laps.map(l => l.id), ['l1'])
+    assert.equal(view.results.find(r => r.participantId === 's1').participant.teamId, 'T')
+    assert.equal(categoryView(snap, 'c10').team, null)
   })
 })

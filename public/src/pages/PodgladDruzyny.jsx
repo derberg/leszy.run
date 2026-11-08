@@ -1,7 +1,7 @@
 // EXPLORATION ONLY: team result layouts on made-up data. Routed on the dev server and in a
 // build made with VITE_TEAM_PREVIEW=1 (a Vercel preview deployment), never in production.
 import { useState } from 'react'
-import { TeamStandings, RelayLegMatrix, TeamTag, computeTeamResults, teamRunners } from '../ui/index.js'
+import { TeamStandings, RelayLegMatrix, TeamRunnersList, computeTeamResults, teamRunners } from '../ui/index.js'
 import { formatDuration } from '../lib/formatDuration.js'
 
 const MIN = 60_000
@@ -82,24 +82,6 @@ const fromHash = () => {
 
 const tabCls = (on) => `px-3 py-2 text-xs font-bold tracking-widest uppercase border whitespace-nowrap ${on ? 'bg-apex-yellow text-black border-apex-yellow' : 'text-apex-muted border-apex-border hover:text-apex-text'}`
 
-function RunnerList({ rows, value }) {
-  return (
-    <div className="border border-apex-border bg-apex-surface divide-y divide-apex-border">
-      {rows.map(r => (
-        <div key={r.id} className="flex items-center gap-3 px-3 py-2 text-sm">
-          <span className="font-display text-xl text-apex-yellow w-6">{r.rank}</span>
-          <span className="font-mono text-xs text-apex-muted w-10">#{r.participant.bibNumber}</span>
-          <span className="flex-1 min-w-0 flex flex-col md:flex-row md:items-center gap-1 md:gap-3">
-            <span className="truncate md:flex-1">{r.participant.firstName} {r.participant.lastName}</span>
-            <span><TeamTag name={r.teamName} /></span>
-          </span>
-          {value(r)}
-        </div>
-      ))}
-    </div>
-  )
-}
-
 export default function PodgladDruzyny() {
   const [state, setState] = useState(fromHash)
   const go = (format, view = VIEWS[format][0].key) => {
@@ -139,30 +121,12 @@ export default function PodgladDruzyny() {
       </div>
 
       {format === 'free' && view === 'teams' && <TeamStandings teams={free} mode="relay_free" formatDuration={formatDuration} />}
-      {format === 'free' && view === 'best' && (
-        <RunnerList rows={teamRunners(free, 'best')} value={r => (
-          <span className="font-mono font-bold text-apex-yellow-bright w-20 text-right">{formatDuration(r.bestLapMs)}</span>
-        )} />
-      )}
-      {format === 'free' && view === 'most' && (
-        <RunnerList rows={teamRunners(free, 'laps')} value={r => (
-          <span className="text-right w-24 shrink-0">
-            <span className="block font-mono font-bold text-apex-yellow-bright">{r.laps} okr.</span>
-            <span className="block font-mono text-[11px] text-apex-muted">najl. {formatDuration(r.bestLapMs)}</span>
-          </span>
-        )} />
-      )}
+      {format === 'free' && view === 'best' && <TeamRunnersList rows={teamRunners(free, 'best')} by="best" mode="relay_free" formatDuration={formatDuration} />}
+      {format === 'free' && view === 'most' && <TeamRunnersList rows={teamRunners(free, 'laps')} by="laps" mode="relay_free" formatDuration={formatDuration} />}
 
       {format === 'fixed' && view === 'teams' && <TeamStandings teams={fixed} mode="relay" formatDuration={formatDuration} />}
       {format === 'fixed' && view === 'sheet' && <RelayLegMatrix teams={fixed} formatDuration={formatDuration} />}
-      {format === 'fixed' && view === 'best' && (
-        <RunnerList rows={teamRunners(fixed, 'best')} value={r => (
-          <span className="text-right w-24 shrink-0">
-            <span className="block font-mono font-bold text-apex-yellow-bright">{formatDuration(r.bestLapMs)}</span>
-            <span className="block font-mono text-[11px] text-apex-muted">zmiana {r.leg}</span>
-          </span>
-        )} />
-      )}
+      {format === 'fixed' && view === 'best' && <TeamRunnersList rows={teamRunners(fixed, 'best')} by="best" mode="relay" formatDuration={formatDuration} />}
     </div>
   )
 }

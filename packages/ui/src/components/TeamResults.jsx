@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { anonymizedName } from '../lib/anonymizedName.js'
+import { teamRunners } from '../lib/teamResults.js'
 
 // Team result views. Every one takes the output of computeTeamResults() and renders it;
 // none computes a time itself. Three layouts are here for comparison (EXPLORATION):
@@ -185,5 +186,76 @@ export function TeamTag({ name, leg }) {
     <span className="inline-flex items-center gap-1 border border-apex-border px-1.5 py-0.5 text-[10px] uppercase tracking-wider text-apex-muted whitespace-nowrap">
       <span className="text-apex-yellow">◆</span>{name}{leg ? ` · zm. ${leg}` : ''}
     </span>
+  )
+}
+
+/** Individual ranking of a relay: rows from teamRunners(), each with its team. */
+export function TeamRunnersList({ rows, by = 'best', mode, formatDuration }) {
+  return (
+    <div className="border border-apex-border bg-apex-surface divide-y divide-apex-border">
+      {rows.map(r => (
+        <div key={r.id} className="flex items-center gap-3 px-3 py-2 text-sm">
+          <span className="font-display text-xl text-apex-yellow w-6 shrink-0">{r.rank}</span>
+          <span className="font-mono text-xs text-apex-muted w-10 shrink-0">#{r.participant?.bibNumber}</span>
+          <span className="flex-1 min-w-0 flex flex-col md:flex-row md:items-center gap-1 md:gap-3">
+            <span className="truncate md:flex-1">{memberName(r)}</span>
+            <span><TeamTag name={r.teamName} /></span>
+          </span>
+          <span className="text-right w-24 shrink-0">
+            {by === 'laps' ? (
+              <>
+                <span className="block font-mono font-bold text-apex-yellow-bright">{r.laps} okr.</span>
+                {r.bestLapMs != null && <span className="block font-mono text-[11px] text-apex-muted">najl. {formatDuration(r.bestLapMs)}</span>}
+              </>
+            ) : (
+              <>
+                <span className="block font-mono font-bold text-apex-yellow-bright">{formatDuration(r.bestLapMs)}</span>
+                {mode === 'relay' && <span className="block font-mono text-[11px] text-apex-muted">zmiana {r.leg}</span>}
+              </>
+            )}
+          </span>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+const TEAM_VIEWS = {
+  relay_free: [
+    { key: 'teams', label: 'Drużyny' },
+    { key: 'best', label: 'Najszybsze okrążenie' },
+    { key: 'laps', label: 'Najwięcej okrążeń' },
+  ],
+  relay: [
+    { key: 'teams', label: 'Drużyny' },
+    { key: 'sheet', label: 'Arkusz zmian' },
+    { key: 'best', label: 'Najszybsi indywidualnie' },
+  ],
+}
+
+/**
+ * A relay's results with its views as tabs: the teams, and the individual rankings.
+ * @param {'relay'|'relay_free'} mode
+ * @param {Array} teams computeTeamResults() output
+ */
+export function TeamResultsTabs({ mode, teams, formatDuration }) {
+  const views = TEAM_VIEWS[mode] ?? TEAM_VIEWS.relay_free
+  const [view, setView] = useState(views[0].key)
+  return (
+    <div>
+      <div className="flex flex-wrap justify-center gap-1 mb-6">
+        {views.map(v => (
+          <button key={v.key} type="button" onClick={() => setView(v.key)}
+            className={`px-4 py-2 text-xs font-bold tracking-widest uppercase transition-colors border whitespace-nowrap ${
+              view === v.key ? 'bg-apex-yellow text-black border-apex-yellow' : 'text-apex-muted border-apex-border hover:text-apex-text'}`}>
+            {v.label}
+          </button>
+        ))}
+      </div>
+      {view === 'teams' && <TeamStandings teams={teams} mode={mode} formatDuration={formatDuration} />}
+      {view === 'sheet' && <RelayLegMatrix teams={teams} formatDuration={formatDuration} />}
+      {view === 'best' && <TeamRunnersList rows={teamRunners(teams, 'best')} by="best" mode={mode} formatDuration={formatDuration} />}
+      {view === 'laps' && <TeamRunnersList rows={teamRunners(teams, 'laps')} by="laps" mode={mode} formatDuration={formatDuration} />}
+    </div>
   )
 }

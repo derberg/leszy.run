@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Podium, CheckpointTrackingTable, estimatePositions } from '../ui/index.js'
+import { Podium, CheckpointTrackingTable, estimatePositions, TeamResultsTabs, computeTeamResults } from '../ui/index.js'
 import { useCategoryResults } from '../hooks/useCategoryResults.js'
 import { formatDuration } from '../lib/formatDuration.js'
 
@@ -40,7 +40,25 @@ function GenderTabs({ value, onChange }) {
  */
 export default function CategorySection({ eventId, categoryId, afterPodium }) {
   const [gender, setGender] = useState(null)
-  const { category, raceRun, results, checkpoints, observations } = useCategoryResults(eventId, categoryId)
+  const { category, raceRun, results, checkpoints, observations, team } = useCategoryResults(eventId, categoryId)
+
+  // A relay: the teams and the individual rankings, not a podium of individuals.
+  if (team) {
+    const teams = computeTeamResults({
+      mode: team.mode, results, laps: team.laps, teamNames: team.names, lapCount: team.lapCount ?? undefined,
+      gunStartedAt: raceRun?.started_at, raceFinished: raceRun?.status === 'finished',
+    })
+    return (
+      <div>
+        <div className="text-center mb-6">
+          <div className="font-display text-5xl tracking-widest uppercase text-apex-text-bright mb-1">{category?.name || '—'}</div>
+          {raceRun?.started_at && <div className="text-apex-text text-sm">Start {formatTime(raceRun.started_at)}</div>}
+        </div>
+        {afterPodium}
+        <TeamResultsTabs mode={team.mode} teams={teams} formatDuration={formatDuration} />
+      </div>
+    )
+  }
 
   const filteredResults = gender
     ? results.filter(r => r.participant?.gender === gender)
