@@ -768,7 +768,7 @@ Fetches `/event/NNN/strona.html` for every new event, and again for a known even
 When the detail page has no distances (sparse), fetches `/event/NNN/signup.html` to find external registration links. Many elektronicznezapisy events are just stubs that redirect signups to external platforms (dostartu.pl, zapisy.mktime.pl, etc.).
 
 **Phase 4 — Dostartu API enrichment (dostartu-like external links only):**
-If the external link from the signup page points to a dostartu-like domain (`dostartu.pl`, `zapisy.mktime.pl`, `zapisy.o-timing.pl`), extracts the competition ID from the `-v{id}` URL pattern and calls the dostartu API (`api.dostartu.pl/competitions/{id}` + `/classifications`) to fill in missing distances, location, and coordinates. These sites all share the same backend API.
+If the external link from the signup page points to a dostartu-like domain (`dostartu.pl` or a white-label host from `WHITE_LABEL_HOSTS`), extracts the competition ID from the `-v{id}` / `-vc{id}` URL pattern and calls the dostartu API (`api.dostartu.pl/competitions/{id}` + `/classifications`) to fill in missing distances, location, and coordinates. These sites all share the same backend API.
 
 ### Raw output fields
 ```
@@ -860,6 +860,34 @@ Queries `/competitions` with filters:
 - `itemsPerPage: 100`
 
 Returns structured JSON: `{ id, name, startedTime, endDate, location, locationLat, locationLng, websitePl, type }`
+
+**Phase 1b — Unlisted competitions (`panel=1`):**
+The public listing returns only competitions with `mainPromo = true`, the switch an
+operator or dostartu's admin uses to show a competition on the dostartu.pl front page.
+A competition with it off is published, has a working registration page and answers
+`/competitions/{id}` in full, yet no listing shows it, not even the operator's own
+white-label front page (`operator=<id>` applies the same filter). These are mostly races
+of clubs working with a timing operator, reached through links such as
+`zapisy.domtel-sport.pl/...-v16402`. Measured 2026-11-08: 427 of 943 running
+competitions since 2026-06-01 were unlisted, among them 16402 (Mały Memoriał Żylewicza)
+and 16182 (Grand Prix Stargardu); 17 future ones, 15 of them absent from
+`calendar_events`.
+The same query with `panel=1` (what the organizer panel sends; it answers without a
+session) drops the filter. The scraper runs it as a second pass with the same
+`dateSince` and `types[]`, keeps the ids the public pass did not return, and drops
+placeholders (`isPlaceholderCompetition()`): `deleted` rows, dostartu's own test
+organizer 643, the onboarding competition „Moje pierwsze zawody”, names starting or
+ending with „Test” (a Cooper test excepted), „… - KOPIA” copies and templates. Rows are
+emitted exactly like the listed ones (`source: 'dostartu'`, `source_id` = competition
+id), so no new table. A failure of this pass is logged and the listed rows still go out.
+
+**White-label hosts** (`WHITE_LABEL_HOSTS` in `sources/dostartu.js`): dostartu operators
+serve the same SPA under their own brand and redirect the root to `/<name>-op<operator id>`:
+`zapisy.personalbest.pl` (op4), `zapisy.domtel-sport.pl` (op5), `zapisy.mktime.pl` (op7),
+plus `zapisy.o-timing.pl`, which no longer resolves. They are not scraped as HTML (their
+data is the same API, and zapisy.domtel-sport.pl's robots.txt disallows `/api/`); the list
+feeds `isDostartuLikeUrl()` so links to them are API-enriched. `GET /operators/{id}` names
+an operator but not its host, so a new host is found only by seeing it in our data.
 
 **Phase 2 — Classifications (distances + kids detection):**
 For each event, fetches `/competitions/{id}/classifications`.
