@@ -276,6 +276,13 @@ function distinguishingTags(event) {
   if (/nordic\s*walking|\bnw\b/i.test(n)) { tags.add('style:nw'); tags.add('named:nw') }
   if (/\bocr\b/i.test(n)) { tags.add('style:ocr'); tags.add('named:ocr') }
   if (/cross(owy|owa|owe)\b|\btrail\b/i.test(n)) { tags.add('style:trail'); tags.add('named:trail') }
+  // Name forms that state a style without the regexes above, so they qualify
+  // the subset check only (`named:`, never `style:`). Measured in scraper_all
+  // 2026-11-08: "Marsz z kijami/kijkami", "Rajd z Kijami", a truncated
+  // "Nordic Wa..." and the typo "Nordic Waking"; and "Cross" / "przełaj" as nouns
+  // ("Leśny Cross", "Żukowski Przełaj").
+  if (/\bnordic\b|\bz\s+kij(?:ami|kami)\b/i.test(n)) tags.add('named:nw')
+  if (/\bcross\b|przełaj|przelaj/i.test(n)) tags.add('named:trail')
 
   // Edition — Nth occurrence. Different stated editions on the same date with a
   // generic shared name = different events. One-sided absence is tolerated by
@@ -339,6 +346,35 @@ function hasDistinguishingConflict(tagsA, tagsB) {
     if (inA.length === inB.length && inA.every(t => inB.includes(t))) continue
     if (cat === 'style' && styleSubsetTolerated(inA, inB, new Set(tagsA), new Set(tagsB))) continue
     return true
+  }
+  return false
+}
+
+// hasDistinguishingConflict is stricter for AUTO-MERGE: a style subset merges
+// there only when the extra style is not stated in the bigger side's name. For
+// review any subset is fine — a
+// subset means one source simply saw more sub-races than the other, which is
+// the normal shape of a cross-source duplicate. The Krajenka pair is exactly
+// this and was invisible until the rule was relaxed here.
+//
+// A genuinely DISJOINT set in a category (distance:half vs distance:full) still
+// excludes the pair, as does a one-sided kids: tag — a kids-named race is a
+// different event, not a less-complete view of the same one.
+/** Review-list guard used by run-dedup.js (isReviewCandidate). */
+function hasHardConflict(tagsA, tagsB) {
+  const categories = new Set()
+  for (const t of [...tagsA, ...tagsB]) categories.add(t.split(':')[0])
+  categories.delete('named') // qualifies style: only, see hasDistinguishingConflict
+  for (const cat of categories) {
+    const inA = [...tagsA].filter((t) => t.startsWith(cat + ':'))
+    const inB = [...tagsB].filter((t) => t.startsWith(cat + ':'))
+    if (inA.length === 0 || inB.length === 0) {
+      if (cat === 'kids') return true
+      continue
+    }
+    const aSubsetB = inA.every((t) => inB.includes(t))
+    const bSubsetA = inB.every((t) => inA.includes(t))
+    if (!aSubsetB && !bSubsetA) return true
   }
   return false
 }
@@ -463,4 +499,4 @@ async function upsertEvent(event) {
   }
 }
 
-export { findExistingMatch, upsertEvent, jaccardSimilarity, citiesMatch, citiesConflict, tokenize, SOURCE_PRIORITY, distinguishingTags, hasDistinguishingConflict }
+export { findExistingMatch, upsertEvent, jaccardSimilarity, citiesMatch, citiesConflict, tokenize, SOURCE_PRIORITY, distinguishingTags, hasDistinguishingConflict, hasHardConflict }
