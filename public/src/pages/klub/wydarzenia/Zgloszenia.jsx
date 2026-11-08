@@ -135,7 +135,7 @@ function TeamToggle({ team, open, onToggle }) {
   )
 }
 
-function Tile({ label, value, extra, tone = 'text-apex-text-bright', testId }) {
+function Tile({ label, value, extra, note = null, tone = 'text-apex-text-bright', testId }) {
   // text-base at every width: at 1440 a four-tile row is about 250 px, and „3 / 22 · 1 / 10 DRUŻYN”
   // then keeps to one line instead of leaving „· 1 / 10 DRUŻYN” alone on the second.
   return (
@@ -148,6 +148,7 @@ function Tile({ label, value, extra, tone = 'text-apex-text-bright', testId }) {
         ))}
         {extra && <> <span className="whitespace-nowrap text-apex-red">{extra}</span></>}
       </span>
+      {note && <span className="block mt-0.5 font-mono text-xs text-apex-muted" data-testid={`${testId}-note`}>{note}</span>}
     </div>
   )
 }
@@ -332,7 +333,7 @@ function TeamTableRows({ item, ctx, open, onToggle, toggles }) {
   )
 }
 
-const EMPTY = { status: 'loading', rows: [], teams: [], competitions: [], event: null, partners: [] }
+const EMPTY = { status: 'loading', rows: [], teams: [], competitions: [], event: null, partners: [], dpayFee: 0 }
 
 export default function Zgloszenia({
   eventId, clubName = null, contactEmail = null, formFields = null, ageGroups = [], reckoning = 'race_day', charity = false,
@@ -356,7 +357,7 @@ export default function Zgloszenia({
       const r = await callFunction('list-event-registrations', { eventId })
       setState({
         status: 'ok', rows: r.data ?? [], teams: r.teams ?? [], competitions: r.competitions ?? [], event: r.event ?? null,
-        partners: r.partners ?? [],
+        partners: r.partners ?? [], dpayFee: r.counts?.dpayFee ?? 0,
       })
     } catch {
       setState((s) => (s.status === 'ok' ? s : { ...EMPTY, status: 'error' }))
@@ -520,7 +521,9 @@ export default function Zgloszenia({
           extra={blocked ? '· BRAK MIEJSC' : null} tone="text-apex-cyan" />
         <Tile testId="tile-consent" label="CZEKA NA ZGODY" value={String(counts.awaitingConsent)}
           tone={counts.awaitingConsent > 0 ? 'text-apex-cyan' : 'text-apex-text-bright'} />
-        <Tile testId="tile-income" label="WPŁYWY DLA KLUBU" value={formatPln(counts.clubIncome)} />
+        {/* Gross: LESZY.RUN pays dpay's commission and invoices the club for it (§8), so it is shown, never subtracted. */}
+        <Tile testId="tile-income" label="WPŁYWY DLA KLUBU" value={formatPln(counts.clubIncome)}
+          note={state.dpayFee > 0 ? <>prowizja dpay <span className="whitespace-nowrap">{formatPln(state.dpayFee)}</span></> : null} />
       </div>
 
       <Chips testId="competition-chips" label="Konkurencja" chips={competitionChips(state.rows, state.competitions, state.teams)}

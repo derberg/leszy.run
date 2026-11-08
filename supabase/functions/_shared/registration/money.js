@@ -44,6 +44,29 @@ export function dpayFee(amount) {
   return amount === 0 ? 0 : Math.max(20, Math.ceil((amount * 9) / 1000))
 }
 
+// dpay's commission on an event so far: one fee per payment dpay took (an attempt `paid`, or
+// `refunded` after it was paid) and one per refund dpay accepted, on that refund's own amount. The
+// organizer panel shows it beside the club's income, which stays gross: LESZY.RUN pays the
+// commission and invoices the club for it (§8), so it is never deducted from what runners paid.
+// A refund made in the dpay panel (reason 'external') is recorded as one row per order line it
+// covered (record-external-refund.js), so the external rows of one payment count as one refund on
+// their sum: per row, the 0,20 zł minimum would be charged once per line. Two separate panel
+// refunds of one payment then come out one minimum short, the rarer case. „Zwróć wpłatę” makes one
+// dpay refund per row, so each of those is its own fee.
+export function dpayCommission({ attempts = [], refunds = [] } = {}) {
+  const paid = attempts.filter((a) => a.status === 'paid' || a.status === 'refunded')
+    .reduce((n, a) => n + dpayFee(a.grosze), 0)
+  const accepted = refunds.filter((f) => f.dpay_status === 'accepted')
+  const external = new Map()
+  let refunded = 0
+  for (const f of accepted) {
+    if (f.reason === 'external') external.set(f.payment_attempt_id, (external.get(f.payment_attempt_id) ?? 0) + f.amount)
+    else refunded += dpayFee(f.amount)
+  }
+  for (const amount of external.values()) refunded += dpayFee(amount)
+  return paid + refunded
+}
+
 function splitZloty(amount) {
   return [Math.floor(amount / 100), String(amount % 100).padStart(2, '0')]
 }

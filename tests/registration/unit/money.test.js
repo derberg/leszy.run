@@ -7,6 +7,7 @@ import {
   formatDpayValue,
   parseDpayAmount,
   dpayFee,
+  dpayCommission,
 } from '../../../supabase/functions/_shared/registration/money.js'
 import { PAYMENT_CHANNEL_PRESELECT } from '../../../supabase/functions/_shared/registration/flags.js'
 
@@ -119,4 +120,38 @@ test('dpayFee: 0.9% rounded up, at least 0.20 zł, nothing on 0', () => {
   assert.equal(dpayFee(10000), 90)
   assert.throws(() => dpayFee(1.5), MoneyError)
   assert.throws(() => dpayFee(-1), MoneyError)
+})
+
+test('O-50 dpayCommission: one fee per payment dpay took and per refund it accepted', () => {
+  assert.equal(dpayCommission(), 0)
+  // The Wataha case: three paid payments of 200 zł, 1,80 zł each.
+  const paid = [20000, 20000, 20000].map((grosze) => ({ grosze, status: 'paid' }))
+  assert.equal(dpayCommission({ attempts: paid }), 540)
+  // A payment refunded afterwards was still taken; one never paid costs nothing.
+  assert.equal(dpayCommission({ attempts: [{ grosze: 6000, status: 'refunded' }, { grosze: 6000, status: 'created' }] }), 54)
+  // Only an accepted refund was made at dpay, each on its own amount (5 zł → the 0,20 zł minimum).
+  const refunds = [
+    { amount: 500, dpay_status: 'accepted' },
+    { amount: 20000, dpay_status: 'accepted' },
+    { amount: 20000, dpay_status: 'rejected' },
+    { amount: 20000, dpay_status: 'pending' },
+    { amount: 20000, dpay_status: 'unknown' },
+  ]
+  assert.equal(dpayCommission({ attempts: paid, refunds }), 540 + 20 + 180)
+})
+
+test('O-50 dpayCommission: one dpay-panel refund recorded per line is one fee, a panel refund per payment', () => {
+  // A 10 zł payment refunded in the dpay panel, recorded as two 5 zł line shares: one 0,20 zł fee.
+  const attempts = [{ grosze: 1000, status: 'refunded' }]
+  const split = [
+    { payment_attempt_id: 'a', amount: 500, dpay_status: 'accepted', reason: 'external' },
+    { payment_attempt_id: 'a', amount: 500, dpay_status: 'accepted', reason: 'external' },
+  ]
+  assert.equal(dpayCommission({ attempts, refunds: split }), 20 + 20)
+  // Panel refunds of different payments stay separate fees.
+  const two = [{ ...split[0] }, { ...split[1], payment_attempt_id: 'b' }]
+  assert.equal(dpayCommission({ attempts: [], refunds: two }), 40)
+  // „Zwróć wpłatę” calls dpay once per line: two organizer refunds of one payment are two fees.
+  const organizer = split.map((f) => ({ ...f, reason: null }))
+  assert.equal(dpayCommission({ attempts: [], refunds: organizer }), 40)
 })
