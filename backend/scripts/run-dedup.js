@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
-import { jaccardSimilarity, citiesMatch, citiesConflict, tokenize, SOURCE_PRIORITY, distinguishingTags, hasDistinguishingConflict } from '../src/scrapers/dedup.js'
+import { jaccardSimilarity, citiesMatch, citiesConflict, tokenize, SOURCE_PRIORITY, distinguishingTags, hasDistinguishingConflict, hasHardConflict } from '../src/scrapers/dedup.js'
 import { writeRunLog } from './lib/run-log.js'
 
 // Usage: cd backend && node --env-file=../.env scripts/run-dedup.js
@@ -116,32 +116,6 @@ function distancesOverlap(a, b) {
   const setB = parseDistanceSet(b)
   if (setA.size === 0 || setB.size === 0) return false
   return [...setA].some((d) => setB.has(d))
-}
-
-// hasDistinguishingConflict is deliberately strict for AUTO-MERGE: it treats
-// style:{nw,trail} vs style:{nw} as a conflict. For review that is wrong — a
-// subset means one source simply saw more sub-races than the other, which is
-// the normal shape of a cross-source duplicate. The Krajenka pair is exactly
-// this and was invisible until the rule was relaxed here.
-//
-// A genuinely DISJOINT set in a category (distance:half vs distance:full) still
-// excludes the pair, as does a one-sided kids: tag — a kids-named race is a
-// different event, not a less-complete view of the same one.
-function hasHardConflict(tagsA, tagsB) {
-  const categories = new Set()
-  for (const t of [...tagsA, ...tagsB]) categories.add(t.split(':')[0])
-  for (const cat of categories) {
-    const inA = [...tagsA].filter((t) => t.startsWith(cat + ':'))
-    const inB = [...tagsB].filter((t) => t.startsWith(cat + ':'))
-    if (inA.length === 0 || inB.length === 0) {
-      if (cat === 'kids') return true
-      continue
-    }
-    const aSubsetB = inA.every((t) => inB.includes(t))
-    const bSubsetA = inB.every((t) => inA.includes(t))
-    if (!aSubsetB && !bSubsetA) return true
-  }
-  return false
 }
 
 function isReviewCandidate(a, b) {

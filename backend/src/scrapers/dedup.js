@@ -270,9 +270,19 @@ function distinguishingTags(event) {
     else if (t === 'nordic walking') tags.add('style:nw')
     else if (t === 'ocr') tags.add('style:ocr')
   }
-  if (/nordic\s*walking|\bnw\b/i.test(n)) tags.add('style:nw')
-  if (/\bocr\b/i.test(n)) tags.add('style:ocr')
-  if (/cross(owy|owa|owe)\b|\btrail\b/i.test(n)) tags.add('style:trail')
+  // A style stated in the NAME is also recorded as `named:<style>`, so the
+  // guard can tell it from one that only event_types carry (the LLM enricher, or
+  // a scraper reading sub-races or the surface). See hasDistinguishingConflict.
+  if (/nordic\s*walking|\bnw\b/i.test(n)) { tags.add('style:nw'); tags.add('named:nw') }
+  if (/\bocr\b/i.test(n)) { tags.add('style:ocr'); tags.add('named:ocr') }
+  if (/cross(owy|owa|owe)\b|\btrail\b/i.test(n)) { tags.add('style:trail'); tags.add('named:trail') }
+  // Name forms that state a style without the regexes above, so they qualify
+  // the subset check only (`named:`, never `style:`). Measured in scraper_all
+  // 2026-11-08: "Marsz z kijami/kijkami", "Rajd z Kijami", a truncated
+  // "Nordic Wa..." and the typo "Nordic Waking"; and "Cross" / "przełaj" as nouns
+  // ("Leśny Cross", "Żukowski Przełaj").
+  if (/\bnordic\b|\bz\s+kij(?:ami|kami)\b/i.test(n)) tags.add('named:nw')
+  if (/\bcross\b|przełaj|przelaj/i.test(n)) tags.add('named:trail')
 
   // Edition — Nth occurrence. Different stated editions on the same date with a
   // generic shared name = different events. One-sided absence is tolerated by
@@ -288,11 +298,35 @@ function distinguishingTags(event) {
  * Conflict = within a category, A and B have different tag sets (different
  * presence, or different specific tags). Identical sets in all categories
  * (including both empty) → no conflict, merge can proceed.
+ *
+ * Style is the one category where a strict SUBSET is tolerated: {trail} against
+ * {trail, nw} merges, unless an extra style on the bigger side is stated in that
+ * side's own name (`named:`). An extra style that only event_types carry is
+ * almost always the enricher or a scraper seeing a side race of the same event:
+ * Leśna Piątka Odwrotnie (biegnijmy {trail} vs an LLM-enriched {trail, nw})
+ * stayed a duplicate this way. Measured on scraper_all 2026-11-08: 11 dedup
+ * pairs and 1 merge pair were blocked only by a style subset, all 12 one event;
+ * the rule merges 11 of them and keeps apart the one whose name says
+ * "oraz marsz Nordic Walking" (a conservative miss). A name that states the
+ * extra style is how a separate NW race reads ("Wataha 7 km Nordic Walking").
+ * Disjoint style sets ({trail} vs {ocr}) still conflict.
  */
+function styleSubsetTolerated(inA, inB, tagsA, tagsB) {
+  const aInB = inA.every(t => inB.includes(t))
+  const bInA = inB.every(t => inA.includes(t))
+  if (aInB === bInA) return false
+  const [small, big, bigTags] = aInB ? [inA, inB, tagsB] : [inB, inA, tagsA]
+  return big
+    .filter(t => !small.includes(t))
+    .every(t => !bigTags.has(`named:${t.slice('style:'.length)}`))
+}
+
 function hasDistinguishingConflict(tagsA, tagsB) {
   const categories = new Set()
   for (const t of tagsA) categories.add(t.split(':')[0])
   for (const t of tagsB) categories.add(t.split(':')[0])
+  // `named:` only qualifies `style:`; it is never compared on its own.
+  categories.delete('named')
   for (const cat of categories) {
     const inA = [...tagsA].filter(t => t.startsWith(cat + ':'))
     const inB = [...tagsB].filter(t => t.startsWith(cat + ':'))
@@ -309,8 +343,38 @@ function hasDistinguishingConflict(tagsA, tagsB) {
       if (cat === 'kids') return true
       continue
     }
-    if (inA.length !== inB.length) return true
-    if (!inA.every(t => inB.includes(t))) return true
+    if (inA.length === inB.length && inA.every(t => inB.includes(t))) continue
+    if (cat === 'style' && styleSubsetTolerated(inA, inB, new Set(tagsA), new Set(tagsB))) continue
+    return true
+  }
+  return false
+}
+
+// hasDistinguishingConflict is stricter for AUTO-MERGE: a style subset merges
+// there only when the extra style is not stated in the bigger side's name. For
+// review any subset is fine — a
+// subset means one source simply saw more sub-races than the other, which is
+// the normal shape of a cross-source duplicate. The Krajenka pair is exactly
+// this and was invisible until the rule was relaxed here.
+//
+// A genuinely DISJOINT set in a category (distance:half vs distance:full) still
+// excludes the pair, as does a one-sided kids: tag — a kids-named race is a
+// different event, not a less-complete view of the same one.
+/** Review-list guard used by run-dedup.js (isReviewCandidate). */
+function hasHardConflict(tagsA, tagsB) {
+  const categories = new Set()
+  for (const t of [...tagsA, ...tagsB]) categories.add(t.split(':')[0])
+  categories.delete('named') // qualifies style: only, see hasDistinguishingConflict
+  for (const cat of categories) {
+    const inA = [...tagsA].filter((t) => t.startsWith(cat + ':'))
+    const inB = [...tagsB].filter((t) => t.startsWith(cat + ':'))
+    if (inA.length === 0 || inB.length === 0) {
+      if (cat === 'kids') return true
+      continue
+    }
+    const aSubsetB = inA.every((t) => inB.includes(t))
+    const bSubsetA = inB.every((t) => inA.includes(t))
+    if (!aSubsetB && !bSubsetA) return true
   }
   return false
 }
@@ -435,4 +499,4 @@ async function upsertEvent(event) {
   }
 }
 
-export { findExistingMatch, upsertEvent, jaccardSimilarity, citiesMatch, citiesConflict, tokenize, SOURCE_PRIORITY, distinguishingTags, hasDistinguishingConflict }
+export { findExistingMatch, upsertEvent, jaccardSimilarity, citiesMatch, citiesConflict, tokenize, SOURCE_PRIORITY, distinguishingTags, hasDistinguishingConflict, hasHardConflict }
