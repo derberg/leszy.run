@@ -97,7 +97,9 @@ cd backend && node --env-file=../.env scripts/run-publish.js --apply
 cd backend && node --env-file=../.env scripts/run-revert-publish.js
 cd backend && node --env-file=../.env scripts/run-revert-publish.js --apply
 
-# Step 7: Regenerate static event pages manifest + OG images — dry run first, then --apply
+# Step 7: Publish the kalendarz manifest + OG images and the /listy manifest to Supabase
+# Storage (buckets calendar-manifests, private, and calendar-og, public) — dry run first, then --apply.
+# Needs SUPABASE_SERVICE_ROLE_KEY. --apply stamps public/data-version.json.
 cd backend && node --env-file=../.env scripts/publish-event-pages.js
 cd backend && node --env-file=../.env scripts/publish-event-pages.js --apply && node --env-file=../.env scripts/publish-landing-pages.js --apply
 # Use --regen-og to regenerate ALL OG images (e.g. after changing the OG template)
@@ -134,7 +136,7 @@ print(urllib.parse.unquote(m.group(1)), end='')
 ```
 
 After publishing, review new events in admin UI: `/calendar-events` → "Do przeglądu" tab.
-After step 7, commit the updated manifest and OG images in `public/public/kalendarz/`.
+After step 7, commit `public/data-version.json`: that commit deploys the site, and the Vercel build downloads the manifests from Storage (`public/scripts/fetch-manifests.js`). The manifests and images are no longer in git.
 
 ---
 

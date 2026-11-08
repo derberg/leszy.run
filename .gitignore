@@ -35,3 +35,10 @@ tests/registration/test-results/
 
 # Test-stack slots made by scripts/test-slot.sh (generated config + symlinks)
 .supabase-slots/
+
+# Calendar data lives in Supabase Storage, not git (public/scripts/lib/publicData.js).
+# The build downloads the manifests here (public/scripts/fetch-manifests.js);
+# commit public/data-version.json to deploy a publish.
+public/public/kalendarz/
+public/public/listy/.manifest.json
+public/public/events/.manifest.json

@@ -48,7 +48,7 @@ start_app() { # name port dir compose_service cmd...
 start_app backend  3001 backend  backend  npm run dev
 start_app frontend 3000 frontend frontend npm run dev
 if [[ "${1:-}" == "--public" ]]; then
-  start_app public 3002 public "" npx vite --port 3002
+  start_app public 3002 public "" sh -c "node scripts/fetch-manifests.js --dev && npx vite --port 3002"
 fi
 
 echo "[dev] all up — frontend http://localhost:3000 · backend http://localhost:3001 · Ctrl+C stops everything"

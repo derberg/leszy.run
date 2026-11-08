@@ -1,20 +1,26 @@
 // Usage: cd backend && node --env-file=../.env scripts/publish-event-pages.js [--apply] [--regen-og]
-// Generates static event pages manifest + OG images for the public kalendarz.
-// Dry run by default — use --apply to write files.
+// Publishes the kalendarz manifest + OG images for the public kalendarz to
+// Supabase Storage (manifest: private bucket calendar-manifests/kalendarz.json;
+// images: public bucket calendar-og/kalendarz/<slug>/og.png). Neither is in git.
+// Dry run by default — use --apply to upload. --apply also stamps
+// public/data-version.json; commit that file to deploy the site.
 // --regen-og: regenerate ALL OG images (use after changing the OG template)
 
 import { createClient } from '@supabase/supabase-js'
-import { readFileSync, writeFileSync, mkdirSync, rmSync, existsSync } from 'fs'
 import { resolve, dirname } from 'path'
 import { fileURLToPath } from 'url'
-import { generateEventOg } from '../../public/scripts/generate-event-og.js'
+import { renderEventOg } from '../../public/scripts/generate-event-og.js'
 import { writeRunLog } from './lib/run-log.js'
 import { buildManifestEntry, shareImageView } from './lib/manifestEntry.js'
+import { stampPublish, ogSlugsToGenerate } from './lib/publishHelpers.js'
+import {
+  storageConfig, readManifest, writeManifest, listOgSlugs, uploadOg, removeOgs, mapLimit,
+  MANIFEST_BUCKET, OG_BUCKET,
+} from '../../public/scripts/lib/publicData.js'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const PROJECT_ROOT = resolve(__dirname, '..', '..')
-const KALENDARZ_DIR = resolve(PROJECT_ROOT, 'public/public/kalendarz')
-const MANIFEST_PATH = resolve(KALENDARZ_DIR, '.manifest.json')
+const OG_CONCURRENCY = 6
 
 // --- Slugify (duplicated from public/src/lib/slugify.js for Node compat) ---
 
@@ -48,26 +54,24 @@ async function main() {
   const startedAt = new Date().toISOString()
   if (dryRun) console.log('=== DRY RUN (use --apply to write files) ===\n')
 
-  // 1. Create Supabase client
-  const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL
-  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY
-
-  if (!supabaseUrl || !supabaseKey) {
-    console.error('Missing SUPABASE_URL/VITE_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY/VITE_SUPABASE_ANON_KEY')
+  // 1. Create Supabase client. The service role key is required even for a dry
+  // run: the published manifest lives in a private bucket.
+  let cfg
+  try {
+    cfg = storageConfig()
+  } catch (err) {
+    console.error(err.message)
     process.exit(1)
   }
 
-  const supabase = createClient(supabaseUrl, supabaseKey)
+  const supabase = createClient(cfg.url, cfg.key)
 
-  // 2. Load existing manifest
-  let oldManifest = {}
-  if (existsSync(MANIFEST_PATH)) {
-    try {
-      oldManifest = JSON.parse(readFileSync(MANIFEST_PATH, 'utf-8'))
-    } catch (err) {
-      console.warn('Warning: could not parse existing manifest, starting fresh')
-      oldManifest = {}
-    }
+  // 2. Load the published manifest from Storage. It keeps the diff below
+  // honest: only events whose share image changed get a new image.
+  let oldManifest = await readManifest(cfg, 'kalendarz')
+  if (oldManifest === null) {
+    console.warn(`Warning: no kalendarz.json in bucket ${MANIFEST_BUCKET} yet — every event counts as new.`)
+    oldManifest = {}
   }
 
   // 3. Query active calendar events
@@ -94,19 +98,11 @@ async function main() {
   }
 
   if (!events || events.length === 0) {
-    console.log('No active calendar events found.')
-    if (!dryRun) {
-      // Write empty manifest, clean up removed dirs
-      const removedSlugs = Object.keys(oldManifest)
-      for (const slug of removedSlugs) {
-        const dir = resolve(KALENDARZ_DIR, slug)
-        if (existsSync(dir)) rmSync(dir, { recursive: true })
-      }
-      mkdirSync(KALENDARZ_DIR, { recursive: true })
-      writeFileSync(MANIFEST_PATH, JSON.stringify({}, null, 2))
-      console.log(`Removed ${removedSlugs.length} old event directories.`)
-    }
-    return
+    // An empty calendar is never published: the build refuses an empty
+    // kalendarz manifest, and a query that silently returned nothing must not
+    // delete every OG image.
+    console.error('No active calendar events found. Refusing to publish an empty kalendarz manifest.')
+    process.exit(1)
   }
 
   console.log(`Found ${events.length} active events.\n`)
@@ -206,59 +202,51 @@ async function main() {
 
   // 9. Apply changes
   console.log('\nApplying changes...')
-  mkdirSync(KALENDARZ_DIR, { recursive: true })
 
-  // Generate OG images for new/changed events + any missing OG files
+  // Generate OG images for new/changed events + any image missing from the bucket
   const regenOg = process.argv.includes('--regen-og')
-  let toGenerate
+  const existingOg = await listOgSlugs(cfg)
+  const toGenerate = ogSlugsToGenerate({ newSlugs: [...newSlugs], added, changed, existingOg, regenOg })
   if (regenOg) {
-    toGenerate = [...newSlugs]
     console.log(`  --regen-og: regenerating ALL ${toGenerate.length} OG images`)
   } else {
-    const unchangedMissing = [...newSlugs].filter(s =>
-      !added.includes(s) && !changed.includes(s) && !existsSync(resolve(KALENDARZ_DIR, s, 'og.png'))
-    )
-    if (unchangedMissing.length) console.log(`  ${unchangedMissing.length} unchanged events missing OG images`)
-    toGenerate = [...added, ...changed, ...unchangedMissing]
+    const missing = toGenerate.length - added.length - changed.length
+    if (missing) console.log(`  ${missing} unchanged events missing OG images in ${OG_BUCKET}`)
   }
   let generated = 0
   let genErrors = 0
   const ogErrors = []
 
-  for (const slug of toGenerate) {
-    const eventDir = resolve(KALENDARZ_DIR, slug)
-    mkdirSync(eventDir, { recursive: true })
-
-    const ogPath = resolve(eventDir, 'og.png')
+  await mapLimit(toGenerate, OG_CONCURRENCY, async slug => {
     try {
-      await generateEventOg(newManifest[slug], ogPath)
+      const png = await renderEventOg(newManifest[slug])
+      await uploadOg(cfg, slug, png)
       generated++
       if (generated % 50 === 0) {
-        console.log(`  Generated ${generated}/${toGenerate.length} OG images...`)
+        console.log(`  Uploaded ${generated}/${toGenerate.length} OG images...`)
       }
     } catch (err) {
       genErrors++
       ogErrors.push({ slug, message: err.message })
       console.error(`  Error generating OG for ${slug}: ${err.message}`)
     }
-  }
+  })
 
-  // Remove directories for removed events
-  for (const slug of removed) {
-    const eventDir = resolve(KALENDARZ_DIR, slug)
-    if (existsSync(eventDir)) {
-      rmSync(eventDir, { recursive: true })
-    }
-  }
+  // Remove images of removed events
+  const removedImages = removed.filter(slug => existingOg.has(slug))
+  if (removedImages.length) await removeOgs(cfg, removedImages)
 
-  // Write manifest
-  writeFileSync(MANIFEST_PATH, JSON.stringify(newManifest, null, 2))
+  // Write the manifest last: a run that died above leaves the previous one in
+  // place, and the next run redraws what it did not finish.
+  await writeManifest(cfg, 'kalendarz', newManifest)
+  const versionFile = stampPublish(PROJECT_ROOT, 'kalendarz', newSlugs.size)
 
   console.log('\n--- Apply Summary ---')
-  console.log(`  OG images generated: ${generated}`)
+  console.log(`  OG images uploaded:  ${generated}`)
   console.log(`  OG image errors:     ${genErrors}`)
-  console.log(`  Directories removed: ${removed.length}`)
-  console.log(`  Manifest written:    ${MANIFEST_PATH}`)
+  console.log(`  OG images removed:   ${removedImages.length}`)
+  console.log(`  Manifest uploaded:   ${MANIFEST_BUCKET}/kalendarz.json`)
+  if (versionFile) console.log(`  Commit to deploy:    ${versionFile}`)
 
   const logFile = await writeRunLog('publish-event-pages', {
     script: 'publish-event-pages',

@@ -1,18 +1,19 @@
 // Usage: cd backend && node --env-file=../.env scripts/publish-leszyrun-events.js [--apply]
-// Reads the event_results_summary view + events table and writes a committed manifest of
+// Reads the event_results_summary view + events table and builds the manifest of
 // PAST, PUBLIC leszy.run events with baked stats, consumed by
-// public/scripts/generate-leszyrun-event-pages.js at build time.
-// Dry run by default — use --apply to write the manifest.
+// public/scripts/generate-leszyrun-event-pages.js at build time. The manifest goes
+// to the private Storage bucket calendar-manifests (events.json), not to git.
+// Dry run by default — use --apply to upload (needs SUPABASE_SERVICE_ROLE_KEY);
+// --apply also stamps public/data-version.json, which is what you commit to deploy.
 
 import { createClient } from '@supabase/supabase-js'
-import { writeFileSync, mkdirSync } from 'fs'
+import { storageConfig, writeManifest, MANIFEST_BUCKET } from '../../public/scripts/lib/publicData.js'
+import { stampPublish } from './lib/publishHelpers.js'
 import { resolve, dirname } from 'path'
 import { fileURLToPath } from 'url'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const PROJECT_ROOT = resolve(__dirname, '..', '..')
-const EVENTS_DIR = resolve(PROJECT_ROOT, 'public/public/events')
-const MANIFEST_PATH = resolve(EVENTS_DIR, '.manifest.json')
 
 const dryRun = !process.argv.includes('--apply')
 
@@ -178,12 +179,14 @@ async function main() {
   }
 
   if (dryRun) {
-    console.log(`\n(dry run) Would write ${MANIFEST_PATH}`)
+    console.log(`\n(dry run) Would upload ${MANIFEST_BUCKET}/events.json (${json.length} bytes)`)
     return
   }
-  mkdirSync(EVENTS_DIR, { recursive: true })
-  writeFileSync(MANIFEST_PATH, json)
-  console.log(`\nWrote ${MANIFEST_PATH}`)
+  const cfg = storageConfig()
+  await writeManifest(cfg, 'events', manifest)
+  console.log(`\nUploaded ${MANIFEST_BUCKET}/events.json`)
+  const versionFile = stampPublish(PROJECT_ROOT, 'events', Object.keys(manifest).length)
+  if (versionFile) console.log(`Commit to deploy: ${versionFile}`)
 }
 
-main()
+main().catch(err => { console.error(err); process.exit(1) })
