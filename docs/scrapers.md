@@ -406,7 +406,7 @@ Requires `claude` CLI installed locally. Uses `--model sonnet` with web search. 
 
 The specialized field extractor. Reads each event's `regulamin_url` and pulls **distances, event types, is_kids, price_from/price_to, registration_deadline, location, voivodeship** straight from the rules. Distances replace the scraper's value (the regulamin is authoritative); event types merge (with a hallucination guard for trail/ocr/charytatywny/nordic walking). Run it AFTER Step 5.1 so the regulamin URLs it found are available.
 
-The `regulamin_url` does not have to be a PDF — `acquireRegulamin()` accepts **PDF, `.docx`, a plain HTML page, and a public Google Drive folder or file** (a folder of per-distance regulamins is downloaded in full, each file extracted, and the text concatenated). PDFs are read natively by Claude; `.docx`/HTML are converted with `textutil`, and Drive PDFs with `pdftotext`.
+The `regulamin_url` does not have to be a PDF — `acquireRegulamin()` accepts **PDF, `.docx`, a plain HTML page, and a public Google Drive folder or file** (a folder of per-distance regulamins is downloaded in full, each file extracted, and the text concatenated). PDFs are read natively by Claude; `.docx` is converted with `textutil`, HTML with cheerio (`htmlToText`; `textutil` dropped most of some pages), Drive PDFs with `pdftotext`, and a my.raceresult.com tab is read from its `/config`. A document that is not a regulamin is never kept: `huntRegulamin()` looks two clicks around it for the one that is (it must state the race's date) and replaces the URL, or the URL is cleared.
 
 ```bash
 cd backend && node --env-file=../.env scripts/run-enrich-from-regulamin.js
