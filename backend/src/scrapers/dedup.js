@@ -38,6 +38,7 @@ const SOURCE_PRIORITY = {
   motivato: 8,
   biegigorskie: 8,
   chronotex: 3,
+  botaniczna5: 3,
 }
 
 // Fields only set by LLM enricher or manual edits — scrapers never touch these
