@@ -93,12 +93,16 @@ export function computeTeamResults({ mode, results, teamNames = {}, laps = [], l
 }
 
 /**
- * Relay in any order, one row per runner across every team, for the individual views:
- * by: 'best' (Najszybsze okrążenie: best lap, fastest first) or 'laps' (Najwięcej okrążeń: most
- * laps, then the fastest best lap). Runners with no lap are left out.
+ * One row per runner across every team, for the individual views. In a relay in any order a
+ * runner's own laps are summed; in a fixed-order relay each runner has one leg.
+ * by: 'best' (fastest lap or leg first) or 'laps' (most laps, then the fastest best lap).
+ * Runners with no timed lap or leg are left out.
  */
-export function freeRelayRunners(teams, by = 'best') {
-  const rows = teams.flatMap(t => (t.runners ?? []).filter(r => r.laps > 0).map(r => ({ ...r, teamId: t.teamId, teamName: t.name })))
+export function teamRunners(teams, by = 'best') {
+  const rows = teams.flatMap(t => (t.runners
+    ?? t.members.filter(m => m.legMs != null).map(m => ({ ...m, laps: 1, bestLapMs: m.legMs })))
+    .filter(r => r.laps > 0)
+    .map(r => ({ ...r, teamId: t.teamId, teamName: t.name })))
   rows.sort(by === 'laps'
     ? (a, b) => b.laps - a.laps || a.bestLapMs - b.bestLapMs
     : (a, b) => a.bestLapMs - b.bestLapMs || b.laps - a.laps)

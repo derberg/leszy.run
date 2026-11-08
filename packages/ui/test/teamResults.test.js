@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { computeTeamResults, freeRelayRunners, formatTeamMs } from '../src/lib/teamResults.js'
+import { computeTeamResults, teamRunners, formatTeamMs } from '../src/lib/teamResults.js'
 
 const MIN = 60_000
 let n = 0
@@ -124,12 +124,20 @@ test('relay_free: when the race is over every team with laps is finished; a team
   assert.deepEqual(teams.map(t => [t.teamId, t.status, t.position]), [['B', 'dnf', 1], ['A', 'finished', 2]])
 })
 
-test('freeRelayRunners: best lap and most laps, across teams', () => {
+test('teamRunners: best lap and most laps, across teams', () => {
   const a = row('A', null, { lastName: 'Nowak' }), b = row('A', null, { lastName: 'Lis' }), c = row('B', null, { lastName: 'Wrona' })
   const teams = computeTeamResults({
     mode: 'relay_free', results: [a, b, c],
     laps: [lap('A', 1, a.participantId, 11), lap('A', 2, a.participantId, 12), lap('A', 3, b.participantId, 10), lap('B', 1, c.participantId, 9)],
   })
-  assert.deepEqual(freeRelayRunners(teams, 'best').map(r => r.participant.lastName), ['Wrona', 'Lis', 'Nowak'])
-  assert.deepEqual(freeRelayRunners(teams, 'laps').map(r => [r.participant.lastName, r.laps]), [['Nowak', 2], ['Wrona', 1], ['Lis', 1]])
+  assert.deepEqual(teamRunners(teams, 'best').map(r => r.participant.lastName), ['Wrona', 'Lis', 'Nowak'])
+  assert.deepEqual(teamRunners(teams, 'laps').map(r => [r.participant.lastName, r.laps]), [['Nowak', 2], ['Wrona', 1], ['Lis', 1]])
+})
+
+test('teamRunners in a fixed-order relay: every timed leg, fastest first', () => {
+  const teams = computeTeamResults({
+    mode: 'relay',
+    results: [row('A', 1, { gun: 10 * MIN, lastName: 'Nowak' }), row('A', 2, { gun: 19 * MIN, lastName: 'Lis' }), row('A', 3, { lastName: 'Wrona' })],
+  })
+  assert.deepEqual(teamRunners(teams).map(r => [r.participant.lastName, r.bestLapMs / MIN, r.rank]), [['Lis', 9, 1], ['Nowak', 10, 2]])
 })

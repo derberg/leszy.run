@@ -1,7 +1,7 @@
 // EXPLORATION ONLY: team result layouts on made-up data. Routed on the dev server and in a
 // build made with VITE_TEAM_PREVIEW=1 (a Vercel preview deployment), never in production.
 import { useState } from 'react'
-import { TeamStandings, RelayLegMatrix, TeamTag, computeTeamResults, freeRelayRunners } from '../ui/index.js'
+import { TeamStandings, RelayLegMatrix, TeamTag, computeTeamResults, teamRunners } from '../ui/index.js'
 import { formatDuration } from '../lib/formatDuration.js'
 
 const MIN = 60_000
@@ -56,7 +56,7 @@ const fixedRows = [
 ]
 
 const FORMATS = [
-  { key: 'free', label: 'Sztafeta · dowolna kolejność', note: 'Domyślny tryb, tak jak w Szubinie. Drużyna (4–5 osób) robi jak najwięcej okrążeń. Kto i ile razy biegnie, decyduje drużyna w trakcie. Wygrywa drużyna z największą liczbą okrążeń, a przy równej liczbie ta, która zamknęła ostatnie okrążenie wcześniej. Dane w podglądzie: mniej więcej 45. minuta biegu.' },
+  { key: 'free', label: 'Sztafeta · dowolna kolejność', note: 'Domyślny tryb, tak jak w Szubinie. Drużyna (4–5 osób) robi jak najwięcej okrążeń, aż operator kliknie koniec biegu. Kto i ile razy biegnie, decyduje drużyna w trakcie. Wygrywa drużyna z największą liczbą okrążeń, a przy równej liczbie ta, która zamknęła ostatnie okrążenie wcześniej. Dane w podglądzie: mniej więcej 45. minuta biegu.' },
   { key: 'fixed', label: 'Sztafeta · stała kolejność', note: 'Kolejność zmian ustalona z góry: zmiana 1, potem 2, 3, 4, każdy biegnie raz. Wygrywa najkrótszy łączny czas.' },
 ]
 
@@ -69,6 +69,7 @@ const VIEWS = {
   fixed: [
     { key: 'teams', label: 'Drużyny', how: 'Drużyny od najkrótszego czasu. Kliknij drużynę, żeby zobaczyć zmiany: kto biegł, czas zmiany, miejsce na tej zmianie (w ramce) i czas narastająco.' },
     { key: 'sheet', label: 'Arkusz zmian', how: 'Tabela: wiersz to drużyna, kolumna to zmiana. W komórce nazwisko, czas zmiany z miejscem na tej zmianie i pod spodem czas narastająco.' },
+    { key: 'best', label: 'Najszybsi indywidualnie', how: 'Ranking indywidualny: każdy zawodnik ze swoim czasem zmiany, od najszybszego, niezależnie od tego, którą zmianę biegł.' },
   ],
 }
 
@@ -139,12 +140,12 @@ export default function PodgladDruzyny() {
 
       {format === 'free' && view === 'teams' && <TeamStandings teams={free} mode="relay_free" formatDuration={formatDuration} />}
       {format === 'free' && view === 'best' && (
-        <RunnerList rows={freeRelayRunners(free, 'best')} value={r => (
+        <RunnerList rows={teamRunners(free, 'best')} value={r => (
           <span className="font-mono font-bold text-apex-yellow-bright w-20 text-right">{formatDuration(r.bestLapMs)}</span>
         )} />
       )}
       {format === 'free' && view === 'most' && (
-        <RunnerList rows={freeRelayRunners(free, 'laps')} value={r => (
+        <RunnerList rows={teamRunners(free, 'laps')} value={r => (
           <span className="text-right w-24 shrink-0">
             <span className="block font-mono font-bold text-apex-yellow-bright">{r.laps} okr.</span>
             <span className="block font-mono text-[11px] text-apex-muted">najl. {formatDuration(r.bestLapMs)}</span>
@@ -154,6 +155,14 @@ export default function PodgladDruzyny() {
 
       {format === 'fixed' && view === 'teams' && <TeamStandings teams={fixed} mode="relay" formatDuration={formatDuration} />}
       {format === 'fixed' && view === 'sheet' && <RelayLegMatrix teams={fixed} formatDuration={formatDuration} />}
+      {format === 'fixed' && view === 'best' && (
+        <RunnerList rows={teamRunners(fixed, 'best')} value={r => (
+          <span className="text-right w-24 shrink-0">
+            <span className="block font-mono font-bold text-apex-yellow-bright">{formatDuration(r.bestLapMs)}</span>
+            <span className="block font-mono text-[11px] text-apex-muted">zmiana {r.leg}</span>
+          </span>
+        )} />
+      )}
     </div>
   )
 }

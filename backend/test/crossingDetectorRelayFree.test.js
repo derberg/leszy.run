@@ -96,3 +96,13 @@ test('buildFreeRelay: no lap count means no end', () => {
   assert.equal(fr.teams.get('T').target, Infinity)
   assert.equal(fr.teamOf.get('p2'), 'T')
 })
+
+test('stopping the race closes a lap pass still open as a lap, never as a start or finish', async (t) => {
+  const { detector, db, broadcast } = await makeRace(t)
+  detector.processEvent(read('E1', -3500))
+  await wait(5)
+  await detector.stopRace('rr1')               // the operator clicks stop mid-pass
+  assert.deepEqual(laps(db).map(l => [l.lapNumber, l.participantId]), [[1, 'p1']])
+  assert.equal(broadcast.crossings().length, 0, 'no gate crossing was made of it')
+  assert.equal((db._inserts().results ?? []).length, 0)
+})

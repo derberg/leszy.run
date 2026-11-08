@@ -338,7 +338,8 @@ team is never timed by a tag of its own, and its standing is derived by `compute
   and `min_finish_seconds` after the team's previous lap. Each lap is a `team_laps` row (pushed and
   pulled like `results`) credited to that runner. Teams rank by laps done, then by when the last
   one closed. `team_lap_count` fixes the number of laps (NULL: as many as possible) and
-  `team_time_limit_seconds` stops counting laps that long after the gun (NULL: until the race stops).
+  `team_time_limit_seconds` stops counting laps that long after the gun (NULL, the default: until
+  the operator stops the race; a lap pass still open at the stop closes as a lap).
 - `'relay'` (fixed order, set by the operator): leg k>1 starts at leg k-1's confirmed finish
   (`startTimeSource = 'handover'`); until then its reads are audited and otherwise ignored, it is
   skipped by gun-time backfill, and its `min_finish_seconds` counts from the handover. A team with

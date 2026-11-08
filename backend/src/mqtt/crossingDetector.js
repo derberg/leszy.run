@@ -249,6 +249,11 @@ export class CrossingDetector {
     const pendingConfirms = []
     const race = this.activeRaces.get(raceRunId)
     for (const [key, tag] of this.inRange) {
+      // A relay-in-any-order lap pass closes as a lap: the runner crossed before the stop.
+      if (tag.raceRunId === raceRunId && tag.closeLap) {
+        pendingConfirms.push(Promise.resolve(tag.closeLap()))
+        continue
+      }
       if (tag.raceRunId === raceRunId) {
         clearTimeout(tag.goneTimer)
         const epc = tag.epc
@@ -765,7 +770,7 @@ export class CrossingDetector {
       team.laps += 1
       team.lastBoundary = pass.peakTime
       if (team.laps >= team.target) team.done = true
-      this.#recordLap({ raceRunId, teamId, lapNumber: team.laps, participantId, closedAt: pass.peakTime, lapMs, peakRssi: pass.peakRssi })
+      return this.#recordLap({ raceRunId, teamId, lapNumber: team.laps, participantId, closedAt: pass.peakTime, lapMs, peakRssi: pass.peakRssi })
     }
 
     let pass = this.inRange.get(key)
@@ -776,7 +781,7 @@ export class CrossingDetector {
     if (!pass) {
       const arrived = prevSeen === undefined || at.getTime() - prevSeen >= this.lapArrivalSilenceMs
       if (!arrived || at - team.lastBoundary < fr.minLapMs) return
-      pass = { epc: event.epc, raceRunId, firstAt: now, peakAt: now, peakRssi: -Infinity, peakTime: null, antennaPort: null, topic: null, goneTimer: null }
+      pass = { epc: event.epc, raceRunId, firstAt: now, peakAt: now, peakRssi: -Infinity, peakTime: null, antennaPort: null, topic: null, goneTimer: null, closeLap: close }
       this.inRange.set(key, pass)
     }
     if (event.rssiCdbm > pass.peakRssi) {
