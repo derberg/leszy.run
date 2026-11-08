@@ -1240,6 +1240,7 @@ It does **NOT** enrich `website` — that field was intentionally dropped from t
 - `registration_deadline` — format YYYY-MM-DD, within 1 year of event date
 - `voivodeship` / `location` — only fills empty, never overwrites scraper's geocoded value
 - `is_kids` — true if any distance ≤ 1 km or dedicated children's category exists
+- `atest_claim` — whether the regulamin says the course has a PZLA atest (`{ certified, distances_km }`), only from a regulamin that mentions certification; `run-atest.js` checks it against the PZLA register
 
 **Performance:** ~2 min/event (LLM inference on 32B model).
 
@@ -1479,7 +1480,9 @@ course is in the PZLA register of certified courses
 the hosting company's certificate). It is the only national list. It certifies a
 course, not an edition, and has no date or URL, so it is matched by town, distance
 (±50 m) and name (`backend/src/lib/atestMatch.js`), together with what the regulamin
-says (`scraper_all.atest_claim`, extracted by step 8.1 behind an evidence gate):
+says (`scraper_all.atest_claim`, extracted from the regulamin by both step 7, the Ollama enricher
+(`atest_claim_from` in `enricher/steps/merge.py`), and step 8.1, Claude, behind the same
+evidence gate: the document must mention atest, certyfikat or AIMS):
 
 - **published** (`scraper_all.atest` → `calendar_events.atest`, `[{ km, certified_on, source }]`):
   the regulamin claims it and a valid register row matches at least half the name

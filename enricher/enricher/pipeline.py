@@ -19,7 +19,7 @@ from enricher.steps.docs import extract_regulamin_doc
 _NON_CRAWL_KINDS = ("pdf", "docx", "drive_folder", "drive_file")
 _DOC_KINDS = ("docx", "drive_folder", "drive_file")
 from enricher.steps.llm import call_ollama, build_prompt
-from enricher.steps.merge import build_updates
+from enricher.steps.merge import build_updates, atest_claim_from
 from enricher.steps.navigate import (
     pick_followup_urls, is_stub_host, strip_foreign_event_lines, pdf_belongs_to_event,
 )
@@ -431,6 +431,15 @@ async def process_event(event: dict, config: Config) -> dict:
     had_content = bool(regulamin_content or pdf_text)
     updates = build_updates(event, llm_result or {}, url_statuses, search_candidates, config, had_content)
 
+    # The course atest, from the regulamin only (never the registration-page
+    # fallback): backend/scripts/run-atest.js checks it against the PZLA register.
+    if had_content:
+        claim = atest_claim_from(
+            (llm_result or {}).get("atest"), [*regulamin_content.values(), pdf_text or ""]
+        )
+        if claim is not None and claim != event.get("atest_claim"):
+            updates["atest_claim"] = claim
+
     # Which regulamin's text actually fed the extraction above. A merge-step pick
     # that addresses none of these was never opened in this run. Both spellings
     # of the URL count as read — the raw one the merge step stores and the one it
@@ -521,6 +530,9 @@ async def process_event(event: dict, config: Config) -> dict:
                 if k in _REGULAMIN_FIELDS and v not in (None, "", [])
             }
             second = build_updates(event, reg_only, url_statuses, {}, config, True)
+            reg_claim = atest_claim_from(reg_llm.get("atest"), reg_texts)
+            if reg_claim is not None and reg_claim != event.get("atest_claim"):
+                second["atest_claim"] = reg_claim
             updates = {**updates, **second}
             result["steps"]["regulamin_pass"]["fields"] = sorted(second)
 
@@ -680,7 +692,7 @@ def fetch_events(
         query = sb.from_("scraper_all").select(
             "id, source, source_id, name, date, location, distances, event_types, "
             "registration_url, regulamin_url, regulamin_urls, "
-            "registration_deadline, price_from, price_to, voivodeship, is_kids, "
+            "registration_deadline, price_from, price_to, voivodeship, is_kids, atest_claim, "
             "enriched_at, enriched_regulamin_at, enriched_search_at"
         )
         if incomplete or force:
@@ -707,7 +719,7 @@ def fetch_events(
         enriched = _fetch_all(lambda: sb.from_("scraper_all").select(
             "id, source, source_id, name, date, location, distances, event_types, "
             "registration_url, regulamin_url, regulamin_urls, "
-            "registration_deadline, price_from, price_to, voivodeship, is_kids, "
+            "registration_deadline, price_from, price_to, voivodeship, is_kids, atest_claim, "
             "enriched_at, enriched_regulamin_at, enriched_search_at"
         ).not_.is_("enriched_at", "null").gte("date", today))
         published = _fetch_all(lambda: sb.from_("calendar_events").select(

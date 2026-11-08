@@ -1,6 +1,8 @@
 import re as _re_module
 from urllib.parse import urlparse
 
+from typing import Optional
+
 import httpx
 
 from enricher.steps.validate_urls import UrlStatus
@@ -400,3 +402,36 @@ def _merge_urls(event, llm, url_statuses, search_candidates, updates, event_name
             if picked:
                 updates[field] = picked
             continue
+
+
+# Course certification. The regulamin's own word on THIS edition's course; the
+# backend's run-atest.js publishes an atest only where the PZLA register backs
+# it. Same evidence rule as hasAtestEvidence() in
+# backend/src/lib/extractionEvidence.js: a "yes" or "no" needs the document to
+# talk about certification at all, or the model's guess would reach the page.
+_ATEST_EVIDENCE = _re_module.compile(r"atest|certyfik|\baims\b|pomiar\w*\s+tras", _re_module.IGNORECASE)
+
+
+def atest_claim_from(llm_atest, texts) -> Optional[dict]:
+    """The scraper_all.atest_claim value the regulamin supports, or None.
+
+    llm_atest: the LLM's "atest" answer. texts: the regulamin text it read.
+    None when the model said nothing usable or the document never mentions
+    certification.
+    """
+    if not isinstance(llm_atest, dict):
+        return None
+    certified = llm_atest.get("certified")
+    if not isinstance(certified, bool):
+        return None
+    if not any(t and _ATEST_EVIDENCE.search(t) for t in texts):
+        return None
+    kms = []
+    for d in llm_atest.get("distances_km") or []:
+        try:
+            n = float(str(d).replace(",", ".").replace("km", "").strip())
+        except (TypeError, ValueError):
+            continue
+        if n > 0:
+            kms.append(n)
+    return {"certified": certified, "distances_km": kms}
