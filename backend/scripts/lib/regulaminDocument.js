@@ -6,6 +6,7 @@
 // verify-regulamin-urls.js, which checks that regulamin_url still points at one.
 
 import { execSync } from 'child_process'
+import * as cheerio from 'cheerio'
 import { writeFileSync, unlinkSync } from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
@@ -18,7 +19,38 @@ export function tmpPath(ext) {
   return join(tmpdir(), `regulamin-${Date.now()}-${Math.round(Math.random() * 1e6)}.${ext}`)
 }
 
-export async function fetchBuffer(url) {
+// A my.raceresult.com event is a JavaScript page: each menu tab loads its
+// content from /<id>/<key>/config, which answers {"InfoText": "<html>"} for a
+// page the organizer typed in, or {"Data": "<url>"} for a document. The tab's
+// own HTML holds only the menu, so read as a page it scores 1 section, and the
+// Koliba Łomnicka and Waligóra Run Cross regulamins (2026-11-08) were judged
+// not to be regulamins while their config said „Regulamin biegu … 2027”.
+// See raceresult-regulamin.js for the tabs found from a registration page.
+const RACERESULT_TAB = /^https?:\/\/my\.raceresult\.com\/(\d+)\/([A-Za-z0-9_-]+)\/?(?:[?#].*)?$/i
+const RACERESULT_NOT_CONTENT = /^(registration|rejestracja|participants|results|wyniki|lista|startlist|config|live)$/i
+
+export function raceresultConfigUrl(url) {
+  const m = RACERESULT_TAB.exec(String(url || ''))
+  if (!m || RACERESULT_NOT_CONTENT.test(m[2])) return null
+  return `https://my.raceresult.com/${m[1]}/${m[2]}/config`
+}
+
+export async function fetchBuffer(url, { followConfig = true } = {}) {
+  const configUrl = followConfig ? raceresultConfigUrl(url) : null
+  if (configUrl) {
+    const cfg = await fetchBuffer(configUrl, { followConfig: false })
+    if (!cfg.error) {
+      let json = null
+      try { json = JSON.parse(cfg.buffer.toString('utf-8')) } catch { /* not a config */ }
+      if (json && typeof json.InfoText === 'string' && json.InfoText.trim()) {
+        const html = `<!doctype html><html><head><meta charset="utf-8"></head><body>${json.InfoText}</body></html>`
+        return { buffer: Buffer.from(html, 'utf-8'), contentType: 'text/html', finalUrl: url }
+      }
+      if (json && typeof json.Data === 'string' && /^https?:\/\//i.test(json.Data)) {
+        return fetchBuffer(json.Data, { followConfig: false })
+      }
+    }
+  }
   try {
     const res = await fetch(url, {
       headers: FETCH_HEADERS,
@@ -28,7 +60,10 @@ export async function fetchBuffer(url) {
     if (!res.ok) return { error: `HTTP ${res.status}` }
     const contentType = (res.headers.get('content-type') || '').toLowerCase()
     const buffer = Buffer.from(await res.arrayBuffer())
-    return { buffer, contentType }
+    // Where the redirects ended. A page's relative links resolve against it:
+    // runvegan.pl/niedzwiedzibieg/ is niedzwiedzibieg.pl, and its "regulamin.html"
+    // read against the old address is a redirect to the home page.
+    return { buffer, contentType, finalUrl: res.url || url }
   } catch (err) {
     return { error: err.message?.slice(0, 100) || 'unknown' }
   }
@@ -55,7 +90,8 @@ export function detectKind(buffer, contentType, url) {
 // Extract plain text from a downloaded buffer with the right local tool:
 // pdf -> pdftotext, docx/html -> textutil (macOS). Returns text or null.
 export function extractText(buffer, kind) {
-  const f = tmpPath(kind === 'pdf' ? 'pdf' : kind === 'docx' ? 'docx' : 'html')
+  if (kind === 'html') return htmlToText(decodeHtml(buffer))
+  const f = tmpPath(kind === 'pdf' ? 'pdf' : 'docx')
   try {
     writeFileSync(f, buffer)
     const cmd = kind === 'pdf'
@@ -67,6 +103,35 @@ export function extractText(buffer, kind) {
   } finally {
     try { unlinkSync(f) } catch {}
   }
+}
+
+// The page's own charset, from its <meta>: plus-timing and older Polish sites
+// still serve ISO-8859-2.
+export function decodeHtml(buffer) {
+  const head = buffer.subarray(0, 4096).toString('latin1')
+  const m = /charset\s*=\s*["']?([A-Za-z0-9_-]+)/i.exec(head)
+  const label = m ? m[1].toLowerCase() : 'utf-8'
+  try { return new TextDecoder(label).decode(buffer) } catch { return buffer.toString('utf-8') }
+}
+
+// The visible text of a page, a line per block. textutil used to do this and
+// silently dropped most of some pages: kondycja.com.pl's Cross Mikołajkowy page
+// holds the whole regulamin (CEL IMPREZY, ORGANIZATORZY, ZGŁOSZENIA…) and came
+// back as 838 characters of menu, scoring 1 section (2026-11-08).
+const BLOCK = 'p,div,section,article,header,footer,li,ul,ol,tr,table,h1,h2,h3,h4,h5,h6,br,dt,dd,blockquote,pre,nav,aside,main'
+//
+// { contentOnly: true } also drops the site's furniture: menus, sidebars,
+// widgets, header and footer. On a club site the sidebar lists the coming
+// races with their dates, so another race's page "states" this race's date
+// there (kondycja.com.pl's II Memoriał page and 13. Cross Mikołajkowy).
+const FURNITURE = 'nav,aside,header,footer,[class*=sidebar],[id*=sidebar],[class*=widget],[class*=menu],[id*=menu]'
+export function htmlToText(html, { contentOnly = false } = {}) {
+  const $ = cheerio.load(html || '')
+  $('script,style,noscript,svg,template,iframe').remove()
+  if (contentOnly) $(FURNITURE).remove()
+  $(BLOCK).each((_, el) => { $(el).prepend('\n').append('\n') })
+  $('td,th').each((_, el) => { $(el).append(' ') })
+  return $('body').text().replace(/[ \t\u00a0]+/g, ' ').replace(/\s*\n\s*/g, '\n').trim()
 }
 
 const driveFolderId = (url) => (url.match(/\/drive\/folders\/([0-9A-Za-z_-]+)/) || [])[1] || null
@@ -176,5 +241,5 @@ export async function fetchDoc(url) {
   const kind = detectKind(dl.buffer, dl.contentType, url)
   if (kind === 'unknown') return { error: `unsupported type (${dl.contentType || 'no content-type'})` }
   const text = extractText(dl.buffer, kind) || ''
-  return { kind, text, html: kind === 'html' ? dl.buffer.toString('utf-8') : undefined }
+  return { kind, text, html: kind === 'html' ? dl.buffer.toString('utf-8') : undefined, finalUrl: dl.finalUrl || url }
 }
