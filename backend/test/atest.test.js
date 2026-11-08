@@ -67,12 +67,63 @@ test('both names carrying the town make a generic word specific', () => {
   assert.equal(nameScore('Gdyński Bieg Niepodległości', 'BIEG NIEPODLEGŁOŚCI', 'Gdynia').distinctive, false)
 })
 
-test('a generic-only match goes to review, not to the page', () => {
+test('a generic-only name is the course when it is the only one of its distance in a small town', () => {
+  // Gdynia's register holds one 10 km row of that name: the town's 11 November race.
   const r = matchEvent({ name: 'Gdyński Bieg Niepodległości', location: 'Gdynia', date: '2026-11-11', distances: '10 km' }, register)
+  assert.deepEqual(r.atest, [{ km: 10, certified_on: '2024-02-04', source: 'register' }])
+  assert.deepEqual(r.review, [])
+})
+
+// Synthetic register rows for the cases measured on the first run (2026-11-08).
+const row = (town, distance_km, name, certified_on = '2025-06-01', status = null) => ({ town, distance_km, name, certified_on, status })
+
+test('a generic-only name in a big city stays in review: Warsaw runs several', () => {
+  const big = [row('Warszawa', 10, 'BIEG NIEPODLEGŁOŚCI', '2026-10-23')]
+  for (let i = 0; i < 25; i++) big.push(row('Warszawa', 5, `INNY BIEG ${i}`))
+  const r = matchEvent({ name: 'II Bieg Niepodległości', location: 'Warszawa', date: '2026-11-11', distances: '10 km' }, big)
   assert.deepEqual(r.atest, [])
-  assert.equal(r.review.length, 1)
   assert.equal(r.review[0].reason, 'near_miss')
-  assert.equal(r.review[0].register_name, 'BIEG NIEPODLEGŁOŚCI')
+})
+
+test('a generic-only name stays in review when two rows of the town could be it', () => {
+  const two = [row('Ryki', 5, 'BIEG NIEPODLEGŁOŚCI'), row('Ryki', 5, 'BIEG NIEPODLEGŁOŚCI DZIECI')]
+  const r = matchEvent({ name: 'XVI Bieg Niepodległości', location: 'Ryki', date: '2026-11-08', distances: '5 km' }, two)
+  assert.deepEqual(r.atest, [])
+  const one = matchEvent({ name: 'XVI Bieg Niepodległości', location: 'Ryki', date: '2026-11-08', distances: '5 km' }, two.slice(0, 1))
+  assert.deepEqual(one.atest, [{ km: 5, certified_on: '2025-06-01', source: 'register' }])
+})
+
+test('half the name with a distinctive shared word is enough', () => {
+  const reg = [row('Szamotuły', 5, 'PIĄTKA CIĘŻKIEGO'), row('Szamotuły', 10, 'DYCHA CIĘŻKIEGO')]
+  const r = matchEvent({ name: 'Biegi im. ppłk. Maksymiliana Ciężkiego', location: 'Szamotuły', date: '2026-11-22', distances: '5 km, 10 km' }, reg)
+  assert.deepEqual(r.atest.map((a) => a.km), [5, 10])
+  // A festival row lists every distance of the festival: Maraton Juranda's 10 km is DYSZKA JURANDÓWNY.
+  const jur = matchEvent({ name: '36. Maraton Juranda', location: 'Lipowiec k. Szczytna', date: '2027-04-04', distances: '10 km' }, [row('Lipowiec k. Szczytna', 10, 'DYSZKA JURANDÓWNY', '2022-04-20')])
+  assert.deepEqual(jur.atest, [{ km: 10, certified_on: '2022-04-20', source: 'register' }])
+  // A typo in the register ("IEPODLEGŁOŚCI") leaves RUNPOLAND to carry it.
+  const poz = matchEvent({ name: '11. Bieg Niepodległości RUNPOLAND 2026', location: 'Poznań', date: '2026-11-11', distances: '10 km' }, [row('Poznań', 10, 'BIEG IEPODLEGŁOŚCI RUNPOLAND', '2022-10-25')])
+  assert.deepEqual(poz.atest, [{ km: 10, certified_on: '2022-10-25', source: 'register' }])
+})
+
+test('the town adjective is the town: "Opolski" and "Żorski" prove nothing', () => {
+  const opole = matchEvent({ name: 'IV Opolski Bieg Niepodległości', location: 'Opole', date: '2026-11-11', distances: '5 km' }, [row('Opole', 5, 'ATLANTIS BIEG OPOLSKI')])
+  assert.deepEqual(opole.atest, [])
+  const zory = matchEvent({ name: '9 Żorski Półmaraton Leśny', location: 'Żory', date: '2026-11-29', distances: '5 km' }, [row('Żory', 5, 'ŻORSKI BIEG OGNIOWY')])
+  assert.deepEqual(zory.atest, [])
+  // A shared generic word stays a near miss: Wrocławska Dycha Cztery Pory Roku is not DYCHA NIEPODLEGŁA.
+  const wro = matchEvent({ name: 'Wrocławska Dycha CZTERY PORY ROKU 2027 - Edycja zimowa', location: 'Wrocław', date: '2027-02-14', distances: '10 km' }, [row('Wrocław', 10, 'WROCŁAWSKA DYCHA NIEPODLEGŁA', '2023-10-24'), row('Wrocław', 5, 'INNY')])
+  assert.deepEqual(wro.atest, [])
+})
+
+test('a children\'s or nordic walking row never gets an atest', () => {
+  const reg = [row('Lipowiec k. Szczytna', 42.195, 'MARATON JURANDA', '2022-04-20')]
+  const kids = matchEvent({ name: 'Biegi Jagienki dla dzieci i młodzieży (36. Maraton Juranda)', location: 'Lipowiec k. Szczytna', date: '2027-04-04', distances: '42.2 km, 10 km' }, reg)
+  assert.deepEqual(kids, { atest: [], review: [] })
+  const nw = matchEvent({ name: 'Sylwestrowy Nordic Walking - 3,4km', location: 'Koszalin', date: '2026-12-31', distances: '5 km' }, [row('Koszalin', 5, 'BIEG SYLWESTROWY')])
+  assert.deepEqual(nw, { atest: [], review: [] })
+  // A race that is a run as well as a march keeps it.
+  const both = matchEvent({ name: 'XIV Radomski Bieg i Marsz Niepodległości', location: 'Radom', date: '2026-11-11', distances: '10 km' }, [row('Radom', 10, 'RADOMSKI BIEG NIEPODLEGŁOŚCI')])
+  assert.equal(both.atest.length, 1)
 })
 
 test('a regulamin claim lifts a loose match to "both"', () => {
