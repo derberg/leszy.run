@@ -156,6 +156,11 @@ test('kids signal from the name or the race page', () => {
 
 test('style from the name; NW from the page only when the name has none', () => {
   assert.deepEqual(detectEventTypes('CROSS SPOD WIATRAKA Korona Ziemi Przasnyskiej'), ['trail'])
+  // leśn only at the start of a word (#433): Oleśnica and Oleśno are towns, not forests.
+  assert.deepEqual(detectEventTypes('OLEŚNICKI BIEG NIEPODLEGŁOŚCI'), [])
+  assert.deepEqual(detectEventTypes('Bieg Olesno'), [])
+  assert.deepEqual(detectEventTypes('Leśna Dycha'), ['trail'])
+  assert.deepEqual(detectEventTypes('Bieg Lesny'), ['trail'])
   assert.deepEqual(detectEventTypes('MISTRZOSTWA 16 DYWIZJI W BIEGACH PRZAŁAJOWYCH'), ['trail'])
   assert.deepEqual(detectEventTypes('POGOŃ ZA JEDNOROŻCEM', 'Start 5 km nordic walking'), ['nordic walking'])
   assert.deepEqual(detectEventTypes('CROSS SPOD WIATRAKA', 'Start 5 km nordic walking'), ['trail'])
