@@ -683,7 +683,46 @@ async function paginateListing({ firstUrl, fetchPage, onFragment, maxPages = MAX
   return page
 }
 
-async function scrape({ knownIds = new Set() } = {}) {
+/**
+ * Which stored row a listing card belongs to.
+ *
+ * The source_id is the numeric id of the card's registration form, and an
+ * organizer reuses one form for every edition of a series, changing only its
+ * date. Sianowska Alfa i Omega ran Sianowska 5 on 2026-05-01, 07-18, 09-05 and
+ * 12-05 off form 6973, and its Łazy run on 2026-08-01 off form 10192, which had
+ * been Bajko Run on 05-31. Skipping every known id froze 6973 at 05-01, so
+ * each later edition was dropped as already known (checked against the live
+ * listing and the Wayback copy of 2026-07-12, which shows Sianowska 5 on 18
+ * July under form 6973).
+ *
+ * - unknown id: a new row under the form id, as before;
+ * - known id on its stored date: skipped, as before;
+ * - known id whose stored edition is still ahead: the organizer moved the
+ *   date, so the same row is emitted again and updated (`changed`);
+ * - known id whose stored edition is over: a new edition, stored under
+ *   `<id>-<date>` so the finished edition keeps its own row and its
+ *   calendar entry, and the merge and publish treat the new one as a new
+ *   event. Once stored, that row is skipped like any other.
+ *
+ * A known id with no stored row (a source run without knownRows) keeps the old
+ * skip rather than re-fetching blind. An edition row that later moves its date
+ * gets another `<id>-<date>` row; that is rare and costs one stale duplicate,
+ * never a missed race.
+ *
+ * @returns {{ sourceId: string, known: boolean, changed: boolean }}
+ */
+function editionKey(ev, knownIds, knownRows, today) {
+  const id = ev.source_id
+  if (!knownIds.has(id)) return { sourceId: id, known: false, changed: false }
+  const stored = knownRows.get(id)
+  const storedDate = stored && stored.date ? String(stored.date).slice(0, 10) : null
+  if (!storedDate || storedDate === ev.date) return { sourceId: id, known: true, changed: false }
+  if (storedDate >= today) return { sourceId: id, known: true, changed: true }
+  const edition = `${id}-${ev.date}`
+  return { sourceId: edition, known: knownIds.has(edition), changed: false }
+}
+
+async function scrape({ knownIds = new Set(), knownRows = new Map() } = {}) {
   const today = new Date().toISOString().split('T')[0]
   const all = []
   const seen = new Set()
@@ -728,9 +767,17 @@ async function scrape({ knownIds = new Set() } = {}) {
     return all
   }
 
-  // Filter against knownIds (already-stored rows)
-  const fresh = all.filter(e => !knownIds.has(e.source_id))
-  console.log(`[b4sport] Scraped ${all.length} events total (${fresh.length} new, ${all.length - fresh.length} already known)`)
+  // Filter against the stored rows. See editionKey() on reused forms.
+  const fresh = []
+  let moved = 0
+  for (const ev of all) {
+    const key = editionKey(ev, knownIds, knownRows, today)
+    if (key.known && !key.changed) continue
+    if (key.changed) moved++
+    ev.source_id = key.sourceId
+    fresh.push(ev)
+  }
+  console.log(`[b4sport] Scraped ${all.length} events total (${fresh.length - moved} new, ${moved} moved date, ${all.length - fresh.length} already known)`)
 
   if (fresh.length === 0) return fresh
 
@@ -756,6 +803,13 @@ async function scrape({ knownIds = new Set() } = {}) {
       if (detail.website) ev.website = detail.website
       const regulamin = await pickRegulamin(detail.regulaminCandidates, ev.location, ev.name)
       if (regulamin) ev.regulamin_url = regulamin
+      // A row emitted again because its date moved is written whole, so a
+      // regulamin or website not found this run would erase the stored one.
+      const stored = knownRows.get(ev.source_id)
+      if (stored) {
+        if (!ev.regulamin_url && stored.regulamin_url) ev.regulamin_url = stored.regulamin_url
+        if (!ev.website && stored.website) ev.website = stored.website
+      }
     }
   }
 
@@ -766,4 +820,4 @@ async function scrape({ knownIds = new Set() } = {}) {
   return fresh
 }
 
-export { scrape, paginateListing, fetchOrganizerDetails, pickRegulamin, collectRegulaminLinks, collectContentPages, rankContentPages, verifyRegulaminPage, nameTokens, citySlug, registrationSlugWords, isNonRunningEvent }
+export { scrape, editionKey, paginateListing, fetchOrganizerDetails, pickRegulamin, collectRegulaminLinks, collectContentPages, rankContentPages, verifyRegulaminPage, nameTokens, citySlug, registrationSlugWords, isNonRunningEvent }
