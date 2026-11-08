@@ -1,1 +1,14 @@
-{}
+{
+  "events": {
+    "publishedAt": "2026-11-08T21:51:05.409Z",
+    "count": 1
+  },
+  "kalendarz": {
+    "publishedAt": "2026-11-08T21:51:04.869Z",
+    "count": 3035
+  },
+  "listy": {
+    "publishedAt": "2026-11-08T21:51:05.237Z",
+    "count": 745
+  }
+}
