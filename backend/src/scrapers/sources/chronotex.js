@@ -52,7 +52,8 @@ export function hasKidsSignal(text) {
 export function detectEventTypes(name) {
   const n = (name || '').toLowerCase()
   const tags = []
-  if (/g[oó]rsk|leśn|lesn|\btrail\b|cross(?:owy|owa|owe)?\b|przełaj|przelaj/.test(n)) tags.push('trail')
+  // leśn only at the start of a word: Oleśnica and Olesno are towns, not forests.
+  if (/g[oó]rsk|(?:^|[^a-ząćęłńóśźż])le[sś]n|\btrail\b|cross(?:owy|owa|owe)?\b|przełaj|przelaj/.test(n)) tags.push('trail')
   if (/nordic\s*walking|\bnw\b|marsz\s+z\s+kijami/.test(n)) tags.push('nordic walking')
   if (/charytatywn/.test(n)) tags.push('charytatywny')
   return tags
