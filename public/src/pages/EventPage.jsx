@@ -1,7 +1,7 @@
 import { useState, useEffect, lazy, Suspense } from 'react'
 import { useParams, Link } from 'react-router-dom'
-import { supabase } from '../lib/supabase.js'
-import { slugify, extractDateFromSlug } from '../lib/slugify.js'
+import { loadKalendarzEvent } from '../lib/calendarQueries.js'
+import { slugify } from '../lib/slugify.js'
 import useSeo from '../hooks/useSeo.js'
 import useTheme from '../hooks/useTheme.js'
 import Navbar from '../components/Navbar.jsx'
@@ -170,39 +170,11 @@ export default function EventPage() {
       setLoading(true)
       setNotFound(false)
 
-      // 2. SPA navigation fallback: extract date from slug, query Supabase
-      const date = extractDateFromSlug(slug)
-      if (!date) {
-        setNotFound(true)
-        setLoading(false)
-        return
-      }
-
-      const { data, error } = await supabase
-        .from('calendar_events')
-        .select('*')
-        .in('status', ['active', 'cancelled'])
-        .eq('date', date)
-
-      if (error || !data?.length) {
-        setNotFound(true)
-        setLoading(false)
-        return
-      }
-
-      // Match by slug
-      const match = data.find((ev) => slugify(ev.name, ev.date) === slug)
-      if (match) {
-        setEvent(match)
-      } else {
-        // Try with ID suffix variants
-        const matchWithId = data.find((ev) => slugify(ev.name, ev.date, ev.id) === slug)
-        if (matchWithId) {
-          setEvent(matchWithId)
-        } else {
-          setNotFound(true)
-        }
-      }
+      // 2. SPA navigation fallback: read the race embedded in its own pre-rendered page,
+      // the same record a direct hit gets (calendar_events is not readable from a browser).
+      const match = await loadKalendarzEvent(slug).catch(() => null)
+      if (match) setEvent(match)
+      else setNotFound(true)
 
       setLoading(false)
     }
