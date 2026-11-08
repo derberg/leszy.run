@@ -17,10 +17,10 @@ const TEAM = [
   { id: 'p2', rfidEpc: 'E2', teamId: 'T' },
 ]
 
-async function makeRace(t, { cfg = config(), lapRows = [], gunAgoMs = 60_000 } = {}) {
+async function makeRace(t, { cfg = config(), lapRows = [], gunAgoMs = 60_000, arrival = ARRIVAL } = {}) {
   const db = createFakeDb({ lapRows })
   const broadcast = createFakeBroadcast()
-  const detector = new CrossingDetector({ db, broadcast, finishQuietMs: QUIET, finishMaxPassMs: 4 * QUIET, lapArrivalSilenceMs: ARRIVAL })
+  const detector = new CrossingDetector({ db, broadcast, finishQuietMs: QUIET, finishMaxPassMs: 4 * QUIET, lapArrivalSilenceMs: arrival })
   const raceRun = { id: 'rr1', startedAt: new Date(Date.now() - gunAgoMs) }
   await detector.startRace(raceRun, cfg, TEAM)
   t.after(() => detector.stopRace(raceRun.id).catch(() => {}))
@@ -51,7 +51,8 @@ test('the same runner may run the next lap too; any order works', async (t) => {
 })
 
 test('a teammate standing at the gate never closes a lap', async (t) => {
-  const { detector, db } = await makeRace(t)
+  // A generous silence, so a slow machine stretching the 50 ms gaps cannot fake an arrival.
+  const { detector, db } = await makeRace(t, { arrival: 3000 })
   detector.processEvent(read('E2')); await wait(QUIET + 60)         // first read: counts (never seen)
   // then keeps being read every ~50 ms while waiting
   for (let i = 0; i < 8; i++) { detector.processEvent(read('E2', -6000)); await wait(50) }
