@@ -121,8 +121,8 @@ test('RA1 lists the extras of each competition; a sold-out one reads „brak”'
   const event = await charityEvent()
   const page = await offline(await actors.viewer.newPage())
   await page.goto(`/events/${event.slug}`)
-  const nine = page.getByTestId('competition').filter({ hasText: 'Bieg 9 km' })
-  const three = page.getByTestId('competition').filter({ hasText: 'Bieg 3 km' })
+  const nine = page.getByTestId('extras-row').filter({ hasText: 'Bieg 9 km' })
+  const three = page.getByTestId('extras-row').filter({ hasText: 'Bieg 3 km' })
   // In the organizer's order (sort_order, then id): compared as sets.
   await expect(nine.getByTestId('competition-extra')).toHaveCount(3)
   expect((await nine.getByTestId('competition-extra').allTextContents()).sort()).toEqual(['Czapka · brak', 'Koszulka 45,00 zł', 'Medal 20,00 zł'])

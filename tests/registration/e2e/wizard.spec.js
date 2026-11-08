@@ -715,7 +715,8 @@ test('W-27 after publish the owner moves Bieg 9 km to 10:15, sees the pending ba
   await offline(viewer)
   await viewer.goto(`/events/${slug}`)
   await viewer.reload()
-  await expect(viewer.getByTestId('competition').filter({ hasText: 'Bieg 9 km' })).toContainText('start 10:15')
+  await expect(viewer.getByTestId('starts')).toContainText('10:15')
+  await expect(viewer.getByTestId('starts')).toContainText('Bieg 9 km')
 
   // With the box ticked the result says how many were told.
   await page.getByLabel('Start 1').fill('10:20')

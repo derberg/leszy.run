@@ -18,6 +18,8 @@ const warsawToday = (d) => warsawDate.format(d)
 const WEEKDAYS = ['niedziela', 'poniedziałek', 'wtorek', 'środa', 'czwartek', 'piątek', 'sobota']
 const WEEKDAYS_SHORT = ['ndz', 'pon', 'wt', 'śr', 'czw', 'pt', 'sob']
 const DAY_MS = 24 * 3600 * 1000
+const MONTHS = ['stycznia', 'lutego', 'marca', 'kwietnia', 'maja', 'czerwca', 'lipca', 'sierpnia', 'września', 'października', 'listopada', 'grudnia']
+const MONTHS_SHORT = ['STY', 'LUT', 'MAR', 'KWI', 'MAJ', 'CZE', 'LIP', 'SIE', 'WRZ', 'PAŹ', 'LIS', 'GRU']
 
 function ymd(isoDate) {
   const [y, m, d] = isoDate.split('-').map(Number)
@@ -107,7 +109,47 @@ function competitionRow(c, win, extras) {
     full,
     state: win === 'open' && full ? 'full' : win,
     extras: extrasFor(extras, c.categoryId),
+    // The sign-up panel and „Dzień zawodów” (RA1 two-column layout).
+    taken: c.taken ?? 0,
+    capacity: Number.isInteger(c.capacity) ? c.capacity : null,
+    free: Number.isInteger(c.capacity) ? Math.max(0, c.capacity - (c.taken ?? 0)) : null,
+    startTime: hm(c.startTime),
+    distanceLabel: c.distanceLabel || null,
+    teamSize: teamSize(c),
+    priceUnit: c.priceGrosze ? (c.kind === 'team' ? 'za drużynę' : 'za osobę') : null,
+    group: c.isKids ? 'Dzieci' : c.kind === 'team' ? 'Sztafety i drużyny' : c.discipline === 'nw' ? 'Nordic walking' : 'Bieg',
   }
+}
+
+/** „drużyna 4–5 os.” / „drużyna 3 os.”, or null for an individual competition. */
+function teamSize(c) {
+  if (c.kind !== 'team' || c.teamMin == null || c.teamMax == null) return null
+  return c.teamMin === c.teamMax ? `drużyna ${c.teamMin} os.` : `drużyna ${c.teamMin}–${c.teamMax} os.`
+}
+
+/**
+ * The competitions in groups (Bieg, Nordic walking, Dzieci, Sztafety i drużyny), each group where its
+ * first competition stands. Rows are eventPageModel().competitions.
+ */
+export function groupCompetitions(rows) {
+  const map = new Map()
+  for (const c of rows) {
+    if (!map.has(c.group)) map.set(c.group, [])
+    map.get(c.group).push(c)
+  }
+  return [...map.entries()].map(([name, items]) => ({ name, items }))
+}
+
+/** Competitions starting at one time are one line of „Starty”, earliest first; no time last. */
+export function startsByTime(rows) {
+  const map = new Map()
+  for (const c of rows) {
+    const k = c.startTime ?? null
+    if (!map.has(k)) map.set(k, [])
+    map.get(k).push(c)
+  }
+  const key = (t) => (t == null ? '99:99' : t.padStart(5, '0'))
+  return [...map.entries()].sort(([a], [b]) => key(a).localeCompare(key(b))).map(([time, items]) => ({ time, items }))
 }
 
 const kmLabel = (km) => (km == null ? '' : `${String(km).replace('.', ',')} km`)
@@ -236,6 +278,10 @@ export function eventPageModel(raw, now = new Date()) {
   return {
     title: raw.name,
     dateLabel: date ? `${date.d}.${date.m}.${date.y} · ${WEEKDAYS[weekday(raw.eventDate)]}` : null,
+    // „6 GRU 2026 · niedziela” in the header, „6 grudnia” after „Dzień zawodów”.
+    dateChip: date ? `${date.d} ${MONTHS_SHORT[date.m - 1]} ${date.y} · ${WEEKDAYS[weekday(raw.eventDate)]}` : null,
+    raceDayLabel: date ? `${date.d} ${MONTHS[date.m - 1]}` : null,
+    firstStart: hm(raw.firstStartTime),
     placeLabel: raw.town?.label ?? null,
     eventPlace: join(raw.town?.label, raw.town?.placeDetails),
     organizerName: raw.club?.name ?? null,

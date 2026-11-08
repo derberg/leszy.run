@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
-import { eventPageModel, mergePending, previewRaw, statParts } from '../../src/lib/eventPageModel.js'
+import { groupCompetitions, startsByTime, eventPageModel, mergePending, previewRaw, statParts } from '../../src/lib/eventPageModel.js'
 import { withFileUrls } from '../../src/lib/eventFiles.js'
 
 const BASE = 'https://proj.supabase.co'
@@ -84,9 +84,30 @@ describe('eventPageModel (RA1)', () => {
     assert.deepEqual(bieg9, {
       categoryId: 'c1', name: 'Bieg 9 km', kind: 'individual', startLabel: 'start 10:00 · od 16 lat', ageLabel: 'od 16 lat',
       priceLabel: '60 zł', teamLine: null, nextPriceLabel: 'od 16.11: 70 zł', full: false, state: 'open', extras: [],
+      taken: 40, capacity: 80, free: 40, startTime: '10:00', distanceLabel: '9 km', teamSize: null, priceUnit: 'za osobę', group: 'Bieg',
     })
     assert.equal(kids.startLabel, 'start 11:30 · do 15 lat · dystans wg wieku')
     assert.equal(kids.priceLabel, '20 zł')
+  })
+
+  it('panel groups: by discipline, kids and teams apart, in order of first appearance', () => {
+    const groups = groupCompetitions(model().competitions)
+    assert.deepEqual(groups.map((g) => [g.name, g.items.map((c) => c.name)]), [
+      ['Bieg', ['Bieg 9 km', 'Bieg 3 km']],
+      ['Nordic walking', ['Nordic walking 9 km', 'Nordic walking 3 km']],
+      ['Dzieci', ['Bieg dzieci']],
+    ])
+    const team = model({ ...RA1, competitions: [comp({ categoryId: 't', name: 'Sztafeta', kind: 'team', teamMin: 4, teamMax: 5, priceGrosze: 20000 })] }).competitions[0]
+    assert.deepEqual([team.group, team.teamSize, team.priceUnit], ['Sztafety i drużyny', 'drużyna 4–5 os.', 'za drużynę'])
+    const free = model({ ...RA1, competitions: [comp({ categoryId: 'f', name: 'F', priceGrosze: 0, nextPrice: null })] }).competitions[0]
+    assert.equal(free.priceUnit, null, 'a free entry has no „za osobę”')
+  })
+
+  it('starts: one line per start time, competitions starting together share it, no time last', () => {
+    const rows = model({ ...RA1, competitions: [...RA1.competitions, comp({ categoryId: 'x', name: 'Bez godziny', startTime: null })] }).competitions
+    assert.deepEqual(startsByTime(rows).map((s) => [s.time, s.items.map((c) => c.categoryId)]), [
+      ['10:00', ['c1']], ['10:05', ['c2']], ['10:10', ['c3', 'c4']], ['11:30', ['c5']], [null, ['x']],
+    ])
   })
 
   it('courses grouped by GPX file, tab label from the distance, names of every competition on it', () => {
