@@ -10,7 +10,36 @@ const TYPE_MAP = {
   21: 'nordic-walking',
 }
 
-async function fetchPage(page, dateSince) {
+// Hosts where a dostartu operator serves the same SPA under its own brand
+// (page meta "Dostartu - platforma zawodów sportowych", redirecting to
+// /<name>-op<operator id>). Competition links there keep dostartu's
+// "-v<id>" / "-vc<id>" suffix and the data comes from api.dostartu.pl.
+// Confirmed 2026-11-08 by fetching each host's root: personalbest (op4),
+// domtel-sport (op5), mktime (op7). zapisy.o-timing.pl no longer resolves and
+// is kept only because older rows still link to it. The operator ids came from
+// the redirect target; GET /operators/<id> names the company but not its host,
+// so a new white-label host is only found by seeing one in our data.
+export const WHITE_LABEL_HOSTS = [
+  'zapisy.personalbest.pl',
+  'zapisy.domtel-sport.pl',
+  'zapisy.mktime.pl',
+  'zapisy.o-timing.pl',
+]
+
+// The public listing returns only competitions with mainPromo = true: the
+// switch an operator (or dostartu's admin) uses to show a competition on the
+// dostartu.pl front page. A competition with it off is still published, has a
+// working registration page and answers GET /competitions/<id> in full, but no
+// listing shows it, not even the operator's own white-label front page (its
+// "operator=<id>" listing applies the same filter). On 2026-11-08, 427 of the
+// 943 running competitions since 2026-06-01 were like that, among them 16402
+// (Mały Memoriał Żylewicza, Gdańsk) and 16182 (Grand Prix Stargardu), both run
+// by Domtel-Sport clubs and reached through zapisy.domtel-sport.pl links.
+// The same endpoint with panel=1 (what the organizer panel's lists send, and
+// it answers without a session) drops the mainPromo filter. It also returns
+// drafts and organizers' test competitions, which isPlaceholderCompetition()
+// removes, and it carries mainPromo and deleted on every row.
+async function fetchPage(page, dateSince, { panel = false } = {}) {
   const params = new URLSearchParams({
     dateSince,
     itemsPerPage: '100',
@@ -19,6 +48,7 @@ async function fetchPage(page, dateSince) {
   for (const t of RUNNING_TYPES) {
     params.append('types[]', String(t))
   }
+  if (panel) params.set('panel', '1')
 
   const res = await fetch(`${API_URL}/competitions?${params}`, {
     headers: { 'User-Agent': 'leszy.run/1.0 (lukasz@leszy.run)' },
@@ -26,6 +56,57 @@ async function fetchPage(page, dateSince) {
   if (!res.ok) throw new Error(`dostartu API ${res.status}`)
   const json = await res.json()
   return json.competitions || []
+}
+
+// A competition that is not a race: dostartu's onboarding creates one named
+// "Moje pierwsze zawody" for every new organizer account, organizers make
+// "Test …" competitions to try the form, and "… - KOPIA" is a copy made in the
+// panel before it is renamed. Organizer 643 ("Organizator", phone 123456789)
+// is dostartu's own test account. Every one of these on 2026-11-08 had
+// mainPromo = false, so they only ever arrive through the panel listing.
+// "Test Coopera" is a real race, so a Cooper test never matches the test rule.
+const PLACEHOLDER_ORGANIZERS = new Set([643])
+export function isPlaceholderCompetition(ev = {}) {
+  if (ev.deleted === true) return true
+  if (PLACEHOLDER_ORGANIZERS.has(ev.organizer)) return true
+  const name = String(ev.name || '').trim()
+  if (!name) return true
+  const isCooper = /cooper/i.test(name)
+  if (!isCooper && (/^test/i.test(name) || /\btest\s*\d*$/i.test(name))) return true
+  if (/moje pierwsze zawody/i.test(name)) return true
+  if (/-\s*kopia$/i.test(name)) return true
+  if (/\b(template|szablon)\b/i.test(name)) return true
+  return false
+}
+
+// The panel listing's competitions that the public listing did not return
+// (on 2026-11-08 every one of them had mainPromo = false), minus placeholders.
+export function unlistedCompetitions(panelItems = [], listedIds = new Set()) {
+  const seen = new Set(listedIds)
+  const out = []
+  for (const ev of panelItems) {
+    const id = String(ev?.id ?? '')
+    if (!id || seen.has(id)) continue
+    if (isPlaceholderCompetition(ev)) continue
+    seen.add(id)
+    out.push(ev)
+  }
+  return out
+}
+
+async function fetchAllPages(dateSince, opts) {
+  let page = 1
+  let all = []
+  while (true) {
+    const items = await fetchPage(page, dateSince, opts)
+    if (!items || items.length === 0) break
+    all = all.concat(items)
+    console.log(`[dostartu] ${opts?.panel ? 'Unlisted pass, page' : 'Page'} ${page}: ${items.length} events`)
+    if (items.length < 100) break
+    page++
+    await new Promise(r => setTimeout(r, 500))
+  }
+  return all
 }
 
 async function fetchCompetition(competitionId) {
@@ -216,16 +297,18 @@ async function scrape({ knownIds = new Set() } = {}) {
   const dateSince = new Date().toISOString()
 
   // Paginate through all future running events
-  let page = 1
-  let allEvents = []
-  while (true) {
-    const items = await fetchPage(page, dateSince)
-    if (!items || items.length === 0) break
-    allEvents = allEvents.concat(items)
-    console.log(`[dostartu] Page ${page}: ${items.length} events`)
-    if (items.length < 100) break
-    page++
-    await new Promise(r => setTimeout(r, 500))
+  const listed = await fetchAllPages(dateSince)
+  let allEvents = listed
+
+  // Then the competitions the public listing hides (see fetchPage). A failure
+  // here only loses the extra rows, never the listed ones.
+  try {
+    const panelItems = await fetchAllPages(dateSince, { panel: true })
+    const extra = unlistedCompetitions(panelItems, new Set(listed.map(ev => String(ev.id))))
+    console.log(`[dostartu] Unlisted pass: ${panelItems.length} competitions, ${extra.length} not on the public listing and not placeholders`)
+    allEvents = listed.concat(extra)
+  } catch (err) {
+    console.warn(`[dostartu] Unlisted pass failed, continuing with the public listing only: ${err.message}`)
   }
 
   // Deliberately NOT filtered by knownIds — dostartu events are re-read every run.

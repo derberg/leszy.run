@@ -1090,7 +1090,7 @@ pomiarczasuatelier.pl was dropped on 2026-03-28: its sign-ups all go through dos
 | b4sportonline.pl | 100+ | fetch+Cheerio (AJAX pagination) | Medium (city, name, date, reg URL, some distances) |
 | datasport.pl | 200+ | Cheerio (detail pages) | High (distances from h4 headings) |
 | elektronicznezapisy.pl | 300-500 | Cheerio + dostartu API enrichment | Medium-High |
-| dostartu.pl | 250+ | REST API (JSON) | **Highest** (structured classifications) |
+| dostartu.pl | 250+ | REST API (JSON), public listing plus a `panel=1` pass for unlisted (`mainPromo = false`) competitions, e.g. those behind white-label hosts like zapisy.domtel-sport.pl | **Highest** (structured classifications) |
 | timekeeper.pl | 50-150 | Cheerio (internal events only) | Good (regulamin PDFs, organizer sites) |
 | lumisport.eu | 5-15 | WC Store API (JSON) + Cheerio for regulamin | High (structured distances + prices, direct registration URLs; undated events dropped) |
 | protiming24.pl | 20-30 | Cheerio (StartMeta listing) | Medium (Szczecin-area timing co; date+city from gcal link, registration + HTML regulamin URLs from listing) |

@@ -1,12 +1,8 @@
-import { fetchCompetition, fetchClassifications, parseClassifications, statuteUrl } from './sources/dostartu.js'
+import { fetchCompetition, fetchClassifications, parseClassifications, statuteUrl, WHITE_LABEL_HOSTS } from './sources/dostartu.js'
 
-// Domains that share the dostartu API (same -v{id} URL pattern, same api.dostartu.pl).
-// Note: zapisy.mktime.pl and zapisy.o-timing.pl use the same -v{id} URL scheme as dostartu.
-const DOSTARTU_LIKE_DOMAINS = [
-  'dostartu.pl',
-  'zapisy.mktime.pl',
-  'zapisy.o-timing.pl',
-]
+// Domains that share the dostartu API (same -v{id} URL pattern, same api.dostartu.pl):
+// dostartu.pl itself and the operators' white-label hosts (WHITE_LABEL_HOSTS).
+const DOSTARTU_LIKE_DOMAINS = ['dostartu.pl', ...WHITE_LABEL_HOSTS]
 
 function isDostartuLikeUrl(url) {
   if (!url) return false
@@ -19,10 +15,12 @@ function isDostartuLikeUrl(url) {
 }
 
 // Extract numeric competition ID from a dostartu-like URL.
-// Handles: /permalink-v123, /some-slug-v123, /zawody/123
+// Handles: /permalink-v123, /some-slug-v123, /some-slug-vc123, /zawody/123.
+// "-vc<id>" is the same competition id (zapisy.domtel-sport.pl links 16182 as
+// ...-bieg-g-owny-5-km-vc16182); "-cc<id>" is a cycle, not a competition.
 function extractDostartuId(url) {
   if (!url) return null
-  const vMatch = url.match(/-v(\d+)(?:[/?#]|$)/)
+  const vMatch = url.match(/-vc?(\d+)(?:[/?#]|$)/)
   if (vMatch) return vMatch[1]
   const zawodyMatch = url.match(/\/zawody\/(\d+)/)
   if (zawodyMatch) return zawodyMatch[1]
