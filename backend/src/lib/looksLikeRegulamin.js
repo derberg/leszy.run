@@ -15,6 +15,8 @@
 // This gate runs where the text already exists — the enrichment step — so it
 // costs no extra download and needs no PDF parser of its own.
 
+import { nameTokens } from '../scrapers/sources/b4sport.js'
+
 // Sections/《furniture》a real regulamin has. Counted as DISTINCT hits, so a
 // consent form repeating one phrase ten times does not accumulate a score.
 //
@@ -65,11 +67,52 @@ const DECLARATIONS = [
 // them alone.
 const MIN_TEXT_CHARS = 400
 
+// A one-page race announcement: the Wielki Las page is 1 200 characters, the
+// Niepokalanej page 1 400. Two pages of text is still short.
+const SHORT_DOC_CHARS = 6000
+
+/**
+ * How many of the event name's distinctive words the document carries.
+ *
+ * Matched on a stem (the word less its last two letters, at least four kept),
+ * because Polish declines the name inside the text: "Nocna Przebieżka" is
+ * "Nocnej Przebieżki" in the sentence that announces it.
+ *
+ * @returns {{hits: number, of: number}}
+ */
+export function eventNameHits(text, eventName) {
+  const tokens = nameTokens(eventName)
+  if (tokens.length === 0) return { hits: 0, of: 0 }
+  const hay = ` ${fold(text)}`
+  const hits = tokens.filter((t) => hay.includes(` ${t.slice(0, Math.max(4, t.length - 2))}`)).length
+  return { hits, of: tokens.length }
+}
+
+function fold(s) {
+  return String(s || '')
+    .toLowerCase()
+    .replace(/[ąćęłńóśźż]/g, (ch) => ({ ą: 'a', ć: 'c', ę: 'e', ł: 'l', ń: 'n', ó: 'o', ś: 's', ź: 'z', ż: 'z' }[ch] || ch))
+    .replace(/[^a-z0-9]+/g, ' ')
+}
+
+// The document says what it is in its first line: "REGULAMIN V Kaliskiego
+// Biegu Niepodległości", "Regulamin cyklu treningowego AKTYWNA WARSZAWA". A
+// consent form opens with "Oświadczenie" or "Zgoda", an annex with "Załącznik".
+function titledRegulamin(text) {
+  const head = fold(String(text).trim().slice(0, 200)).trim().split(' ').slice(0, 4)
+  return head.some((w) => w.startsWith('regulamin'))
+}
+
 /**
  * @param {string} text  extracted document text
+ * @param {object} [opts]
+ * @param {string} [opts.eventName]  the race this document is supposed to
+ *        govern. A short document that names the race and opens as a
+ *        regulamin passes with fewer sections than a document that names
+ *        nothing.
  * @returns {{verdict: 'regulamin'|'not-regulamin'|'unknown', sections: number, declarations: number, reason: string|null}}
  */
-export function looksLikeRegulamin(text) {
+export function looksLikeRegulamin(text, { eventName } = {}) {
   const t = String(text || '')
   if (t.replace(/\s+/g, '').length < MIN_TEXT_CHARS) {
     return {
@@ -82,10 +125,30 @@ export function looksLikeRegulamin(text) {
 
   const sections = SECTIONS.filter((re) => re.test(t)).length
   const declarations = DECLARATIONS.filter((re) => re.test(t)).length
+  const titled = titledRegulamin(t)
+  const name = eventNameHits(t, eventName)
+  // Two distinctive words of the race name, or the only one it has.
+  const namesEvent = name.of > 0 && name.hits >= Math.min(2, name.of)
+
+  // A small race publishes one page: the date, the distances, the start, the
+  // fee. Measured 2026-11-08: the Nocna Przebieżka „Wielki Las” page (20 zł,
+  // entries until 11.12) scored 4 sections and the Bieg dla Niepokalanej page
+  // 3, and both were thrown away while a national park's visitor rules, which
+  // also score 4, were rightly thrown away beside them. What separates them is
+  // that the race's own page names the race. And a document that calls itself
+  // a regulamin and names the race is its regulamin however few of the usual
+  // headings it uses: the AKTYWNA WARSZAWA training cycle's rules say
+  // "Trening" where a race says "zawody", and scored 2.
+  //
+  // Short is part of the rule. A long text that names the race and scores 3 is
+  // a web page with the race in its news column (kluki.pl, 31 000 characters).
+  const short = t.replace(/\s+/g, ' ').length <= SHORT_DOC_CHARS
+  const shortButOwn = namesEvent && declarations < 2 &&
+    ((short && sections >= 3) || (titled && sections >= 2))
 
   // A regulamin covers many sections. Below this it is some other document —
   // a consent form, a map legend, a GDPR clause, a results list.
-  if (sections < 5) {
+  if (sections < 5 && !shortButOwn) {
     return {
       verdict: 'not-regulamin',
       sections,
@@ -96,8 +159,11 @@ export function looksLikeRegulamin(text) {
 
   // A long consent form can brush 5 sections by quoting the event's details, so
   // heavy first-person declaration furniture still disqualifies it unless the
-  // document is unambiguously a full regulamin.
-  if (declarations >= 2 && sections < 8) {
+  // document is unambiguously a full regulamin. A document whose first line
+  // says REGULAMIN is one: the V Kaliski Bieg Niepodległości regulamin (7
+  // sections) carries the parent's consent as its last page, 4 declaration
+  // markers, and was rejected as a consent form on 2026-11-08.
+  if (declarations >= 2 && sections < 8 && !titled) {
     return {
       verdict: 'not-regulamin',
       sections,

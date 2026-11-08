@@ -77,3 +77,56 @@ test('a long document with many sections survives some declaration furniture', (
   const text = fixture('olawa-regulamin.txt') + '\n\nOświadczam, że zapoznałem się.\nWyrażam zgodę na przetwarzanie.\nPodpis rodzica: ....'
   assert.equal(looksLikeRegulamin(text).verdict, 'regulamin')
 })
+
+// ── 2026-11-08: real race documents the gate threw away ──────────────────
+
+test('a regulamin with the parent consent form as its last page is a regulamin', () => {
+  // V Kaliski Bieg Niepodległości (foxter comp_regulations_1156.pdf): 5 pages
+  // of regulamin, then „Wyrażam zgodę…”, „Oświadczam…”, „Podpis rodzica”.
+  const r = looksLikeRegulamin(fixture('kalisz-regulamin-with-consent-annex.txt'))
+  assert.ok(r.declarations >= 2)
+  assert.equal(r.verdict, 'regulamin', r.reason)
+})
+
+test('a one-page race announcement that names the race is its regulamin', () => {
+  const cases = [
+    ['timekeeper-wielki-las-onepager.txt', 'Nocna Przebieżka „Wielki Las”'],
+    ['datasport-niepokalanej-onepager.txt', 'III Trailowy Marsz / Bieg dla Niepokalanej - 13.12.2026'],
+    ['aktywna-warszawa-cycle-regulamin.txt', 'Poniedziałek biegowy w Ośrodku Rozbrat (trening funkcjonalny) 9 listopada'],
+  ]
+  for (const [file, eventName] of cases) {
+    const text = fixture(file)
+    assert.equal(looksLikeRegulamin(text).verdict, 'not-regulamin', `${file} without a name`)
+    assert.equal(looksLikeRegulamin(text, { eventName }).verdict, 'regulamin', file)
+  }
+})
+
+test('naming the race does not let another document through', () => {
+  // The park's visitor rules mention Turbacz, the mountain, not the race.
+  assert.equal(
+    looksLikeRegulamin(fixture('gorce-park-visitor-rules.txt'), { eventName: 'Turbacz Winter Trail 2027' }).verdict,
+    'not-regulamin')
+  assert.equal(
+    looksLikeRegulamin(fixture('gorce-park-visitor-rules.txt'), { eventName: 'II Bieg Mikołajkowy' }).verdict,
+    'not-regulamin')
+  // A statuette offer for a cycle and a wall calendar.
+  assert.equal(
+    looksLikeRegulamin(fixture('zmierzymyczas-statuetka-info.txt'), { eventName: 'Statuetka - cykl biegów KB Harcownik 2026' }).verdict,
+    'not-regulamin')
+  assert.equal(
+    looksLikeRegulamin(fixture('elektronicznezapisy-calendar.txt'), { eventName: '65. Bieg Westerplatte' }).verdict,
+    'not-regulamin')
+  // The consent form still fails with the race named.
+  assert.equal(
+    looksLikeRegulamin(fixture('olawa-consent-form.txt'), { eventName: 'Bieg Oławski' }).verdict,
+    'not-regulamin')
+})
+
+test('a long web page with the race in its news column is not the race regulamin', () => {
+  const page = [
+    'Urząd Gminy Kluki. Aktualności. Rozbiegani w Gminie Kluki — start 15 listopada, trasa wokół jeziora.',
+    'Organizator: Gmina Kluki. Kategorie wiekowe.',
+    'Nabór wniosków o dofinansowanie wymiany pokryć dachowych z azbestem. '.repeat(120),
+  ].join('\n')
+  assert.equal(looksLikeRegulamin(page, { eventName: 'Rozbiegani w Gminie Kluki' }).verdict, 'not-regulamin')
+})

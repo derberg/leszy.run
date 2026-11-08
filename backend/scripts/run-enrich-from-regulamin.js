@@ -4,11 +4,11 @@ import { writeFileSync, unlinkSync } from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
 import { AI_FILLABLE, pickFillable, fieldsNeedingFill, applyRegistryUpdates, fillFreeEntryPrices } from './lib/ai-fillable.js'
-import { looksLikeRegulamin } from '../src/lib/looksLikeRegulamin.js'
 import { dropUnsupportedFields } from '../src/lib/extractionEvidence.js'
 import { dropsDistances } from './lib/distances.js'
 import { resolveRegulaminScope } from './lib/enrichScope.js'
-import { resolveRegulaminFromPageHtml } from './lib/registration-page-regulamin.js'
+import { acquireRegulamin, fetchDoc } from './lib/regulaminDocument.js'
+import { huntRegulamin } from './lib/regulaminHunt.js'
 
 // Subset of AI_FILLABLE that's plausibly extractable from a regulamin PDF.
 // Excludes URLs (PDF doesn't contain its own URL or external pages reliably)
@@ -54,15 +54,16 @@ const PDF_FILLABLE = pickFillable([
 //                        puts a 2027 race out of --limit's reach, and clearing
 //                        the stamp by hand is a database write for what should
 //                        be a rerun.
-//   --null-bad-regulamin Also NULL scraper_all.regulamin_url when the acquired
-//                        document is positively identified as not being this
-//                        race's regulamin. Off by default — without it such a
-//                        row is skipped and reported, and the URL is left for a
-//                        human to look at.
+//
+// A regulamin_url whose document is positively not this race's regulamin is
+// never left in place. huntRegulamin() first looks for the real one among the
+// links of that page, the registration page and the website; found, it
+// replaces the URL and is mined instead. Not found, the URL is cleared. (This
+// used to need --null-bad-regulamin, so a run without it reported the same 22
+// junk URLs on 2026-11-08 that it had reported before and left every one.
+// The flag is still accepted and changes nothing.)
 
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY)
-
-const nullBadRegulamin = process.argv.includes('--null-bad-regulamin')
 
 let scope
 try {
@@ -108,154 +109,6 @@ function checkClaudeCli() {
   }
 }
 
-const FETCH_HEADERS = { 'User-Agent': 'leszy.run/1.0 (lukasz@leszy.run)' }
-
-function tmpPath(ext) {
-  return join(tmpdir(), `regulamin-${Date.now()}-${Math.round(Math.random() * 1e6)}.${ext}`)
-}
-
-async function fetchBuffer(url) {
-  try {
-    const res = await fetch(url, {
-      headers: FETCH_HEADERS,
-      redirect: 'follow',
-      signal: AbortSignal.timeout(30000),
-    })
-    if (!res.ok) return { error: `HTTP ${res.status}` }
-    const contentType = (res.headers.get('content-type') || '').toLowerCase()
-    const buffer = Buffer.from(await res.arrayBuffer())
-    return { buffer, contentType }
-  } catch (err) {
-    return { error: err.message?.slice(0, 100) || 'unknown' }
-  }
-}
-
-// Identify what we downloaded from magic bytes first, then content-type / URL hints.
-// Returns 'pdf' | 'docx' | 'html' | 'unknown'.
-function detectKind(buffer, contentType, url) {
-  const ascii = buffer.slice(0, 8).toString('latin1')
-  if (ascii.startsWith('%PDF')) return 'pdf'
-  if (ascii.startsWith('PK')) {
-    // Office Open XML (.docx) is a zip — confirm via name, content-type, or a `word/` entry
-    if (/\.docx(\?|$)/i.test(url) || contentType.includes('wordprocessingml')) return 'docx'
-    if (buffer.toString('latin1', 0, Math.min(buffer.length, 4000)).includes('word/')) return 'docx'
-    return 'unknown'
-  }
-  if (contentType.includes('pdf') || /\.pdf(\?|$)/i.test(url)) return 'pdf'
-  if (contentType.includes('wordprocessingml') || /\.docx(\?|$)/i.test(url)) return 'docx'
-  const head = buffer.slice(0, 200).toString('utf-8').trim().toLowerCase()
-  if (contentType.includes('html') || head.startsWith('<!doctype') || head.startsWith('<html')) return 'html'
-  return 'unknown'
-}
-
-// Extract plain text from a downloaded buffer with the right local tool:
-// pdf -> pdftotext, docx/html -> textutil (macOS). Returns text or null.
-function extractText(buffer, kind) {
-  const f = tmpPath(kind === 'pdf' ? 'pdf' : kind === 'docx' ? 'docx' : 'html')
-  try {
-    writeFileSync(f, buffer)
-    const cmd = kind === 'pdf'
-      ? `pdftotext -enc UTF-8 "${f}" -`
-      : `textutil -convert txt -stdout "${f}"`
-    return execSync(cmd, { encoding: 'utf-8', timeout: 30000, maxBuffer: 8 * 1024 * 1024 })
-  } catch {
-    return null
-  } finally {
-    try { unlinkSync(f) } catch {}
-  }
-}
-
-const driveFolderId = (url) => (url.match(/\/drive\/folders\/([0-9A-Za-z_-]+)/) || [])[1] || null
-const driveFileId = (url) =>
-  (url.match(/\/file\/d\/([0-9A-Za-z_-]+)/) || [])[1] ||
-  (url.match(/[?&]id=([0-9A-Za-z_-]+)/) || [])[1] || null
-const driveDownloadUrl = (id) => `https://drive.google.com/uc?export=download&id=${id}`
-
-// Parse a public Drive folder page for the file ids it lists (rendered as data-id="...").
-async function listDriveFolder(url) {
-  const res = await fetchBuffer(url)
-  if (res.error) return res
-  const html = res.buffer.toString('utf-8')
-  const ids = [...new Set([...html.matchAll(/data-id="(1[0-9A-Za-z_-]{25,44})"/g)].map((m) => m[1]))]
-  if (ids.length === 0) return { error: 'no files in folder (private or empty?)' }
-  return { ids }
-}
-
-// Download a regulamin from any supported URL and return a local file ready for Claude:
-// { path, kind } where kind 'pdf' is read natively by Claude (best table fidelity) and
-// 'text' is a .txt we extracted ourselves (docx, html page, or multi-file Drive folder).
-async function acquireRegulamin(url, row, { followWrapper = true } = {}) {
-  // 1) Google Drive folder -> download every file, extract text, concatenate
-  const folderId = driveFolderId(url)
-  if (folderId) {
-    const folder = await listDriveFolder(url)
-    if (folder.error) return folder
-    const chunks = []
-    for (const id of folder.ids) {
-      const dl = await fetchBuffer(driveDownloadUrl(id))
-      if (dl.error) continue
-      const kind = detectKind(dl.buffer, dl.contentType, '')
-      if (kind !== 'pdf' && kind !== 'docx') continue // skip images / unknown / interstitials
-      const text = extractText(dl.buffer, kind)
-      if (text && text.trim().length > 50) chunks.push(`=== ${id} (${kind}) ===\n${text.trim()}`)
-    }
-    if (chunks.length === 0) return { error: 'Drive folder had no extractable documents' }
-    const f = tmpPath('txt')
-    const joined = chunks.join('\n\n')
-    writeFileSync(f, joined, 'utf-8')
-    return { path: f, kind: 'text', text: joined, identity: looksLikeRegulamin(joined) }
-  }
-
-  // 2) Single file (Drive file link gets rewritten to its direct-download URL)
-  const fileId = driveFileId(url)
-  const dl = await fetchBuffer(fileId ? driveDownloadUrl(fileId) : url)
-  if (dl.error) return dl
-  if (dl.buffer.length < 500) return { error: `too small (${dl.buffer.length} bytes)` }
-
-  const kind = detectKind(dl.buffer, dl.contentType, url)
-  // A Drive file that comes back as HTML is the virus-scan interstitial, not a document
-  if (fileId && kind === 'html') return { error: 'Drive interstitial (not a direct document)' }
-  if (kind === 'unknown') return { error: `unsupported type (${dl.contentType || 'no content-type'})` }
-
-  if (kind === 'pdf') {
-    const f = tmpPath('pdf')
-    writeFileSync(f, dl.buffer)
-    // Claude reads the PDF natively, so we do NOT need the text for enrichment —
-    // but we do need it to check the document is this race's regulamin at all.
-    // A consent form or a national park's visitor rules is a live PDF with a
-    // plausible filename; only the text says otherwise.
-    const pdfText = extractText(dl.buffer, 'pdf') || ''
-    return { path: f, kind: 'pdf', text: pdfText, identity: looksLikeRegulamin(pdfText) }
-  }
-
-  const text = extractText(dl.buffer, kind)
-  if (!text || text.trim().length < 50) return { error: `${kind} extraction empty` }
-  const identity = looksLikeRegulamin(text)
-
-  // An HTML page that does not read as a regulamin may still BE where the
-  // regulamin lives. A WordPress site publishes rules written in Word by
-  // uploading the file and giving it a page with a heading and a link. The
-  // page is a wrapper, and everything the model is asked for is in the document
-  // beside it. ZPGS 2027 (b4sport:13127) published with price_from, price_to
-  // and registration_deadline null off a regulamin_url returning HTTP 200,
-  // while ZPGS27_regulamin.docx.pdf one link away states the 230/255/280 zł
-  // tiers and the 14.01.2027 payment deadline. Measured 2026-09-29: 7 of the
-  // 195 future rows whose regulamin_url is an HTML page are this shape.
-  //
-  // Only one hop, and only when the page failed the structural test. A page
-  // that reads as a regulamin IS the regulamin, whatever else it links.
-  if (kind === 'html' && followWrapper && identity.verdict !== 'regulamin') {
-    const wrapped = await resolveRegulaminFromPageHtml(dl.buffer.toString('utf-8'), url, row)
-    if (wrapped && wrapped !== url) {
-      const doc = await acquireRegulamin(wrapped, row, { followWrapper: false })
-      if (!doc.error) return { ...doc, wrapperUrl: url, resolvedUrl: wrapped }
-    }
-  }
-
-  const f = tmpPath('txt')
-  writeFileSync(f, text.trim(), 'utf-8')
-  return { path: f, kind: 'text', text, identity }
-}
 
 function buildPrompt(event) {
   const currentDistances = event.distances && event.distances.trim() ? event.distances : 'unknown'
@@ -439,13 +292,13 @@ async function main() {
     console.log(`    current distances: ${row.distances || '(none)'}`)
     console.log(`    current types: ${row.event_types?.join(', ') || '(none)'}`)
 
-    const download = await acquireRegulamin(url, row)
+    let download = await acquireRegulamin(url, row)
     if (download.error) {
       console.log(`    SKIP: ${download.error}`)
       skipped++
       continue
     }
-    const filePath = download.path
+    let filePath = download.path
     if (download.resolvedUrl) {
       console.log(`    wrapper page, following its link to ${download.resolvedUrl}`)
     }
@@ -457,20 +310,35 @@ async function main() {
     // 'not-regulamin' stops the run, because feeding the LLM the wrong document
     // is worse than leaving the fields empty — asked for a fee in a document
     // that has none, it invents one (the 0–500 zł ranges in scraper_all).
-    const identity = download.identity
+    let identity = download.identity
     if (identity?.verdict === 'not-regulamin') {
       console.log(`    REJECT: not a regulamin — ${identity.reason}`)
-      rejected++
-      rejectedRows.push({ id: row.id, name: row.name, url, reason: identity.reason })
-      if (nullBadRegulamin) {
+      try { unlinkSync(filePath) } catch {}
+      const found = await huntRegulamin({ row, fetchDoc, skip: [url, download.resolvedUrl].filter(Boolean) })
+      const replacement = found ? await acquireRegulamin(found.url, row, { followWrapper: false }) : null
+      if (replacement && !replacement.error && replacement.identity?.verdict === 'regulamin') {
+        console.log(`    FOUND the regulamin via ${found.via}: ${found.url}`)
+        // Stored now, not with the extraction: a model call that comes back
+        // empty must not leave the rejected URL behind.
+        const { error: swapErr } = await supabase
+          .from('scraper_all')
+          .update({ regulamin_url: found.url })
+          .eq('id', row.id)
+        console.log(swapErr ? `    ERR storing: ${swapErr.message}` : `    ✓ regulamin_url: ${url} → ${found.url}`)
+        download = { ...replacement, resolvedUrl: found.url }
+        filePath = download.path
+        identity = download.identity
+      } else {
+        if (replacement?.path) { try { unlinkSync(replacement.path) } catch {} }
+        rejected++
+        rejectedRows.push({ id: row.id, name: row.name, url, reason: identity.reason })
         const { error: nullErr } = await supabase
           .from('scraper_all')
           .update({ regulamin_url: null })
           .eq('id', row.id)
-        console.log(nullErr ? `    ERR nulling: ${nullErr.message}` : '    ✓ regulamin_url nulled')
+        console.log(nullErr ? `    ERR nulling: ${nullErr.message}` : '    ✓ regulamin_url nulled (no regulamin found near it)')
+        continue
       }
-      try { unlinkSync(filePath) } catch {}
-      continue
     }
     if (identity?.verdict === 'unknown') {
       console.log(`    NOTE: ${identity.reason} — enriching anyway`)
@@ -598,12 +466,9 @@ async function main() {
 
   console.log(`\n\nDone: ${enriched} enriched, ${skipped} skipped, ${failed} failed, ${rejected} rejected`)
   if (rejectedRows.length > 0) {
-    console.log(`\n  Rejected — the linked document is not this race's regulamin:`)
+    console.log(`\n  Rejected and cleared — the linked document is not this race's regulamin, and none was found near it:`)
     for (const r of rejectedRows) {
       console.log(`    ${r.name}\n      ${r.url}\n      ${r.reason}`)
-    }
-    if (!nullBadRegulamin) {
-      console.log(`\n  Re-run with --null-bad-regulamin to clear these regulamin_url values.`)
     }
   }
   console.log(`  total cost: $${totalCostUsd.toFixed(4)}`)
