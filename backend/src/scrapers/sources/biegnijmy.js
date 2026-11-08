@@ -2,7 +2,8 @@
 // Zachodniopomorskie (Białogard, Świdwin, Tychowo, Karlino, Manowo, Świeszyno,
 // Połczyn-Zdrój, …). Custom PHP site, not WordPress permalinks.
 //
-// Data source: the events calendar at index.php?plik=imprezy&co=<YEAR>- renders one
+// Data source: the upcoming-events page index.php?plik=zapowiedzi and the archive
+// index.php?plik=imprezy&co=<YEAR>- (see listingUrls) render one
 // `<tr class="bieg">` per event, fully server-side. Each row carries everything we
 // need — no detail-page fetches:
 //   - td.czarny            → event name
@@ -31,6 +32,10 @@
 //   - regulamin_url = biegnijmy-hosted PDF when present (verified content-type=pdf).
 //   - website = STRONA BIEGU declared official link (kept even if it's a Facebook
 //     org page, per the declared-official-link rule; only biegnijmy's own host stripped).
+//
+// 5.biegnijmy.pl is the Leśna Piątka series' own news blog (regulamin, its own
+// zapisy-all form). Every Leśna Piątka race is also a row on the portal's listings,
+// so the subdomain is not read.
 //
 // This is a regional listing/aggregator that also takes entries for some events → priority 8.
 //
@@ -206,19 +211,40 @@ function parseListing(html) {
   return rows
 }
 
-async function fetchYear(year) {
-  const url = `${BASE}/index.php?plik=imprezy&co=${year}-`
-  const res = await fetch(url, { headers: { 'User-Agent': UA } })
-  if (!res.ok) return []
-  return parseListing(await res.text())
+// The two listings, upcoming first so an event on both keeps its live links.
+//   - index.php?plik=zapowiedzi: every event from today on. It ignores any year
+//     or month parameter (checked 2026-11-08: co=2027- and co=2026-12- return the
+//     same five rows), so one fetch covers the whole future.
+//   - index.php?plik=imprezy&co=<YEAR>-: the archive, events from today BACKWARDS.
+//     On 2026-11-08 the 2026 page ended at that day's race and the 2027 page was
+//     empty. Until 2026-11-08 this was the only page read, so every row reached
+//     scraper_biegnijmy on or after its race day, too late for the merge, which
+//     drops past events. It stays for today's race and a missed day's runs.
+// The search form posts to /DANE/php/szukajzapowiedzi.php, which robots.txt
+// disallows; it is not used.
+function listingUrls(now) {
+  const y = now.getFullYear()
+  return [
+    `${BASE}/index.php?plik=zapowiedzi`,
+    `${BASE}/index.php?plik=imprezy&co=${y}-`,
+    `${BASE}/index.php?plik=imprezy&co=${y + 1}-`,
+  ]
 }
 
-export async function scrape({ knownIds } = {}) {
-  const now = new Date()
-  const years = [now.getFullYear(), now.getFullYear() + 1]
+async function defaultFetchHtml(url) {
+  const res = await fetch(url, { headers: { 'User-Agent': UA } })
+  if (!res.ok) return ''
+  return res.text()
+}
+
+const sleep = (ms) => new Promise(r => setTimeout(r, ms))
+
+export async function scrape({ knownIds, fetchHtml = defaultFetchHtml, now = new Date(), delayMs = 1100 } = {}) {
   const byId = new Map()
-  for (const y of years) {
-    for (const row of await fetchYear(y)) {
+  const urls = listingUrls(now)
+  for (let i = 0; i < urls.length; i++) {
+    if (i > 0 && delayMs) await sleep(delayMs)
+    for (const row of parseListing(await fetchHtml(urls[i]))) {
       if (!byId.has(row.source_id)) byId.set(row.source_id, row)
     }
   }
