@@ -80,3 +80,112 @@ export function decideDateMove({ ce, sa, today, saDates, findCollision }) {
 
   return { move: true, date: next }
 }
+
+function lockedOn(ce, field) {
+  return [...(ce.locked_fields || []), ...(ce.community_locked_fields || [])].includes(field)
+}
+
+/**
+ * The registration deadline of a row that moves. The old deadline belongs to
+ * the old date (Kluki moved from 2026-09-27 to 2026-11-08 and kept 2026-09-20,
+ * which the public page shows and the deadline_soon notice reads), so it
+ * follows the source: the scraper_all row's deadline when it has one on or
+ * before the new date, otherwise none. A blank is honest; a stale deadline
+ * tells runners sign-up closed when it may be open. An admin's deadline
+ * (locked_fields / community_locked_fields) stays.
+ * @returns {null | { write: true, value: string|null } | { write: false, reason: 'locked' }}
+ */
+export function deadlineAfterMove(ce, sa, newDate) {
+  const fromSource = sa?.registration_deadline || null
+  const value = fromSource && fromSource <= newDate ? fromSource : null
+  if ((ce.registration_deadline || null) === value) return null
+  if (lockedOn(ce, 'registration_deadline')) return { write: false, reason: 'locked' }
+  return { write: true, value }
+}
+
+/**
+ * Dates of every scraper_all row that resolves to each CE row, matched as the
+ * publish loop matches (first source key found, rejected rows left out). Two
+ * rows that disagree move nothing ('conflicting_sources').
+ * @returns {Map<string, Set<string>>} ce id → dates
+ */
+export function collectSaDates(saRows, existingByLink, rejectedKeys) {
+  const byCe = new Map()
+  for (const raw of saRows) {
+    const keys = rowKeys(raw)
+    if (keys.some(k => rejectedKeys.has(k))) continue
+    const found = keys.map(k => existingByLink.get(k)).find(Boolean)
+    if (!found?.id || !raw.date) continue
+    const set = byCe.get(found.id) || new Set()
+    set.add(raw.date)
+    byCe.set(found.id, set)
+  }
+  return byCe
+}
+
+/**
+ * Re-file a moved CE row under its new date in the fuzzy pool (Map date →
+ * rows), so the rest of the run compares later rows with where it is now.
+ * A no-op when the row is not under the old date.
+ */
+export function refileByDate(pool, ceId, oldDate, newDate) {
+  const old = pool.get(oldDate)
+  const entry = old?.find(r => r.id === ceId)
+  if (!entry) return false
+  pool.set(oldDate, old.filter(r => r !== entry))
+  const group = pool.get(newDate) || []
+  group.push({ ...entry, date: newDate })
+  pool.set(newDate, group)
+  return true
+}
+
+/**
+ * Apply one decision to the update being built for a CE row: the date and
+ * deadline writes or skips, and one report line per CE row and new date, how
+ * ever many scraper_all rows lead to the same decision.
+ * @param {object} p
+ * @param {object} p.ce, p.sa
+ * @param {ReturnType<typeof decideDateMove>} p.decision
+ * @param {object} p.upd        the update row (mutated)
+ * @param {object[]} p.skipped  per-field skips (mutated)
+ * @param {object[]} p.log      the date-move report (mutated)
+ */
+export function applyDateMove({ ce, sa, decision, upd, skipped, log }) {
+  if (!decision) return
+  let deadline = null
+  if (decision.move) {
+    upd.date = decision.date
+    deadline = deadlineAfterMove(ce, sa, decision.date)
+    if (deadline?.write) {
+      upd.registration_deadline = deadline.value
+    } else if (deadline && !deadline.write) {
+      skipped.push({ field: 'registration_deadline', reason: `date_move_${deadline.reason}`, ce_value: ce.registration_deadline ?? null, sa_value: sa.registration_deadline ?? null })
+    } else if (!lockedOn(ce, 'registration_deadline') && (ce.registration_deadline || null) === null) {
+      // fillIfEmpty may have offered a source deadline that falls after the new date.
+      delete upd.registration_deadline
+    }
+  } else {
+    skipped.push({ field: 'date', reason: `date_${decision.reason}`, ce_value: ce.date, sa_value: sa.date })
+  }
+  if (log.some(m => m.ce_id === ce.id && m.sa_date === sa.date)) return
+  log.push({
+    ce_id: ce.id,
+    name: ce.name,
+    ce_date: ce.date,
+    sa_date: sa.date,
+    source: sa.source,
+    source_id: sa.source_id,
+    moved: decision.move,
+    reason: decision.move ? null : decision.reason,
+    collides_with: decision.collides_with || null,
+    deadline: deadline?.write ? { from: ce.registration_deadline ?? null, to: deadline.value } : null,
+  })
+}
+
+/** decideDateMove's findCollision over the fuzzy pool, pending rows included. */
+export function collisionFinder(pool, ce, fuzzyMatchIn) {
+  return (date, excludeId) => {
+    const hit = fuzzyMatchIn(pool, { name: ce.name, date, location: ce.location, event_type: ce.event_type }, { excludeId, includePending: true })
+    return hit ? hit.matched : null
+  }
+}

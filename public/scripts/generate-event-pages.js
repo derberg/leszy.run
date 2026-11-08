@@ -5,6 +5,7 @@ import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'fs'
 import { resolve, dirname } from 'path'
 import { fileURLToPath } from 'url'
 import { CALENDAR_FIELDS } from '../src/lib/calendarData.js'
+import { redirectStubs, buildRedirectHtml } from './lib/formerSlugs.js'
 import { TYPE_LABELS, typeTagClass, distTagClass, atestDistTagClass, atestDistances, eventTypes, formatDateWithWeekday, infoCells } from '../src/lib/eventFacts.js'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
@@ -508,6 +509,15 @@ function main() {
   }
 
   console.log(`Generated ${generated} event HTML files (${pastCount} past-event noindex).`)
+
+  // An event's former addresses (moved date, renamed) redirect to its page.
+  const stubs = redirectStubs(manifest)
+  for (const { slug, target, event } of stubs) {
+    const dir = resolve(DIST, 'kalendarz', slug)
+    mkdirSync(dir, { recursive: true })
+    writeFileSync(resolve(dir, 'index.html'), buildRedirectHtml(event, target, BASE_URL))
+  }
+  if (stubs.length) console.log(`Generated ${stubs.length} redirect stub(s) for former event addresses.`)
 
   // The calendar's data (lib/calendarData.js): every upcoming race with the fields the
   // list, grid and map read, so /kalendarz never queries Supabase per visitor.

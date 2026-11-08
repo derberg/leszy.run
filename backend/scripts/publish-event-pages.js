@@ -13,6 +13,7 @@ import { renderEventOg } from '../../public/scripts/generate-event-og.js'
 import { writeRunLog } from './lib/run-log.js'
 import { buildManifestEntry, shareImageView } from './lib/manifestEntry.js'
 import { stampPublish, ogSlugsToGenerate } from './lib/publishHelpers.js'
+import { carryFormerSlugs } from '../../public/scripts/lib/formerSlugs.js'
 import {
   storageConfig, readManifest, writeManifest, listOgSlugs, uploadOg, removeOgs, mapLimit,
   MANIFEST_BUCKET, OG_BUCKET,
@@ -150,6 +151,10 @@ async function main() {
   for (const { event, slug } of eventSlugs) {
     newManifest[slug] = buildManifestEntry(event)
   }
+  // Every address an event had before stays as a redirect stub
+  // (generate-event-pages.js): the slug carries the date, and run-publish moves
+  // a race's date when its source moved it.
+  const readdressed = carryFormerSlugs(oldManifest, newManifest)
 
   // 7. Diff
   const oldSlugs = new Set(Object.keys(oldManifest))
@@ -186,6 +191,12 @@ async function main() {
     console.log('\n  New events:')
     for (const s of added.slice(0, 20)) console.log(`    + ${s}`)
     if (added.length > 20) console.log(`    ... and ${added.length - 20} more`)
+  }
+
+  if (readdressed.length > 0) {
+    console.log(`\n  New addresses (${readdressed.length}; the old one redirects):`)
+    for (const r of readdressed.slice(0, 50)) console.log(`    ${r.from} → ${r.to}`)
+    if (readdressed.length > 50) console.log(`    ... and ${readdressed.length - 50} more`)
   }
 
   if (removed.length > 0) {
@@ -263,6 +274,7 @@ async function main() {
     added_slugs: added,
     removed_slugs: removed,
     changed_slugs: changed,
+    readdressed,
     og_error_details: ogErrors,
   })
   console.log(`  Run log:             ${logFile}`)

@@ -48,7 +48,8 @@ import { sameAtest } from '../lib/atestMatch.js'
 import { looksVirtual } from '../lib/virtualEvent.js'
 import { looksMultisport } from '../lib/multisportEvent.js'
 import { looksWalkingRally, looksUnracedRajd } from '../lib/walkingRally.js'
-import { decideDateMove, rowKeys, warsawToday } from '../lib/publishDateMove.js'
+import { decideDateMove, rowKeys, warsawToday, collectSaDates, collisionFinder, applyDateMove, refileByDate } from '../lib/publishDateMove.js'
+import { fuzzyMatchIn } from './publishFuzzy.js'
 
 // Sources that handle their own API enrichment in-scraper (avoid double API calls)
 const SELF_ENRICHING_SOURCES = new Set(['dostartu', 'elektronicznezapisy'])
@@ -1656,6 +1657,8 @@ async function publishToCalendar({ dryRun = false } = {}) {
   console.log(`[publish] ${existingByLink.size} live + ${rejectedKeys.size} rejected source+source_id pairs in calendar_events`)
 
   // Fetch name+date+location+event_type from calendar_events for fuzzy dedup.
+  // Pending rows are loaded too but only a date move compares against them
+  // (fuzzyMatchIn includePending); inserts keep comparing with the others.
   // event_type (which contains 'dzieci' when applicable) enables the
   // distinguishing-tag guard so we don't collapse semantically-distinct
   // events (kids vs adult, half vs full marathon).
@@ -1664,8 +1667,8 @@ async function publishToCalendar({ dryRun = false } = {}) {
   while (true) {
     const { data, error } = await supabase
       .from('calendar_events')
-      .select('id, name, date, location, event_type, source_links')
-      .in('status', ['active', 'rejected', 'cancelled'])
+      .select('id, name, date, status, location, event_type, source_links')
+      .in('status', ['active', 'rejected', 'cancelled', 'pending'])
       .range(from, from + pageSize - 1)
 
     if (error) break
@@ -1681,28 +1684,8 @@ async function publishToCalendar({ dryRun = false } = {}) {
 
   console.log(`[publish] ${[...existingByDate.values()].reduce((s, g) => s + g.length, 0)} calendar_events loaded for fuzzy dedup`)
 
-  function fuzzyMatch(saEvent, excludeId = null) {
-    // saEvent: { name, date, location, is_kids, event_types, event_type } from scraper_all
-    // (or a CE row about to move to a new date, with excludeId = its own id)
-    const candidates = existingByDate.get(saEvent.date)
-    if (!candidates) return null
-    const saTags = distinguishingTags(saEvent)
-    for (const c of candidates) {
-      if (excludeId && c.id === excludeId) continue
-      // Same distinguishing-tag guard as the merge step — kids vs adult,
-      // Maraton vs Półmaraton, trail vs uliczny, etc. Prevents publish from
-      // suppressing a legitimate new CE row by misidentifying it as duplicate
-      // of a semantically-distinct existing CE.
-      if (hasDistinguishingConflict(saTags, distinguishingTags(c))) continue
-      if (citiesConflict(c.location, saEvent.location)) continue
-
-      const jaccard = jaccardSimilarity(c.name, saEvent.name)
-      if (jaccard > 0.6) return { matched: c, reason: `jaccard=${jaccard.toFixed(2)}` }
-      const locMatch = citiesMatch(c.location, saEvent.location)
-      if (locMatch && jaccard > 0.35) return { matched: c, reason: `city+jaccard=${jaccard.toFixed(2)}` }
-      if (locMatch && tokenize(c.name).length <= 3 && tokenize(saEvent.name).length <= 3 && jaccard > 0.25) return { matched: c, reason: `short+city+jaccard=${jaccard.toFixed(2)}` }
-    }
-    return null
+  function fuzzyMatch(saEvent, opts) {
+    return fuzzyMatchIn(existingByDate, saEvent, opts)
   }
 
   // Helper — given a calendar_events row and a fresh scraper_all row, build
@@ -1884,20 +1867,8 @@ async function publishToCalendar({ dryRun = false } = {}) {
 
   // Dates of every scraper_all row that resolves to each CE row. Two rows that
   // disagree move nothing (decideDateMove 'conflicting_sources').
-  const saDatesByCe = new Map()
-  for (const raw of allRows) {
-    const keys = rowKeys(raw)
-    if (keys.some(k => rejectedKeys.has(k))) continue
-    const found = keys.map(k => existingByLink.get(k)).find(Boolean)
-    if (!found?.id || !raw.date) continue
-    const set = saDatesByCe.get(found.id) || new Set()
-    set.add(raw.date)
-    saDatesByCe.set(found.id, set)
-  }
-  const findDateCollision = (ce) => (date, excludeId) => {
-    const hit = fuzzyMatch({ name: ce.name, date, location: ce.location, event_type: ce.event_type }, excludeId)
-    return hit ? hit.matched : null
-  }
+  const saDatesByCe = collectSaDates(allRows, existingByLink, rejectedKeys)
+  const findDateCollision = (ce) => collisionFinder(existingByDate, ce, fuzzyMatchIn)
 
   for (const raw of allRows) {
     // Resolve existing CE row by primary source or any source_links entry
@@ -1942,26 +1913,7 @@ let existingCE = null
             findCollision: findDateCollision(existingCE),
           })
         : null
-      if (dateMove && !dateMoveLog.some(m => m.ce_id === existingCE.id && m.sa_date === raw.date)) {
-        dateMoveLog.push({
-          ce_id: existingCE.id,
-          name: existingCE.name,
-          ce_date: existingCE.date,
-          sa_date: raw.date,
-          source: raw.source,
-          source_id: raw.source_id,
-          moved: dateMove.move,
-          reason: dateMove.move ? null : dateMove.reason,
-          collides_with: dateMove.collides_with || null,
-        })
-      }
-      if (dateMove) {
-        if (dateMove.move) {
-          upd.date = dateMove.date
-        } else {
-          skippedFields.push({ field: 'date', reason: `date_${dateMove.reason}`, ce_value: existingCE.date, sa_value: raw.date })
-        }
-      }
+      applyDateMove({ ce: existingCE, sa: raw, decision: dateMove, upd, skipped: skippedFields, log: dateMoveLog })
       if (Object.keys(upd).length === 0) {
         unchanged++
         if (skippedFields.length > 0) {
@@ -2018,6 +1970,8 @@ let existingCE = null
           skipped: skippedFields,
           ...completeness,
         })
+        // Re-filed in the dry run too, so its fuzzy matches agree with --apply.
+        if (upd.date) refileByDate(existingByDate, existingCE.id, existingCE.date, upd.date)
       } else {
         const { error } = await supabase
           .from('calendar_events')
@@ -2042,16 +1996,7 @@ let existingCE = null
           // CE doesn't re-update with the same values
           for (const k of candidateKeys) existingByLink.set(k, { ...existingCE, ...upd })
           // A moved row now sits on its new date for the fuzzy dedup.
-          if (upd.date) {
-            const old = existingByDate.get(existingCE.date)
-            const entry = old?.find(r => r.id === existingCE.id)
-            if (entry) {
-              existingByDate.set(existingCE.date, old.filter(r => r !== entry))
-              const group = existingByDate.get(upd.date) || []
-              group.push({ ...entry, date: upd.date })
-              existingByDate.set(upd.date, group)
-            }
-          }
+          if (upd.date) refileByDate(existingByDate, existingCE.id, existingCE.date, upd.date)
         }
       }
       continue

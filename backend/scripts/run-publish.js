@@ -208,6 +208,13 @@ publishToCalendar({ dryRun })
           + c.gray + `  (ce.id=${m.ce_id}, ${m.source}:${m.source_id})` + c.reset
           + (m.moved ? '' : '  ' + c.yellow + m.reason + c.reset + (m.collides_with ? c.gray + ` with ce.id=${m.collides_with}` + c.reset : ''))
         )
+        if (m.deadline) {
+          console.log('      ' + c.dim + 'registration_deadline: ' + c.reset + fmtVal(m.deadline.from) + c.gray + ' → ' + c.reset + fmtVal(m.deadline.to))
+        }
+      }
+      if (moved.length > 0) {
+        console.log(c.bold + `  Then run publish-event-pages.js --apply and commit public/data-version.json:` + c.reset
+          + c.dim + ` a moved row's /kalendarz/<name>-<date> address changes, and that run leaves a redirect at the old one.` + c.reset)
       }
     }
 

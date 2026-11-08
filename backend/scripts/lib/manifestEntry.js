@@ -38,7 +38,7 @@ export function buildManifestEntry(event) {
 
 // Fields that change what the share image shows. A change limited to the others must not
 // regenerate it: adding created_at to every entry would otherwise redraw 3,000 images.
-export const NOT_ON_SHARE_IMAGE = ['created_at', 'leszyrun_event_id', 'atest']
+export const NOT_ON_SHARE_IMAGE = ['created_at', 'leszyrun_event_id', 'atest', 'former_slugs']
 
 /** The entry as the share-image diff sees it. */
 export function shareImageView(entry) {
