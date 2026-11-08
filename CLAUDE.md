@@ -1499,9 +1499,13 @@ evidence gate: the document must mention atest, certyfikat or AIMS):
 
 - **published** (`scraper_all.atest` → `calendar_events.atest`, `[{ km, certified_on, source }]`):
   the regulamin claims it and a valid register row matches at least half the name
-  (`both`), or no claim but a strict match: every word of the shorter name, the town
-  removed from both names, a shared word that is not generic (niepodległości,
-  półmaraton, …) unless both names carry the town (`register`);
+  (`both`), or no claim and the town (and its adjective, „Opolski”, „Żorski”) removed
+  from both names (`register`) with either at least half the name and a shared word
+  that is not generic (niepodległości, półmaraton, …), or every word of the shorter
+  name, generic or not, when both names carry the town, or when that row is the only
+  candidate of its distance in a town with fewer than 20 register rows (Ryki's
+  BIEG NIEPODLEGŁOŚCI; Warsaw's stays in review). A children's row or a nordic walking
+  row without a run never gets one: a festival lists every distance on each row;
 - **review only** (printed by `run-atest.js`, never shown): a regulamin that says the
   course has no atest (it wins over the register), a claim the register cannot back
   or backs with a void row, and a same-town same-distance near miss.
@@ -1510,6 +1514,14 @@ evidence gate: the document must mention atest, certyfikat or AIMS):
 `public/src/lib/calendarData.js`); with the distance filter on, a race passes only when a
 certified distance is inside it, so „Półmaraton” + atest means a certified half. List rows
 carry a „✓ atest” tag. `atest` is one of `CALENDAR_FIELDS`, so it is in `events.json`.
+
+**Taking an atest back:** `backend/scripts/revert-atest.js` (dry run by default,
+`--apply` writes). `--id <scraper_all id>` nulls the atest in `scraper_all` and
+`calendar_events` and adds `atest` to the calendar row's `locked_fields`, which is what
+keeps the next daily run-atest + publish from putting it back (`--unlock` releases it).
+`--run-log logs/atest-<ts>.json` restores every row a run changed to its value before
+the run, where the row still holds that run's value; add `--lock` to keep it, or fix the
+matching first, since the next run decides the same again.
 
 A register row with any status („nie rozgrywa się”, expired, course changed) or
 certified five or more years before the race does not count. The register is stored

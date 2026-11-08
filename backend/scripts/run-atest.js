@@ -15,7 +15,9 @@ import { matchEvent, sameAtest } from '../src/lib/atestMatch.js'
 //      is written, everything weaker is printed as the review list below.
 //   3. run-publish.js carries scraper_all.atest to calendar_events.atest.
 //
-// Dry run by default. --apply writes atest_register and scraper_all.atest.
+// Dry run by default. --apply writes atest_register and scraper_all.atest, and
+// a run log whose `changes` list (before and after of every row it changed) is
+// what revert-atest.js --run-log undoes.
 
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY)
 const dryRun = !process.argv.includes('--apply')
@@ -77,13 +79,14 @@ async function main() {
   const today = new Date().toISOString().slice(0, 10)
   const events = await readAll(
     'scraper_all',
-    'id, name, date, location, distances, atest_claim, atest',
+    'id, name, date, location, distances, atest_claim, atest, source, source_id',
     (q) => q.gte('date', today).order('date'),
   )
   console.log(`[atest] ${events.length} future scraper_all rows`)
 
   let written = 0, cleared = 0, withAtest = 0
   const review = []
+  const changes = []
   for (const ev of events) {
     const { atest, review: rev } = matchEvent(ev, register)
     if (atest.length) withAtest++
@@ -96,6 +99,7 @@ async function main() {
     if (!dryRun) {
       const { error } = await supabase.from('scraper_all').update({ atest: next }).eq('id', ev.id)
       if (error) console.log(`    ERR: ${error.message}`)
+      else changes.push({ id: ev.id, name: ev.name, date: ev.date, source: ev.source, source_id: ev.source_id, before: ev.atest ?? null, after: next })
     }
   }
 
@@ -123,7 +127,7 @@ async function main() {
     const file = await writeRunLog('atest', {
       script: 'atest', started_at: startedAt, ended_at: new Date().toISOString(),
       register_rows: register.length, register_from: from, events: events.length,
-      with_atest: withAtest, written, cleared, review,
+      with_atest: withAtest, written, cleared, changes, review,
     })
     console.log(`Run log: ${file}`)
   }
