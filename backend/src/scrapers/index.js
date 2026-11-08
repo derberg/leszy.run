@@ -48,6 +48,8 @@ import { sameAtest } from '../lib/atestMatch.js'
 import { looksVirtual } from '../lib/virtualEvent.js'
 import { looksMultisport } from '../lib/multisportEvent.js'
 import { looksWalkingRally, looksUnracedRajd } from '../lib/walkingRally.js'
+import { decideDateMove, rowKeys, warsawToday, collectSaDates, collisionFinder, applyDateMove, refileByDate } from '../lib/publishDateMove.js'
+import { fuzzyMatchIn } from './publishFuzzy.js'
 
 // Sources that handle their own API enrichment in-scraper (avoid double API calls)
 const SELF_ENRICHING_SOURCES = new Set(['dostartu', 'elektronicznezapisy'])
@@ -1630,7 +1632,7 @@ async function publishToCalendar({ dryRun = false } = {}) {
   while (true) {
     const { data, error } = await supabase
       .from('calendar_events')
-      .select('id, name, date, status, source, source_id, source_links, locked_fields, location, voivodeship, lat, lng, distances, event_type, registration_url, regulamin_url, website, price_from, price_to, registration_deadline, atest')
+      .select('id, name, date, status, source, source_id, source_links, locked_fields, community_locked_fields, location, voivodeship, lat, lng, distances, event_type, registration_url, regulamin_url, website, price_from, price_to, registration_deadline, atest')
       .range(from, from + pageSize - 1)
 
     if (error) break
@@ -1655,6 +1657,8 @@ async function publishToCalendar({ dryRun = false } = {}) {
   console.log(`[publish] ${existingByLink.size} live + ${rejectedKeys.size} rejected source+source_id pairs in calendar_events`)
 
   // Fetch name+date+location+event_type from calendar_events for fuzzy dedup.
+  // Pending rows are loaded too but only a date move compares against them
+  // (fuzzyMatchIn includePending); inserts keep comparing with the others.
   // event_type (which contains 'dzieci' when applicable) enables the
   // distinguishing-tag guard so we don't collapse semantically-distinct
   // events (kids vs adult, half vs full marathon).
@@ -1663,8 +1667,8 @@ async function publishToCalendar({ dryRun = false } = {}) {
   while (true) {
     const { data, error } = await supabase
       .from('calendar_events')
-      .select('id, name, date, location, event_type, source_links')
-      .in('status', ['active', 'rejected', 'cancelled'])
+      .select('id, name, date, status, location, event_type, source_links')
+      .in('status', ['active', 'rejected', 'cancelled', 'pending'])
       .range(from, from + pageSize - 1)
 
     if (error) break
@@ -1680,27 +1684,8 @@ async function publishToCalendar({ dryRun = false } = {}) {
 
   console.log(`[publish] ${[...existingByDate.values()].reduce((s, g) => s + g.length, 0)} calendar_events loaded for fuzzy dedup`)
 
-  function fuzzyMatch(saEvent, candidatesEvent) {
-    // saEvent: { name, date, location, is_kids, event_types, event_type } from scraper_all
-    // candidatesEvent same shape from CE (we pre-fetch event_type/is_kids for the dedup pool below)
-    const candidates = existingByDate.get(saEvent.date)
-    if (!candidates) return null
-    const saTags = distinguishingTags(saEvent)
-    for (const c of candidates) {
-      // Same distinguishing-tag guard as the merge step — kids vs adult,
-      // Maraton vs Półmaraton, trail vs uliczny, etc. Prevents publish from
-      // suppressing a legitimate new CE row by misidentifying it as duplicate
-      // of a semantically-distinct existing CE.
-      if (hasDistinguishingConflict(saTags, distinguishingTags(c))) continue
-      if (citiesConflict(c.location, saEvent.location)) continue
-
-      const jaccard = jaccardSimilarity(c.name, saEvent.name)
-      if (jaccard > 0.6) return { matched: c, reason: `jaccard=${jaccard.toFixed(2)}` }
-      const locMatch = citiesMatch(c.location, saEvent.location)
-      if (locMatch && jaccard > 0.35) return { matched: c, reason: `city+jaccard=${jaccard.toFixed(2)}` }
-      if (locMatch && tokenize(c.name).length <= 3 && tokenize(saEvent.name).length <= 3 && jaccard > 0.25) return { matched: c, reason: `short+city+jaccard=${jaccard.toFixed(2)}` }
-    }
-    return null
+  function fuzzyMatch(saEvent, opts) {
+    return fuzzyMatchIn(existingByDate, saEvent, opts)
   }
 
   // Helper — given a calendar_events row and a fresh scraper_all row, build
@@ -1876,7 +1861,14 @@ async function publishToCalendar({ dryRun = false } = {}) {
   const fuzzyLog = []
   const createdLog = []
   const updatedLog = []
+  const dateMoveLog = []  // every date move made or refused, for the report
   const now = new Date().toISOString()
+  const today = warsawToday()
+
+  // Dates of every scraper_all row that resolves to each CE row. Two rows that
+  // disagree move nothing (decideDateMove 'conflicting_sources').
+  const saDatesByCe = collectSaDates(allRows, existingByLink, rejectedKeys)
+  const findDateCollision = (ce) => collisionFinder(existingByDate, ce, fuzzyMatchIn)
 
   for (const raw of allRows) {
     // Resolve existing CE row by primary source or any source_links entry
@@ -1910,6 +1902,18 @@ let existingCE = null
     // Existing row → diff & update path
     if (existingCE) {
       const { upd, skipped: skippedFields } = buildUpdateRow(existingCE, raw)
+
+      // The date: a moved race takes its source's new date. See publishDateMove.js.
+      const dateMove = existingCE.id
+        ? decideDateMove({
+            ce: existingCE,
+            sa: raw,
+            today,
+            saDates: saDatesByCe.get(existingCE.id),
+            findCollision: findDateCollision(existingCE),
+          })
+        : null
+      applyDateMove({ ce: existingCE, sa: raw, decision: dateMove, upd, skipped: skippedFields, log: dateMoveLog })
       if (Object.keys(upd).length === 0) {
         unchanged++
         if (skippedFields.length > 0) {
@@ -1966,6 +1970,8 @@ let existingCE = null
           skipped: skippedFields,
           ...completeness,
         })
+        // Re-filed in the dry run too, so its fuzzy matches agree with --apply.
+        if (upd.date) refileByDate(existingByDate, existingCE.id, existingCE.date, upd.date)
       } else {
         const { error } = await supabase
           .from('calendar_events')
@@ -1989,6 +1995,8 @@ let existingCE = null
           // Refresh in-memory cache so a later scraper_all row matching the same
           // CE doesn't re-update with the same values
           for (const k of candidateKeys) existingByLink.set(k, { ...existingCE, ...upd })
+          // A moved row now sits on its new date for the fuzzy dedup.
+          if (upd.date) refileByDate(existingByDate, existingCE.id, existingCE.date, upd.date)
         }
       }
       continue
@@ -2123,7 +2131,7 @@ let existingCE = null
     }
   }
 
-  return { created, updated, unchanged, rejectedSkipped, rajdSkipped, fuzzySkipped, errors, fuzzyLog, createdLog, updatedLog }
+  return { created, updated, unchanged, rejectedSkipped, rajdSkipped, fuzzySkipped, errors, fuzzyLog, createdLog, updatedLog, dateMoveLog }
 }
 
 export { runPipeline, mergeIntoScraperAll, publishToCalendar, toIntPrice, sources }
