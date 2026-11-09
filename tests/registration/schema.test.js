@@ -116,7 +116,9 @@ test('F-04 a removed participant is hidden from participants_public and the PIN 
   // An earlier file's DDL may still have PostgREST reloading its schema (the full-run flake).
   await waitForRest(['participants', 'participants_public', 'event_secrets'])
   const { event, category } = await seedEvent({ registration: false })
-  const tag = crypto.randomUUID().slice(0, 8)
+  // Starts with a letter: an all-digit tag (8 hex characters are all digits about 2% of the
+  // time) makes search_participants_admin search by bib number and find nobody.
+  const tag = `t${crypto.randomUUID().slice(0, 8)}`
   const kept = await insert('participants', {
     event_id: event.id, category_id: category.id, first_name: 'Widoczny', last_name: `Zostaje${tag}`, bib_number: 2,
   })
