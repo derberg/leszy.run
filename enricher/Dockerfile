@@ -1,8 +1,8 @@
+# syntax=docker/dockerfile:1
 FROM python:3.11-slim
 
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
-    PIP_NO_CACHE_DIR=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1 \
     PLAYWRIGHT_BROWSERS_PATH=/ms-playwright \
     TZ=Europe/Warsaw
@@ -25,8 +25,15 @@ WORKDIR /app/enricher
 # Install Python deps from pyproject.toml without copying source first, so layer
 # caching kicks in. We give it a placeholder package directory; the real source
 # is COPYed in the next step and replaces the placeholder.
+#
+# The cache mount keeps pip's downloaded wheels on the build host between
+# builds, outside the image. Without it, any edit to pyproject.toml downloaded
+# every dependency again, and one corrupted download failed the whole step at
+# the end. Keep heavy ML packages (torch and its CUDA wheels) out of the
+# dependencies: nothing here runs a model, Ollama does that on the host.
 COPY enricher/pyproject.toml ./
-RUN mkdir -p enricher && touch enricher/__init__.py \
+RUN --mount=type=cache,target=/root/.cache/pip \
+    mkdir -p enricher && touch enricher/__init__.py \
     && pip install -e .
 
 # Install playwright's chromium browser (crawl4ai uses it)
