@@ -25,7 +25,9 @@ from enricher.steps.navigate import (
     pick_followup_urls, is_stub_host, strip_foreign_event_lines, pdf_belongs_to_event,
 )
 from enricher.steps.regex_prepass import extract_hints
-from enricher.steps.verify import verify_search_candidate
+from enricher.steps.verify import (
+    verify_search_candidate, _normalize_for_slug_match, _URL_SLUG_STOPWORDS,
+)
 
 # How many page crawls a run must attempt before a 0% success rate is read as a
 # broken crawler rather than a run that happened to hit only dead sites.
@@ -87,6 +89,23 @@ def _same_host_links(text: str, doc_url: Optional[str], limit: int = 2) -> list[
             continue
         links.append(url)
     return links[:limit]
+
+
+_CURRENCY_RE = re.compile(r"zł|\bpln\b|złot", re.IGNORECASE)
+
+
+def _page_names_event(text: str, event: dict) -> bool:
+    """The page carries the event's own name: 2+ distinctive name words.
+
+    Words match on a 6-letter stem, since Polish inflects the name in running
+    text ("Poranny Bieg po Plantach" → "Porannym Biegu po Plantach").
+    """
+    page = _normalize_for_slug_match(text or "")
+    stems = {
+        t[:6] for t in re.split(r"\W+", _normalize_for_slug_match(event.get("name") or ""))
+        if len(t) >= 4 and t not in _URL_SLUG_STOPWORDS
+    }
+    return sum(1 for s in stems if s in page) >= 2
 
 
 async def _read_regulamin(
@@ -463,23 +482,38 @@ async def process_event(event: dict, config: Config) -> dict:
     # with price_from null: its PDF names no fee, the registration page is a
     # Google Form, and the page that says "Udział w biegu jest bezpłatny" is
     # https://kardiologiaprewencyjna.eu/page/run, named only inside the
-    # regulamin and on the regulamin's own host. Read the already-crawled pages
-    # and such an organizer page with the regex pre-pass, for the price only.
-    if (regulamin_content or pdf_text) and llm_result.get("price_from") in (None, ""):
-        price_texts = [
-            crawled_content[f] for f in ("registration_url", "website") if crawled_content.get(f)
-        ]
-        reg_doc_url = discovered_pdf_url or working_urls.get("regulamin_url")
+    # regulamin and on the regulamin's own host. Read such an organizer page
+    # with the regex pre-pass, for the price only. Registration pages and
+    # websites stay out (they list ticket variants and sibling races, see
+    # above); a regulamin on a timing/registration platform links platform
+    # pages, not the organizer's; a page that does not name this event is not
+    # its page; and "bezpłatny" only counts when the page names no amount at
+    # all, so a free kids' race cannot zero out a paid main race.
+    reg_doc_url = discovered_pdf_url or working_urls.get("regulamin_url")
+    if (
+        (regulamin_content or pdf_text)
+        and llm_result.get("price_from") in (None, "")
+        and llm_result.get("price_to") in (None, "")
+        and reg_doc_url
+        and not is_stub_host(reg_doc_url)
+        and _host(reg_doc_url) not in config.aggregator_domains
+    ):
         organizer_pages = _same_host_links(
             "\n".join([*regulamin_content.values(), pdf_text or ""]), reg_doc_url
         )
+        price_texts = []
         if organizer_pages:
             pages = await crawl_url_list(organizer_pages, max_chars=config.max_page_chars)
-            price_texts += [
-                strip_foreign_event_lines(cr.content, self_urls)
-                for cr in pages.values() if cr and cr.content
+            price_texts = [
+                text for text in (
+                    strip_foreign_event_lines(cr.content, self_urls)
+                    for cr in pages.values() if cr and cr.content
+                )
+                if _page_names_event(text, event)
             ]
         price_hints = extract_hints(price_texts, event_date=event.get("date"))
+        if price_hints["price_from"] == 0 and any(_CURRENCY_RE.search(t) for t in price_texts):
+            price_hints["price_from"] = price_hints["price_to"] = None
         result["steps"]["price_fallback"] = {
             "organizer_pages": organizer_pages,
             "price_from": price_hints["price_from"],
