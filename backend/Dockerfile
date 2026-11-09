@@ -6,12 +6,17 @@ RUN npx playwright install-deps chromium
 COPY package.json package-lock.json ./
 # Copy only backend package.json (not frontend — avoids unnecessary cache busts)
 COPY backend/package.json backend/
-# Install only backend deps
-RUN npm ci --workspace=backend --omit=dev
+# The backend imports @leszyrun/ui (eventCompleteness, teamResults) through a
+# workspace link. Without its manifest npm ci creates no link, and every
+# pipeline step failed at import with ERR_MODULE_NOT_FOUND.
+COPY packages/ui/package.json packages/ui/
+# Install only backend deps (plus the @leszyrun/ui link)
+RUN npm ci --workspace=backend --workspace=@leszyrun/ui --omit=dev
 # Install Playwright Chromium browser
 RUN npx playwright install chromium
 # Copy backend source
 COPY backend/ backend/
+COPY packages/ui/src/ packages/ui/src/
 # run-weekly-digest.js imports the edge functions' deadline rule so the email and
 # the in-app badge agree. Without it the digest crashed at import in the image.
 COPY supabase/functions/_shared/deadlineSoon.js supabase/functions/_shared/
