@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 from dataclasses import dataclass, field
 from dotenv import load_dotenv
 
@@ -45,8 +46,22 @@ class Config:
     ])
 
 
-def load_config() -> Config:
-    load_dotenv()
+# The repository's own .env, which holds the keys the backend and Docker use.
+# A host run (`cd enricher && python -m enricher run`) used to read only
+# enricher/.env, which had no BRAVE_SEARCH_API_KEY, so on 2026-11-09 every
+# search silently went to SearXNG and found a URL for 3 of 87 events.
+# A bare load_dotenv() walks up from this file and stops at the FIRST .env,
+# which is enricher/.env, so the root one was never read.
+ENRICHER_ENV = Path(__file__).resolve().parents[1] / ".env"
+REPO_ROOT_ENV = Path(__file__).resolve().parents[2] / ".env"
+
+
+def load_config(enricher_env: Path = ENRICHER_ENV, root_env: Path = REPO_ROOT_ENV) -> Config:
+    # enricher/.env first, then the repo root fills what it left unset.
+    # Neither overrides a variable already in the environment (Docker).
+    for env_file in (enricher_env, root_env):
+        if env_file.is_file():
+            load_dotenv(env_file)
     return Config(
         supabase_url=os.environ["SUPABASE_URL"],
         supabase_key=os.environ["SUPABASE_SERVICE_ROLE_KEY"],
