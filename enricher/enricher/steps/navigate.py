@@ -51,6 +51,7 @@ STUB_HOSTS = {
     "protiming24.pl", "www.protiming24.pl",
     "panel.maratonczykpomiarczasu.pl", "formularz.ultimasport.pl",
     "zmierzymyczas.pl", "www.zmierzymyczas.pl",
+    "protimer.pl",
 }
 
 # Hosts that are junk destinations for external links (should never follow)
@@ -322,6 +323,28 @@ def strip_foreign_event_lines(text: str, self_urls: list) -> str:
     return "\n".join(kept)
 
 
+# protimer.pl event pages: /bio/<id>/<slug>/<tab>. The "Regulamin" tab (/rule)
+# shows the PDF only in <iframe src="/bio/resources/rules/<id>.pdf">, which no
+# anchor-link crawl ever sees. The deadline sits in the /page "Informacje" table.
+_PROTIMER_EVENT_RE = re.compile(r"^/bio/(\d+)/([^/]+)")
+
+
+def _protimer_derived(base_url: str) -> tuple[list[str], list[str]]:
+    """(pdf_urls, page_urls) implied by a protimer event URL, else empty lists."""
+    try:
+        parsed = urlparse(base_url)
+    except Exception:
+        return [], []
+    host = (parsed.hostname or "").lower().removeprefix("www.")
+    m = _PROTIMER_EVENT_RE.match(parsed.path or "")
+    if host != "protimer.pl" or not m:
+        return [], []
+    origin = f"{parsed.scheme or 'https'}://{parsed.netloc}"
+    event_id, slug = m.groups()
+    base = f"{origin}/bio/{event_id}/{slug}"
+    return [f"{origin}/bio/resources/rules/{event_id}.pdf"], [f"{base}/page", f"{base}/rule"]
+
+
 def pick_followup_urls(
     base_url: str,
     internal_links: list,
@@ -349,6 +372,9 @@ def pick_followup_urls(
     # --- Internal links: score by anchor text ---
     scored_internal = []
     pdf_internal = []
+    derived_pdfs, derived_pages = _protimer_derived(base_url)
+    pdf_internal.extend((11, u) for u in derived_pdfs)
+    scored_internal.extend((11, u) for u in derived_pages if u != base_url)
     for link in internal_links or []:
         href = link.get("href", "")
         text = link.get("text", "")
