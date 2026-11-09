@@ -1,4 +1,5 @@
 import asyncio
+import re
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 from urllib.parse import urlparse
@@ -56,6 +57,36 @@ def _url_key(url: str) -> str:
     host = (parts.hostname or "").lower().removeprefix("www.")
     key = host + parts.path.rstrip("/")
     return f"{key}?{parts.query}" if parts.query else key
+
+
+_TEXT_URL_RE = re.compile(r"https?://[^\s<>\"'()\[\]]+")
+
+
+def _same_host_links(text: str, doc_url: Optional[str], limit: int = 2) -> list[str]:
+    """Pages a regulamin names on its own host, e.g. the organizer's event page.
+
+    A link on the document's own host is the organizer's; Facebook, Google
+    Forms and map links in the same text are not price sources. PDFs are
+    skipped, and so is the document itself.
+    """
+    if not text or not doc_url:
+        return []
+    doc_host = (urlparse(doc_url).hostname or "").lower().removeprefix("www.")
+    if not doc_host:
+        return []
+    links = []
+    for raw in _TEXT_URL_RE.findall(text):
+        url = raw.rstrip(".,;:")
+        try:
+            host = (urlparse(url).hostname or "").lower().removeprefix("www.")
+        except ValueError:
+            continue
+        if host != doc_host or url.lower().endswith(".pdf"):
+            continue
+        if _url_key(url) == _url_key(doc_url) or url in links:
+            continue
+        links.append(url)
+    return links[:limit]
 
 
 async def _read_regulamin(
@@ -425,6 +456,37 @@ async def process_event(event: dict, config: Config) -> dict:
     for key in ("price_from", "price_to", "registration_deadline"):
         if llm_result.get(key) in (None, "") and hints.get(key) is not None:
             llm_result[key] = hints[key]
+
+    # Step 5b: Price fallback. A regulamin that says nothing about a fee still
+    # shuts the registration page out of extraction above, and the price stays
+    # empty. XIII Poranny Bieg po Plantach Krakowskich (2026-11-21) published
+    # with price_from null: its PDF names no fee, the registration page is a
+    # Google Form, and the page that says "Udział w biegu jest bezpłatny" is
+    # https://kardiologiaprewencyjna.eu/page/run, named only inside the
+    # regulamin and on the regulamin's own host. Read the already-crawled pages
+    # and such an organizer page with the regex pre-pass, for the price only.
+    if (regulamin_content or pdf_text) and llm_result.get("price_from") in (None, ""):
+        price_texts = [
+            crawled_content[f] for f in ("registration_url", "website") if crawled_content.get(f)
+        ]
+        reg_doc_url = discovered_pdf_url or working_urls.get("regulamin_url")
+        organizer_pages = _same_host_links(
+            "\n".join([*regulamin_content.values(), pdf_text or ""]), reg_doc_url
+        )
+        if organizer_pages:
+            pages = await crawl_url_list(organizer_pages, max_chars=config.max_page_chars)
+            price_texts += [
+                strip_foreign_event_lines(cr.content, self_urls)
+                for cr in pages.values() if cr and cr.content
+            ]
+        price_hints = extract_hints(price_texts, event_date=event.get("date"))
+        result["steps"]["price_fallback"] = {
+            "organizer_pages": organizer_pages,
+            "price_from": price_hints["price_from"],
+        }
+        if price_hints["price_from"] is not None:
+            llm_result["price_from"] = price_hints["price_from"]
+            llm_result["price_to"] = price_hints["price_to"]
 
     # Step 6: Smart merge. had_content reflects whether we had REGULAMIN content
     # to read — that's what makes the LLM authoritative on event_types/is_kids.
