@@ -129,6 +129,11 @@ const sources = [
     name: 'dostartu',
     scrape: scrapeDostartu,
     table: 'scraper_dostartu',
+    // Every known event is re-read each run, and organizers add the statute,
+    // fee tiers and deadline after listing it. Reading these back lets
+    // changedKnownFields clear merged_at when one of them changes, otherwise the
+    // new value stays in scraper_dostartu (17534 got its statute that way).
+    knownColumns: 'source_id, regulamin_url, registration_deadline, distances, price_from, price_to, website',
     mapRow: (raw) => ({
       name: raw.name,
       date: raw.date,
