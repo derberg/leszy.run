@@ -186,3 +186,12 @@ export function applyRegistryUpdates(row, llmResult, fields, registry = AI_FILLA
   }
   return updates
 }
+
+// The row a search-step URL lands on. A new registration or regulamin URL is
+// a page neither enricher has read yet, so both lose their stamp and pick the
+// row up again, as the merge does in src/scrapers/index.js. Without this,
+// Warta Challenge (2027-01-02) got its registration_url hours after the
+// Python enricher had stamped it, and published with no distances or prices.
+export function searchUrlWrite(updates) {
+  return { ...updates, enriched_at: null, enriched_regulamin_at: null }
+}

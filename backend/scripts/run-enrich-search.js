@@ -4,7 +4,7 @@ import { writeFileSync, unlinkSync } from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
 import { writeRunLog } from './lib/run-log.js'
-import { pickFillable, fieldsNeedingFill, applyRegistryUpdates } from './lib/ai-fillable.js'
+import { pickFillable, fieldsNeedingFill, applyRegistryUpdates, searchUrlWrite } from './lib/ai-fillable.js'
 import { resolveDostartuRegulamin } from './lib/dostartu-regulamin.js'
 import { resolveRegistrationPageRegulamin } from './lib/registration-page-regulamin.js'
 import { resolveRaceresultRegulamin } from './lib/raceresult-regulamin.js'
@@ -384,7 +384,7 @@ async function main() {
     }
 
     if (!dryRun) {
-      const { error } = await supabase.from('scraper_all').update(updates).eq('id', row.id)
+      const { error } = await supabase.from('scraper_all').update(searchUrlWrite(updates)).eq('id', row.id)
       if (error) {
         console.error(`    ERR: ${error.message}`)
         failed++
