@@ -27,7 +27,7 @@ import * as cheerio from 'cheerio'
 //   - competition names: feed event_types / is_kids detection.
 //
 // Distances are not on the page (they live in the regulamin PDF) → left null for
-// the Python enricher to fill via Docling. Voivodeship is not exposed → left for
+// the Python enricher to fill from the regulamin PDF. Voivodeship is not exposed → left for
 // the geocoder. No event-specific organizer website on the page → left null.
 const BASE_URL = 'https://zapisyvaldano.pl'
 const LIST_URL = `${BASE_URL}/events`

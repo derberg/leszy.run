@@ -353,7 +353,7 @@ Output: `T` = type classified, `K` = kids flagged, `D` = distances extracted fro
 
 ### Step 5: Enrich via Python enricher (LOCAL LLM — RECOMMENDED)
 
-**PRIMARY enrichment tool** — uses local Ollama (qwen3.6:27b) + SearXNG search + Crawl4AI + Docling PDF extraction. Comprehensive, cost-free, processes ALL missing fields.
+**PRIMARY enrichment tool** — uses local Ollama (qwen3.6:27b) + SearXNG search + Crawl4AI + pypdf PDF extraction. Comprehensive, cost-free, processes ALL missing fields.
 
 ```bash
 cd enricher && source .venv/bin/activate
@@ -375,7 +375,7 @@ python -m enricher run --force --limit 10
 - **registration_url** — LLM extracts from page content, fallback to SearXNG search
 - **regulamin_url** — LLM extracts from page content or PDF links, fallback to SearXNG search
 - **website** — official event site (SearXNG search + LLM validates it's not news/social/aggregator)
-- **distances** — from regulamin PDFs (via Docling), registration pages, or website content (all crawled via Crawl4AI)
+- **distances** — from regulamin PDFs (via pypdf), registration pages, or website content (all crawled via Crawl4AI)
 - **event_types** — `[trail, uliczny, nocny, ocr, nordic walking, ultra, charytatywny]` extracted from all content sources
 - **price_from / price_to** — entry fees in PLN (prioritizes regulamin PDF over registration page, looks for "opłata startowa" tables with date tiers)
 - **registration_deadline** — from regulamin or registration page (format: YYYY-MM-DD)
@@ -1147,7 +1147,7 @@ Step 5: PRIMARY enrichment (Python enricher)
 │  Ollama (qwen3.6:27b)              │
 │  + SearXNG search                        │
 │  + Crawl4AI (page crawling)              │
-│  + Docling (PDF extraction)              │
+│  + pypdf (PDF extraction)                │
 │  ───────────────────────────────────────│
 │  Fills: registration_url, regulamin_url, │
 │  website, distances, event_types,        │

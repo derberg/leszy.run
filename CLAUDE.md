@@ -112,7 +112,7 @@ LeszyRun/
   public/       React + Vite (public-facing: live results, volunteer bib entry, self-service check-in)
   packages/ui/  Shared UI components (@leszyrun/ui)
   scheduler/    Node.js + node-cron daemon, runs the daily scrape→enrich→publish pipeline at 08:00 Europe/Warsaw, deadline notifications at 08:30, a watchdog at 10:00, and the weekly digest Monday 09:00. Sends SendGrid alerts on failure.
-  enricher/     Python (Crawl4AI + Docling + local Ollama) for LLM enrichment, run-once container in compose
+  enricher/     Python (Crawl4AI + pypdf + local Ollama) for LLM enrichment, run-once container in compose
   mosquitto/    native macOS, NOT dockerized (hardware constraint)
   checkpoint-agent/  Node/Fastify agent for a Raspberry Pi + Impinj R700 at a trail checkpoint: records tag passes, uploads checkpoint_observations to Supabase (see checkpoint-agent/README.md)
 ```
@@ -1256,7 +1256,7 @@ cd backend && node --env-file=../.env scripts/run-data-audit.js                 
 - **Ollama** — local LLM (qwen3.6:27b, called with thinking off) for field extraction
 - **Brave Search API** — web search for URL discovery when `BRAVE_SEARCH_API_KEY` is set (passed to the enricher container by docker-compose). **SearXNG** (Docker) is the fallback when the key is missing or a Brave call fails. Measured 2026-11-08: SearXNG returned nothing for 47 of 48 queries, because every engine it proxies answered with a CAPTCHA, a 429 or an access denial; it had been that way since at least mid-October
 - **Crawl4AI** — headless browser for crawling SPAs (dostartu.pl, etc.)
-- **Docling** — PDF text extraction for regulamin documents
+- **pypdf** — PDF text extraction for regulamin documents (Docling was dropped: its PyTorch stack crashed the worker and returned empty text for PDFs with a text layer, and it pulled about 3 GB of CUDA wheels into the image)
 
 **What it finds (URLs):** a web search (Brave, else SearXNG) for the two source-of-truth URLs only:
 - `registration_url` — sign-up page (search + verification gate)
@@ -1311,7 +1311,7 @@ See [enricher/README.md](enricher/README.md) for detailed documentation.
 
 ## Local LLM Enricher
 
-Python-based enrichment pipeline in `enricher/`. Validates URLs, searches SearXNG, crawls pages with Crawl4AI, extracts PDFs with Docling, and uses Ollama (qwen3.6:27b) for field extraction. Only processes future events (date >= today).
+Python-based enrichment pipeline in `enricher/`. Validates URLs, searches SearXNG, crawls pages with Crawl4AI, extracts PDFs with pypdf, and uses Ollama (qwen3.6:27b) for field extraction. Only processes future events (date >= today).
 
 ### Running
 
@@ -1339,7 +1339,7 @@ See `enricher/README.md` for full docs, all flags, merge rules, and architecture
 ### Dependencies
 - Ollama (native macOS, `qwen3.6:27b`, which replaced `gemma3:27b` on 2026-10-22. Every call sends `"think": false`, because Qwen 3.x otherwise reasons first and spends the token budget before writing any JSON)
 - SearXNG (Docker via `enricher/docker-compose.yml`, port 8888)
-- Crawl4AI + Docling (Python libs in `enricher/.venv/`)
+- Crawl4AI + pypdf (Python libs in `enricher/.venv/`)
 
 ### Key merge safety rules
 - Never downgrades trail/ocr/charytatywny/nordic walking → uliczny (scraper keyword evidence preserved)

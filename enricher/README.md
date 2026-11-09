@@ -1,6 +1,6 @@
 # LeszyRun Event Enricher
 
-Local LLM pipeline that enriches running event data in `scraper_all` (Supabase). It does two things: (1) finds the `registration_url` and `regulamin_url` via SearXNG, and (2) extracts every other field (prices, deadlines, distances, types, kids) **from the regulamin only**. It does not enrich `website`. Uses Ollama for extraction, SearXNG for URL discovery, Crawl4AI for page crawling, and Docling for PDF parsing.
+Local LLM pipeline that enriches running event data in `scraper_all` (Supabase). It does two things: (1) finds the `registration_url` and `regulamin_url` via SearXNG, and (2) extracts every other field (prices, deadlines, distances, types, kids) **from the regulamin only**. It does not enrich `website`. Uses Ollama for extraction, SearXNG for URL discovery, Crawl4AI for page crawling, and pypdf for PDF parsing.
 
 ## Setup
 
@@ -17,7 +17,7 @@ cp .env.example .env  # fill in Supabase credentials
 - **Ollama** — running locally with `qwen2.5:72b-instruct-q4_0` model
 - **SearXNG** — Docker container for web search (finding missing URLs)
 - **Crawl4AI** — headless browser for crawling SPAs (dostartu.pl etc.)
-- **Docling** — PDF text extraction for regulamin documents
+- **pypdf** — PDF text extraction for regulamin documents
 
 ```bash
 # Start SearXNG
@@ -32,7 +32,7 @@ ollama list | grep qwen2.5
 
 ### `enricher run` — Enrich events
 
-Processes un-enriched events in `scraper_all` through 6 steps: URL validation → SearXNG search → Crawl4AI crawl → Docling PDF extraction → Ollama LLM extraction → smart merge.
+Processes un-enriched events in `scraper_all` through 6 steps: URL validation → SearXNG search → Crawl4AI crawl → pypdf PDF extraction → Ollama LLM extraction → smart merge.
 
 ```bash
 python -m enricher run                    # all un-enriched future events
@@ -126,7 +126,7 @@ Two distinct jobs:
 | Field | Source | Notes |
 |-------|--------|-------|
 | `registration_url` | SearXNG search (+ verification gate) | Replaces empty/dead URLs only with a candidate the gate confirms. See Verification gate below. |
-| `regulamin_url` | SearXNG search / PDF links discovered while crawling | Same gate as `registration_url`. A PDF found by following a link inherits the trust of the page it came from. Downloaded and parsed via Docling. |
+| `regulamin_url` | SearXNG search / PDF links discovered while crawling | Same gate as `registration_url`. A PDF found by following a link inherits the trust of the page it came from. Downloaded and parsed via pypdf. |
 | `distances` | **Regulamin only** | Only overwrites if the regulamin lists MORE distances than existing. |
 | `event_types` | **Regulamin only** | `[trail, uliczny, nocny, ocr, nordic walking, ultra, charytatywny]`. Merge never downgrades trail/ocr → uliczny. |
 | `price_from` | **Regulamin only** | Cheapest adult entry tier. Looks for "opłata startowa" tables with date tiers. |

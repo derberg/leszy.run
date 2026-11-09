@@ -36,7 +36,7 @@ For each candidate event, find:
 - `prices` (in PLN — convert from groszy if needed)
 - `location` / `voivodeship` (often missing — let enricher fill)
 
-**No date in any field?** Drop the event. Do NOT try to derive from regulamin PDF in the scraper — Docling stays in the Python enricher.
+**No date in any field?** Drop the event. Do NOT try to derive from regulamin PDF in the scraper — PDF parsing (pypdf) stays in the Python enricher.
 
 **`regulamin_url`: use `pickRegulaminFromDom`, never "the first/last PDF on the page".**
 
@@ -562,7 +562,7 @@ git add public/data-version.json && git commit -m "data: manifest refresh after 
 
 - Don't dockerize Mosquitto.
 - Don't add a Drizzle migration for scraper tables (Supabase-only).
-- Don't try to parse PDFs in the scraper — Docling stays in the Python enricher.
+- Don't try to parse PDFs in the scraper — PDF parsing (pypdf) stays in the Python enricher.
 - Don't permanently delete rejected calendar_events while testing — they prevent the scraper re-adding the same junk.
 - Don't store activity-type labels in `distances` (`"bieg 8km"`, `"nw 6km"`) — strip them with `cleanDistances()`.
 - Don't add dostartu API enrichment code inside a new scraper — the pipeline does it automatically via `apiEnrich.js` when `registration_url` points to a dostartu-like domain.
