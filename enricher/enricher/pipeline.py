@@ -184,6 +184,7 @@ async def process_event(event: dict, config: Config) -> dict:
         search_candidates = search_missing_urls(event, search_queue, config)
         result["steps"]["search"] = {
             "queries": len(search_queue),
+            "engine": "brave" if config.brave_api_key else "searxng",
             "found": search_candidates,
         }
         for field, url in search_candidates.items():

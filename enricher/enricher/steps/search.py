@@ -1,9 +1,12 @@
 import re
 import time
 import unicodedata
-from urllib.parse import urlparse
+from html.parser import HTMLParser
+from urllib.parse import urljoin, urlparse
 
 import httpx
+
+from enricher.steps.navigate import is_social_host, is_stub_host
 
 
 # TLDs acceptable for Polish running events. Anything else is rejected outright —
@@ -61,7 +64,78 @@ def search_missing_urls(event: dict, missing_fields: list[str], config) -> dict:
         if url:
             results[field] = url
 
+    # The web query misses series and truncated names (Grand Prix CITY TRAIL,
+    # Grand Prix Dziewiczej Góry w Biegach Gór...), while regulamin_url already
+    # names the organizer's site and its home page links to the sign-up. The
+    # pipeline gates this candidate like any search hit.
+    if "registration_url" in missing_fields and "registration_url" not in results:
+        site = results.get("regulamin_url") or event.get("regulamin_url") or event.get("website")
+        url = _organizer_signup_link(site, config) if site else None
+        if url:
+            results["registration_url"] = url
+
     return results
+
+
+# Anchor text or path of an organizer's sign-up link, matched after accent folding.
+_IS_SIGNUP = re.compile(r"zapis|rejestr|zglos|formularz", re.IGNORECASE)
+
+
+class _AnchorParser(HTMLParser):
+    """Collects (href, text) for every <a href>, text taken across nested tags."""
+
+    def __init__(self):
+        super().__init__()
+        self.anchors = []
+        self._href = None
+        self._text = []
+
+    def handle_starttag(self, tag, attrs):
+        if tag == "a":
+            self._href = dict(attrs).get("href")
+            self._text = []
+
+    def handle_data(self, data):
+        if self._href is not None:
+            self._text.append(data)
+
+    def handle_endtag(self, tag):
+        if tag == "a" and self._href is not None:
+            self.anchors.append((self._href, " ".join("".join(self._text).split())))
+            self._href = None
+
+
+def _organizer_signup_link(site_url: str, config) -> str | None:
+    """First same-host sign-up link on the home page of the site behind site_url."""
+    parsed = urlparse(site_url)
+    host = (parsed.hostname or "").lower().removeprefix("www.")
+    if (
+        not host
+        or _is_blocklisted(site_url)
+        or _is_aggregator(site_url, config.aggregator_domains)
+        or not _tld_accepted(site_url)
+        or is_stub_host(site_url)
+        or is_social_host(site_url)
+    ):
+        return None
+    home = f"{parsed.scheme or 'https'}://{parsed.hostname}/"
+    try:
+        with httpx.Client(timeout=15, follow_redirects=True) as client:
+            resp = client.get(home)
+            resp.raise_for_status()
+        page = _AnchorParser()
+        page.feed(resp.text)
+    except Exception:
+        return None
+    for href, text in page.anchors:
+        url = urljoin(str(resp.url), href)
+        target = urlparse(url)
+        if (target.hostname or "").lower().removeprefix("www.") != host:
+            continue
+        label = _strip_accents(f"{text} {target.path}".replace("ł", "l").replace("Ł", "L"))
+        if _IS_SIGNUP.search(label) and not _IS_REGULAMIN.search(label):
+            return url
+    return None
 
 
 BRAVE_ENDPOINT = "https://api.search.brave.com/res/v1/web/search"
