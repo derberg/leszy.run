@@ -6,7 +6,7 @@ export async function clubsRoutes(fastify) {
   fastify.get('/clubs', async (request, reply) => {
     if (!supabase) return reply.code(503).send({ error: 'Supabase not configured' })
     const [clubsRes, pairsRes] = await Promise.all([
-      supabase.from('clubs').select('id, name, created_at, profiles(count)').order('name'),
+      supabase.from('clubs').select('id, name, created_at, profiles!profiles_club_id_fkey(count)').order('name'),
       supabase.rpc('similar_club_pairs', { threshold: 0.45 }),
     ])
     if (clubsRes.error) return reply.status(500).send({ error: clubsRes.error.message })
