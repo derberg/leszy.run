@@ -84,7 +84,7 @@ def sync_to_calendar(config: Config, since: Optional[str], dry_run: bool):
     query = sb.from_("scraper_all").select(
         "id, name, date, source, source_id, event_types, distances, "
         "registration_url, regulamin_url, registration_deadline, "
-        "price_from, price_to, location, voivodeship, is_kids, "
+        "price_from, price_to, location, voivodeship, is_kids, website, "
         "enriched_at, enriched_search_at"
     ).or_("enriched_at.not.is.null,enriched_search_at.not.is.null")
 
@@ -127,7 +127,7 @@ def sync_to_calendar(config: Config, since: Optional[str], dry_run: bool):
         # Find matching calendar_events row — try source+source_id first, fallback to name+date
         ce_fields = (
             "id, event_type, distances, registration_url, regulamin_url, "
-            "registration_deadline, price_from, price_to, location, voivodeship, enriched_at, locked_fields"
+            "registration_deadline, price_from, price_to, location, voivodeship, website, enriched_at, locked_fields"
         )
         match = sb.from_("calendar_events").select(ce_fields).eq(
             "source", row["source"]
@@ -176,6 +176,11 @@ def sync_to_calendar(config: Config, since: Optional[str], dry_run: bool):
             val = row.get(sa_field)
             if val is not None and val != ce.get(ce_field):
                 updates[ce_field] = val
+
+        # website: fill-only. The enricher sets it from a verified homepage,
+        # and a website someone typed in the admin must never be replaced.
+        if row.get("website") and not ce.get("website"):
+            updates["website"] = row["website"]
 
         # Mark enriched. Use whichever timestamp is set — search-only rows have
         # enriched_at=NULL but enriched_search_at populated.

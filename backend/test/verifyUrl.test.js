@@ -168,3 +168,39 @@ test('the prompt carries every URL under review', () => {
   assert.match(prompt, /registration_url: https:\/\/example\.pl\/zapisy/)
   assert.match(prompt, /regulamin_url: https:\/\/example\.pl\/reg\.pdf/)
 })
+
+// 2026-11-09: plus-timing forms sit behind a bot challenge, so the verifier
+// rejected every one. A /zgloszenia/ address with the event's year is kept
+// without asking the verifier (operator ruling 2026-11-10).
+import { isPlusTimingFormForEventYear } from '../scripts/lib/verify-url.js'
+
+test('plus-timing form with the event year is recognised', () => {
+  const ev = { date: '2027-03-14' }
+  assert.equal(isPlusTimingFormForEventYear('https://plus-timing.pl/zgloszenia/recordowa-dziesiatka-2027/', ev), true)
+  assert.equal(isPlusTimingFormForEventYear('https://plus-timing.pl/zgloszenia/recordowa-dziesiatka-2026/', ev), false)
+  assert.equal(isPlusTimingFormForEventYear('https://plus-timing.pl/wyniki/recordowa-2027/', ev), false)
+  assert.equal(isPlusTimingFormForEventYear('https://example.pl/zgloszenia/x-2027/', ev), false)
+})
+
+test('verifySearchUrls keeps a plus-timing form without calling the verifier', async () => {
+  let called = 0
+  const r = await verifySearchUrls(
+    { name: '23 Recordowa Dziesiątka', date: '2027-03-14' },
+    { registration_url: 'https://plus-timing.pl/zgloszenia/recordowa-dziesiatka-2027/' },
+    { runClaude: async () => { called++; return { text: '{}' } } },
+  )
+  assert.equal(called, 0)
+  assert.equal(r.kept.registration_url, 'https://plus-timing.pl/zgloszenia/recordowa-dziesiatka-2027/')
+})
+
+test('verifySearchUrls still asks the verifier about the other field', async () => {
+  let fieldsAsked = null
+  const r = await verifySearchUrls(
+    { name: '23 Recordowa Dziesiątka', date: '2027-03-14' },
+    { registration_url: 'https://plus-timing.pl/zgloszenia/recordowa-dziesiatka-2027/', regulamin_url: 'https://x.pl/regulamin.pdf' },
+    { runClaude: async (prompt) => { fieldsAsked = prompt.includes('regulamin_url') && !prompt.includes('registration_url:'); return { text: '{"regulamin_url":{"verdict":"mismatch","confidence":1,"reasoning":"x"}}' } } },
+  )
+  assert.equal(fieldsAsked, true)
+  assert.equal(r.kept.registration_url, 'https://plus-timing.pl/zgloszenia/recordowa-dziesiatka-2027/')
+  assert.equal(r.kept.regulamin_url, undefined)
+})
