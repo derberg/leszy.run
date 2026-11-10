@@ -74,7 +74,12 @@ export async function calendarEventsRoutes(fastify) {
       .from('calendar_events')
       .select('*, profiles!calendar_events_submitted_by_fkey(id, username, display_name, email)', { count: 'exact' })
       .eq('status', status)
+      // date alone is not a total order: 130 rows can share one date, and an
+      // UPDATE moves a row in the heap, so every approve/edit reshuffled the
+      // ties on refetch. name, then id, makes the order stable.
       .order('date', { ascending: true })
+      .order('name', { ascending: true })
+      .order('id', { ascending: true })
       .range(from, from + limit - 1)
 
     query = query.gte('date', new Date().toISOString().split('T')[0])
