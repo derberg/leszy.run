@@ -9,7 +9,8 @@ from supabase import create_client
 from enricher.config import Config
 from enricher.run_logger import RunLogger
 from enricher.steps.validate_urls import validate_urls, UrlStatus
-from enricher.steps.search import search_missing_urls
+from enricher.steps.discover import discover_from_pages
+from enricher.steps.search import search_missing_urls, search_seed_urls
 from enricher.steps.crawl import crawl_pages, crawl_url_list, check_browser
 from enricher.steps.pdf import download_pdf, extract_pdf_text, cleanup_pdf
 from enricher.steps.docs import extract_regulamin_doc
@@ -180,6 +181,25 @@ async def process_event(event: dict, config: Config) -> dict:
     search_candidates = {}
     search_queue = list(missing)
 
+    # Step 2a: read pages about the race (news articles, the organizer's post)
+    # and take the sign-up form, the regulamin and the organizer's page they
+    # link. Only what this finds nothing for goes to the one-result search.
+    discovered = {}
+    discovered_website = None
+    if search_queue:
+        seeds = search_seed_urls(event, config)
+        found = discover_from_pages(event, seeds) if seeds else {}
+        discovered = {f: found.get(f) for f in search_queue if found.get(f)}
+        discovered_website = found.get("website")
+        result["steps"]["discover"] = {
+            "seeds": len(seeds),
+            "pages": len(found.get("visited", [])),
+            "found": discovered,
+            "website": discovered_website,
+            "source_pages": found.get("source_pages", []),
+        }
+        search_queue = [f for f in search_queue if f not in discovered]
+
     if search_queue:
         search_candidates = search_missing_urls(event, search_queue, config)
         result["steps"]["search"] = {
@@ -196,6 +216,10 @@ async def process_event(event: dict, config: Config) -> dict:
         # (html). Validate the found URL so its `kind` is classified exactly like an
         # event-provided regulamin — this is what makes "search → enrich from the
         # regulamin" work for non-HTML regulamins too.
+    search_candidates.update(discovered)
+    for field, url in discovered.items():
+        working_urls[field] = url
+    if search_candidates:
         searched_reg = search_candidates.get("regulamin_url")
         if searched_reg and "regulamin_url" not in url_statuses:
             reg_status = validate_urls({"regulamin_url": searched_reg}, timeout=config.url_timeout)
@@ -203,7 +227,7 @@ async def process_event(event: dict, config: Config) -> dict:
                 status = reg_status["regulamin_url"]
                 url_statuses["regulamin_url"] = status
                 working_urls["regulamin_url"] = status.final_url or searched_reg
-                result["steps"]["search"]["regulamin_kind"] = status.kind
+                result["steps"].setdefault("search", {})["regulamin_kind"] = status.kind
 
     # Where each candidate came from. Only a search-derived URL is gated later:
     # a scraper column carries the organizer's own declaration, and a page
@@ -211,6 +235,12 @@ async def process_event(event: dict, config: Config) -> dict:
     # Step 4 can add a discovered PDF to search_candidates further down.
     search_urls = {u for u in search_candidates.values() if u}
     candidate_origin = {f: "search" for f, u in search_candidates.items() if u}
+    # A form taken from a page about this edition skips the verify gate: the
+    # gate reads the page at the URL, and a Microsoft or Google form shows a
+    # script shell. The page it came from already had to name the race, its
+    # town and its year. A discovered regulamin is still read and judged.
+    if discovered.get("registration_url"):
+        candidate_origin["registration_url"] = "discovered"
 
     # Step 3: Crawl web pages (exclude PDF regulamins)
     crawl_urls = {}
@@ -526,7 +556,15 @@ async def process_event(event: dict, config: Config) -> dict:
     # Step 6: Smart merge. had_content reflects whether we had REGULAMIN content
     # to read — that's what makes the LLM authoritative on event_types/is_kids.
     had_content = bool(regulamin_content or pdf_text)
-    updates = build_updates(event, llm_result or {}, url_statuses, search_candidates, config, had_content)
+    trusted = frozenset(
+        f for f, u in discovered.items() if u and search_candidates.get(f) == u
+    )
+    updates = build_updates(
+        event, llm_result or {}, url_statuses, search_candidates, config, had_content,
+        trusted_fields=trusted,
+    )
+    if discovered_website and not event.get("website") and "website" not in updates:
+        updates["website"] = discovered_website
 
     # The course atest, from the regulamin only (never the registration-page
     # fallback): backend/scripts/run-atest.js checks it against the PZLA register.

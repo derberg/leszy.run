@@ -69,3 +69,11 @@ def sample_llm_response():
         "url_is_regulamin": True,
         "url_is_registration": True,
     }
+
+
+@pytest.fixture(autouse=True)
+def _no_live_seed_search(monkeypatch):
+    """Pipeline tests never reach the web for discover.py's seed pages.
+    A test that wants discovery patches enricher.pipeline.search_seed_urls."""
+    import enricher.pipeline as pipeline
+    monkeypatch.setattr(pipeline, "search_seed_urls", lambda event, config, limit=5: [])
