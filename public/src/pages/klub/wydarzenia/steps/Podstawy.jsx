@@ -2,6 +2,7 @@ import { lazy, Suspense, useEffect, useRef, useState } from 'react'
 import { slugify } from '@registration/slug.js'
 import { validateSection } from '@registration/sections.js'
 import TownSearch from '../../../../components/registration/TownSearch.jsx'
+import EmailInput from '../../../../components/registration/EmailInput.jsx'
 import { findAddressPin } from '../../../../lib/townSearch.js'
 import { uploadDocument, uploadPoster } from '../../../../lib/organizer.js'
 import { resizePoster } from '../../../../lib/resizePoster.js'
@@ -420,9 +421,8 @@ export default function Podstawy({ event, queue, saveState, readOnly, reload, re
 
       <div className="max-w-[640px]">
         <label htmlFor="ev-contact" className={fieldLabel}>E-mail kontaktowy organizatora</label>
-        <input id="ev-contact" type="email" autoComplete="off" className={fieldInput} value={form.contactEmail}
-          onChange={set('contactEmail')} required />
-        <FieldError message={errors.contactEmail} />
+        <EmailInput id="ev-contact" autoComplete="off" className={fieldInput} value={form.contactEmail}
+          onChange={set('contactEmail')} required error={errors.contactEmail} errorClassName="text-apex-red font-sans text-sm mt-1.5" />
       </div>
     </fieldset>
   )

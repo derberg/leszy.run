@@ -3,6 +3,7 @@
 // Plain ESM: runs in Deno, Node and the public app (the `@registration` alias).
 
 import { MIN_TEAM_SIZE } from './flags.js'
+import { isValidEmail } from './emailAddress.js'
 import { GUARDIAN_CONSENT_MESSAGE, UNKNOWN_COMPETITION_MESSAGE, validateGroup } from './group.js'
 import { isMinorToday, validatePerson } from './person.js'
 
@@ -16,7 +17,6 @@ export const LEG_ORDER_MESSAGE = 'Ustal kolejność zmian.'
 export const MEMBERS_CONSENT_MESSAGE = 'Zaznacz zgodę członków drużyny.'
 export const PARENT_IS_CAPTAIN_MESSAGE = 'To Twój adres. Jeśli jesteś rodzicem lub opiekunem dziecka, wybierz „Jestem rodzicem lub opiekunem prawnym”.'
 
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 const NAME_MAX = 100
 
 const text = (v) => (typeof v === 'string' ? v.trim() : '')
@@ -74,7 +74,7 @@ export function validateParent(parent, { captainEmail = null } = {}) {
   else if (firstName.length > NAME_MAX) errors.parentFirstName = 'Imię jest za długie.'
   if (!lastName) errors.parentLastName = 'Podaj nazwisko rodzica lub opiekuna.'
   else if (lastName.length > NAME_MAX) errors.parentLastName = 'Nazwisko jest za długie.'
-  if (!EMAIL_RE.test(email) || email.length > 254) errors.parentEmail = 'Podaj poprawny adres e-mail rodzica lub opiekuna.'
+  if (!isValidEmail(email)) errors.parentEmail = 'Podaj poprawny adres e-mail rodzica lub opiekuna.'
   else if (email === text(captainEmail).toLowerCase()) errors.parentEmail = PARENT_IS_CAPTAIN_MESSAGE
   if (Object.keys(errors).length) return { ok: false, value: null, errors }
   // guardian_name's shape: one full name, as the captain's own is stored for the children they answer for.

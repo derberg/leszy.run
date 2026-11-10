@@ -5,6 +5,7 @@ import { countryOptions } from '@registration/countries.js'
 import { inputCls, labelCls, sectionCls } from './ui.js'
 import VoucherField from './VoucherField.jsx'
 import ExtrasPicker from './ExtrasPicker.jsx'
+import EmailInput from './EmailInput.jsx'
 
 // The one person form of online registration (spec §2 UI rules: RA2 now; RA3,
 // RB1, RB2 and RA7 reuse it). Controlled: `value` is the person, `onChange`
@@ -124,8 +125,8 @@ function GuardianChoice({ id, choice, errors }) {
               <TextInput id={`${id}-last`} value={parent.lastName} onChange={set('lastName')} error={errors.parentLastName} autoComplete="off" maxLength={100} />
             </Field>
           </div>
-          <Field id={`${id}-email`} label="E-mail rodzica" error={errors.parentEmail}>
-            <TextInput id={`${id}-email`} type="email" value={parent.email} onChange={set('email')} error={errors.parentEmail} autoComplete="off" maxLength={254} />
+          <Field id={`${id}-email`} label="E-mail rodzica">
+            <EmailInput id={`${id}-email`} value={parent.email} onChange={set('email')} error={errors.parentEmail} autoComplete="off" />
             <span className="font-sans text-sm text-apex-muted" data-testid="parent-note">
               Wyślemy prośbę o zgodę na udział dziecka. Do tego czasu zgłoszenie dziecka czeka na zgodę.
             </span>
@@ -222,8 +223,8 @@ export default function PersonForm({
     </>
   )
   const emailField = (
-    <Field id={id('email')} label="E-mail" error={errors.email}>
-      <TextInput id={id('email')} type="email" value={value.email} onChange={set('email')} error={errors.email} autoComplete={own ? 'email' : 'off'} maxLength={254}
+    <Field id={id('email')} label="E-mail">
+      <EmailInput id={id('email')} value={value.email} onChange={set('email')} error={errors.email} autoComplete={own ? 'email' : 'off'}
         readOnly={emailReadOnly} {...(emailReadOnly ? { className: `${inputCls} text-apex-muted` } : {})} />
       {codeNote && <span className="font-sans text-sm text-apex-muted" data-testid={own ? undefined : 'consent-request-note'}>{codeNote}</span>}
     </Field>

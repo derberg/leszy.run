@@ -5,8 +5,9 @@ import { callFunction } from '../../lib/auth.js'
 import { eventPageModel } from '../../lib/eventPageModel.js'
 import { MONEY_NOTE, TRANSFER_MESSAGES, inviteError, untilLabel } from '../../lib/transferCopy.js'
 import PageTop from '../../components/registration/PageTop.jsx'
+import EmailInput from '../../components/registration/EmailInput.jsx'
 import MetaLine from '../../components/registration/MetaLine.jsx'
-import { inputCls, labelCls, linkCls, primaryBtn, secondaryBtn } from '../../components/registration/ui.js'
+import { labelCls, linkCls, primaryBtn, secondaryBtn } from '../../components/registration/ui.js'
 import RegistrationShell from './RegistrationShell.jsx'
 import { eventPath } from './RegistrationEventPage.jsx'
 
@@ -82,11 +83,9 @@ function InviteForm({ row, onSent }) {
     <form onSubmit={submit} noValidate className="flex flex-col gap-3" data-testid="transfer-form">
       <div className="flex flex-col gap-1.5">
         <label htmlFor={FIELD} className={labelCls}>E-mail osoby, która przejmie pakiet</label>
-        <input id={FIELD} type="email" autoComplete="off" maxLength={254} required value={email} disabled={busy}
-          onChange={(e) => { setEmail(e.target.value); setError(null) }}
-          aria-invalid={error ? 'true' : undefined} aria-describedby={error ? `${FIELD}-error` : undefined}
-          className={`${inputCls} ${error ? 'border-apex-red' : ''}`} />
-        {error && <p id={`${FIELD}-error`} className="text-apex-red text-sm" role="alert" data-testid="transfer-email-error">{error}</p>}
+        <EmailInput id={FIELD} autoComplete="off" required value={email} disabled={busy}
+          onChange={(v) => { setEmail(v); setError(null) }} error={error}
+          errorClassName="text-apex-red text-sm" errorRole="alert" />
       </div>
       <button type="submit" disabled={busy || !email.trim()} className={primaryBtn}>{busy ? 'Wysyłamy…' : 'Wyślij zaproszenie'}</button>
     </form>
