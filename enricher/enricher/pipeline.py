@@ -788,7 +788,7 @@ def fetch_events(
     while True:
         query = sb.from_("scraper_all").select(
             "id, source, source_id, name, date, location, distances, event_types, "
-            "registration_url, regulamin_url, regulamin_urls, "
+            "registration_url, regulamin_url, regulamin_urls, website, "
             "registration_deadline, price_from, price_to, voivodeship, is_kids, atest_claim, "
             "enriched_at, enriched_regulamin_at, enriched_search_at"
         )
@@ -815,7 +815,7 @@ def fetch_events(
     if not (incomplete or force):
         enriched = _fetch_all(lambda: sb.from_("scraper_all").select(
             "id, source, source_id, name, date, location, distances, event_types, "
-            "registration_url, regulamin_url, regulamin_urls, "
+            "registration_url, regulamin_url, regulamin_urls, website, "
             "registration_deadline, price_from, price_to, voivodeship, is_kids, atest_claim, "
             "enriched_at, enriched_regulamin_at, enriched_search_at"
         ).not_.is_("enriched_at", "null").gte("date", today))

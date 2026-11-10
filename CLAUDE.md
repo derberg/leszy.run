@@ -1278,7 +1278,9 @@ the same race in the wrong year passes `page_matches_event()` and is rejected by
 the model at 0.95 confidence. A wrong edition is the most common bad URL, so the
 model tier is what catches it.
 
-It does **NOT** enrich `website` — that field was intentionally dropped from the enricher (no search, no extraction, no sync). Scraper-set `website` values still flow to `calendar_events` via the JS publish step.
+It does not search for `website`. It sets one in a single case: a registration hit that is a site root (never a registration URL, `is_bare_origin`) and that the verify gate confirmed as the race's own page becomes the `website` when that is empty, unless it is a platform or aggregator root (`_merge_website` in `steps/merge.py`). `enricher sync` and the JS publish step only fill an empty `website`.
+
+**plus-timing.pl forms are taken on their address** (operator ruling 2026-11-10). The site answers every automated client with a bot challenge ("Please wait while your request is being verified..."), so no verifier can read a form. A `/zgloszenia/<slug>/` address whose slug carries the event's year passes as `registration_url` in both the enricher (`is_plus_timing_form_for_event_year`) and step 8 (`isPlusTimingFormForEventYear` in `backend/scripts/lib/verify-url.js`). The challenge is never bypassed.
 
 **What it extracts (FROM THE REGULAMIN ONLY):** all remaining fields are extracted from the regulamin, in whatever format it arrives — a PDF (pypdf), a `.docx` (stdlib zip+XML, see `steps/docs.py`), a plain HTML page (Crawl4AI), or a public Google Drive folder/file of per-distance regulamins (each file downloaded + extracted + concatenated) — never the registration page, website, or navigated followups (those are used only to *discover* the regulamin):
 - `distances` — overwrites only if more complete than scraper's

@@ -6,6 +6,7 @@ from typing import Optional
 import httpx
 
 from enricher.steps.validate_urls import UrlStatus
+from enricher.steps.verify import is_plus_timing_form_for_event_year
 
 TERRAIN_TYPES = {"trail", "ocr", "uliczny"}
 # Types that carry specific meaning from scraper keyword evidence.
@@ -131,6 +132,7 @@ def build_updates(event: dict, llm: dict, url_statuses: dict, search_candidates:
 
     # --- URLs (Rule 2) ---
     _merge_urls(event, llm, url_statuses, search_candidates, updates, event.get("name", ""))
+    _merge_website(event, search_candidates, updates, config)
 
     # --- is_kids ---
     llm_kids = llm.get("is_kids")
@@ -368,6 +370,10 @@ def _merge_urls(event, llm, url_statuses, search_candidates, updates, event_name
                 if verify_url_relevance(llm_url, event_name):
                     return llm_url
             if search_candidate and not is_bare_origin(search_candidate):
+                # A plus-timing form shows only a bot challenge to a fetch,
+                # so a name check on it always fails (see verify.py).
+                if field == "registration_url" and is_plus_timing_form_for_event_year(search_candidate, event):
+                    return search_candidate
                 if verify_url_relevance(search_candidate, event_name):
                     return search_candidate
             return None
@@ -402,6 +408,37 @@ def _merge_urls(event, llm, url_statuses, search_candidates, updates, event_name
             if picked:
                 updates[field] = picked
             continue
+
+
+# Registration platforms and timing companies. Their root lists every event
+# they serve, so it is nobody's own website.
+_PLATFORM_HOSTS = frozenset({
+    "dostartu.pl", "plus-timing.pl", "b4sportonline.pl", "elektronicznezapisy.pl",
+    "datasport.pl", "online.datasport.pl", "zapisy.info", "sts-timing.pl",
+    "timekeeper.pl", "foxter-sport.pl", "zapisyonline.pl", "e-gepard.eu",
+    "superczas.pl", "time-sport.pl", "zmierzymyczas.pl", "chronotex.pl",
+})
+
+
+def _merge_website(event, search_candidates, updates, config):
+    """Keep a verified registration hit that is a site root as the website.
+
+    is_bare_origin() keeps a homepage out of registration_url, because a
+    homepage is not a sign-up form. But when the verify gate has already
+    confirmed that this homepage is the race's own (ultramaratonkarkonoski.pl,
+    biegihopfera.pl, 2026-11-09), it is exactly the race's website. Fills an
+    empty website only; a platform or aggregator root is never one.
+    """
+    if event.get("website"):
+        return
+    url = search_candidates.get("registration_url")
+    if not url or not is_bare_origin(url):
+        return
+    host = (urlparse(url).hostname or "").lower().removeprefix("www.")
+    blocked = set(_PLATFORM_HOSTS) | set(getattr(config, "aggregator_domains", []) or [])
+    if any(host == d or host.endswith("." + d) for d in blocked):
+        return
+    updates["website"] = url
 
 
 # Course certification. The regulamin's own word on THIS edition's course; the

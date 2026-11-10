@@ -92,6 +92,35 @@ def url_slug_matches_event(url: str, event: dict) -> bool:
     return name_hits >= 2 or (name_hits >= 1 and loc_hits >= 1)
 
 
+# plus-timing.pl answers every automated client with a JavaScript challenge
+# ("Please wait while your request is being verified..."), so no page content
+# is ever readable and the gate rejected every one of its forms, including
+# zuk-2027 for XIII Zimowy Ultramaraton Karkonoski (2026-11-09). Its form
+# addresses name the edition (/zgloszenia/<slug>-<year>/). The operator's
+# ruling (2026-11-10): a /zgloszenia/ address carrying the event's year is
+# taken as this edition's form. The challenge is never bypassed.
+_PLUS_TIMING_HOSTS = {"plus-timing.pl"}
+CHALLENGE_MARKER = "please wait while your request is being verified"
+
+
+def is_plus_timing_form_for_event_year(url: str, event: dict) -> bool:
+    """True for a plus-timing /zgloszenia/ form whose slug carries the event's year."""
+    year = str(event.get("date") or "")[:4]
+    if not url or len(year) != 4 or not year.isdigit():
+        return False
+    try:
+        parts = urlparse(url)
+    except Exception:
+        return False
+    host = (parts.hostname or "").lower().removeprefix("www.")
+    if host not in _PLUS_TIMING_HOSTS:
+        return False
+    segs = [s for s in parts.path.split("/") if s]
+    if len(segs) < 2 or segs[0].lower() != "zgloszenia":
+        return False
+    return re.search(rf"(?<!\d){year}(?!\d)", segs[1]) is not None
+
+
 @dataclass
 class VerifyResult:
     """Outcome of one gate run. `ok` is the only field callers must honour."""
@@ -119,6 +148,13 @@ def verify_search_candidate(
     Only a `match` verdict returns ok=True. Every other outcome drops the
     candidate, which leaves the field empty for a later run to retry.
     """
+    unreadable = not content or not content.strip() or CHALLENGE_MARKER in content.lower()
+    if field == "registration_url" and unreadable and is_plus_timing_form_for_event_year(url, event):
+        return VerifyResult(
+            ok=True, verdict="match", confidence=0.8,
+            reasoning="plus-timing form behind a bot challenge; its slug carries the event year.",
+        )
+
     if not content or not content.strip():
         return VerifyResult(
             ok=False, verdict="no_content", confidence=1.0,

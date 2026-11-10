@@ -140,6 +140,26 @@ function runClaudeVerify(prompt) {
   }
 }
 
+// plus-timing.pl answers every automated client with a JavaScript challenge
+// ("Please wait while your request is being verified..."), so the verifier
+// never sees the form and rejected every one, zuk-2027 and
+// recordowa-dziesiatka-2027 among them (2026-11-09). Its form addresses name the
+// edition, and the operator ruled (2026-11-10) that a /zgloszenia/ address
+// carrying the event's year is that edition's form. Same rule as
+// is_plus_timing_form_for_event_year() in enricher/enricher/steps/verify.py.
+// The challenge is never bypassed.
+export function isPlusTimingFormForEventYear(url, event) {
+  const year = String(event?.date || '').slice(0, 4)
+  if (!url || !/^\d{4}$/.test(year)) return false
+  let parts
+  try { parts = new URL(url) } catch { return false }
+  const host = parts.hostname.toLowerCase().replace(/^www\./, '')
+  if (host !== 'plus-timing.pl') return false
+  const segs = parts.pathname.split('/').filter(Boolean)
+  if (segs.length < 2 || segs[0].toLowerCase() !== 'zgloszenia') return false
+  return new RegExp(`(?<!\\d)${year}(?!\\d)`).test(segs[1])
+}
+
 /**
  * Confirm that each search-found URL belongs to this event.
  *
@@ -153,8 +173,16 @@ function runClaudeVerify(prompt) {
  */
 export async function verifySearchUrls(event, urls, deps = {}) {
   const runClaude = deps.runClaude || runClaudeVerify
-  const fields = Object.keys(urls || {}).filter(f => urls[f])
-  const empty = { verdicts: {}, kept: {}, dropped: [], costUsd: 0, inputTokens: 0, outputTokens: 0 }
+  const preKept = {}
+  const preVerdicts = {}
+  for (const f of Object.keys(urls || {})) {
+    if (f === 'registration_url' && isPlusTimingFormForEventYear(urls[f], event)) {
+      preKept[f] = urls[f]
+      preVerdicts[f] = { verdict: 'match', confidence: 0.8, reasoning: 'plus-timing form behind a bot challenge; its slug carries the event year.' }
+    }
+  }
+  const fields = Object.keys(urls || {}).filter(f => urls[f] && !preKept[f])
+  const empty = { verdicts: { ...preVerdicts }, kept: { ...preKept }, dropped: [], costUsd: 0, inputTokens: 0, outputTokens: 0 }
   if (fields.length === 0) return empty
 
   const scoped = {}
@@ -166,8 +194,8 @@ export async function verifySearchUrls(event, urls, deps = {}) {
   } catch (err) {
     // A crashed or timed-out verifier confirms nothing, so every candidate drops.
     return {
-      verdicts: {},
-      kept: {},
+      verdicts: { ...preVerdicts },
+      kept: { ...preKept },
       dropped: fields.map(f => ({
         field: f, url: scoped[f], verdict: 'mismatch', confidence: 0,
         reasoning: `Verifier failed: ${String(err?.message || err).slice(0, 200)}`,
@@ -176,8 +204,8 @@ export async function verifySearchUrls(event, urls, deps = {}) {
     }
   }
 
-  const verdicts = parseVerdicts(result?.text, fields)
-  const kept = {}
+  const verdicts = { ...preVerdicts, ...parseVerdicts(result?.text, fields) }
+  const kept = { ...preKept }
   const dropped = []
   for (const f of fields) {
     const v = verdicts[f]
