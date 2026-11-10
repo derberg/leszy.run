@@ -64,3 +64,19 @@ def test_page_with_path_is_not_a_website():
     updates = {}
     _merge_website(dict(EV), {"registration_url": "https://biegihopfera.pl/zapisy/"}, updates, CFG)
     assert updates == {}
+
+
+def test_trusted_discovered_form_skips_the_name_fetch(monkeypatch):
+    import enricher.steps.merge as m
+    monkeypatch.setattr(m, "verify_url_relevance", lambda *a: False)  # a form shows a script shell
+    updates = {}
+    _merge_urls(dict(EV), {}, {}, {"registration_url": "https://forms.cloud.microsoft/e/abc"}, updates, EV["name"], frozenset({"registration_url"}))
+    assert updates["registration_url"] == "https://forms.cloud.microsoft/e/abc"
+
+
+def test_untrusted_form_still_needs_the_name_fetch(monkeypatch):
+    import enricher.steps.merge as m
+    monkeypatch.setattr(m, "verify_url_relevance", lambda *a: False)
+    updates = {}
+    _merge_urls(dict(EV), {}, {}, {"registration_url": "https://forms.cloud.microsoft/e/abc"}, updates, EV["name"])
+    assert "registration_url" not in updates

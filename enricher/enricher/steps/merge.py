@@ -107,7 +107,7 @@ def verify_url_relevance(url: str, event_name: str) -> bool:
     return hits >= max(1, len(tokens) // 2)
 
 
-def build_updates(event: dict, llm: dict, url_statuses: dict, search_candidates: dict, config, had_content: bool = False) -> dict:
+def build_updates(event: dict, llm: dict, url_statuses: dict, search_candidates: dict, config, had_content: bool = False, trusted_fields: frozenset = frozenset()) -> dict:
     """Compare LLM output with current event data and build update dict.
 
     Returns only fields that should be changed. Empty dict = no changes.
@@ -131,7 +131,7 @@ def build_updates(event: dict, llm: dict, url_statuses: dict, search_candidates:
     _merge_scalars(event, llm, updates, config)
 
     # --- URLs (Rule 2) ---
-    _merge_urls(event, llm, url_statuses, search_candidates, updates, event.get("name", ""))
+    _merge_urls(event, llm, url_statuses, search_candidates, updates, event.get("name", ""), trusted_fields)
     _merge_website(event, search_candidates, updates, config)
 
     # --- is_kids ---
@@ -331,7 +331,7 @@ def _merge_scalars(event, llm, updates, config):
         updates.pop("price_to", None)
 
 
-def _merge_urls(event, llm, url_statuses, search_candidates, updates, event_name=""):
+def _merge_urls(event, llm, url_statuses, search_candidates, updates, event_name="", trusted_fields=frozenset()):
     """Handle URL replacement based on validation + LLM confirmation.
 
     NEVER null a working URL — only replace when there's an actual candidate.
@@ -370,6 +370,11 @@ def _merge_urls(event, llm, url_statuses, search_candidates, updates, event_name
                 if verify_url_relevance(llm_url, event_name):
                     return llm_url
             if search_candidate and not is_bare_origin(search_candidate):
+                # Found by discover.py on a page about this edition (and, for a
+                # regulamin, already read and kept by the verify gate). A
+                # Microsoft or Google form has nothing a name check could read.
+                if field in trusted_fields:
+                    return search_candidate
                 # A plus-timing form shows only a bot challenge to a fetch,
                 # so a name check on it always fails (see verify.py).
                 if field == "registration_url" and is_plus_timing_form_for_event_year(search_candidate, event):

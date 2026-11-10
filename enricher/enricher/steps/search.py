@@ -138,6 +138,36 @@ def _organizer_signup_link(site_url: str, config) -> str | None:
     return None
 
 
+def search_seed_urls(event: dict, config, limit: int = 5) -> list[str]:
+    """Web results about the race, for discover.py to read: name and town.
+
+    Unlike search_missing_urls, which wants the one result that IS the sign-up
+    page, these are pages to look inside, news articles included.
+    """
+    name = event.get("name", "")
+    town = (event.get("location") or "").split(",")[0]
+    query = f"{name} {town}".strip()
+    results = None
+    if getattr(config, "brave_api_key", ""):
+        results = _brave_results(query, config)
+    if results is None:
+        results = _searxng_results(query, config)
+    tokens = _tokenize(name)
+    out = []
+    for item in results or []:
+        url = item.get("url", "")
+        if not url or _is_blocklisted(url) or not _tld_accepted(url):
+            continue
+        if _is_aggregator(url, config.aggregator_domains):
+            continue
+        if not _is_relevant(tokens, item.get("title", "") or "", item.get("content", "") or "", url):
+            continue
+        out.append(url)
+        if len(out) >= limit:
+            break
+    return out
+
+
 BRAVE_ENDPOINT = "https://api.search.brave.com/res/v1/web/search"
 
 # Brave's free and base plans allow one request a second. The enricher sends
