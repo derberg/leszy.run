@@ -81,3 +81,18 @@ def test_nothing_about_the_event_gives_nothing():
     pages = {"https://x.pl/a": '<p>Inny bieg 2026</p><a href="https://forms.gle/abc">https://forms.gle/abc</a>'}
     out = discover_from_pages(EV, ["https://x.pl/a"], fetch=lambda u: (u, pages[u]) if u in pages else None)
     assert out["registration_url"] is None and out["regulamin_url"] is None and out["website"] is None
+
+
+def test_other_edition_links_are_refused():
+    jelcz = {"name": "XIX Jelczańsko-Oławski Zimowy Maraton Na Raty", "date": "2027-01-31", "location": "Jelcz-Laskowice"}
+    assert not is_registration_link("http://www.zmierzymyczas.pl/2382/xviii-jelczansko-olawski-toyota-zimowy-maraton-na-raty.html", "", jelcz)
+    assert is_registration_link("http://www.zmierzymyczas.pl/2500/xix-jelczansko-olawski-zimowy-maraton-na-raty.html", "", jelcz)
+    kde = {"name": "VI Biegowe Grand Prix Krainy Dobrej Energii", "date": "2026-11-29", "location": "Milkowice"}
+    assert not is_registration_link("https://krainadobrejenergii.pl/zapisy-na-i-biegowe-grand-prix-krainy-dobrej-energii/", "Zapisy", kde)
+    assert not is_regulamin_link("https://x.pl/regulamin-xviii-jelczansko.pdf", "Regulamin", jelcz)
+
+
+def test_pasted_link_loses_trailing_punctuation():
+    from enricher.steps.discover import parse_page
+    _, links = parse_page('<a href="http://www.citytrail.pl/zapisy;">zapisy</a>', "https://citytrail.pl/")
+    assert links[0][0] == "http://www.citytrail.pl/zapisy"

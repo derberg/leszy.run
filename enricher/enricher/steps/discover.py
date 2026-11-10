@@ -139,7 +139,9 @@ def parse_page(page_html: str, base_url: str) -> tuple[str, list[tuple[str, str]
         href = (href or "").strip()
         if not href or href.startswith(("#", "mailto:", "tel:", "javascript:")):
             continue
-        absolute = urljoin(base_url, _html.unescape(href)).split("#", 1)[0]
+        # A link pasted into text often keeps the sentence's punctuation
+        # ("http://www.citytrail.pl/zapisy;").
+        absolute = urljoin(base_url, _html.unescape(href)).split("#", 1)[0].rstrip(";,.)")
         links.append((absolute, label))
     return " ".join(" ".join(p.text).split()), links
 
@@ -170,8 +172,37 @@ def _names_event_any(event: dict, href: str, label: str) -> bool:
     return any(t[:6] in hay for t in toks)
 
 
+_ROMAN = re.compile(r"^[ivxlc]+$")
+
+
+def _edition(event: dict) -> tuple[Optional[str], Optional[str]]:
+    """(edition numeral, the name word after it) for "XIX Jelczańsko-…" or
+    "18 Bieg Wegański"; (None, None) when the name carries no edition."""
+    words = [w for w in re.split(r"[^a-z0-9]+", _fold(event.get("name") or "")) if w]
+    if len(words) >= 2 and (_ROMAN.match(words[0]) or words[0].isdigit()):
+        return words[0], words[1]
+    return None, None
+
+
+def is_other_edition(event: dict, href: str, label: str) -> bool:
+    """The link names another edition of the race: "xviii-jelczansko" for XIX
+    Jelczańsko-Oławski, "zapisy-na-i-biegowe" for VI Biegowe Grand Prix
+    (2026-11-10). Read as the numeral right before the name's first word."""
+    numeral, first = _edition(event)
+    if not numeral:
+        return False
+    words = [w for w in re.split(r"[^a-z0-9]+", _fold(f"{label} {urlparse(href).path}")) if w]
+    for i, w in enumerate(words[1:], start=1):
+        prev = words[i - 1]
+        if w.startswith(first[:6]) and (_ROMAN.match(prev) or prev.isdigit()) and prev != numeral:
+            return True
+    return False
+
+
 def is_registration_link(href: str, label: str, event: dict) -> bool:
     if _DOC_EXT.search(href) or _SITE_WIDE.search(_fold(f"{href} {label}")):
+        return False
+    if is_other_edition(event, href, label):
         return False
     if _host_in(href, FORM_HOSTS):
         # A form's address is an opaque id. Its link must be shown as the
@@ -190,7 +221,7 @@ def is_registration_link(href: str, label: str, event: dict) -> bool:
 
 def is_regulamin_link(href: str, label: str, event: dict) -> bool:
     name = _fold(urlparse(href).path.rsplit("/", 1)[-1])
-    if _SITE_WIDE.search(_fold(f"{href} {label}")):
+    if _SITE_WIDE.search(_fold(f"{href} {label}")) or is_other_edition(event, href, label):
         return False
     says_regulamin = bool(_REGULAMIN.search(name)) or (
         bool(_REGULAMIN.search(label or ""))
