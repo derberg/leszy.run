@@ -29,7 +29,7 @@ import { newToken } from '../_shared/registration/tokens.js'
 import { publicSite } from '../_shared/registration/consentRequests.js'
 import { transferCancelledEmail, transferInviteEmail } from '../_shared/registration/transferEmails.js'
 import { sendTransferEmail, TRANSFER_REFUSALS, transferViews } from '../_shared/registration/transfers.js'
-import { LOGIN_EMAIL_RE } from '../_shared/loginEmail.js'
+import { isValidEmail } from '../_shared/registration/emailAddress.js'
 
 const NOT_FOUND = { error: 'Not found' }
 const TOO_MANY = 'Zbyt wiele zaproszeń. Spróbuj ponownie jutro.'
@@ -37,8 +37,6 @@ const NOT_PENDING = 'Zaproszenia nie można już cofnąć: zostało przyjęte, c
 const EXPIRED = 'To zaproszenie już wygasło. Link nie działa.'
 const CREATE_LIMIT = 5
 const DAY = 86400
-// The login-address rule shared with auth-request-code (_shared/loginEmail.js).
-const EMAIL_RE = LOGIN_EMAIL_RE
 const REG_COLUMNS = 'id, event_id, category_id, first_name, status, email, birth_date, profile_id, guardian_profile_id, team_id'
 
 /** An RPC refusal as its answer; anything unknown is thrown (a 500). */
@@ -125,7 +123,7 @@ Deno.serve(async (req) => {
       const { reg } = found
       ref = `registration ${reg.id}`
       const toEmail = typeof body.toEmail === 'string' ? body.toEmail.trim().toLowerCase() : ''
-      if (!EMAIL_RE.test(toEmail) || toEmail.length > 254) {
+      if (!isValidEmail(toEmail)) {
         return json({ error: TRANSFER_REFUSALS.invalid_email[1], code: 'invalid_email' }, 400, req)
       }
       const throttle = await checkAndIncrement(admin, `transfer-create:${reg.id}`, CREATE_LIMIT, { windowSeconds: DAY })

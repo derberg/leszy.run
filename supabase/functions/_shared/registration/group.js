@@ -5,6 +5,7 @@
 
 import { validatePerson } from './person.js'
 import { MAX_PEOPLE_PER_REQUEST } from './flags.js'
+import { isValidEmail } from './emailAddress.js'
 
 export const GUARDIAN_CONSENT_MESSAGE = 'Zaznacz zgodę opiekuna.'
 export const MINOR_SELF_MESSAGE = 'Osobę niepełnoletnią zapisuje rodzic lub opiekun.'
@@ -13,7 +14,6 @@ export const TOO_MANY_MESSAGE = `W jednym zgłoszeniu możesz zapisać najwyżej
 export const EMPTY_GROUP_MESSAGE = 'Dodaj co najmniej jedną osobę.'
 export const UNKNOWN_COMPETITION_MESSAGE = 'Ta konkurencja nie przyjmuje zapisów.'
 
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 const text = (v) => (typeof v === 'string' ? v.trim() : '')
 const lower = (v) => text(v).toLowerCase()
 
@@ -118,7 +118,7 @@ export function validateGroup({ people = [], buyer = null } = {}, { sessionEmail
     const berr = {}
     if (!text(buyer?.firstName)) berr.firstName = 'Podaj imię.'
     if (!text(buyer?.lastName)) berr.lastName = 'Podaj nazwisko.'
-    if (!EMAIL_RE.test(be) || be.length > 254) berr.email = 'Podaj poprawny adres e-mail.'
+    if (!isValidEmail(be)) berr.email = 'Podaj poprawny adres e-mail.'
     if (Object.keys(berr).length) errors.buyer = berr
     else buyerEmail = be
   }

@@ -44,11 +44,9 @@ import { isUuid } from '../_shared/registration/organizerEvent.js'
 import { callTransferRpc, GONE, sendAcceptedTransferEmail, TRANSFER_REFUSALS } from '../_shared/registration/transfers.js'
 import { refundsInFlight } from '../_shared/registration/refundInFlight.js'
 import { requiredConsents } from '../_shared/registration/consents.js'
-import { LOGIN_EMAIL_RE } from '../_shared/loginEmail.js'
+import { isValidEmail } from '../_shared/registration/emailAddress.js'
 
 const TOKEN_RE = /^[A-Za-z0-9_-]{43}$/
-// The login-address rule shared with auth-request-code (_shared/loginEmail.js).
-const EMAIL_RE = LOGIN_EMAIL_RE
 // Per client address (clientIp, #333): generous, because a whole carrier's CGNAT or an office can share
 // one address; the per-token cap (10/h) and the e-mail code are the per-link guards.
 const HOUR_IP_LIMIT = 300
@@ -180,7 +178,7 @@ async function preview(admin, req, { transfer, reg, settings }) {
 
 async function sendCode(admin, req, body) {
   const email = typeof body.email === 'string' ? body.email.trim().toLowerCase() : ''
-  if (!EMAIL_RE.test(email) || email.length > 254) return refuse(req, 'invalid_email')
+  if (!isValidEmail(email)) return refuse(req, 'invalid_email')
   const sent = await requestLoginCode(admin, { email, ip: await clientIp(req), linkBase: siteFor(req), link: false })
   if (!sent.ok) {
     if (sent.status === 429) {
@@ -194,7 +192,7 @@ async function sendCode(admin, req, body) {
 async function accept(admin, req, body, hash, { transfer, reg, settings }) {
   const person = body.person && typeof body.person === 'object' && !Array.isArray(body.person) ? body.person : null
   const email = typeof person?.email === 'string' ? person.email.trim().toLowerCase() : ''
-  if (!person || !EMAIL_RE.test(email) || email.length > 254) {
+  if (!person || !isValidEmail(email)) {
     return json({ error: INVALID, code: 'invalid_person', fields: { email: 'Podaj poprawny adres e-mail.' } }, 400, req)
   }
 

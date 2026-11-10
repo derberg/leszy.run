@@ -4,10 +4,10 @@
 import { ageOn, ageGroupLabel, kidsGroupFor } from './ageGroups.js'
 import { warsawToday } from './dates.js'
 import { isCountryCode } from './countries.js'
+import { isValidEmail } from './emailAddress.js'
 
 export const ADULT_AGE = 18
 
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 const PHONE_RE = /^\+?[0-9][0-9 -]{5,19}$/
 const ISO_DATE_RE = /^(\d{4})-(\d{2})-(\d{2})$/
 
@@ -82,7 +82,7 @@ export function validatePerson(person, {
   else if (lastName.length > NAME_MAX) errors.lastName = 'Nazwisko jest za długie.'
 
   const email = text(p.email).toLowerCase()
-  const emailOk = EMAIL_RE.test(email) && email.length <= 254
+  const emailOk = isValidEmail(email)
 
   const gender = p.gender === 'K' || p.gender === 'M' ? p.gender : null
   if (!gender) errors.gender = 'Wybierz płeć.'
