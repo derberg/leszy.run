@@ -159,17 +159,28 @@ export async function fetchDetailPage(eventId) {
     // Date and registration deadline from list items
     let date = null
     let deadline = null
+    let opening = null
+    let closing = null
+    const STAMP = '(\\d{4})[.\\-](\\d{2})[.\\-](\\d{2})(?:\\s+(\\d{1,2}:\\d{2}))?'
     $('li.list-group-item').each((_, el) => {
       const text = $(el).text().trim()
       const startMatch = text.match(/Początek imprezy:\s*(\d{4})[.\-](\d{2})[.\-](\d{2})/)
       if (startMatch && !date) {
         date = `${startMatch[1]}-${startMatch[2]}-${startMatch[3]}`
       }
-      const deadlineMatch = text.match(/Zamknięcie rejestracji:\s*(\d{4})[.\-](\d{2})[.\-](\d{2})/)
+      const openMatch = text.match(new RegExp(`Otwarcie rejestracji:\\s*${STAMP}`))
+      if (openMatch && !opening) opening = openMatch.slice(1).join(' ')
+      const deadlineMatch = text.match(new RegExp(`Zamknięcie rejestracji:\\s*${STAMP}`))
       if (deadlineMatch && !deadline) {
         deadline = `${deadlineMatch[1]}-${deadlineMatch[2]}-${deadlineMatch[3]}`
+        closing = deadlineMatch.slice(1).join(' ')
       }
     })
+    // A "zapisy niebawem" placeholder (registration not configured yet) shows
+    // its creation timestamp as both opening and closing: 15282, Goń Zajączka
+    // III Bieg Charytatywny (2027-04-10), read 2026.04.13 09:40 for both on
+    // 2026-11-11. That is no deadline.
+    if (opening && closing && opening === closing) deadline = null
     // Fallback: any YYYY.MM.DD / YYYY-MM-DD in body
     if (!date) {
       const bodyText = $('body').text()

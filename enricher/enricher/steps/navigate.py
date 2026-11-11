@@ -154,8 +154,28 @@ def _event_slug(url: str):
         return None
     for i, p in enumerate(parts):
         if p.lower() in EVENT_PREFIXES and i + 1 < len(parts):
-            return parts[i + 1].lower()
+            # elektronicznezapisy writes one event as /event/15282.html and
+            # /event/15282/signup.html: the extension is not part of the id.
+            return re.sub(r"\.(html?|php|aspx?)$", "", parts[i + 1].lower())
     return None
+
+
+def _is_platform_chrome(base_url: str, candidate_url: str) -> bool:
+    """True when base is an event page on a registration platform (a stub host
+    with an event slug) and candidate is a page of the same host that names no
+    event: the platform's own navigation. elektronicznezapisy's "Cennik"
+    (pricelist.html) is its price list for organizers ("1,50 zł brutto od
+    zapisanego i opłaconego zawodnika", "123 zł uruchomienie pierwszej
+    imprezy"), and reading it gave ten rows the price range 1-123. PDFs are not
+    judged here; pdf_belongs_to_event gates them."""
+    if not is_stub_host(base_url) or not _event_slug(base_url):
+        return False
+    try:
+        if (urlparse(base_url).hostname or "").lower() != (urlparse(candidate_url).hostname or "").lower():
+            return False
+    except Exception:
+        return False
+    return _event_slug(candidate_url) is None
 
 
 def _is_foreign_event(base_url: str, candidate_url: str) -> bool:
@@ -406,6 +426,8 @@ def pick_followup_urls(
             pdf_internal.append((max(pdf_score, anchor_score), absolute))
             continue
 
+        if _is_platform_chrome(base_url, absolute):
+            continue
         score = _score_anchor(text)
         if score > 0:
             scored_internal.append((score, absolute))
