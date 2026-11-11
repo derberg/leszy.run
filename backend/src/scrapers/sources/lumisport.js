@@ -154,6 +154,64 @@ function parsePrices(prices) {
   return { priceFrom: toPLN(min), priceTo: toPLN(max) }
 }
 
+// A variation attribute that is an optional donation, not part of the fee.
+// I Magnuszewski Bieg Mikołajkowy is free to enter and sells its "Darowizna"
+// (0 / 50 / 100 / 200 zł, "dobrowolne uiszczenie darowizny") as variations, so
+// the product's price_range 0–200 zł was stored as the fee.
+const DONATION_ATTRIBUTE = /darowizn|donat|cegiełk|cegielk/i
+
+function donationAttribute(attributes) {
+  if (!Array.isArray(attributes)) return null
+  return attributes.find(a => a?.has_variations !== false
+    && (DONATION_ATTRIBUTE.test(a?.name || '') || DONATION_ATTRIBUTE.test(a?.taxonomy || ''))) || null
+}
+
+// "100 zł" / "100-zl" / "0 zł" → złote; null when the term names no amount.
+function donationAmount(term) {
+  const m = String(term?.name || term?.slug || '').match(/^\s*(\d+(?:[.,]\d+)?)\s*(?:zł|zl|pln)?\s*$/i)
+    || String(term?.slug || '').match(/^(\d+)-(?:zl|pln)$/i)
+  return m ? Number(m[1].replace(',', '.')) : null
+}
+
+/**
+ * The entry fee range of a product whose variations add a donation: each
+ * variation's price minus its donation. variationPrices maps a variation id to
+ * its Store API price in grosze. Any variation whose price or donation amount is
+ * unknown gives no price at all, rather than a guess.
+ */
+function feesFromVariations(product, variationPrices) {
+  const none = { priceFrom: null, priceTo: null }
+  const attr = donationAttribute(product?.attributes)
+  if (!attr || !Array.isArray(product?.variations) || product.variations.length === 0) return none
+  const bySlug = new Map((attr.terms || []).map(t => [String(t.slug).toLowerCase(), t]))
+  const fees = []
+  for (const v of product.variations) {
+    const value = (v.attributes || []).find(a => a.name === attr.name)?.value
+    const term = value != null ? bySlug.get(String(value).toLowerCase()) : null
+    const donation = term ? donationAmount(term) : null
+    const raw = variationPrices.get(v.id)
+    const price = raw == null ? NaN : Number(raw) / 100
+    if (donation === null || !Number.isFinite(price)) return none
+    fees.push(Math.max(0, price - donation))
+  }
+  return { priceFrom: Math.min(...fees), priceTo: Math.max(...fees) }
+}
+
+async function fetchVariationPrices(product) {
+  const prices = new Map()
+  for (const v of product.variations || []) {
+    const res = await fetch(`https://lumisport.eu/wp-json/wc/store/v1/products/${v.id}`, {
+      headers: { 'User-Agent': USER_AGENT, Accept: 'application/json' },
+    })
+    if (res.ok) {
+      const body = await res.json()
+      if (body?.prices?.price != null) prices.set(v.id, body.prices.price)
+    }
+    await new Promise(r => setTimeout(r, 1100))
+  }
+  return prices
+}
+
 async function fetchProducts() {
   const res = await fetch(STORE_API_URL, {
     headers: { 'User-Agent': USER_AGENT, Accept: 'application/json' },
@@ -221,7 +279,16 @@ async function scrape({ knownIds = new Set() } = {}) {
       }
 
       const { distances, isKids } = parseDistances(product.attributes)
-      const { priceFrom, priceTo } = parsePrices(product.prices)
+      let { priceFrom, priceTo } = parsePrices(product.prices)
+      if (donationAttribute(product.attributes)) {
+        try {
+          ({ priceFrom, priceTo } = feesFromVariations(product, await fetchVariationPrices(product)))
+        } catch (err) {
+          console.warn(`[lumisport] Variation prices failed for "${slug}": ${err.message}`)
+          priceFrom = null
+          priceTo = null
+        }
+      }
       const permalink = product.permalink
 
       results.push({
@@ -257,4 +324,4 @@ async function scrape({ knownIds = new Set() } = {}) {
   return results
 }
 
-export { scrape, parseDate, parseDistances, parsePrices, decodeEntities, parseLocation }
+export { scrape, parseDate, parseDistances, parsePrices, decodeEntities, parseLocation, donationAttribute, feesFromVariations }
