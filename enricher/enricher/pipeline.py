@@ -23,7 +23,8 @@ _DOC_KINDS = ("docx", "drive_folder", "drive_file")
 from enricher.steps.llm import call_ollama, build_prompt
 from enricher.steps.merge import build_updates, atest_claim_from
 from enricher.steps.navigate import (
-    pick_followup_urls, is_stub_host, strip_foreign_event_lines, pdf_belongs_to_event,
+    pick_followup_urls, is_stub_host, is_social_host, strip_foreign_event_lines,
+    pdf_belongs_to_event,
 )
 from enricher.steps.regex_prepass import extract_hints
 from enricher.steps.verify import (
@@ -186,8 +187,16 @@ async def process_event(event: dict, config: Config) -> dict:
     # link. Only what this finds nothing for goes to the one-result search.
     discovered = {}
     discovered_website = None
+    # The event's own website is read first. VI Biegowe Grand Prix Krainy Dobrej
+    # Energii (2026-11-29) links its regulamin PDF only from its website, and a
+    # search on its truncated name never found that page.
+    own_website = event.get("website")
+    if own_website and is_social_host(own_website):
+        own_website = None
     if search_queue:
         seeds = search_seed_urls(event, config)
+        if own_website:
+            seeds = [own_website] + [u for u in seeds if u != own_website]
         found = discover_from_pages(event, seeds) if seeds else {}
         discovered = {f: found.get(f) for f in search_queue if found.get(f)}
         discovered_website = found.get("website")
@@ -250,6 +259,11 @@ async def process_event(event: dict, config: Config) -> dict:
             if status and status.kind in _NON_CRAWL_KINDS:
                 continue  # PDF / docx / Drive — handled in Step 4, not crawlable HTML
         crawl_urls[field] = url
+    # With no regulamin, Step 3c falls back to the website, so crawl it.
+    # Kamieński Bieg Niepodległości (2026-11-11) has only a website that says
+    # 'bieg główny na dystansie 5 kilometrów', and it published with no distance.
+    if own_website and "regulamin_url" in missing and own_website not in crawl_urls.values():
+        crawl_urls["website"] = own_website
 
     crawled = await crawl_pages(crawl_urls, max_chars=config.max_page_chars)
     crawled_content = {k: v.content for k, v in crawled.items() if v}
