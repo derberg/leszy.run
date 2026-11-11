@@ -248,7 +248,21 @@ async function fetchDetail(sourceId, slug) {
   }
 }
 
-async function scrape({ knownIds = new Set() } = {}) {
+// A known source_id is not a finished row. Organizers upload the regulamin after
+// the event is listed: 1150 (III CHARYTATYWNY BIEG MIKOŁAJKOWY, 2026-12-06) was
+// first scraped on 2026-11-03 with no rules link, and the .docx appeared on
+// 2026-11-08. Skipping every known id meant the page was never read again. A
+// stored future row without a regulamin is read again; a past race is left alone.
+// knownRows is empty unless index.js declares knownColumns, so a known id with
+// no stored row keeps the old skip.
+function needsRegulaminRecheck(entry, knownRows, today) {
+  const known = knownRows.get(entry.sourceId)
+  if (!known) return false
+  return !known.regulamin_url && String(known.date) >= today
+}
+
+async function scrape({ knownIds = new Set(), knownRows = new Map(), today, pauseMs = 1100 } = {}) {
+  const asOf = today || new Date().toISOString().split('T')[0]
   // Collect listing across pages until a page yields no events.
   const listing = []
   const seen = new Set()
@@ -264,7 +278,7 @@ async function scrape({ knownIds = new Set() } = {}) {
     if (pageEvents.length === 0) break
     for (const e of pageEvents) seen.add(e.sourceId)
     listing.push(...pageEvents)
-    await new Promise((r) => setTimeout(r, 1100))
+    await new Promise((r) => setTimeout(r, pauseMs))
   }
   console.log(`[zapisyonline] Listing: ${listing.length} events parsed`)
 
@@ -277,11 +291,33 @@ async function scrape({ knownIds = new Set() } = {}) {
   console.log(`[zapisyonline] ${newEntries.length} new (skipping ${running.length - newEntries.length} known)`)
 
   const results = []
-  for (const entry of newEntries) {
+
+  // Re-checked rows are emitted as partial updates: name, date and the
+  // regulamin (plus a deadline when one is found). A full row would reset the
+  // stored distances, prices, website and geocode on every detail read that
+  // came back thinner. A page that still has no regulamin emits nothing.
+  const recheckEntries = running.filter((e) => knownIds.has(e.sourceId) && needsRegulaminRecheck(e, knownRows, asOf))
+  if (recheckEntries.length) console.log(`[zapisyonline] ${recheckEntries.length} known without regulamin, re-checking`)
+  for (const entry of recheckEntries) {
+    const detail = await fetchDetail(entry.sourceId, entry.slug)
+    await new Promise((r) => setTimeout(r, pauseMs))
+    if (!detail.regulaminUrl) continue
+    const update = {
+      partial: true,
+      name: entry.name,
+      date: entry.date,
+      regulamin_url: detail.regulaminUrl,
+      source_id: entry.sourceId,
+    }
+    if (detail.registrationDeadline) update.registration_deadline = detail.registrationDeadline
+    results.push(update)
+  }
+
+  for (const [i, entry] of newEntries.entries()) {
     const sourceUrl = `${BASE_URL}/wydarzenie/${entry.sourceId},${entry.slug}`
     const detail = await fetchDetail(entry.sourceId, entry.slug)
-    await new Promise((r) => setTimeout(r, 1100))
-    console.log(`[zapisyonline] Detail ${results.length + 1}/${newEntries.length} — ${entry.name}`)
+    await new Promise((r) => setTimeout(r, pauseMs))
+    console.log(`[zapisyonline] Detail ${i + 1}/${newEntries.length} — ${entry.name}`)
 
     // Mine event types from competition names (catches a Nordic Walking / OCR
     // sub-race the umbrella name hides) — BUT only when the umbrella name itself
