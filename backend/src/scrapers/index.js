@@ -545,7 +545,17 @@ const sources = [
     name: 'zapisyonline',
     scrape: scrapeZapisyonline,
     table: 'scraper_zapisyonline',
-    mapRow: (raw) => ({
+    // Read back so scrape() can re-check future rows stored without a regulamin.
+    knownColumns: 'source_id, date, regulamin_url, registration_deadline',
+    // A re-check emits only what it re-read; mapping it to the full row would
+    // write null over the stored distances, prices, website and lat/lng.
+    mapRow: (raw) => raw.partial ? {
+      name: raw.name,
+      date: raw.date,
+      regulamin_url: raw.regulamin_url,
+      ...(raw.registration_deadline ? { registration_deadline: raw.registration_deadline } : {}),
+      source_id: raw.source_id,
+    } : ({
       name: raw.name,
       date: raw.date,
       location: raw.location || null,
