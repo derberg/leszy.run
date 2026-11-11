@@ -15,6 +15,7 @@
 //        --json   machine-readable output instead of the text report
 
 import { createClient } from '@supabase/supabase-js'
+import { DEADLINE_MAX_DAYS_BEFORE, deadlineDaysBefore } from '../src/lib/registrationDeadline.js'
 import { NOT_REGULAMIN, IS_REGULAMIN } from '../src/lib/pickRegulaminUrl.js'
 import { regulaminYear, isStaleRegulaminYear } from './lib/regulaminYear.js'
 
@@ -56,7 +57,11 @@ const STALE_ENRICH_DAYS = 90
 // the PREVIOUS edition's deadline (Bieg Renifera 2026-12-19 with a 2025-11-25
 // deadline, Krakowski Bieg Sylwestowy 2026-12-31 with 2025-12-31). Worth an
 // alert; a 45-day early-bird close is not.
-const DEADLINE_MAX_DAYS_BEFORE = 120
+//
+// Since 2026-11-11 the same window is enforced where deadlines are written
+// (src/lib/registrationDeadline.js, the merge, the AI enrichers, the publish,
+// enricher/steps/merge.py), so this report finds only rows written earlier.
+// The constant is imported from there so the audit and the writers never drift.
 
 // PostgREST caps a response at 1000 rows regardless of what you ask for, so
 // every scan here pages explicitly rather than trusting one .select().
@@ -124,10 +129,8 @@ async function main() {
         findings.stale_regulamin_year.push({ ...ref, regulamin_url: r.regulamin_url, docYear })
       }
       if (r.registration_deadline && r.date) {
-        const days = Math.round(
-          (Date.parse(r.date) - Date.parse(r.registration_deadline)) / 864e5,
-        )
-        if (days > DEADLINE_MAX_DAYS_BEFORE || days < 0) {
+        const days = deadlineDaysBefore(r.registration_deadline, r.date)
+        if (days !== null && (days > DEADLINE_MAX_DAYS_BEFORE || days < 0)) {
           findings.implausible_deadline.push({
             ...ref,
             registration_deadline: r.registration_deadline,
