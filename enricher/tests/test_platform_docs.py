@@ -62,5 +62,20 @@ def test_a_deadline_on_race_day_is_kept():
     assert _deadline_survives("2026-10-11", "2026-10-11") is True
 
 
-def test_an_early_bird_deadline_eight_months_out_is_kept():
-    assert _deadline_survives("2027-06-25", "2026-11-01") is True
+# The window is the one backend/src/lib/registrationDeadline.js enforces: 120
+# days. Checked at the sources on 2026-11-11, every deadline further out than
+# that was wrong (an opening date, a season-pass or T-shirt cutoff, a blog post
+# date), and an early-bird price tier is not the registration cutoff.
+def test_a_deadline_120_days_out_is_kept():
+    assert _deadline_survives("2026-12-19", "2026-08-21") is True
+
+
+def test_a_deadline_more_than_120_days_out_is_rejected():
+    assert _deadline_survives("2026-12-19", "2026-08-20") is False
+    assert _deadline_survives("2027-06-25", "2026-11-01") is False
+
+
+def test_a_deadline_without_an_event_date_is_rejected():
+    updates = {}
+    _merge_scalars({"name": "Bieg"}, {"registration_deadline": "2026-10-04"}, updates, None)
+    assert "registration_deadline" not in updates

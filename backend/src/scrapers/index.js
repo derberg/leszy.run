@@ -1,3 +1,4 @@
+import { plausibleDeadline } from '../lib/registrationDeadline.js'
 import { scrape as scrapeMaratonypolskie } from './sources/maratonypolskie.js'
 import { scrape as scrapeDatasport } from './sources/datasport.js'
 import { scrape as scrapeElektronicznezapisy } from './sources/elektronicznezapisy.js'
@@ -1177,6 +1178,17 @@ const RAW_MERGE_FIELDS = [
  *
  * @returns {boolean}
  */
+/**
+ * The registration deadline a raw scraper row or a scraper_all row may carry
+ * into the next table: the scraper's value only when it is plausible for the
+ * row's date (src/lib/registrationDeadline.js), otherwise none. Scrapers check
+ * nothing themselves, and elektronicznezapisy, lumisport and others have handed
+ * over the previous edition's deadline or the day registration opened.
+ */
+export function rowDeadline(raw) {
+  return plausibleDeadline(raw?.end_date || raw?.registration_deadline || null, raw?.date)
+}
+
 export function incomingWinsOver(existing, incoming) {
   if (existing.source === incoming.source && existing.source_id === incoming.source_id) return true
   return getPriority(incoming.source) < getPriority(existing.source)
@@ -1436,7 +1448,7 @@ async function mergeIntoScraperAll({ dryRun = false } = {}) {
             has_regulamin_url: !!(raw.regulamin_url || (raw.regulamin_urls && raw.regulamin_urls[0])),
             has_website: !!(raw.website || raw.external_website),
             has_lat_lng: raw.lat != null && raw.lng != null,
-            registration_deadline: raw.end_date || raw.registration_deadline || null,
+            registration_deadline: rowDeadline(raw),
             source_id: raw.source_id,
           })
 
@@ -1444,7 +1456,7 @@ async function mergeIntoScraperAll({ dryRun = false } = {}) {
           const row = {
             name: raw.name,
             date: raw.date,
-            registration_deadline: raw.end_date || raw.registration_deadline || null,
+            registration_deadline: rowDeadline(raw),
             location: raw.location || null,
             voivodeship: raw.voivodeship || null,
             lat: raw.lat || null,
@@ -1775,7 +1787,7 @@ async function publishToCalendar({ dryRun = false } = {}) {
     fillIfEmpty('registration_url', raw.registration_url || null)
     fillIfEmpty('regulamin_url', raw.regulamin_url || null)
     fillIfEmpty('website', raw.website || null)
-    fillIfEmpty('registration_deadline', raw.registration_deadline || null)
+    fillIfEmpty('registration_deadline', rowDeadline(raw))
     alwaysOverwrite('price_from', raw.price_from ?? null)
     alwaysOverwrite('price_to', raw.price_to ?? null)
 
@@ -2074,7 +2086,7 @@ let existingCE = null
       distances,
       registration_url: raw.registration_url || null,
       regulamin_url: raw.regulamin_url || null,
-      registration_deadline: raw.registration_deadline || null,
+      registration_deadline: rowDeadline(raw),
       price_from: raw.price_from ?? null,
       price_to: raw.price_to ?? null,
       website: raw.website || null,
@@ -2118,7 +2130,7 @@ let existingCE = null
           website: raw.website || null,
           price_from: raw.price_from ?? null,
           price_to: raw.price_to ?? null,
-          registration_deadline: raw.registration_deadline || null,
+          registration_deadline: rowDeadline(raw),
           atest: raw.atest ?? null,
           locked_fields: [],
         }

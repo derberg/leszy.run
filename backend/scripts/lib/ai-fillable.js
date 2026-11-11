@@ -8,6 +8,7 @@
 //   validate(v, row)   — return validated value or null/undefined to drop
 
 import { hasFreeEvidence } from '../../src/lib/extractionEvidence.js'
+import { DEADLINE_MAX_DAYS_BEFORE, plausibleDeadline } from '../../src/lib/registrationDeadline.js'
 
 export const VALID_EVENT_TYPES = [
   'uliczny', 'przełajowy', 'górski', 'nocny', 'ocr',
@@ -89,16 +90,11 @@ export const AI_FILLABLE = {
   },
   registration_deadline: {
     isEmpty: r => !r.registration_deadline,
-    promptHint: 'registration cutoff as YYYY-MM-DD (must be within 1 year of event date)',
+    promptHint: `registration cutoff as YYYY-MM-DD (on or before the event date, at most ${DEADLINE_MAX_DAYS_BEFORE} days before it)`,
+    // One rule for every writer: src/lib/registrationDeadline.js.
     validate: (v, row) => {
       if (typeof v !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(v)) return null
-      if (row?.date) {
-        const ev = new Date(row.date)
-        const dl = new Date(v)
-        if (Number.isNaN(ev.getTime()) || Number.isNaN(dl.getTime())) return null
-        if (Math.abs((ev - dl) / 86400000) > 365) return null
-      }
-      return v
+      return plausibleDeadline(v, row?.date)
     },
   },
   is_kids: {

@@ -243,6 +243,23 @@ def _merge_event_types(event, llm, updates, config, had_content: bool = False):
         updates["event_types"] = merged_list
 
 
+DEADLINE_MAX_DAYS_BEFORE = 120
+
+
+def _deadline_is_plausible(value, event_date) -> bool:
+    """A YYYY-MM-DD deadline on the race day or up to DEADLINE_MAX_DAYS_BEFORE
+    days before it. Mirrors backend/src/lib/registrationDeadline.js."""
+    from datetime import date as _date
+    if not isinstance(value, str) or not _re_module.match(r"^\d{4}-\d{2}-\d{2}$", value):
+        return False
+    try:
+        ev = _date.fromisoformat(str(event_date or "")[:10])
+        dl = _date.fromisoformat(value)
+    except (ValueError, TypeError):
+        return False
+    return 0 <= (ev - dl).days <= DEADLINE_MAX_DAYS_BEFORE
+
+
 def _merge_scalars(event, llm, updates, config):
     """Scalar fields: always overwrite from LLM (it reads the actual source)."""
     import re as _re
@@ -267,32 +284,22 @@ def _merge_scalars(event, llm, updates, config):
                 continue
             value = value.strip()
 
-        # A registration deadline has to sit in the window [event - 270d, event].
+        # A registration deadline has to sit in the window
+        # [event - DEADLINE_MAX_DAYS_BEFORE, event]; anything else is dropped,
+        # never corrected. The same rule, with the same 120, is
+        # backend/src/lib/registrationDeadline.js: change both together.
         #
-        # The old rule was abs((event - deadline).days) > 365, which let two
-        # impossible values through. A deadline LATER than the race cannot exist,
-        # and abs() accepted one up to a year after. And 365 days of slack before
-        # the race is precisely where the PREVIOUS EDITION's deadline lands: XIV
-        # Biegi Przyjazni (2026-10-11) carried 2025-10-12, 364 days out, and
-        # passed. Recurring races are the common case here, and a stale edition is
-        # the common way to get a wrong date out of a document.
-        #
-        # 270 days keeps a genuine early-bird close — Gdynia Ultra Way 2027 closes
-        # its cheapest tier about eight months ahead — while excluding the
-        # year-out cluster.
+        # The old rule was abs((event - deadline).days) > 365, which let a
+        # deadline after the race and the PREVIOUS EDITION's deadline through
+        # (XIV Biegi Przyjazni, 2026-10-11, carried 2025-10-12). A 270-day window
+        # followed, kept for an early-bird close; but the field is the cutoff,
+        # not a price tier. Checked at the sources on 2026-11-11 for every row
+        # run-data-audit flagged: each correct deadline sat 0-6 days before its
+        # race, each wrong one 132-389 days before it (previous edition, the
+        # opening date, a season-pass or T-shirt cutoff, a blog post date).
         if field == "registration_deadline":
-            if not _re.match(r"^\d{4}-\d{2}-\d{2}$", str(value)):
+            if not _deadline_is_plausible(value, event.get("date")):
                 continue
-            event_date = event.get("date", "")
-            if event_date:
-                try:
-                    from datetime import date as _date
-                    ev = _date.fromisoformat(event_date)
-                    dl = _date.fromisoformat(str(value))
-                    if not 0 <= (ev - dl).days <= 270:
-                        continue
-                except (ValueError, TypeError):
-                    pass
 
         # Validate price is a positive number, cast to int (DB column is integer)
         if field in ("price_from", "price_to"):

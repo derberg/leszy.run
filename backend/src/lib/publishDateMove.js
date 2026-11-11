@@ -1,3 +1,5 @@
+import { plausibleDeadline } from './registrationDeadline.js'
+
 // When does run-publish move an existing calendar_events row to the date its
 // scraper_all row now carries?
 //
@@ -89,15 +91,16 @@ function lockedOn(ce, field) {
  * The registration deadline of a row that moves. The old deadline belongs to
  * the old date (Kluki moved from 2026-09-27 to 2026-11-08 and kept 2026-09-20,
  * which the public page shows and the deadline_soon notice reads), so it
- * follows the source: the scraper_all row's deadline when it has one on or
- * before the new date, otherwise none. A blank is honest; a stale deadline
+ * follows the source: the scraper_all row's deadline when it is plausible
+ * for the new date (registrationDeadline.js: on it or up to 120 days before),
+ * otherwise none. A blank is honest; a stale deadline
  * tells runners sign-up closed when it may be open. An admin's deadline
  * (locked_fields / community_locked_fields) stays.
  * @returns {null | { write: true, value: string|null } | { write: false, reason: 'locked' }}
  */
 export function deadlineAfterMove(ce, sa, newDate) {
   const fromSource = sa?.registration_deadline || null
-  const value = fromSource && fromSource <= newDate ? fromSource : null
+  const value = plausibleDeadline(fromSource, newDate)
   if ((ce.registration_deadline || null) === value) return null
   if (lockedOn(ce, 'registration_deadline')) return { write: false, reason: 'locked' }
   return { write: true, value }
