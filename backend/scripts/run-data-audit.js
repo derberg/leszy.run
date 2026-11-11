@@ -16,6 +16,7 @@
 
 import { createClient } from '@supabase/supabase-js'
 import { NOT_REGULAMIN, IS_REGULAMIN } from '../src/lib/pickRegulaminUrl.js'
+import { regulaminYear, isStaleRegulaminYear } from './lib/regulaminYear.js'
 
 const asJson = process.argv.includes('--json')
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY)
@@ -78,12 +79,7 @@ async function selectAll(table, columns, applyFilters) {
 // Blachowniańska Leśna Dycha replaced its 2026 regulamin link with the 2025
 // file — and since a re-scrape is authoritative for its own record, we inherit
 // it. Nothing can fix that automatically; surfacing it is the whole point.
-function regulaminYear(url) {
-  if (!url) return null
-  const name = decodeURIComponent(url.split(/[?#]/)[0].split('/').filter(Boolean).pop() || '')
-  const years = [...name.matchAll(/(20[12][0-9])/g)].map((m) => Number(m[1]))
-  return years.length ? Math.max(...years) : null
-}
+// The rule is isStaleRegulaminYear() in ./lib/regulaminYear.js.
 
 function isSuspectRegulamin(url) {
   if (!url) return false
@@ -123,8 +119,8 @@ async function main() {
       if (isSuspectRegulamin(r.regulamin_url)) {
         findings.suspect_regulamin.push({ ...ref, regulamin_url: r.regulamin_url })
       }
-      const docYear = regulaminYear(r.regulamin_url)
-      if (docYear && r.date && docYear < Number(r.date.slice(0, 4))) {
+      if (isStaleRegulaminYear({ url: r.regulamin_url, eventDate: r.date, eventName: r.name })) {
+        const docYear = regulaminYear(r.regulamin_url)
         findings.stale_regulamin_year.push({ ...ref, regulamin_url: r.regulamin_url, docYear })
       }
       if (r.registration_deadline && r.date) {
