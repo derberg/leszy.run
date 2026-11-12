@@ -14,6 +14,8 @@ describe('entryStatusKey (O-01)', () => {
   const table = [
     ['free entry', { status: 'confirmed', paymentStatus: 'free' }, 'free'],
     ['paid entry', { status: 'confirmed', paymentStatus: 'paid' }, 'paid'],
+    ['paid outside the system', { status: 'confirmed', paymentStatus: 'paid', paidOffline: true }, 'paid_offline'],
+    ['a free entry is never offline-paid', { status: 'confirmed', paymentStatus: 'free', paidOffline: true }, 'free'],
     ['awaiting, deadline ahead', { status: 'pending_payment', paymentStatus: 'awaiting', expiresAt: LATER }, 'awaiting'],
     ['awaiting, no deadline known', { status: 'pending_payment', paymentStatus: 'awaiting', expiresAt: null }, 'awaiting'],
     ['deadline passed, job not run yet', { status: 'pending_payment', paymentStatus: 'awaiting', expiresAt: EARLIER }, 'expired'],
@@ -94,4 +96,8 @@ describe('statusLabel (O-02)', () => {
     assert.equal(statusLabel('expired', { autoRefundReason: 'full' }), 'WYGASŁO · ZWROT: BRAK MIEJSC')
     assert.equal(statusLabel('cancelled', { autoRefundReason: 'duplicate' }), 'ANULOWANE')
   })
+})
+
+describe('statusLabel of an entry paid outside the system (OP-9)', () => {
+  it('reads POZA SYSTEMEM', () => assert.equal(statusLabel('paid_offline', { paidAmount: 6000, refunded: 0 }), 'POZA SYSTEMEM'))
 })

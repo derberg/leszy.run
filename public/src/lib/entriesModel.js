@@ -10,8 +10,10 @@ const LIVE = new Set(['confirmed', 'pending_payment'])
 
 const isLive = (row) => LIVE.has(row.status) && row.statusKey !== 'expired'
 
-// What is left of the paid lines, reservations counted as gone.
-const refundable = (row) => (row.paidAmount > 0
+// What is left of the paid lines, reservations counted as gone. Money paid outside the system
+// („poza systemem”) never passed through dpay: nothing of it can be refunded there, and it is no
+// online income.
+const refundable = (row) => (row.paidAmount > 0 && !row.paidOffline
   ? (row.lines ?? []).reduce((sum, line) => sum + line.amount - line.refunded, 0)
   : 0)
 
@@ -26,7 +28,8 @@ const refundable = (row) => (row.paidAmount > 0
  *   one number (Plan 5): `listed` and `capacity` keep the individual competitions (`people`) and
  *   the team competitions (`teams`, whose limit counts teams) apart. `awaiting` is people, and
  *   stays outside `listed` and the limit (P3-R15). `clubIncome` keeps an unconfirmed refund: only
- *   dpay's acceptance proves money left.
+ *   dpay's acceptance proves money left. It is online money only: an order paid outside the system
+ *   is counts.offlineTotal of list-event-registrations (offlineTile).
  */
 export function entryCounts(rows, competitions) {
   const byStatus = {}
@@ -40,7 +43,7 @@ export function entryCounts(rows, competitions) {
       slots.get(row.categoryId).add(row.team?.id ?? row.id)
     }
     if (row.statusKey === 'awaiting') awaitingIn.set(row.categoryId, (awaitingIn.get(row.categoryId) ?? 0) + 1)
-    clubIncome += refundable(row) + (row.paidAmount > 0 ? (row.refundUnconfirmed ?? 0) : 0)
+    clubIncome += refundable(row) + (row.paidAmount > 0 && !row.paidOffline ? (row.refundUnconfirmed ?? 0) : 0)
   }
   const listed = { people: 0, teams: 0 }
   const capacity = { people: 0, teams: 0 }
@@ -76,7 +79,9 @@ export function entryCounts(rows, competitions) {
  *   from 00:00 Warsaw on event_date. `full`: the row's competition has no place left, so the
  *   server refuses a payment reminder (`full`, D6-27). `isCaptain`: the row is a team's captain.
  * @returns {string[]} from edit, remind_payment, extend, remind_consent, consent_office, message,
- *   partner (Plan 7: a live person row, never a team row), transfer (Plan 7, ruling 4: a confirmed
+ *   partner (Plan 7: a live person row, never a team row), mark_paid_offline („Opłacone poza
+ *   systemem”: an unpaid entry of a paid order, pending or expired, its whole order, until the race
+ *   day), offline_note (the note of an order so marked), transfer (Plan 7, ruling 4: a confirmed
  *   adult's own row, a team member's only as captain, until the race day, after close too),
  *   refund, cancel, rename_team, squad
  */
@@ -88,6 +93,11 @@ export function entryActions(row, {
   const canRefund = !raceDay && row.statusKey !== 'transferred' && refundable(row) > 0
   // Not while a refund of the entry waits for dpay: the RPCs refuse refund_pending (V-87).
   const canTransfer = row.status === 'confirmed' && !raceDay && !isTeamRow && row.role !== 'minor' && (!row.team || isCaptain) && !row.refundPending
+  // Unpaid: awaiting payment, or lapsed (statusKey 'expired' with its order still pending or expired).
+  // organizer_mark_paid_offline decides; into a full competition it refuses (`full`), so it is not
+  // offered there, as the payment reminder is not (D6-27).
+  const unpaid = row.statusKey === 'awaiting' || (row.statusKey === 'expired' && (row.status === 'pending_payment' || row.status === 'expired'))
+  const canMarkOffline = unpaid && Boolean(row.orderId) && !raceDay && !full
   return [
     ['edit', live && !closed && !isTeamRow],
     ['remind_payment', awaitingPayment && !full],
@@ -96,6 +106,8 @@ export function entryActions(row, {
     ['consent_office', awaitingConsent(row) && !isTeamRow],
     ['message', live],
     ['partner', live && !isTeamRow],
+    ['mark_paid_offline', canMarkOffline],
+    ['offline_note', row.paidOffline === true && row.status === 'confirmed'],
     ['transfer', canTransfer],
     ['refund', canRefund],
     ['cancel', live],
@@ -219,8 +231,8 @@ export function transferPersonFrom(r) {
 }
 
 /**
- * The status chips, each counting the rows its filter shows. „Do wycofania w pomiarze” only while
- * somebody is to be withdrawn.
+ * The status chips, each counting the rows its filter shows. „Poza systemem” only while some entry
+ * was paid outside the system, „Do wycofania w pomiarze” only while somebody is to be withdrawn.
  * @returns {{ key: string|null, label: string }[]}
  */
 export function statusChips(counts) {
@@ -228,6 +240,7 @@ export function statusChips(counts) {
   return [
     { key: null, label: 'Wszystkie' },
     { key: 'paid', label: `Opłacone · ${n('paid')}` },
+    ...(n('paid_offline') > 0 ? [{ key: 'paid_offline', label: `Poza systemem · ${n('paid_offline')}` }] : []),
     { key: 'awaiting', label: `Czeka na wpłatę · ${n('awaiting')}` },
     ...(n('withdraw_on_host') > 0 ? [{ key: 'withdraw_on_host', label: `Do wycofania w pomiarze · ${n('withdraw_on_host')}` }] : []),
     { key: AWAITING_CONSENT, label: `Czeka na zgody · ${counts.awaitingConsent}` },
@@ -259,6 +272,8 @@ export function actionLabel(action, row, { isTeamRow = false, isCaptain = false 
     case 'squad': return 'Skład drużyny'
     case 'partner': return 'Partner'
     case 'transfer': return 'Przekaż pakiet'
+    case 'mark_paid_offline': return 'Opłacone poza systemem'
+    case 'offline_note': return 'Notatka o wpłacie'
     default: throw new Error(`unknown action: ${action}`)
   }
 }
@@ -293,4 +308,18 @@ export function extendChoices({ expiresAt, closesAt, now = new Date() }) {
     if (c.until) latest = c.until
   }
   return choices
+}
+
+/**
+ * The line under „WPŁYWY DLA KLUBU”: money the organizer took outside LESZY.RUN, never added to the
+ * tile's online income. Its parts, each kept on one line by the tile, read „poza systemem: 200,00 zł
+ * (1 zgłoszenie)” joined with spaces; null when there is none.
+ * @param {{ offlineTotal?: number, offlineOrders?: number }} counts list-event-registrations' counts
+ * @param {(grosze: number) => string} formatPln
+ * @returns {string[]|null}
+ */
+export function offlineIncomeNote(counts, formatPln) {
+  const n = counts?.offlineOrders ?? 0
+  if (!(n > 0)) return null
+  return ['poza systemem:', formatPln(counts.offlineTotal ?? 0), `(${n} ${pluralPl(n, 'zgłoszenie', 'zgłoszenia', 'zgłoszeń')})`]
 }

@@ -1063,7 +1063,7 @@ test('T-43 list-event-registrations: one team, size 4, consentAccepted 3, the ca
   assert.equal(r.body.teams.length, 1)
   assert.deepEqual(r.body.teams[0], {
     id: teamId, name: body.teamName, competition: 'Sztafeta', size: 4, consentAccepted: 3,
-    captain: 'Ola Leśna', status: 'confirmed', paymentStatus: 'free', fee: 0, expiresAt: null,
+    captain: 'Ola Leśna', status: 'confirmed', paymentStatus: 'free', paidOffline: false, fee: 0, expiresAt: null,
     // Plan 6: the row the team's ⋯ acts on.
     captainId: r.body.data.find((row) => row.name === 'Ola Leśna').id,
   })

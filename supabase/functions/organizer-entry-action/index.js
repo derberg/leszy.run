@@ -5,7 +5,7 @@ import { logOrganizerAction } from '../_shared/organizer.js'
 import { checkAndIncrement } from '../_shared/throttle.js'
 import { sendEmail } from '../_shared/email.js'
 import { isUuid, loadOrganizerEvent } from '../_shared/registration/organizerEvent.js'
-import { loadOrderView, orderEmailArgs } from '../_shared/registration/orderFlow.js'
+import { loadOrderView, orderEmailArgs, settleConfirmOutcome } from '../_shared/registration/orderFlow.js'
 import { paymentReminderEmail } from '../_shared/registration/emails.js'
 import { issueConsentRequests, publicSite } from '../_shared/registration/consentRequests.js'
 import { validatePerson } from '../_shared/registration/person.js'
@@ -28,7 +28,11 @@ const ORGANIZER_PEOPLE_PER_DAY = 100
 // Online payment stops an hour before closes_at (spec 14.10, create_order's paying_closed).
 const PAYING_CLOSES_BEFORE_MS = 3600_000
 const FIELD_MESSAGE = 'Sprawdź to pole.'
-const ACTIONS = ['extend', 'remind_payment', 'cancel', 'edit', 'rename_team', 'partner', 'transfer']
+const ACTIONS = ['extend', 'remind_payment', 'cancel', 'edit', 'rename_team', 'partner', 'transfer', 'mark_paid_offline', 'offline_note']
+// The order actions: the target is an order, named directly or through one of its registrations.
+const ORDER_ACTIONS = new Set(['extend', 'remind_payment', 'mark_paid_offline', 'offline_note'])
+// „Opłacone poza systemem”: the club's own note on the order (orders.offline_note's CHECK).
+const OFFLINE_NOTE_MAX = 300
 // The fields „Edytuj dane” may change (ruling 7). Never the e-mail: the one-start key and the account.
 const EDITABLE = ['firstName', 'lastName', 'birthDate', 'gender', 'phone', 'city', 'club', 'nationality', 'iceName', 'icePhone']
 
@@ -56,7 +60,22 @@ const REFUSALS = {
   team_name_taken: [409, 'Ta nazwa drużyny jest już zajęta.'],
   team_inactive: [409, 'To zgłoszenie nie jest już aktywne.'],
   invalid_partner: [422, 'Nieznany partner.'],
+  invalid_note: [422, `Wpisz notatkę (do ${OFFLINE_NOTE_MAX} znaków).`],
+  free: [409, 'To zgłoszenie jest bezpłatne.'],
+  erased: [409, 'Dane tego zgłoszenia zostały usunięte.'],
+  race_day: [409, 'Od dnia zawodów nie można już oznaczyć wpłaty.'],
+  unavailable: [409, 'Konkurencja jest ukryta albo wydarzenie nie jest opublikowane.'],
+  voucher: [409, 'Kod rabatowy z tego zamówienia został już wykorzystany.'],
+  stock: [409, 'Dodatku z tego zamówienia nie ma już w magazynie.'],
+  not_offline: [409, 'To zamówienie nie jest opłacone poza systemem.'],
   not_found: [404, NOT_FOUND.error],
+}
+
+/** The note as stored (trimmed), or null when it is empty or too long. */
+function offlineNote(value) {
+  if (typeof value !== 'string') return null
+  const note = value.trim()
+  return note.length >= 1 && note.length <= OFFLINE_NOTE_MAX ? note : null
 }
 
 /** A refusal by code. Every 422 carries `fields` (field → message), so the dialog marks the field. */
@@ -89,7 +108,7 @@ async function targetOf(admin, action, body) {
     const team = await single(admin.from('teams').select('id, event_id').eq('id', body.teamId).maybeSingle())
     return team && { eventId: team.event_id, teamId: team.id }
   }
-  if (action === 'extend' || action === 'remind_payment') {
+  if (ORDER_ACTIONS.has(action)) {
     let orderId = body.orderId
     if (!isUuid(orderId) && isUuid(body.registrationId)) {
       const reg = await single(admin.from('registrations').select('order_id').eq('id', body.registrationId).maybeSingle())
@@ -185,6 +204,16 @@ async function checkEdit(admin, settings, registrationId, fields) {
 //                   of the data, and „Pakiet przekazany” to the old holder (ruling N-1: never the new holder's name
 //                   or address). 422 invalid_person with `fields`, 409 race_day / recipient_minor /
 //                   price_differs / duplicate / pending_elsewhere / not_transferable / gone / …
+//   mark_paid_offline { orderId | registrationId, note } → 200 { data: { outcome, registrations, emailed } }
+//                   „Opłacone poza systemem”: organizer_mark_paid_offline confirms the whole order at
+//                   its frozen total, as a dpay payment would (slots all or none, an expired order's
+//                   uses and stock again), until 00:00 Warsaw on the race day; then the normal
+//                   confirmation e-mail and consent requests (settleConfirmOutcome). The note (1..300
+//                   characters) stays on the order and never reaches the runner, the audit or a log.
+//                   422 invalid_note with `fields: { note }`; 409 paid / cancelled / free / erased /
+//                   payment_received / race_day / unavailable / duplicate / full / voucher / stock.
+//   offline_note    { orderId | registrationId, note }  → 200 { data: { note } }
+//                   Changes that note. 409 not_offline for an order not marked; 422 invalid_note.
 // The owner or an admin of the event's club: a member 403, an outsider or a disabled club 404, an
 // unknown target 404. Every change writes one organizer_actions row naming its target; no personal
 // value goes into the payload or a log.
@@ -347,6 +376,41 @@ Deno.serve(async (req) => {
       return json({
         data: { registrationId: data.registrationId, consentState: 'awaiting', hostWithdraw, consentRequestSent, holderNotified },
       }, 200, req)
+    }
+
+    if (action === 'mark_paid_offline' || action === 'offline_note') {
+      const note = offlineNote(body.note)
+      if (!note) return refuse(req, 'invalid_note', { note: REFUSALS.invalid_note[1] })
+      if (action === 'offline_note') {
+        const { data, error } = await admin.from('orders').update({ offline_note: note })
+          .eq('id', target.orderId).not('paid_offline_at', 'is', null).select('id')
+        if (error) throw error
+        if (!data?.length) return refuse(req, 'not_offline')
+        // The note is the club's text and may name people: ids only in the audit.
+        await log('offline_note_edited', target.orderId)
+        return json({ data: { note } }, 200, req)
+      }
+      const { data, error } = await admin.rpc('organizer_mark_paid_offline', {
+        p_order_id: target.orderId, p_actor: actor, p_note: note,
+      })
+      if (error) return refusalOrThrow(req, error, () => ({ note: REFUSALS.invalid_note[1] }))
+      const registrations = data?.registrations ?? []
+      // The order is paid in the database: what follows never turns that into a 500. The confirmation
+      // is claimed on the order (a failure is re-sent by registration-jobs), the consent requests are
+      // issued once each (the job issues a missing one).
+      let emailed = false
+      try {
+        const settled = await settleConfirmOutcome(admin, null, { outcome: data?.outcome, orderId: target.orderId })
+        emailed = settled?.emailed === true
+      } catch (err) {
+        console.error('organizer-entry-action: offline confirmation follow-up failed:', target.orderId, err?.message)
+      }
+      try {
+        await log('order_marked_paid_offline', target.orderId, { registrations, outcome: data?.outcome ?? null })
+      } catch (err) {
+        console.error('organizer-entry-action: offline mark not logged:', target.orderId, err?.message)
+      }
+      return json({ data: { outcome: data?.outcome ?? null, registrations, emailed } }, 200, req)
     }
 
     // rename_team

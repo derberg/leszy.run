@@ -6,8 +6,8 @@ import { missingDetailsText } from '@registration/memberDetails.js'
 import { callFunction } from '../../../lib/auth.js'
 import { downloadCsv } from '../../../lib/csvDownload.js'
 import {
-  AWAITING_CONSENT, competitionChips, entryActions, entryCounts, filterEntries, listedTile, noPlacesForAwaiting, partnerChips,
-  statusChips,
+  AWAITING_CONSENT, competitionChips, entryActions, entryCounts, filterEntries, listedTile, noPlacesForAwaiting, offlineIncomeNote,
+  partnerChips, statusChips,
 } from '../../../lib/entriesModel.js'
 import { teamStatusLabel } from '../../../lib/teamPage.js'
 import { btnGhost, btnPrimary } from '../settingsUi.js'
@@ -16,6 +16,7 @@ import CancelDialog from './entries/CancelDialog.jsx'
 import EditEntryDialog from './entries/EditEntryDialog.jsx'
 import ExtendDialog from './entries/ExtendDialog.jsx'
 import MessageDialog from './entries/MessageDialog.jsx'
+import OfflinePaymentDialog from './entries/OfflinePaymentDialog.jsx'
 import PartnerDialog from './entries/PartnerDialog.jsx'
 import RefundDialog from './entries/RefundDialog.jsx'
 import RenameTeamDialog from './entries/RenameTeamDialog.jsx'
@@ -33,7 +34,10 @@ import TransferDialog from './entries/TransferDialog.jsx'
 // dialog reads its row fresh from the list and gives the focus back to the ⋯ when it closes.
 // Plan 7 adds the partner (organizer-only, V-38): a „Partner” column and the „Partnerzy” chips
 // while the event has partners, ⋯ „Partner” (PartnerDialog) and ⋯ „Przekaż pakiet”
-// (TransferDialog, the organizer's transfer, until the race day).
+// (TransferDialog, the organizer's transfer, until the race day). ⋯ „Opłacone poza systemem”
+// (OfflinePaymentDialog) confirms an unpaid order the club was paid for outside LESZY.RUN: its rows
+// read „POZA SYSTEMEM” with the club's note under it, and its money stays out of the online income
+// („poza systemem: …” under the WPŁYWY tile).
 
 const LIVE = new Set(['confirmed', 'pending_payment'])
 // Online payment, and with it the reminder and the extension, stops an hour before closes_at
@@ -42,12 +46,27 @@ const PAYING_CLOSES_BEFORE_MS = 3600_000
 
 const STATUS_COLOUR = {
   paid: 'text-apex-yellow',
+  paid_offline: 'text-apex-yellow',
   free: 'text-apex-yellow',
   awaiting: 'text-apex-cyan',
   refund_unconfirmed: 'text-apex-red',
   withdraw_on_host: 'text-apex-red',
 }
 const statusColour = (key) => STATUS_COLOUR[key] ?? 'text-apex-muted'
+
+const teamLabel = (t) => (t.paidOffline ? 'POZA SYSTEMEM' : teamStatusLabel(t.paymentStatus))
+
+/** The club's note on an order paid outside the system, under the status (organizer only). */
+function OfflineNote({ r }) {
+  if (!r.paidOffline || !r.offlineNote) return null
+  return (
+    // Two lines at most, so a long note never widens the table; the whole of it in the tooltip.
+    <span className="max-w-[260px] line-clamp-2 font-sans text-xs text-apex-muted [overflow-wrap:anywhere]" title={r.offlineNote}
+      data-testid="registration-offline-note">
+      {r.offlineNote}
+    </span>
+  )
+}
 
 const teamColour = (t) => (t.paymentStatus === 'paid' || t.paymentStatus === 'free' ? 'text-apex-yellow'
   : t.paymentStatus === 'awaiting' ? 'text-apex-cyan' : 'text-apex-muted')
@@ -153,6 +172,21 @@ function Tile({ label, value, extra, note = null, tone = 'text-apex-text-bright'
   )
 }
 
+/** Under the income tile: dpay's commission, then the money taken outside the system, each on its line. */
+function incomeNote(dpayFee, offline) {
+  if (!(dpayFee > 0) && !offline) return null
+  return (
+    <>
+      {dpayFee > 0 && <span className="block">prowizja dpay <span className="whitespace-nowrap">{formatPln(dpayFee)}</span></span>}
+      {offline && (
+        <span className="block" data-testid="tile-income-offline">
+          {offline.map((part, i) => <Fragment key={part}>{i > 0 && ' '}<span className="whitespace-nowrap">{part}</span></Fragment>)}
+        </span>
+      )}
+    </>
+  )
+}
+
 function Chips({ label, chips, selected, onPick, testId }) {
   return (
     <div role="group" aria-label={label} className="flex flex-wrap gap-1.5" data-testid={testId}>
@@ -228,6 +262,7 @@ function PersonCard({ r, ctx, testId = 'registration-card' }) {
         <span className={statusColour(r.statusKey)} data-testid="registration-status">{statusLabel(r.statusKey, r)}</span>
         <span className={amountColour}>{amount}</span>
       </div>
+      <OfflineNote r={r} />
       <ConsentLine r={r} />
       {ctx.hasPartners && r.partnerName && (
         <span className="font-mono text-xs text-apex-muted [overflow-wrap:anywhere]" data-testid="registration-partner">PARTNER: {r.partnerName}</span>
@@ -255,9 +290,10 @@ function TeamCard({ item, ctx, open, onToggle, toggles }) {
         </div>
         <span className="font-mono text-xs uppercase text-apex-muted">{t.competition}</span>
         <div className="flex flex-wrap gap-x-4 gap-y-1 font-mono text-sm">
-          <span className={teamColour(t)}>{teamStatusLabel(t.paymentStatus)}</span>
+          <span className={teamColour(t)} data-testid="team-status">{teamLabel(t)}</span>
           {t.fee > 0 && <span className="text-apex-text-bright">{formatPln(t.fee)}</span>}
         </div>
+        {captain && <OfflineNote r={captain} />}
       </div>
       {open && (
         <ul className="flex flex-col gap-1.5 pl-3 border-l-2 border-apex-border-mid">
@@ -288,6 +324,7 @@ function PersonTableRow({ r, ctx, member = false }) {
         <span className={`block font-mono text-xs whitespace-nowrap ${statusColour(r.statusKey)}`} data-testid="registration-status">
           {statusLabel(r.statusKey, r)}
         </span>
+        <OfflineNote r={r} />
         <ConsentLine r={r} />
       </td>
       <td className={`${td} font-mono whitespace-nowrap ${member ? 'text-apex-muted' : amountColour}`} data-testid="registration-payment">
@@ -321,7 +358,10 @@ function TeamTableRows({ item, ctx, open, onToggle, toggles }) {
           </div>
         </td>
         <td className={td}>{t.competition}</td>
-        <td className={`${td} font-mono text-xs whitespace-nowrap ${teamColour(t)}`}>{teamStatusLabel(t.paymentStatus)}</td>
+        <td className={td}>
+          <span className={`block font-mono text-xs whitespace-nowrap ${teamColour(t)}`} data-testid="team-status">{teamLabel(t)}</span>
+          {captain && <OfflineNote r={captain} />}
+        </td>
         <td className={`${td} font-mono whitespace-nowrap text-apex-text-bright`}>{t.fee > 0 ? formatPln(t.fee) : '—'}</td>
         {ctx.hasPartners && <td className={td} />}
         <td className="px-3 py-2 text-right">
@@ -333,7 +373,7 @@ function TeamTableRows({ item, ctx, open, onToggle, toggles }) {
   )
 }
 
-const EMPTY = { status: 'loading', rows: [], teams: [], competitions: [], event: null, partners: [], dpayFee: 0 }
+const EMPTY = { status: 'loading', rows: [], teams: [], competitions: [], event: null, partners: [], dpayFee: 0, offline: null }
 
 export default function Zgloszenia({
   eventId, clubName = null, contactEmail = null, formFields = null, ageGroups = [], reckoning = 'race_day', charity = false,
@@ -358,6 +398,7 @@ export default function Zgloszenia({
       setState({
         status: 'ok', rows: r.data ?? [], teams: r.teams ?? [], competitions: r.competitions ?? [], event: r.event ?? null,
         partners: r.partners ?? [], dpayFee: r.counts?.dpayFee ?? 0,
+        offline: { offlineTotal: r.counts?.offlineTotal ?? 0, offlineOrders: r.counts?.offlineOrders ?? 0 },
       })
     } catch {
       setState((s) => (s.status === 'ok' ? s : { ...EMPTY, status: 'error' }))
@@ -481,6 +522,18 @@ export default function Zgloszenia({
     switch (dialog.kind) {
       case 'refund': return <RefundDialog row={row} team={captainOf} charity={charity} {...common} />
       case 'extend': return <ExtendDialog row={row} closesAt={event.closesAt ?? null} {...common} />
+      case 'mark_paid_offline':
+      case 'offline_note': {
+        // The mark confirms the whole order (a team's: the whole team): the dialog names everyone in it.
+        const orderRows = row.orderId
+          ? state.rows.filter((r) => r.orderId === row.orderId && (r.status === 'pending_payment' || r.status === 'expired'))
+          : [row]
+        const teamOf = captainOf ?? (row.team ? state.teams.find((t) => t.id === row.team.id) ?? null : null)
+        return (
+          <OfflinePaymentDialog row={row} team={teamOf} orderRows={orderRows.length ? orderRows : [row]}
+            edit={dialog.kind === 'offline_note'} {...common} />
+        )
+      }
       case 'cancel': {
         // An unpaid entry cancels its whole order (D6-24): the dialog names everyone in it (ruling 6).
         const orderRows = row.statusKey === 'awaiting' && row.orderId
@@ -523,7 +576,7 @@ export default function Zgloszenia({
           tone={counts.awaitingConsent > 0 ? 'text-apex-cyan' : 'text-apex-text-bright'} />
         {/* Gross: LESZY.RUN pays dpay's commission and invoices the club for it (§8), so it is shown, never subtracted. */}
         <Tile testId="tile-income" label="WPŁYWY DLA KLUBU" value={formatPln(counts.clubIncome)}
-          note={state.dpayFee > 0 ? <>prowizja dpay <span className="whitespace-nowrap">{formatPln(state.dpayFee)}</span></> : null} />
+          note={incomeNote(state.dpayFee, offlineIncomeNote(state.offline, formatPln))} />
       </div>
 
       <Chips testId="competition-chips" label="Konkurencja" chips={competitionChips(state.rows, state.competitions, state.teams)}

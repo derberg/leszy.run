@@ -53,7 +53,7 @@ const GUARDIAN_COLUMNS = 'id, event_id, status, first_name, last_name, guardian_
 // payment_events (the raw dpay log) is not: it holds the same transaction ids and amounts, and
 // the payer address only as a SHA-256.
 const ORDER_COLUMNS = 'id, status, buyer_email, buyer_name, entry_total, extras_total, donation, '
-  + 'total, created_at, expires_at, paid_at, paid_transaction_id, cancelled_at, cancelled_reason, '
+  + 'total, created_at, expires_at, paid_at, paid_transaction_id, paid_offline_at, cancelled_at, cancelled_reason, '
   + 'registration_settings(name, event_date), '
   + 'order_lines(kind, registration_id, qty, amount, refunded, tier_label, tier_ends_on), '
   + 'payment_attempts(id, dpay_transaction_id, grosze, status, created_at, paid_at), '
@@ -76,6 +76,8 @@ function orderView(o) {
     expires_at: o.expires_at,
     paid_at: o.paid_at,
     paid_transaction_id: o.paid_transaction_id,
+    // Marked „opłacone poza systemem” by the organizer. The club's note on it is the club's text, not exported.
+    paid_offline: o.paid_offline_at != null,
     cancelled_at: o.cancelled_at,
     cancelled_reason: o.cancelled_reason,
     lines: o.order_lines ?? [],

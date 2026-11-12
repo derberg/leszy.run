@@ -296,6 +296,8 @@ export function orderEmailArgs(view) {
       total: order.total,
       paidTransactionId: order.paid_transaction_id,
       paidAt: order.paid_at,
+      // „Opłacone poza systemem” (B3): the e-mails say the organizer confirmed it. Never the note.
+      paidOffline: order.paid_offline_at != null,
       expiresAt: order.expires_at,
     },
     lines,

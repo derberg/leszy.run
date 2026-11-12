@@ -468,3 +468,22 @@ test('TP-15 squadRemovedEmail to a named parent: the child left the squad, no co
     assert.ok(!part.includes('nie jesteś już'))
   }
 })
+
+test('OP-1 an order the organizer marked paid outside the system: a registration confirmation, the total and „u organizatora”, never dpay or a payment LESZY.RUN took', () => {
+  const offline = { ...order, paidTransactionId: null, paidOffline: true }
+  const m = orderConfirmationEmail({ event, order: offline, lines, organizer })
+  assert.equal(m.subject, 'Zapis potwierdzony — Bieg Leszego <2026>')
+  for (const part of [m.text, m.html]) {
+    assert.match(part, /zostało potwierdzone przez organizatora/)
+    assert.match(part, /Płatność: (<strong>)?u organizatora \(Klub ZATYRANI\)/)
+    assert.match(part, new RegExp(formatPln(6000).replace(/\s/g, '\\s')))
+    assert.doesNotMatch(part, /dpay|przyjęta|w imieniu i na rzecz|paragonem/)
+  }
+  const team = teamConfirmationEmail({
+    event, team: { name: 'Leśne Dziki', competition: 'Sztafeta' },
+    members: [{ firstName: 'Ola', lastName: 'Leśna', role: 'self', consentState: 'accepted' }],
+    link: 'https://www.leszy.run/events/x/druzyna/t', paid: { order: offline, organizer },
+  })
+  assert.match(team.text, /Płatność: u organizatora/)
+  assert.doesNotMatch(team.text, /dpay|w imieniu i na rzecz/)
+})

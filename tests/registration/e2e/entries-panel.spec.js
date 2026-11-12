@@ -387,7 +387,8 @@ test.describe('the entries panel dialogs (6b)', () => {
     await page.reload()
     await page.getByRole('button', { name: 'Akcje — Piotr Zieliński' }).click()
     const labels = await page.getByRole('menu').getByRole('menuitem').allTextContents()
-    expect(labels).toEqual(['Edytuj dane', 'Napisz do zawodnika', 'Anuluj nieopłacone zgłoszenie'])
+    // „Opłacone poza systemem” stays: the bib office takes cash until the race day.
+    expect(labels).toEqual(['Edytuj dane', 'Napisz do zawodnika', 'Opłacone poza systemem', 'Anuluj nieopłacone zgłoszenie'])
   })
 
   test('O-57 two choices a day apart; Shift+Tab from the checked one stays in the dialog', async ({ actors }) => {
@@ -660,5 +661,56 @@ test.describe('the entries panel dialogs (6b)', () => {
     await expect(page.getByTestId('entries-notice')).toHaveText('Nowa nazwa drużyny: Leśne Wilki.')
     await expect(page.getByRole('button', { name: 'Akcje — Leśne Wilki' })).toBeFocused()
     expect(trigger).toBeTruthy()
+  })
+
+  test('OP-14 „Opłacone poza systemem”: the note is required, the row reads POZA SYSTEMEM with the note, the income tile keeps it apart, „Notatka o wpłacie” edits it; at 390 px nothing wraps; the buyer\'s order page says „Opłacone u organizatora”', async ({ actors, browser }) => {
+    const e = await createPublishedPaidEvent(owner, { competitions: [{ ...BIEG9, capacity: 10 }], prices: { 'Bieg 9 km': 6000 } })
+    await paidOrderOk(e, { people: [person(runnerEmail('kowalski'), { firstName: 'Jan', lastName: 'Kowalski' })] })
+    const piotrEmail = runnerEmail('zielinski')
+    const piotr = await orderOk(e, { people: [person(piotrEmail, { firstName: 'Piotr', lastName: 'Zieliński' })] })
+
+    const page = await open(actors.owner, 1440, zgloszenia(e.eventId))
+    const trigger = await choose(page, 'Piotr Zieliński', 'Opłacone poza systemem')
+    const dialog = page.getByRole('dialog', { name: 'Opłacone poza systemem' })
+    await expect(dialog.getByTestId('offline-total')).toHaveText('RAZEM · 60,00 zł')
+    const save = dialog.getByRole('button', { name: 'Oznacz jako opłacone' })
+    await expect(save).toBeDisabled()
+    await dialog.getByLabel('Notatka').fill('gotówka w biurze, Ania')
+    await save.click()
+    await expect(dialog).toHaveCount(0)
+    await expect(page.getByTestId('entries-notice')).toHaveText('Opłacone poza systemem — Piotr Zieliński.')
+    await expect(trigger).toBeFocused()
+    const row = personRows(page).filter({ hasText: 'Piotr Zieliński' })
+    await expect(row.getByTestId('registration-status')).toHaveText('POZA SYSTEMEM')
+    await expect(row.getByTestId('registration-offline-note')).toHaveText('gotówka w biurze, Ania')
+    // Online income is Jan's 60 zł only; the cash is the line under it.
+    await expect(page.getByTestId('tile-income')).toContainText('60,00 zł')
+    await expect(page.getByTestId('tile-income-offline')).toHaveText('poza systemem: 60,00 zł (1 zgłoszenie)')
+    await expect(page.getByTestId('status-chips').getByRole('button', { name: 'Poza systemem · 1' })).toBeVisible()
+    expect((await orderOf(piotr.orderId)).offline_note).toBe('gotówka w biurze, Ania')
+
+    await choose(page, 'Piotr Zieliński', 'Notatka o wpłacie')
+    const edit = page.getByRole('dialog', { name: 'Notatka o wpłacie' })
+    await expect(edit.getByLabel('Notatka')).toHaveValue('gotówka w biurze, Ania')
+    await edit.getByLabel('Notatka').fill('zapłacone 12.11')
+    await edit.getByRole('button', { name: 'Zapisz' }).click()
+    await expect(row.getByTestId('registration-offline-note')).toHaveText('zapłacone 12.11')
+
+    const phone = await open(actors.owner, 390, zgloszenia(e.eventId))
+    await phone.getByTestId('registrations-cards').getByRole('button', { name: 'Akcje — Piotr Zieliński' }).click()
+    await phone.getByRole('menuitem', { name: 'Notatka o wpłacie', exact: true }).click()
+    const small = phone.getByRole('dialog', { name: 'Notatka o wpłacie' })
+    const wrapped = await small.locator('button:visible').evaluateAll((els) => els.filter((el) => el.scrollWidth > el.clientWidth + 1
+      || el.getBoundingClientRect().height > 60).map((el) => el.textContent))
+    expect(wrapped).toEqual([])
+    expect(await phone.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
+
+    const buyer = await browser.newContext()
+    const { token } = await sessionFor(piotrEmail)
+    await buyer.addCookies([{ name: 'leszy_session', value: token, domain: 'localhost', path: '/', httpOnly: true, secure: false, sameSite: 'Lax' }])
+    const orderPage = await open(buyer, 390, `/zamowienie/${piotr.orderId}`)
+    await expect(orderPage.getByTestId('order-paid-label')).toHaveText('Opłacone u organizatora · 60,00 zł')
+    await expect(orderPage.getByText('zapłacone 12.11')).toHaveCount(0)
+    await buyer.close()
   })
 })

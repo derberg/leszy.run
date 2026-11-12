@@ -2,7 +2,7 @@ import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
 import { entriesToCsv, vouchersToCsv } from '../../../supabase/functions/_shared/registration/entriesCsv.js'
 
-const HEADER = 'Nr;Imię;Nazwisko;Data urodzenia;Płeć;Kategoria;Konkurencja;Drużyna;Klub;Miejscowość;Narodowość;E-mail;Telefon;Kontakt ICE;Telefon ICE;Opiekun;E-mail opiekuna;Status;Wpłata (zł);Zwrócono (zł);Regulamin;Partner;Kod rabatowy;Data zapisu;Brak danych'
+const HEADER = 'Nr;Imię;Nazwisko;Data urodzenia;Płeć;Kategoria;Konkurencja;Drużyna;Klub;Miejscowość;Narodowość;E-mail;Telefon;Kontakt ICE;Telefon ICE;Opiekun;E-mail opiekuna;Status;Wpłata (zł);Zwrócono (zł);Regulamin;Partner;Kod rabatowy;Data zapisu;Brak danych;Notatka o wpłacie'
 const quotedHeader = HEADER.split(';').map((h) => `"${h}"`).join(';')
 
 const ROW = {
@@ -26,14 +26,14 @@ describe('entriesToCsv (O-04)', () => {
     assert.deepEqual(cellsOf(lines[1]), [
       '214', 'Anna', 'Wiśniewska', '1990-05-01', 'K', 'K30–39', 'Bieg 9 km', 'Leśne Dziki', 'ZATYRANI', 'Zabrze', 'PL',
       'anna@example.pl', '500600700', 'Jan', '500600701', '', '', 'OPŁACONE', '60,50', '0,00', 'zaakceptowany', '', '',
-      '2026-10-21 00:30', '',
+      '2026-10-21 00:30', '', '',
     ])
   })
 
   it('names what a team member still owes, and a member with no phone yet exports', () => {
     const owing = { ...ROW, phone: null, club: null, iceName: null, icePhone: null, missingFields: ['phone', 'iceName', 'icePhone'] }
     const cells = cellsOf(entriesToCsv([owing]).split('\r\n').at(-1))
-    assert.equal(cells.at(-1), 'telefon, kontakt ICE')
+    assert.equal(cells.at(-2), 'telefon, kontakt ICE')
     assert.equal(cells[12], '')
   })
 
@@ -137,5 +137,15 @@ describe('vouchersToCsv (Plan 7, organizer-vouchers export)', () => {
     assert.deepEqual(cells.slice(4), ['', '', ''])
     const bad = cellsOf(vouchersToCsv([{ ...V, partner: { name: '=HYPERLINK(1)' }, note: '@cmd' }]).split('\r\n')[1])
     assert.deepEqual(bad.slice(5), ["'=HYPERLINK(1)", "'@cmd"])
+  })
+})
+
+describe('„Opłacone poza systemem” in the CSV (OP-9)', () => {
+  it('Status says POZA SYSTEMEM, the amount stays, and the club\'s note is the last column, defused', () => {
+    const row = { ...ROW, statusKey: 'paid_offline', paidOffline: true, offlineNote: '=gotówka; przyjęła "Ania"' }
+    const cells = cellsOf(entriesToCsv([row]).slice(1).split('\r\n')[1])
+    assert.equal(cells[17], 'POZA SYSTEMEM')
+    assert.equal(cells[18], '60,50')
+    assert.equal(cells.at(-1), "'=gotówka; przyjęła \"\"Ania\"\"")
   })
 })

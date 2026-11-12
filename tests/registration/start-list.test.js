@@ -214,7 +214,7 @@ test('P-45 list-event-registrations: paymentStatus and expiresAt per row, counts
   const r = await callFn('list-event-registrations', owner, { eventId: event.eventId })
   assert.equal(r.status, 200, JSON.stringify(r.body))
   const left = await placesLeft(event.eventId)
-  assert.deepEqual(r.body.counts, { paid: 4, awaiting: 1, free: 1, placesLeft: left, teamPlacesLeft: null, awaitingConsent: 0, dpayFee: PAID_FEES })
+  assert.deepEqual(r.body.counts, { paid: 4, awaiting: 1, free: 1, placesLeft: left, teamPlacesLeft: null, awaitingConsent: 0, dpayFee: PAID_FEES, offlineTotal: 0, offlineOrders: 0 })
   const { data: caps } = await db().from('competitions').select('capacity').eq('event_id', event.eventId)
   assert.equal(left, caps.reduce((n, c) => n + c.capacity, 0) - 5, 'the 5 confirmed entries, not the awaiting one')
   const byName = Object.fromEntries(r.body.data.map((x) => [x.name, x]))
@@ -229,7 +229,7 @@ test('P-45 list-event-registrations: paymentStatus and expiresAt per row, counts
   assert.equal(byName['Damian Anulowany'].paymentStatus, null)
   // Plan 6 (D6-11): the organizer sees each entry's own address, for the panel and the CSV.
   assert.equal(byName['Anna Zielna'].email, people.paid.email)
-  assert.deepEqual((await callFn('list-event-registrations', clubAdmin, { eventId: event.eventId })).body.counts, { paid: 4, awaiting: 1, free: 1, placesLeft: left, teamPlacesLeft: null, awaitingConsent: 0, dpayFee: PAID_FEES })
+  assert.deepEqual((await callFn('list-event-registrations', clubAdmin, { eventId: event.eventId })).body.counts, { paid: 4, awaiting: 1, free: 1, placesLeft: left, teamPlacesLeft: null, awaitingConsent: 0, dpayFee: PAID_FEES, offlineTotal: 0, offlineOrders: 0 })
 })
 
 test('P-45 a free event: list-event-registrations and the start list count its entries as free', async () => {
@@ -245,7 +245,7 @@ test('P-45 a free event: list-event-registrations and the start list count its e
   })
   assert.equal(reg.status, 201, JSON.stringify(reg.body))
   const r = await callFn('list-event-registrations', owner, { eventId: event.eventId })
-  assert.deepEqual(r.body.counts, { paid: 0, awaiting: 0, free: 1, placesLeft: await placesLeft(event.eventId), teamPlacesLeft: null, awaitingConsent: 0, dpayFee: 0 })
+  assert.deepEqual(r.body.counts, { paid: 0, awaiting: 0, free: 1, placesLeft: await placesLeft(event.eventId), teamPlacesLeft: null, awaitingConsent: 0, dpayFee: 0, offlineTotal: 0, offlineOrders: 0 })
   assert.equal(r.body.data[0].paymentStatus, 'free')
   assert.equal(r.body.data[0].expiresAt, null)
 

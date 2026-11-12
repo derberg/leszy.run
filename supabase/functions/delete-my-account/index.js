@@ -482,7 +482,8 @@ Deno.serve(async (req) => {
         const { error: cErr } = await supabaseAdmin.rpc('cancel_order', { p_order_id: o.id, p_reason: 'account_deleted' })
         if (cErr) console.error('delete-my-account: cancel_order failed:', cErr.message)
       }
-      const { error: ordErr } = await supabaseAdmin.from('orders').update({ buyer_email: null, buyer_name: null }).in('id', ids)
+      // The club's note on an order paid outside the system („gotówka, odebrała Ania”) may name the buyer.
+      const { error: ordErr } = await supabaseAdmin.from('orders').update({ buyer_email: null, buyer_name: null, offline_note: null }).in('id', ids)
       if (ordErr) console.error('delete-my-account: orders buyer_email cleanup failed:', ordErr.message)
       const { data: alerts, error: alErr } = await supabaseAdmin.from('operator_alerts')
         .select('id, payload').in('order_id', ids)

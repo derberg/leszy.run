@@ -642,6 +642,8 @@ test('O-30 M6 a list row carries exactly the D6-11 key set, so a field added lat
     'partnerId', 'partnerName', 'voucherCode', 'transferTo', 'refundPending',
     // A team member's details still to fill on /zgoda (memberDetails.js)
     'missingFields',
+    // „Opłacone poza systemem” (OP-9): the mark, the club's note and the order's total for the dialog
+    'paidOffline', 'offlineNote', 'orderTotal',
   ].sort())
 })
 
