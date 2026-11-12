@@ -116,7 +116,7 @@ test.describe.serial('a runner pays for „Bieg 9 km” while the organizer and 
     await viewer.goto(`/events/${event.slug}`)
     await viewer.getByTestId('start-list-link').click()
     await expect(viewer).toHaveURL(new RegExp(`/events/${event.slug}/lista$`))
-    await expect(listHeader(viewer)).toHaveText('0 opłaconych')
+    await expect(listHeader(viewer)).toHaveText('0 osób zapisanych')
     await expect(viewer.getByTestId('start-list-empty')).toBeVisible()
 
     const page = await offline(await actors.runner.newPage())
@@ -148,7 +148,7 @@ test.describe.serial('a runner pays for „Bieg 9 km” while the organizer and 
 
     const viewer = await offline(await actors.viewer.newPage())
     await viewer.goto(`/events/${event.slug}/lista`)
-    await expect(listHeader(viewer)).toHaveText('0 opłaconych · +1 czeka na wpłatę')
+    await expect(listHeader(viewer)).toHaveText('0 osób zapisanych · +1 czeka na wpłatę')
     await expect(viewer.getByTestId('list-competition')).toContainText('+1 czeka na wpłatę')
     // Ruling P3-R14: an unpaid entry is never listed by person.
     await expect(viewer.getByTestId('start-list-entry')).toHaveCount(0)
@@ -194,8 +194,8 @@ test.describe.serial('a runner pays for „Bieg 9 km” while the organizer and 
 
     const viewer = await offline(await actors.viewer.newPage())
     await viewer.goto(`/events/${event.slug}/lista`)
-    await expect(listHeader(viewer)).toHaveText('1 opłacone')
-    await expect(viewer.getByTestId('payment-badge')).toHaveText(/opłacone/i)
+    await expect(listHeader(viewer)).toHaveText('1 osoba zapisana')
+    await expect(viewer.getByTestId('start-list')).not.toContainText(/opłac/i)
 
     const org = await offline(await actors.owner.newPage())
     await org.goto(`/klub/zatyrani-test/wydarzenia/${event.eventId}/zgloszenia`)
@@ -284,7 +284,7 @@ test('P-50 an unpaid order expires: „Zgłoszenie wygasło”, the runner leave
 
   const viewer = await offline(await actors.viewer.newPage())
   await viewer.goto(`/events/${event.slug}/lista`)
-  await expect(listHeader(viewer)).toHaveText('0 opłaconych')
+  await expect(listHeader(viewer)).toHaveText('0 osób zapisanych')
   await expect(viewer.getByTestId('start-list-entry')).toHaveCount(0)
   expect(await taken()).toBe(0)
 })

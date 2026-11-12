@@ -8,9 +8,13 @@
 // and the address is what analytics sees.
 //
 // Ruling P3-R14: entries awaiting payment are never listed by person, only
-// counted („+N czeka na wpłatę”), and a minor's town never arrives. An entry
-// is 'paid' (money moved) or 'free' (nothing to pay: a free event or a 0 zł
-// entry); only 'paid' reads „opłacone”. A free event never mentions payment.
+// counted („+N czeka na wpłatę”), and a minor's town never arrives.
+//
+// Whether a confirmed entry was paid or free (a 0 zł entry, a 100 % voucher) is the
+// organizer's to know, never the public's: the list counts paid and free together as
+// „zapisane” and marks no entry. „3 bez opłaty” beside a team list read as three teams
+// that still owed money, when they had used a voucher (II Sztafeta Mikołajów, 2026-11-12).
+// A free event never mentions payment.
 //
 // Ruling P3-R15: the limit counts paid entries only, so „N / limit” and the bar
 // are paid + free; an entry awaiting payment holds no place and is only named
@@ -26,46 +30,41 @@ import { countPl, pluralPl } from './plural.js'
 
 const pct = (n, of) => (of > 0 ? Math.round((n / of) * 1000) / 10 : 0)
 
-const paidText = (n) => countPl(n, ['opłacone', 'opłacone', 'opłaconych'])
-const freeText = (n) => `${n} bez opłaty`
 const awaitingText = (n) => `+${n} ${pluralPl(n, 'czeka', 'czekają', 'czeka')} na wpłatę`
 const registeredText = (n) => countPl(n, ['osoba zapisana', 'osoby zapisane', 'osób zapisanych'])
 const teamsText = (n) => countPl(n, ['drużyna zapisana', 'drużyny zapisane', 'drużyn zapisanych'])
 const sizeText = (n) => countPl(n, ['osoba', 'osoby', 'osób'])
 const unnamedText = (n) => `+${n} ${pluralPl(n, 'czeka', 'czekają', 'czeka')} na potwierdzenie`
+const teamAwaitingText = (n) => `+${countPl(n, ['drużyna', 'drużyny', 'drużyn'])} ${pluralPl(n, 'czeka', 'czekają', 'czeka')} na wpłatę`
+const peopleAwaitingText = (n) => `+${countPl(n, ['osoba', 'osoby', 'osób'])} ${pluralPl(n, 'czeka', 'czekają', 'czeka')} na wpłatę`
 
 const isTeam = (e) => e.kind === 'team'
 const sum = (rows, k) => rows.reduce((n, c) => n + (c[k] ?? 0), 0)
-
-// A paid event's header for a team competition: the unit is in every phrase, so it never reads as
-// people. CLAUDE.md: people and teams are never added into one number.
-const teamPaidText = (n) => countPl(n, ['drużyna opłacona', 'drużyny opłacone', 'drużyn opłaconych'])
-const teamFreeText = (n) => `${countPl(n, ['drużyna', 'drużyny', 'drużyn'])} bez opłaty`
-const teamAwaitingText = (n) => `+${countPl(n, ['drużyna', 'drużyny', 'drużyn'])} ${pluralPl(n, 'czeka', 'czekają', 'czeka')} na wpłatę`
-const peoplePaidText = (n) => countPl(n, ['osoba opłacona', 'osoby opłacone', 'osób opłaconych'])
-const peopleFreeText = (n) => `${countPl(n, ['osoba', 'osoby', 'osób'])} bez opłaty`
-const peopleAwaitingText = (n) => `+${countPl(n, ['osoba', 'osoby', 'osób'])} ${pluralPl(n, 'czeka', 'czekają', 'czeka')} na wpłatę`
+const confirmed = (rows) => sum(rows, 'paid') + sum(rows, 'free')
 
 /**
- * „53 opłacone · 5 bez opłaty · +2 czekają na wpłatę” with no team competition, as before. With
- * one, people (the individual competitions, when there are any) then teams, each phrase with its
- * unit: „2 osoby opłacone · 2 drużyny opłacone · 1 drużyna bez opłaty · +1 drużyna czeka na wpłatę”.
+ * „53 osoby zapisane · +2 czekają na wpłatę” with no team competition. With one, people (when
+ * there is an individual competition) then teams, each phrase with its unit, never added
+ * (CLAUDE.md): „2 osoby zapisane · 3 drużyny zapisane · +1 drużyna czeka na wpłatę”. A free event
+ * has nothing awaiting payment, so it never mentions payment.
  */
-function paidHeader(peopleComps, teamComps) {
-  const part = (rows, [paid, free, awaiting], always) => {
-    const p = sum(rows, 'paid')
-    const f = sum(rows, 'free')
-    const a = sum(rows, 'awaiting')
-    return [p > 0 || always ? paid(p) : null, f > 0 ? free(f) : null, a > 0 ? awaiting(a) : null]
+function listHeader(peopleComps, teamComps) {
+  const people = confirmed(peopleComps)
+  const teams = confirmed(teamComps)
+  const peopleAwaiting = sum(peopleComps, 'awaiting')
+  const teamsAwaiting = sum(teamComps, 'awaiting')
+  if (!teamComps.length) {
+    return [registeredText(people), peopleAwaiting > 0 ? awaitingText(peopleAwaiting) : null].filter(Boolean).join(' · ')
   }
-  if (!teamComps.length) return part(peopleComps, [paidText, freeText, awaitingText], true).filter(Boolean).join(' · ')
   return [
-    ...(peopleComps.length ? part(peopleComps, [peoplePaidText, peopleFreeText, peopleAwaitingText], true) : []),
-    ...part(teamComps, [teamPaidText, teamFreeText, teamAwaitingText], true),
+    peopleComps.length ? registeredText(people) : null,
+    peopleAwaiting > 0 ? peopleAwaitingText(peopleAwaiting) : null,
+    teamsText(teams),
+    teamsAwaiting > 0 ? teamAwaitingText(teamsAwaiting) : null,
   ].filter(Boolean).join(' · ')
 }
 
-function teamEntry(e, paidEvent) {
+function teamEntry(e) {
   const membersText = e.members.join(', ')
   const size = sizeText(e.size)
   const unnamed = Math.max(0, (e.size ?? 0) - e.members.length)
@@ -85,48 +84,33 @@ function teamEntry(e, paidEvent) {
     gender: null,
     where: membersText,
     what: `${e.competition} · ${size}`,
-    badge: paidEvent && e.payment === 'paid' ? 'opłacone' : null,
   }
 }
 
 /**
  * @param {object} snapshot the /api/startlist answer
- * @param {{ paidEvent: boolean }} opts paidEvent: the event's pricingMode is not 'free'
  */
-export function startListView(snapshot, { paidEvent }) {
+export function startListView(snapshot) {
   const comps = snapshot?.competitions ?? []
   const entries = snapshot?.entries ?? []
-  const teamComps = comps.filter((c) => c.kind === 'team')
-  const peopleComps = comps.filter((c) => c.kind !== 'team')
-  const teams = sum(teamComps, 'paid') + sum(teamComps, 'free')
-  const people = sum(peopleComps, 'paid') + sum(peopleComps, 'free')
-  const header = paidEvent
-    ? paidHeader(peopleComps, teamComps)
-    : [people > 0 || teams === 0 ? registeredText(people) : null, teams > 0 ? teamsText(teams) : null].filter(Boolean).join(' · ')
   return {
-    header,
+    header: listHeader(comps.filter((c) => c.kind !== 'team'), comps.filter((c) => c.kind === 'team')),
     competitions: comps.map((c) => {
-      const cPaid = c.paid ?? 0
-      const cFree = c.free ?? 0
-      const cAwaiting = c.awaiting ?? 0
-      const paidPct = Math.min(100, pct(cPaid, c.capacity))
-      const freePct = Math.min(100 - paidPct, pct(cFree, c.capacity))
+      const taken = (c.paid ?? 0) + (c.free ?? 0)
+      const awaiting = c.awaiting ?? 0
       return {
         categoryId: c.categoryId,
         name: c.name,
         label: c.kind === 'team' ? `${c.name} · drużyny` : c.name,
         isKids: c.isKids === true,
-        taken: cPaid + cFree,
+        taken,
         capacity: c.capacity,
-        paidPct,
-        freePct,
-        paidLabel: paidEvent && cPaid > 0 ? paidText(cPaid) : null,
-        freeLabel: paidEvent && cFree > 0 ? freeText(cFree) : null,
-        awaitingLabel: cAwaiting > 0 ? awaitingText(cAwaiting) : null,
+        takenPct: Math.min(100, pct(taken, c.capacity)),
+        awaitingLabel: awaiting > 0 ? awaitingText(awaiting) : null,
       }
     }),
     entries: entries.map((e) => {
-      if (isTeam(e)) return teamEntry(e, paidEvent)
+      if (isTeam(e)) return teamEntry(e)
       const category = e.kidsGroupLabel ?? e.ageGroupLabel ?? null
       return {
         name: e.name,
@@ -138,7 +122,6 @@ export function startListView(snapshot, { paidEvent }) {
         gender: e.gender ?? null,
         where: [e.town, e.club].filter(Boolean).join(' · '),
         what: [e.competition, category].filter(Boolean).join(' · '),
-        badge: paidEvent && e.payment === 'paid' ? 'opłacone' : null,
       }
     }),
   }

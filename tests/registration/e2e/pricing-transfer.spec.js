@@ -184,8 +184,8 @@ test('V-80 a partnered, discounted package across four audiences: the partner ma
 
   const viewer = await open(actors.viewer, `/events/${e.slug}/lista`)
   const entries = viewer.getByTestId('start-list-entry')
-  await expect(viewer.getByTestId('start-list-header')).toHaveText('1 opłacone')
-  await expect(entries.filter({ hasText: 'Ola Przekazująca' }).getByTestId('payment-badge')).toHaveText(/opłacone/i)
+  await expect(viewer.getByTestId('start-list-header')).toHaveText('1 osoba zapisana')
+  await expect(entries.filter({ hasText: 'Ola Przekazująca' })).toHaveCount(1)
   await expect(viewer.locator('#main-content')).not.toContainText(PARTNER)
   await expect(viewer.locator('#main-content')).not.toContainText(CODE)
 
@@ -228,8 +228,8 @@ test('V-80 a partnered, discounted package across four audiences: the partner ma
     await viewer.reload()
     await expect(entries).toHaveText([/Jan Nowak/], { timeout: 3000 })
   }).toPass({ timeout: 20_000 })
-  await expect(viewer.getByTestId('start-list-header')).toHaveText('1 opłacone')
-  await expect(entries.filter({ hasText: 'Jan Nowak' }).getByTestId('payment-badge')).toHaveText(/opłacone/i)
+  await expect(viewer.getByTestId('start-list-header')).toHaveText('1 osoba zapisana')
+  await expect(entries.filter({ hasText: 'Jan Nowak' })).toHaveCount(1)
   await expect(viewer.getByTestId('start-list')).not.toContainText('Przekazująca')
   await expect(viewer.locator('#main-content')).not.toContainText(PARTNER)
 

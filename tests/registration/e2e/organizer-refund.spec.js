@@ -93,10 +93,10 @@ test('O-60 one refund across four audiences: the runner pays 60 zł, the owner g
   const [reg] = await rows('registrations', { order_id: order.orderId })
   const participant = () => one('participants', { id: reg.participant_id })
 
-  // The viewer sees the runner as paid.
+  // The viewer sees the runner on the list.
   const viewer = await open(actors.viewer, `/events/${e.slug}/lista`)
-  await expect(header(viewer)).toHaveText('2 opłacone')
-  await expect(entryOf(viewer, runnerName).getByTestId('payment-badge')).toHaveText(/opłacone/i)
+  await expect(header(viewer)).toHaveText('2 osoby zapisane')
+  await expect(entryOf(viewer, runnerName)).toHaveCount(1)
 
   // The owner refunds 20 zł: the runner hears of it, the entry stands, the list does not change.
   const ownerPage = await open(actors.owner, zgloszenia(e.eventId))
@@ -105,8 +105,8 @@ test('O-60 one refund across four audiences: the runner pays 60 zł, the owner g
   await expect.poll(async () => (await refundMails()).map((m) => m.subject))
     .toEqual([`Zwrot 20,00 zł — ${eventName}`])
   await viewer.reload()
-  await expect(header(viewer)).toHaveText('2 opłacone')
-  await expect(entryOf(viewer, runnerName).getByTestId('payment-badge')).toHaveText(/opłacone/i)
+  await expect(header(viewer)).toHaveText('2 osoby zapisane')
+  await expect(entryOf(viewer, runnerName)).toHaveCount(1)
   expect((await participant()).removed_at).toBeNull()
 
   // An admin refunds the remaining 40 zł: the entry is cancelled and leaves the list.
@@ -116,7 +116,7 @@ test('O-60 one refund across four audiences: the runner pays 60 zł, the owner g
   await expect.poll(async () => (await refundMails()).map((m) => m.subject))
     .toEqual([`Zwrot 20,00 zł — ${eventName}`, `Zwrot 40,00 zł — ${eventName}`])
   await viewer.reload()
-  await expect(header(viewer)).toHaveText('1 opłacone')
+  await expect(header(viewer)).toHaveText('1 osoba zapisana')
   await expect(entryOf(viewer, runnerName)).toHaveCount(0)
   await expect(viewer.getByTestId('start-list')).not.toContainText('Zwrotna')
   expect((await participant()).removed_at).not.toBeNull()

@@ -44,15 +44,6 @@ async function loadStartList(eventId) {
   return res.json()
 }
 
-function Badge({ text }) {
-  return (
-    <span className="font-mono text-[11px] px-[7px] py-[3px] border uppercase whitespace-nowrap shrink-0 border-apex-yellow text-apex-yellow"
-      data-testid="payment-badge">
-      {text}
-    </span>
-  )
-}
-
 function CompetitionCount({ c }) {
   return (
     <div className="px-2.5 py-2 border border-apex-border min-w-0" data-testid="list-competition">
@@ -61,11 +52,8 @@ function CompetitionCount({ c }) {
         {c.taken}<span className="text-apex-muted text-[13px]"> / {c.capacity} miejsc</span>
       </div>
       <div className="flex h-1 bg-apex-border my-1.5" aria-hidden="true">
-        <div className="bg-apex-yellow" style={{ width: `${c.paidPct}%` }} />
-        <div className="bg-apex-text" style={{ width: `${c.freePct}%` }} />
+        <div className="bg-apex-yellow" style={{ width: `${c.takenPct}%` }} />
       </div>
-      {c.paidLabel && <div className="font-mono text-xs text-apex-yellow">{c.paidLabel}</div>}
-      {c.freeLabel && <div className="font-mono text-xs text-apex-text">{c.freeLabel}</div>}
       {c.awaitingLabel && <div className="font-mono text-xs text-apex-cyan">{c.awaitingLabel}</div>}
     </div>
   )
@@ -145,7 +133,6 @@ function TeamCards({ entries }) {
               <span className="block text-[17px] font-bold text-apex-text-bright break-words">{e.name}</span>
               {e.town && <span className="block text-sm text-apex-muted break-words">{e.town}</span>}
             </span>
-            {e.badge && <Badge text={e.badge} />}
           </div>
           <Members e={e} />
           <span className="font-mono text-xs text-apex-muted uppercase">{e.what}</span>
@@ -165,7 +152,6 @@ function EntryCards({ entries }) {
               <span className="block text-[17px] font-bold text-apex-text-bright break-words">{e.name}</span>
               {e.where && <span className="block text-sm text-apex-muted break-words">{e.where}</span>}
             </span>
-            {e.badge && <Badge text={e.badge} />}
           </div>
           <span className="font-mono text-xs text-apex-muted uppercase">{e.what}</span>
         </li>
@@ -188,7 +174,7 @@ function EntryTable({ entries }) {
           {entries.map((e, i) => (
             <tr key={`${e.name}-${i}`} data-testid="start-list-entry">
               <td className={`${tdCls} text-apex-text-bright font-bold`}>
-                <span className="inline-flex items-center gap-2.5 flex-wrap">{e.name}{e.badge && <Badge text={e.badge} />}</span>
+                <span>{e.name}</span>
               </td>
               <td className={tdCls}>{e.town ?? '—'}</td>
               <td className={tdCls}>{e.club ?? '—'}</td>
@@ -213,7 +199,7 @@ function TeamTable({ entries }) {
           {entries.map((e, i) => (
             <tr key={`${e.name}-${i}`} data-testid="start-list-entry">
               <td className={`${tdCls} text-apex-text-bright font-bold`}>
-                <span className="inline-flex items-center gap-2.5 flex-wrap">{e.name}{e.badge && <Badge text={e.badge} />}</span>
+                <span>{e.name}</span>
               </td>
               <td className={tdCls}><Members e={e} /></td>
               <td className={tdCls}>{e.town ?? '—'}</td>
@@ -246,10 +232,10 @@ function StartList({ raw }) {
   useEffect(() => {
     let active = true
     loadStartList(raw.eventId)
-      .then((snap) => { if (active) setState({ status: 'ok', view: startListView(snap, { paidEvent: raw.pricingMode !== 'free' }) }) })
+      .then((snap) => { if (active) setState({ status: 'ok', view: startListView(snap) }) })
       .catch(() => { if (active) setState({ status: 'error', view: null }) })
     return () => { active = false }
-  }, [raw.eventId, raw.pricingMode])
+  }, [raw.eventId])
 
   const { view } = state
   const options = useMemo(() => (view ? startListFilterOptions(view, { categoryId: filters.categoryId }) : null), [view, filters.categoryId])
