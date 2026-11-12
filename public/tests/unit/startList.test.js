@@ -24,38 +24,45 @@ const FREE_EVENT = {
 }
 
 describe('startListView (RA8 columns, ruling P3-R14)', () => {
-  it('per competition: confirmed entries of capacity (P3-R15), one bar, „+N czeka na wpłatę” as a count only', () => {
-    const v = startListView(SNAP)
+  it('per competition: paid entries of capacity (P3-R15), the bars, „+N czeka na wpłatę” as a count only', () => {
+    const v = startListView(SNAP, { paidEvent: true })
     assert.deepEqual(v.competitions[0], {
-      categoryId: 'c1', name: 'Bieg 9 km', label: 'Bieg 9 km', isKids: false, taken: 32, capacity: 80, takenPct: 40,
-      awaitingLabel: '+2 czekają na wpłatę',
+      categoryId: 'c1', name: 'Bieg 9 km', label: 'Bieg 9 km', isKids: false, taken: 32, capacity: 80, paidPct: 40, freePct: 0,
+      paidLabel: '32 opłacone', freeLabel: null, awaitingLabel: '+2 czekają na wpłatę',
     })
     assert.equal(v.competitions[1].awaitingLabel, null)
   })
 
-  it('the counts never split paid from free: a 0 zł or voucher entry counts like a paid one, nothing says „bez opłaty”', () => {
-    const v = startListView(SNAP, { paidEvent: true })
-    assert.equal(v.competitions[2].taken, 5)
-    assert.equal(v.competitions[2].takenPct, 25)
-    assert.equal(v.header, '58 osób zapisanych · +2 czekają na wpłatę')
-    assert.ok(!/bez opłaty|opłacon/.test(JSON.stringify([v.header, v.competitions])), JSON.stringify(v))
-    assert.equal(startListView({ competitions: [], entries: [] }).header, '0 osób zapisanych')
+  it('a 0 zł competition of a paid event is never „opłacone”: its runners are counted as free', () => {
+    const c = startListView(SNAP, { paidEvent: true }).competitions[2]
+    assert.equal(c.paidLabel, null)
+    assert.equal(c.freeLabel, '5 bez opłaty')
+    assert.equal(c.paidPct, 0)
+    assert.equal(c.freePct, 25)
   })
 
-  it('counts take their Polish form (M5): 1 osoba zapisana / +1 czeka, 5 osób / +5 czeka, 12 osób / +3 czekają', () => {
+  it('the header of a paid event: opłacone, the free ones and the awaiting count', () => {
+    assert.equal(startListView(SNAP, { paidEvent: true }).header, '53 opłacone · 5 bez opłaty · +2 czekają na wpłatę')
+    assert.equal(startListView({ competitions: [], entries: [] }, { paidEvent: true }).header, '0 opłaconych')
+  })
+
+  it('counts take their Polish form (M5): 1 opłacone / +1 czeka, 5 opłaconych / +5 czeka, 12 opłaconych', () => {
     const snap = (paid, awaiting) => ({ competitions: [{ categoryId: 'c', name: 'B', capacity: 50, paid, free: 0, awaiting }], entries: [] })
-    assert.equal(startListView(snap(1, 1)).header, '1 osoba zapisana · +1 czeka na wpłatę')
-    assert.equal(startListView(snap(5, 5)).header, '5 osób zapisanych · +5 czeka na wpłatę')
-    assert.equal(startListView(snap(12, 3)).header, '12 osób zapisanych · +3 czekają na wpłatę')
+    assert.equal(startListView(snap(1, 1), { paidEvent: true }).header, '1 opłacone · +1 czeka na wpłatę')
+    assert.equal(startListView(snap(5, 5), { paidEvent: true }).header, '5 opłaconych · +5 czeka na wpłatę')
+    assert.equal(startListView(snap(12, 3), { paidEvent: true }).header, '12 opłaconych · +3 czekają na wpłatę')
+    assert.equal(startListView(snap(1, 1), { paidEvent: true }).competitions[0].paidLabel, '1 opłacone')
     const free = (n) => ({ competitions: [{ categoryId: 'f', name: 'B', capacity: 50, paid: 0, free: n, awaiting: 0 }], entries: [] })
-    assert.equal(startListView(free(1)).header, '1 osoba zapisana')
-    assert.equal(startListView(free(5)).header, '5 osób zapisanych')
+    assert.equal(startListView(free(1), { paidEvent: false }).header, '1 osoba zapisana')
+    assert.equal(startListView(free(5), { paidEvent: false }).header, '5 osób zapisanych')
   })
 
-  it('a free event: „N osoby zapisane”, nothing about payment anywhere', () => {
-    const v = startListView(FREE_EVENT)
+  it('a free event: „N osoby zapisane”, no badge, nothing about payment anywhere', () => {
+    const v = startListView(FREE_EVENT, { paidEvent: false })
     assert.equal(v.header, '3 osoby zapisane')
     assert.equal(v.entries[0].badge, null)
+    assert.equal(v.competitions[0].paidLabel, null)
+    assert.equal(v.competitions[0].freeLabel, null)
     assert.ok(!JSON.stringify(v).includes('opłac'))
   })
 
@@ -71,16 +78,17 @@ describe('startListView (RA8 columns, ruling P3-R14)', () => {
     assert.equal(c.where, '')
   })
 
-  it('the bar never goes past 100 percent', () => {
-    const v = startListView({ competitions: [{ categoryId: 'x', name: 'X', capacity: 10, paid: 9, free: 2, awaiting: 1 }], entries: [] })
-    assert.equal(v.competitions[0].takenPct, 100)
+  it('the bars never go past 100 percent', () => {
+    const v = startListView({ competitions: [{ categoryId: 'x', name: 'X', capacity: 10, paid: 9, free: 2, awaiting: 1 }], entries: [] }, { paidEvent: true })
+    const c = v.competitions[0]
+    assert.ok(c.paidPct + c.freePct <= 100)
   })
 
   it('P3-R15 entries awaiting payment hold no place: „N / limit” and the bar leave them out', () => {
-    const v = startListView({ competitions: [{ categoryId: 'x', name: 'X', capacity: 2, paid: 0, free: 0, awaiting: 5 }], entries: [] })
+    const v = startListView({ competitions: [{ categoryId: 'x', name: 'X', capacity: 2, paid: 0, free: 0, awaiting: 5 }], entries: [] }, { paidEvent: true })
     const c = v.competitions[0]
     assert.equal(c.taken, 0)
-    assert.equal(c.takenPct, 0)
+    assert.equal(c.paidPct + c.freePct, 0)
     assert.equal(c.awaitingLabel, '+5 czeka na wpłatę')
     assert.ok(!('awaitingPct' in c))
   })
@@ -106,7 +114,7 @@ const ALL = { categoryId: '', category: '', gender: '', club: '', q: '' }
 const names = (r) => r.entries.map((e) => e.name)
 
 describe('G-42 filterStartList (RA8/RA8d filters)', () => {
-  const v = startListView(FULL)
+  const v = startListView(FULL, { paidEvent: true })
 
   it('the kids-group label is the category of a kids entry, the age group otherwise', () => {
     assert.equal(v.entries[4].category, 'Dzieci I')
@@ -159,7 +167,7 @@ describe('G-42 filterStartList (RA8/RA8d filters)', () => {
       { value: 'KB Sośnica', label: 'KB Sośnica' }, { value: 'Kijki Pyskowice', label: 'Kijki Pyskowice' },
       { value: 'ZATYRANI', label: 'ZATYRANI' }, { value: '__none', label: 'Bez klubu' },
     ])
-    const allClubs = startListFilterOptions(startListView({ ...FULL, entries: FULL.entries.slice(0, 1) }))
+    const allClubs = startListFilterOptions(startListView({ ...FULL, entries: FULL.entries.slice(0, 1) }, { paidEvent: true }))
     assert.deepEqual(allClubs.clubs, [{ value: 'ZATYRANI', label: 'ZATYRANI' }])
   })
 })
@@ -173,14 +181,15 @@ describe('G-43 a free event never mentions payment', () => {
         { name: 'Jan Bór', town: null, club: 'ZATYRANI', categoryId: 'f1', competition: 'Bieg 5 km', ageGroupLabel: 'M open', kidsGroupLabel: null, gender: 'M', payment: 'free' },
       ],
     }
-    const v = startListView(snap)
+    const v = startListView(snap, { paidEvent: false })
+    assert.ok(v.entries.every((e) => e.badge === null))
     const text = JSON.stringify([v, startListFilterOptions(v), filterStartList(v, {})])
     assert.ok(!/opłac|wpłat|płatn/i.test(text), text)
   })
 })
 
 describe('task 7 review fix round 1 (F4, F5)', () => {
-  const v = startListView(FULL)
+  const v = startListView(FULL, { paidEvent: true })
 
   it('F5 a kids competition selected: „Dziewczynki” / „Chłopcy”; any other or none: „Kobiety” / „Mężczyźni”', () => {
     assert.deepEqual(startListFilterOptions(v, { categoryId: 'c3' }).genders, [{ value: 'K', label: 'Dziewczynki' }, { value: 'M', label: 'Chłopcy' }])
@@ -240,7 +249,7 @@ describe('T-72 teams on the start list', () => {
   })
 
   it('osoba / osoby / osób for 1, 2, 5, 12, 22, 25', () => {
-    const size = (n) => startListView({ competitions: [], entries: [{ kind: 'team', name: 'X', members: [], size: n, categoryId: 't', competition: 'S', payment: 'free' }] }).entries[0].size
+    const size = (n) => startListView({ competitions: [], entries: [{ kind: 'team', name: 'X', members: [], size: n, categoryId: 't', competition: 'S', payment: 'free' }] }, { paidEvent: false }).entries[0].size
     assert.deepEqual([1, 2, 5, 12, 22, 25].map(size), ['1 osoba', '2 osoby', '5 osób', '12 osób', '22 osoby', '25 osób'])
   })
 
@@ -260,7 +269,7 @@ describe('T-72 teams on the start list', () => {
 
   it('a team has no town to search and no club to offer: „Bez klubu” comes from people only', () => {
     assert.deepEqual(names(filterStartList(view, { q: 'gliwice' })), ['Tomasz Łoś'])
-    const onlyTeams = startListView({ competitions: TEAMS.competitions, entries: TEAMS.entries.slice(2) })
+    const onlyTeams = startListView({ competitions: TEAMS.competitions, entries: TEAMS.entries.slice(2) }, { paidEvent: true })
     assert.deepEqual(startListFilterOptions(onlyTeams).clubs, [])
     assert.deepEqual(startListFilterOptions(onlyTeams).genders, [])
     assert.deepEqual(startListFilterOptions(onlyTeams).categories, [])
@@ -272,27 +281,51 @@ describe('T-72 teams on the start list', () => {
       { categoryId: 'c1', name: 'Bieg', kind: 'individual', capacity: 50, paid: 0, free: 5, awaiting: 0 },
       { categoryId: 't1', name: 'Sztafeta', kind: 'team', capacity: 20, paid: 0, free: 2, awaiting: 0 },
     ], entries: [] }
-    assert.equal(startListView(free).header, '5 osób zapisanych · 2 drużyny zapisane')
+    assert.equal(startListView(free, { paidEvent: false }).header, '5 osób zapisanych · 2 drużyny zapisane')
     free.competitions.shift()
-    assert.equal(startListView(free).header, '2 drużyny zapisane')
-    assert.equal(startListView({ competitions: [{ ...free.competitions[0], free: 1 }], entries: [] }).header, '1 drużyna zapisana')
+    assert.equal(startListView(free, { paidEvent: false }).header, '2 drużyny zapisane')
+    assert.equal(startListView({ competitions: [{ ...free.competitions[0], free: 1 }], entries: [] }, { paidEvent: false }).header, '1 drużyna zapisana')
   })
 })
 
-describe('Final review I-5: the header never adds people and teams', () => {
-  it('a mixed paid event: people, then teams, each in its own words; a voucher team is just zapisana', () => {
-    assert.equal(startListView(TEAMS).header, '2 osoby zapisane · 3 drużyny zapisane · +1 drużyna czeka na wpłatę')
+describe('Final review I-5: a paid event\'s header never adds people and teams', () => {
+  it('a mixed paid event: people, then teams, each in its own words', () => {
+    assert.equal(startListView(TEAMS, { paidEvent: true }).header,
+      '2 osoby opłacone · 2 drużyny opłacone · 1 drużyna bez opłaty · +1 drużyna czeka na wpłatę')
   })
-  it('only teams: drużyny alone', () => {
+  it('only teams: drużyny alone; no teams: unchanged', () => {
     const onlyTeams = { competitions: [{ ...TEAMS.competitions[1], paid: 5, free: 0, awaiting: 2 }], entries: [] }
-    assert.equal(startListView(onlyTeams).header, '5 drużyn zapisanych · +2 drużyny czekają na wpłatę')
+    assert.equal(startListView(onlyTeams, { paidEvent: true }).header, '5 drużyn opłaconych · +2 drużyny czekają na wpłatę')
+    assert.equal(startListView(SNAP, { paidEvent: true }).header, '53 opłacone · 5 bez opłaty · +2 czekają na wpłatę')
   })
-  it('people awaiting payment beside teams keep their unit', () => {
-    const v = startListView({ competitions: [{ ...TEAMS.competitions[0], awaiting: 2 }, TEAMS.competitions[1]], entries: [] })
-    assert.equal(v.header, '2 osoby zapisane · +2 osoby czekają na wpłatę · 3 drużyny zapisane · +1 drużyna czeka na wpłatę')
+  it('a mixed paid event with no person yet still says 0 people, never folds teams into them', () => {
+    const v = startListView({ competitions: [{ ...TEAMS.competitions[0], paid: 0 }, TEAMS.competitions[1]], entries: [] }, { paidEvent: true })
+    assert.equal(v.header, '0 osób opłaconych · 2 drużyny opłacone · 1 drużyna bez opłaty · +1 drużyna czeka na wpłatę')
   })
-  it('a mixed event with no person yet still says 0 people, never folds teams into them', () => {
-    const v = startListView({ competitions: [{ ...TEAMS.competitions[0], paid: 0 }, TEAMS.competitions[1]], entries: [] })
-    assert.equal(v.header, '0 osób zapisanych · 3 drużyny zapisane · +1 drużyna czeka na wpłatę')
+})
+
+describe('Two lists: people, then teams', () => {
+  const view = startListView(TEAMS, { paidEvent: true })
+  const all = splitStartList(view.entries)
+
+  it('splits people from teams, each in start_list order', () => {
+    assert.deepEqual(all.people.map((e) => e.name), ['Anna Mazur', 'Tomasz Łoś'])
+    assert.deepEqual(all.teams.map((e) => e.name), ['Wilcze Stado', 'Żubry'])
+  })
+
+  it('„Na liście” never adds people and teams', () => {
+    assert.equal(startListCountText(all, all, false), '2 osoby · 2 drużyny')
+    const shown = splitStartList(filterStartList(view, { q: 'wilcze' }).entries)
+    assert.equal(startListCountText(shown, all, true), '0 osób z 2 · 1 drużyna z 2')
+  })
+
+  it('with no team on the list it is the bare number, as before', () => {
+    const people = splitStartList(startListView(SNAP, { paidEvent: true }).entries)
+    assert.equal(startListCountText(people, people, false), String(people.people.length))
+  })
+
+  it('only teams: no 0 osób', () => {
+    const teams = { people: [], teams: all.teams }
+    assert.equal(startListCountText(teams, teams, false), '2 drużyny')
   })
 })

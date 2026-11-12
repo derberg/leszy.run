@@ -95,7 +95,7 @@ test('O-60 one refund across four audiences: the runner pays 60 zł, the owner g
 
   // The viewer sees the runner as paid.
   const viewer = await open(actors.viewer, `/events/${e.slug}/lista`)
-  await expect(header(viewer)).toHaveText('2 osoby zapisane')
+  await expect(header(viewer)).toHaveText('2 opłacone')
   await expect(entryOf(viewer, runnerName).getByTestId('payment-badge')).toHaveText(/opłacone/i)
 
   // The owner refunds 20 zł: the runner hears of it, the entry stands, the list does not change.
@@ -105,7 +105,7 @@ test('O-60 one refund across four audiences: the runner pays 60 zł, the owner g
   await expect.poll(async () => (await refundMails()).map((m) => m.subject))
     .toEqual([`Zwrot 20,00 zł — ${eventName}`])
   await viewer.reload()
-  await expect(header(viewer)).toHaveText('2 osoby zapisane')
+  await expect(header(viewer)).toHaveText('2 opłacone')
   await expect(entryOf(viewer, runnerName).getByTestId('payment-badge')).toHaveText(/opłacone/i)
   expect((await participant()).removed_at).toBeNull()
 
@@ -116,7 +116,7 @@ test('O-60 one refund across four audiences: the runner pays 60 zł, the owner g
   await expect.poll(async () => (await refundMails()).map((m) => m.subject))
     .toEqual([`Zwrot 20,00 zł — ${eventName}`, `Zwrot 40,00 zł — ${eventName}`])
   await viewer.reload()
-  await expect(header(viewer)).toHaveText('1 osoba zapisana')
+  await expect(header(viewer)).toHaveText('1 opłacone')
   await expect(entryOf(viewer, runnerName)).toHaveCount(0)
   await expect(viewer.getByTestId('start-list')).not.toContainText('Zwrotna')
   expect((await participant()).removed_at).not.toBeNull()

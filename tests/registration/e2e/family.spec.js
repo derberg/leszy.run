@@ -135,7 +135,7 @@ test('G-58 a family across every audience: one payment for three people, one con
   await expect(viewer.getByTestId('start-list')).not.toContainText('Borowy')
   const biegCard = viewer.getByTestId('list-competition').filter({ hasText: 'Bieg 9 km' }).filter({ hasNotText: 'dzieci' })
   await expect(biegCard).toContainText('1 / 50 miejsc')
-  await expect(biegCard).not.toContainText(/opłac/i)
+  await expect(biegCard).toContainText('1 opłacone')
 
   // owner: one consent outstanding.
   const org = await offline(await actors.owner.newPage())

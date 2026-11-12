@@ -135,6 +135,6 @@ test.describe.serial('a link-only 1 zł event', () => {
 
     const viewer = await offline(await actors.viewer.newPage())
     await viewer.goto(`/events/${event.slug}/lista`)
-    await expect(viewer.getByTestId('start-list-header')).toHaveText('1 osoba zapisana')
+    await expect(viewer.getByTestId('start-list-header')).toHaveText('1 opłacone')
   })
 })

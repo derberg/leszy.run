@@ -61,8 +61,11 @@ function CompetitionCount({ c }) {
         {c.taken}<span className="text-apex-muted text-[13px]"> / {c.capacity} miejsc</span>
       </div>
       <div className="flex h-1 bg-apex-border my-1.5" aria-hidden="true">
-        <div className="bg-apex-yellow" style={{ width: `${c.takenPct}%` }} />
+        <div className="bg-apex-yellow" style={{ width: `${c.paidPct}%` }} />
+        <div className="bg-apex-text" style={{ width: `${c.freePct}%` }} />
       </div>
+      {c.paidLabel && <div className="font-mono text-xs text-apex-yellow">{c.paidLabel}</div>}
+      {c.freeLabel && <div className="font-mono text-xs text-apex-text">{c.freeLabel}</div>}
       {c.awaitingLabel && <div className="font-mono text-xs text-apex-cyan">{c.awaitingLabel}</div>}
     </div>
   )

@@ -46,6 +46,8 @@ async function paid2({ c1 = 50, c2 = 50 } = {}) {
 }
 const linesOf = (orderId) => rows('order_lines', { order_id: orderId })
 const usedOf = async (voucherId) => (await one('vouchers', { id: voucherId })).used
+// The public start list: a 100 % code reads „opłacone” there, never „bez opłaty” (P-57a).
+const publicList = async (eventId) => (await sql()`SELECT public.start_list(${eventId}) AS l`)[0].l
 const soldOf = async (variantId) => (await one('extra_variants', { id: variantId })).sold
 
 // ---------------------------------------------------------------- V-21
@@ -254,7 +256,7 @@ test('V-22 an expired, a disabled, an unknown and a wrong-competition code are r
 
 // ---------------------------------------------------------------- V-23
 
-test('V-23 a 100 % code on the only entry → paid at once, no attempt, the slot claimed; full → nothing created', async () => {
+test('V-23 a 100 % code on the only entry → paid at once, no attempt, the slot claimed, „opłacone” on the start list; full → nothing created', async () => {
   const event = await paid2({ c1: 1 })
   const [c9] = event.categoryIds
   const voucher = await makeVoucher(event.eventId, { percent: 100, max_uses: 5 })
@@ -270,6 +272,9 @@ test('V-23 a 100 % code on the only entry → paid at once, no attempt, the slot
   assert.ok(out.registrations[0].participantId)
   assert.equal((await competitionOf(c9)).taken, 1)
   assert.equal(await usedOf(voucher.id), 1)
+  const list = await publicList(event.eventId)
+  assert.deepEqual(list.entries.map((e) => e.payment), ['paid'])
+  assert.deepEqual([list.competitions[0].paid, list.competitions[0].free], [1, 0])
 
   const second = await orderGroup(event, [{ ...adult(c9, 'self'), voucherCode: voucher.code }], { displayed: 0 })
   assert.equal(second.error?.message, `full:${c9}`)
@@ -455,7 +460,7 @@ test('V-22 M-3 a claimed code is given back when a later step refuses: a sold-ou
   assert.equal((await rows('orders', { event_id: event.eventId })).length, 0)
 })
 
-test('V-23 M-4 a team with a 100 % code → paid at once, confirmed, one slot, participants', async () => {
+test('V-23 M-4 a team with a 100 % code → paid at once, confirmed, one slot, participants; „opłacone” on the start list, free for the organizer', async () => {
   const event = await paidTeamEvent(owner, { price: 24000 })
   const cat = event.categoryIds[0]
   competitionsSeen.add(cat)
@@ -473,6 +478,12 @@ test('V-23 M-4 a team with a 100 % code → paid at once, confirmed, one slot, p
   assert.deepEqual([cap.list_price, cap.price, cap.voucher_id], [24000, 0, voucher.id])
   assert.equal((await competitionOf(cat)).taken, 1)
   assert.equal(await usedOf(voucher.id), 1)
+  const list = await publicList(event.eventId)
+  assert.deepEqual(list.entries.map((e) => [e.kind, e.payment]), [['team', 'paid']])
+  assert.deepEqual([list.competitions[0].paid, list.competitions[0].free], [1, 0])
+  // The organizer still sees that nothing was paid.
+  const panel = await callFn('list-event-registrations', owner, { eventId: event.eventId })
+  assert.equal(panel.body.data.find((x) => x.id === cap.id)?.paymentStatus, 'free', JSON.stringify(panel.body.data))
 })
 
 test('V-22 M-1 the claim follows the voucher id the read resolved, not the code', async () => {
