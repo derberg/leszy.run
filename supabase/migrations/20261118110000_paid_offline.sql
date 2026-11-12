@@ -229,7 +229,7 @@ END $$;
 -- organizer refunds and transfers), also after closes_at: the office takes cash until the race. Lock
 -- order: the order, its competitions (category_id order), the settings, then the claim's vouchers,
 -- extra variants and registrations, then the participants. Refusals (raised, nothing changes):
---   invalid_note, not_found, paid, cancelled, free (a 0 zł order), payment_received (a dpay payment
+--   invalid_note, not_found, paid, cancelled, free (a 0 zł order), erased (an anonymised order), payment_received (a dpay payment
 --   of the order is recorded), race_day, unavailable (a hidden competition, an unpublished event, an
 --   entry that no longer fits its competition), duplicate, full, voucher, stock.
 -- → { outcome: 'confirmed' | 'late_confirmed', registrations: [ids confirmed] }. The caller sends the
@@ -261,6 +261,12 @@ BEGIN
   END IF;
   IF o.total = 0 THEN
     RAISE EXCEPTION 'free';
+  END IF;
+  -- An expired order whose buyer address is gone was erased: purge_expired_registrations (30 days
+  -- after expiry) or delete-my-account anonymised its entries. Confirming it would claim a slot for
+  -- „Usunięte zgłoszenie” and revive an erased entry on the start list.
+  IF o.buyer_email IS NULL THEN
+    RAISE EXCEPTION 'erased';
   END IF;
   IF EXISTS (SELECT 1 FROM public.payment_attempts pa WHERE pa.order_id = o.id AND pa.status <> 'created') THEN
     RAISE EXCEPTION 'payment_received';

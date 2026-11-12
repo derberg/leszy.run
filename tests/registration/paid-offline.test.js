@@ -190,6 +190,22 @@ test('OP-5 an expired order with room is confirmed (late_confirmed) and claims i
   assert.equal((await orderOf(h.orderId)).status, 'expired')
 })
 
+test('OP-15 an expired order the purge anonymised (no buyer address) → 409 erased: no slot, the entries stay anonymised', async () => {
+  const event = await paidEvent()
+  const e = await pendingEntry(event)
+  await expireNow(e.orderId)
+  const longAgo = new Date(Date.now() - 31 * 86400000).toISOString()
+  assert.ifError((await db().from('orders').update({ expires_at: longAgo }).eq('id', e.orderId)).error)
+  assert.ifError((await db().rpc('purge_expired_registrations')).error)
+  assert.equal((await orderOf(e.orderId)).buyer_email, null)
+  const r = await mark(owner, { orderId: e.orderId, note: 'gotówka' })
+  assert.equal(r.status, 409, JSON.stringify(r.body))
+  assert.equal(r.body.code, 'erased')
+  assert.equal((await orderOf(e.orderId)).status, 'expired')
+  assert.equal((await one('registrations', { id: e.registrationId })).status, 'expired')
+  assert.equal((await competitionOf(e.categoryId)).taken, 0)
+})
+
 // ---------------------------------------------------------------- OP-6 online payment afterwards
 
 test('OP-6 after the mark, online payment is refused: pay-order 409 paid, order-status paid with paidOffline and never the note', async () => {

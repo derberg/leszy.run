@@ -62,6 +62,7 @@ const REFUSALS = {
   invalid_partner: [422, 'Nieznany partner.'],
   invalid_note: [422, `Wpisz notatkę (do ${OFFLINE_NOTE_MAX} znaków).`],
   free: [409, 'To zgłoszenie jest bezpłatne.'],
+  erased: [409, 'Dane tego zgłoszenia zostały usunięte.'],
   race_day: [409, 'Od dnia zawodów nie można już oznaczyć wpłaty.'],
   unavailable: [409, 'Konkurencja jest ukryta albo wydarzenie nie jest opublikowane.'],
   voucher: [409, 'Kod rabatowy z tego zamówienia został już wykorzystany.'],
@@ -209,7 +210,7 @@ async function checkEdit(admin, settings, registrationId, fields) {
 //                   uses and stock again), until 00:00 Warsaw on the race day; then the normal
 //                   confirmation e-mail and consent requests (settleConfirmOutcome). The note (1..300
 //                   characters) stays on the order and never reaches the runner, the audit or a log.
-//                   422 invalid_note with `fields: { note }`; 409 paid / cancelled / free /
+//                   422 invalid_note with `fields: { note }`; 409 paid / cancelled / free / erased /
 //                   payment_received / race_day / unavailable / duplicate / full / voucher / stock.
 //   offline_note    { orderId | registrationId, note }  → 200 { data: { note } }
 //                   Changes that note. 409 not_offline for an order not marked; 422 invalid_note.
