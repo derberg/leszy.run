@@ -94,9 +94,10 @@ export function entryActions(row, {
   // Not while a refund of the entry waits for dpay: the RPCs refuse refund_pending (V-87).
   const canTransfer = row.status === 'confirmed' && !raceDay && !isTeamRow && row.role !== 'minor' && (!row.team || isCaptain) && !row.refundPending
   // Unpaid: awaiting payment, or lapsed (statusKey 'expired' with its order still pending or expired).
-  // organizer_mark_paid_offline decides; a full competition is its 409, as for a late payment.
+  // organizer_mark_paid_offline decides; into a full competition it refuses (`full`), so it is not
+  // offered there, as the payment reminder is not (D6-27).
   const unpaid = row.statusKey === 'awaiting' || (row.statusKey === 'expired' && (row.status === 'pending_payment' || row.status === 'expired'))
-  const canMarkOffline = unpaid && Boolean(row.orderId) && !raceDay
+  const canMarkOffline = unpaid && Boolean(row.orderId) && !raceDay && !full
   return [
     ['edit', live && !closed && !isTeamRow],
     ['remind_payment', awaitingPayment && !full],

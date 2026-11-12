@@ -367,6 +367,7 @@ describe('„Opłacone poza systemem” (OP-9, OP-10)', () => {
     assert.deepEqual(entryActions(row({ status: 'expired', statusKey: 'expired', paidAmount: 0, orderId: 'o1' }), open), ['mark_paid_offline'])
     assert.ok(!entryActions(awaiting, { ...open, raceDay: true }).includes('mark_paid_offline'))
     assert.ok(!entryActions({ ...awaiting, orderId: null }, open).includes('mark_paid_offline'))
+    assert.ok(!entryActions(awaiting, { ...open, full: true }).includes('mark_paid_offline'), 'the server refuses full')
     for (const statusKey of ['paid', 'free', 'cancelled']) {
       assert.ok(!entryActions(row({ statusKey, orderId: 'o1' }), open).includes('mark_paid_offline'), statusKey)
     }
