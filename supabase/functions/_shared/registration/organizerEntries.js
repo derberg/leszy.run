@@ -80,6 +80,9 @@ const groupBy = (items, key) => {
  *   orderId, price      the entry's order and price
  *   lines               [{ id, kind, amount, refunded }]: the order lines of this registration
  *   paidAmount          the lines' total when the order is paid, else 0
+ *   paidOffline         the order was marked „opłacone poza systemem” (statusKey 'paid_offline')
+ *   offlineNote         the club's note on that order, null otherwise (organizer only)
+ *   orderTotal          the order's frozen total, null without an order
  *   refunded            the lines' refunded total, reservations included
  *   refundUnconfirmed   grosze of organizer refunds dpay has not confirmed (in `refunded` too)
  *   statusKey           entryStatusKey, from this row's own refunds and participant
@@ -95,6 +98,8 @@ const groupBy = (items, key) => {
  * (pending_payment or confirmed, not lapsed). Organizer-only, like the rows (V-38).
  * counts are per person (D5-32), with people's places (placesLeft) and teams' (teamPlacesLeft) apart;
  * counts.dpayFee is dpay's commission on the event so far (money.js dpayCommission), grosze;
+ * counts.offlineTotal / offlineOrders: the orders marked „opłacone poza systemem”, their totals in
+ * grosze and their number, never added to the online income;
  * competitions are the visible ones (entryCounts' limit), in the event's order; a team carries
  * `captainId` (the row its ⋯ acts on) and the event its `slug` (the squad page's address).
  */
@@ -107,7 +112,8 @@ export async function loadEntries(admin, settings, { guardianEmail = false, now 
     // In the event's own order (the wizard's), which the panel's chips follow.
     allRows(() => admin.from('competitions').select('category_id, name, capacity, taken, hidden_at, kind, sort_order')
       .eq('event_id', eventId).order('sort_order').order('category_id')),
-    allRows(() => admin.from('orders').select('id, total, status, expires_at, buyer_name, tier_id').eq('event_id', eventId).order('id')),
+    allRows(() => admin.from('orders').select('id, total, status, expires_at, buyer_name, tier_id, paid_offline_at, offline_note')
+      .eq('event_id', eventId).order('id')),
     allRows(() => admin.from('teams').select('id, name, category_id, captain_registration_id, released_at').eq('event_id', eventId).order('id')),
     allRows(() => admin.from('order_lines').select('id, order_id, kind, registration_id, amount, refunded, orders!inner(event_id)')
       .eq('orders.event_id', eventId).order('id')),
@@ -181,9 +187,14 @@ export async function loadEntries(admin, settings, { guardianEmail = false, now 
   const teamComps = comps.filter(isTeam)
   const placesLeft = teamComps.length && teamComps.length === comps.length ? null : left(comps.filter((c) => !isTeam(c)))
   const teamPlacesLeft = teamComps.length ? left(teamComps) : null
+  // „Opłacone poza systemem”: the money the organizer took outside LESZY.RUN, never part of the
+  // online income. Each marked order at its frozen total.
+  const offline = orders.filter((o) => o.status === 'paid' && o.paid_offline_at)
   const counts = {
     paid: 0, awaiting: 0, free: 0, placesLeft, teamPlacesLeft, awaitingConsent: 0,
     dpayFee: dpayCommission({ attempts: attemptRows, refunds: refundRows }),
+    offlineTotal: offline.reduce((n, o) => n + o.total, 0),
+    offlineOrders: offline.length,
   }
   const registeredBy = await registeredByNames(admin, regs, orderOf, eventId)
   const sum = (list, key) => list.reduce((n, x) => n + (x[key] ?? 0), 0)
@@ -235,6 +246,11 @@ export async function loadEntries(admin, settings, { guardianEmail = false, now 
       price: r.price,
       lines,
       paidAmount: order?.status === 'paid' ? sum(lines, 'amount') : 0,
+      // Paid outside the system (B3 „POZA SYSTEMEM”): no refund through dpay, not in the online
+      // income. The note is the club's, for the organizer only.
+      paidOffline: order?.status === 'paid' && order.paid_offline_at != null,
+      offlineNote: order?.status === 'paid' && order.paid_offline_at != null ? (order.offline_note ?? null) : null,
+      orderTotal: order?.total ?? null,
       refunded: sum(lines, 'refunded'),
       refundUnconfirmed: unconfirmedRefundGrosze({ refunds }),
       autoRefundReason: order && fullRefundOrders.has(order.id) ? 'full' : null,
@@ -261,6 +277,7 @@ export async function loadEntries(admin, settings, { guardianEmail = false, now 
       captain: captain ? fullName(captain) : null,
       status: captain?.status ?? null,
       paymentStatus,
+      paidOffline: paymentStatus === 'paid' && orderOfReg(captain)?.paid_offline_at != null,
       expiresAt: paymentStatus === 'awaiting' ? (orderOfReg(captain)?.expires_at ?? null) : null,
     }
   })

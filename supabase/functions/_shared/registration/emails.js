@@ -43,8 +43,17 @@ function personLines(lines) {
   })
 }
 
-// What every paid confirmation states about the money, an order's and a team's alike.
+// What every paid confirmation states about the money, an order's and a team's alike. An order the
+// organizer marked „opłacone poza systemem” passed through no dpay transaction and no LESZY.RUN
+// account: it says only the amount and that it is settled with the organizer.
 function paymentFacts(order, organizer) {
+  if (order.paidOffline) {
+    return {
+      amounts: [['Razem', formatPln(order.total)]],
+      payment: [['Płatność', `u organizatora (${organizer.name})`]],
+      note: null,
+    }
+  }
   return {
     amounts: [
       [`Opłaty startowe (pobrane w imieniu i na rzecz Organizatora: ${organizer.name})`, formatPln(order.entryTotal)],
@@ -60,10 +69,12 @@ function paymentFacts(order, organizer) {
 
 /**
  * The payment confirmation. event { name, slug?, eventDate?, place? }, order { id, entryTotal,
- * total, paidTransactionId, paidAt }, lines [{ firstName, lastName,
+ * total, paidTransactionId, paidAt, paidOffline? }, lines [{ firstName, lastName,
  * competition, ageGroupLabel, startTime }], organizer { name }, orderUrl (optional: the order page).
  * A 0 zł order paid nothing, so it is a registration confirmation (P3-R9): „Zapis potwierdzony”,
- * no payment wording and no amount lines.
+ * no payment wording and no amount lines. An order marked „opłacone poza systemem” (paidOffline) is
+ * a registration confirmation too, „potwierdzone przez organizatora”, with its total and „Płatność: u
+ * organizatora”: no dpay transaction, never a claim that LESZY.RUN collected the money.
  */
 export function orderConfirmationEmail({ event, order, lines, organizer, orderUrl = null }) {
   const people = personLines(lines)
@@ -71,11 +82,13 @@ export function orderConfirmationEmail({ event, order, lines, organizer, orderUr
   const whenText = when ? ` (${when})` : ''
   const free = order.total === 0
   const { amounts, payment, note } = free ? { amounts: [], payment: [], note: null } : paymentFacts(order, organizer)
-  const lead = (name) => free
-    ? `Twoje zgłoszenie na zawody ${name}${whenText} zostało potwierdzone.`
-    : `płatność za zgłoszenie na zawody ${name}${whenText} została przyjęta.`
-  const leadHtml = free
-    ? `Twoje zgłoszenie na zawody <strong>${escapeHtml(event.name)}</strong>${escapeHtml(whenText)} zostało potwierdzone.`
+  // Paid outside the system: the organizer confirmed the entry, no online payment is claimed.
+  const offline = !free && order.paidOffline === true
+  const lead = (name) => (free || offline
+    ? `Twoje zgłoszenie na zawody ${name}${whenText} zostało potwierdzone${offline ? ' przez organizatora' : ''}.`
+    : `płatność za zgłoszenie na zawody ${name}${whenText} została przyjęta.`)
+  const leadHtml = free || offline
+    ? `Twoje zgłoszenie na zawody <strong>${escapeHtml(event.name)}</strong>${escapeHtml(whenText)} zostało potwierdzone${offline ? ' przez organizatora' : ''}.`
     : `płatność za zgłoszenie na zawody <strong>${escapeHtml(event.name)}</strong>${escapeHtml(whenText)} została przyjęta.`
 
   const text = [
@@ -105,7 +118,7 @@ export function orderConfirmationEmail({ event, order, lines, organizer, orderUr
     '<p>LESZY.RUN</p>',
   ].join('')
 
-  return { subject: `${free ? 'Zapis potwierdzony' : 'Opłacone'} — ${event.name}`, text, html }
+  return { subject: `${free || offline ? 'Zapis potwierdzony' : 'Opłacone'} — ${event.name}`, text, html }
 }
 
 /**

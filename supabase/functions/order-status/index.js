@@ -99,7 +99,7 @@ async function ownTransferViews(admin, view, userId) {
 //   startTime, amount, teamId, teamName, isCaptain, transferred (Plan 7: the package was handed on;
 //   then role, consentState and ageGroupLabel are null and mine false), transfer (Plan 7, RA5: the
 //   my-event-registrations block { allowed, until, pending } on the buyer's own line of a paid order,
-//   null on every other line) }], amounts (+ refunded: grosze dpay paid back), event: { slug, name }, closesAt, full, cancelledReason } }
+//   null on every other line) }], paidOffline (paid at the organizer, never the note), amounts (+ refunded: grosze dpay paid back), event: { slug, name }, closesAt, full, cancelledReason } }
 // The order page's state, for the buyer only (401 without a session, 404 otherwise). While the
 // order is pending and dpay may have taken the money without an IPN reaching us, it asks dpay
 // (see poll) before answering.
@@ -157,6 +157,9 @@ Deno.serve(async (req) => {
     return json({
       data: {
         status: view.order.status,
+        // „Opłacone u organizatora”: the organizer marked it paid outside the system. The club's
+        // note on it never leaves the organizer panel.
+        paidOffline: view.order.paid_offline_at != null,
         expiresAt: view.order.expires_at,
         lines: view.lines.map((l) => ({
           registrationId: l.registrationId,

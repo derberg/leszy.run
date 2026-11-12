@@ -71,8 +71,11 @@ const COLUMNS = [
   ['Partner', (r) => r.partnerName],
   ['Kod rabatowy', (r) => r.voucherCode],
   ['Data zapisu', (r) => signedUp(r.createdAt)],
-  // Last, so a sheet built on the earlier columns keeps its places.
+  // New columns go at the end, so a sheet built on the earlier columns keeps its places.
   ['Brak danych', (r) => missingDetailsText(r.missingFields)],
+  // „Opłacone poza systemem”: the club's own note on the order (the Status column says POZA SYSTEMEM).
+  // Defused like every cell: the club's staff type it.
+  ['Notatka o wpłacie', (r) => r.offlineNote],
 ]
 
 function toCsv(columns, rows) {

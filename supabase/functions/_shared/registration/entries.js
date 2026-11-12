@@ -9,6 +9,7 @@ const UNCONFIRMED = new Set(['pending', 'unknown'])
 const LABELS = {
   free: 'NA LIŚCIE',
   paid: 'OPŁACONE',
+  paid_offline: 'POZA SYSTEMEM',
   awaiting: 'CZEKA NA WPŁATĘ',
   expired: 'WYGASŁO',
   cancelled: 'ANULOWANE',
@@ -29,10 +30,10 @@ export function unconfirmedRefundGrosze(row) {
 }
 
 /**
- * @param {object} row  `status`, `paymentStatus` (paymentStatusOf), `expiresAt`, the row's `refunds`
+ * @param {object} row  `status`, `paymentStatus` (paymentStatusOf), `paidOffline`, `expiresAt`, the row's `refunds`
  *   ({ kind, dpay_status }) and its `participant` ({ removed_at, withdrawn_at }, null when it has none)
  * @param {Date} now
- * @returns {'free'|'paid'|'awaiting'|'expired'|'cancelled'|'transferred'|'refund_unconfirmed'|'withdraw_on_host'}
+ * @returns {'free'|'paid'|'paid_offline'|'awaiting'|'expired'|'cancelled'|'transferred'|'refund_unconfirmed'|'withdraw_on_host'}
  */
 export function entryStatusKey(row, now) {
   if (row.refunds?.some(unconfirmed)) return 'refund_unconfirmed'
@@ -44,6 +45,8 @@ export function entryStatusKey(row, now) {
   if (row.status === 'confirmed') {
     // A missing paymentStatus must not quietly turn a paid entry into a free one.
     if (row.paymentStatus !== 'paid' && row.paymentStatus !== 'free') throw new Error('missing_payment_status')
+    // „Opłacone poza systemem”: paid, but to the organizer, outside LESZY.RUN.
+    if (row.paymentStatus === 'paid' && row.paidOffline === true) return 'paid_offline'
     return row.paymentStatus
   }
   if (row.status === 'pending_payment') {
