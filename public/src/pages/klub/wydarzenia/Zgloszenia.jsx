@@ -60,7 +60,9 @@ const teamLabel = (t) => (t.paidOffline ? 'POZA SYSTEMEM' : teamStatusLabel(t.pa
 function OfflineNote({ r }) {
   if (!r.paidOffline || !r.offlineNote) return null
   return (
-    <span className="block font-sans text-xs text-apex-muted [overflow-wrap:anywhere]" title={r.offlineNote} data-testid="registration-offline-note">
+    // Two lines at most, so a long note never widens the table; the whole of it in the tooltip.
+    <span className="max-w-[260px] line-clamp-2 font-sans text-xs text-apex-muted [overflow-wrap:anywhere]" title={r.offlineNote}
+      data-testid="registration-offline-note">
       {r.offlineNote}
     </span>
   )
@@ -176,7 +178,11 @@ function incomeNote(dpayFee, offline) {
   return (
     <>
       {dpayFee > 0 && <span className="block">prowizja dpay <span className="whitespace-nowrap">{formatPln(dpayFee)}</span></span>}
-      {offline && <span className="block" data-testid="tile-income-offline">{offline}</span>}
+      {offline && (
+        <span className="block" data-testid="tile-income-offline">
+          {offline.map((part, i) => <Fragment key={part}>{i > 0 && ' '}<span className="whitespace-nowrap">{part}</span></Fragment>)}
+        </span>
+      )}
     </>
   )
 }
@@ -287,6 +293,7 @@ function TeamCard({ item, ctx, open, onToggle, toggles }) {
           <span className={teamColour(t)} data-testid="team-status">{teamLabel(t)}</span>
           {t.fee > 0 && <span className="text-apex-text-bright">{formatPln(t.fee)}</span>}
         </div>
+        {captain && <OfflineNote r={captain} />}
       </div>
       {open && (
         <ul className="flex flex-col gap-1.5 pl-3 border-l-2 border-apex-border-mid">
@@ -351,7 +358,10 @@ function TeamTableRows({ item, ctx, open, onToggle, toggles }) {
           </div>
         </td>
         <td className={td}>{t.competition}</td>
-        <td className={`${td} font-mono text-xs whitespace-nowrap ${teamColour(t)}`} data-testid="team-status">{teamLabel(t)}</td>
+        <td className={td}>
+          <span className={`block font-mono text-xs whitespace-nowrap ${teamColour(t)}`} data-testid="team-status">{teamLabel(t)}</span>
+          {captain && <OfflineNote r={captain} />}
+        </td>
         <td className={`${td} font-mono whitespace-nowrap text-apex-text-bright`}>{t.fee > 0 ? formatPln(t.fee) : '—'}</td>
         {ctx.hasPartners && <td className={td} />}
         <td className="px-3 py-2 text-right">

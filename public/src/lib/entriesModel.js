@@ -312,12 +312,14 @@ export function extendChoices({ expiresAt, closesAt, now = new Date() }) {
 
 /**
  * The line under „WPŁYWY DLA KLUBU”: money the organizer took outside LESZY.RUN, never added to the
- * tile's online income. „poza systemem: 200,00 zł (1 zgłoszenie)”, null when there is none.
+ * tile's online income. Its parts, each kept on one line by the tile, read „poza systemem: 200,00 zł
+ * (1 zgłoszenie)” joined with spaces; null when there is none.
  * @param {{ offlineTotal?: number, offlineOrders?: number }} counts list-event-registrations' counts
  * @param {(grosze: number) => string} formatPln
+ * @returns {string[]|null}
  */
 export function offlineIncomeNote(counts, formatPln) {
   const n = counts?.offlineOrders ?? 0
   if (!(n > 0)) return null
-  return `poza systemem: ${formatPln(counts.offlineTotal ?? 0)} (${n} ${pluralPl(n, 'zgłoszenie', 'zgłoszenia', 'zgłoszeń')})`
+  return ['poza systemem:', formatPln(counts.offlineTotal ?? 0), `(${n} ${pluralPl(n, 'zgłoszenie', 'zgłoszenia', 'zgłoszeń')})`]
 }

@@ -386,9 +386,9 @@ describe('„Opłacone poza systemem” (OP-9, OP-10)', () => {
     const pln = (g) => `${(g / 100).toFixed(2).replace('.', ',')} zł`
     assert.equal(offlineIncomeNote({ offlineTotal: 0, offlineOrders: 0 }, pln), null)
     assert.equal(offlineIncomeNote(null, pln), null)
-    assert.equal(offlineIncomeNote({ offlineTotal: 20000, offlineOrders: 1 }, pln), 'poza systemem: 200,00 zł (1 zgłoszenie)')
-    assert.equal(offlineIncomeNote({ offlineTotal: 12000, offlineOrders: 2 }, pln), 'poza systemem: 120,00 zł (2 zgłoszenia)')
-    assert.equal(offlineIncomeNote({ offlineTotal: 30000, offlineOrders: 5 }, pln), 'poza systemem: 300,00 zł (5 zgłoszeń)')
+    assert.equal(offlineIncomeNote({ offlineTotal: 20000, offlineOrders: 1 }, pln).join(' '), 'poza systemem: 200,00 zł (1 zgłoszenie)')
+    assert.equal(offlineIncomeNote({ offlineTotal: 12000, offlineOrders: 2 }, pln).join(' '), 'poza systemem: 120,00 zł (2 zgłoszenia)')
+    assert.equal(offlineIncomeNote({ offlineTotal: 30000, offlineOrders: 5 }, pln).join(' '), 'poza systemem: 300,00 zł (5 zgłoszeń)')
   })
   it('a status chip only while some entry was paid outside the system; labels', () => {
     const base = { listed: { people: 1, teams: 0 }, capacity: { people: 5, teams: 0 }, awaitingConsent: 0, perCompetition: [] }
