@@ -2,7 +2,7 @@ import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
 import {
   AWAITING_CONSENT, actionLabel, competitionChips, entryActions, extendChoices, entryCounts, filterEntries, listedTile, noPlacesForAwaiting,
-  partnerChips, statusChips, transferPersonFrom, transferRecipients, transferTargets,
+  offlineIncomeNote, partnerChips, statusChips, transferPersonFrom, transferRecipients, transferTargets,
 } from '../../src/lib/entriesModel.js'
 
 const row = (over = {}) => ({
@@ -352,5 +352,48 @@ describe('TP-43 a child awaiting a parent who is not the captain', () => {
     assert.equal(actionLabel('remind_consent', child), 'Przypomnij opiekunowi o zgodzie')
     assert.equal(actionLabel('consent_office', child), 'Zgoda opiekuna na papierze')
     assert.equal(actionLabel('consent_office', row({ role: 'adult' })), 'Regulamin podpisany w biurze')
+  })
+})
+
+describe('„Opłacone poza systemem” (OP-9, OP-10)', () => {
+  const open = { closed: false, raceDay: false, isTeamRow: false }
+  const awaiting = row({ status: 'pending_payment', statusKey: 'awaiting', paidAmount: 0, orderId: 'o1' })
+  const offline = row({ statusKey: 'paid_offline', paidOffline: true, offlineNote: 'gotówka', orderId: 'o1' })
+
+  it('offered on an unpaid entry of an order, also lapsed or expired and after close, never on race day', () => {
+    assert.ok(entryActions(awaiting, open).includes('mark_paid_offline'))
+    assert.ok(entryActions(awaiting, { ...open, closed: true }).includes('mark_paid_offline'))
+    assert.ok(entryActions({ ...awaiting, statusKey: 'expired' }, open).includes('mark_paid_offline'))
+    assert.deepEqual(entryActions(row({ status: 'expired', statusKey: 'expired', paidAmount: 0, orderId: 'o1' }), open), ['mark_paid_offline'])
+    assert.ok(!entryActions(awaiting, { ...open, raceDay: true }).includes('mark_paid_offline'))
+    assert.ok(!entryActions({ ...awaiting, orderId: null }, open).includes('mark_paid_offline'))
+    for (const statusKey of ['paid', 'free', 'cancelled']) {
+      assert.ok(!entryActions(row({ statusKey, orderId: 'o1' }), open).includes('mark_paid_offline'), statusKey)
+    }
+  })
+  it('an offline-paid entry: its note can be changed, nothing can be refunded through dpay, „Anuluj” stays', () => {
+    const actions = entryActions(offline, open)
+    assert.ok(actions.includes('offline_note'))
+    assert.ok(actions.includes('cancel'))
+    assert.ok(!actions.includes('refund'))
+    assert.ok(!actions.includes('mark_paid_offline'))
+  })
+  it('its money is not the club\'s online income', () => {
+    assert.equal(entryCounts([row(), offline], COMPETITIONS).clubIncome, 6000)
+  })
+  it('the income tile\'s line counts orders in Polish forms, and says nothing when none', () => {
+    const pln = (g) => `${(g / 100).toFixed(2).replace('.', ',')} zł`
+    assert.equal(offlineIncomeNote({ offlineTotal: 0, offlineOrders: 0 }, pln), null)
+    assert.equal(offlineIncomeNote(null, pln), null)
+    assert.equal(offlineIncomeNote({ offlineTotal: 20000, offlineOrders: 1 }, pln), 'poza systemem: 200,00 zł (1 zgłoszenie)')
+    assert.equal(offlineIncomeNote({ offlineTotal: 12000, offlineOrders: 2 }, pln), 'poza systemem: 120,00 zł (2 zgłoszenia)')
+    assert.equal(offlineIncomeNote({ offlineTotal: 30000, offlineOrders: 5 }, pln), 'poza systemem: 300,00 zł (5 zgłoszeń)')
+  })
+  it('a status chip only while some entry was paid outside the system; labels', () => {
+    const base = { listed: { people: 1, teams: 0 }, capacity: { people: 5, teams: 0 }, awaitingConsent: 0, perCompetition: [] }
+    assert.ok(!statusChips({ ...base, byStatus: { paid: 1 } }).some((c) => c.key === 'paid_offline'))
+    assert.equal(statusChips({ ...base, byStatus: { paid_offline: 2 } }).find((c) => c.key === 'paid_offline').label, 'Poza systemem · 2')
+    assert.equal(actionLabel('mark_paid_offline', awaiting), 'Opłacone poza systemem')
+    assert.equal(actionLabel('offline_note', offline), 'Notatka o wpłacie')
   })
 })

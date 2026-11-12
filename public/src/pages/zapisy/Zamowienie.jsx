@@ -27,7 +27,8 @@ import { eventPath } from './RegistrationEventPage.jsx'
 // hidden. The order id in the address is opaque and needs the buyer's session,
 // so analytics may see it (trackedPath). No bib anywhere (spec §2).
 //
-// paid      → „OPŁACONE · <razem>”, „Jesteście na liście”, the people, „Co dalej”; in a
+// paid      → „OPŁACONE · <razem>” („OPŁACONE U ORGANIZATORA · <razem>” when the organizer marked it
+//             paid outside the system; never the club's note), „Jesteście na liście”, the people, „Co dalej”; in a
 //             group each person's regulamin tag („✓ REGULAMIN” / „✓ OPIEKUN” /
 //             „CZEKA NA ZGODĘ”) and „Wyślij przypomnienie do <imię> →” for an added
 //             adult who has not accepted (the consent e-mail goes out on payment, so
@@ -145,7 +146,9 @@ function Paid({ order, raw, model, onAgain }) {
       <PageTop right="KROK 3/3" />
       <div className="bg-apex-yellow text-apex-ink p-[18px] flex flex-col gap-1">
         <span className="font-mono text-xs uppercase" data-testid="order-paid-label">
-          {order.amounts.total > 0 ? `Opłacone · ${formatPln(order.amounts.total)}` : 'Zapis potwierdzony'}
+          {order.amounts.total > 0
+            ? `${order.paidOffline ? 'Opłacone u organizatora' : 'Opłacone'} · ${formatPln(order.amounts.total)}`
+            : 'Zapis potwierdzony'}
         </span>
         <span className="font-display font-extrabold text-4xl leading-none uppercase">Jesteście na liście</span>
         <span className="text-base font-semibold">{[title, day].filter(Boolean).join(' · ')}</span>
