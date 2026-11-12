@@ -195,7 +195,7 @@ test.describe.serial('a runner pays for „Bieg 9 km” while the organizer and 
     const viewer = await offline(await actors.viewer.newPage())
     await viewer.goto(`/events/${event.slug}/lista`)
     await expect(listHeader(viewer)).toHaveText('1 osoba zapisana')
-    await expect(viewer.getByTestId('start-list')).not.toContainText(/opłac/i)
+    await expect(viewer.getByTestId('payment-badge')).toHaveText(/opłacone/i)
 
     const org = await offline(await actors.owner.newPage())
     await org.goto(`/klub/zatyrani-test/wydarzenia/${event.eventId}/zgloszenia`)

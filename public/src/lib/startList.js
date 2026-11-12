@@ -10,11 +10,11 @@
 // Ruling P3-R14: entries awaiting payment are never listed by person, only
 // counted („+N czeka na wpłatę”), and a minor's town never arrives.
 //
-// Whether a confirmed entry was paid or free (a 0 zł entry, a 100 % voucher) is the
-// organizer's to know, never the public's: the list counts paid and free together as
-// „zapisane” and marks no entry. „3 bez opłaty” beside a team list read as three teams
-// that still owed money, when they had used a voucher (II Sztafeta Mikołajów, 2026-11-12).
-// A free event never mentions payment.
+// The counts never split paid from free (a 0 zł entry, a 100 % voucher): they read
+// „zapisane”. „3 bez opłaty” beside a team list read as three teams that still owed money,
+// when they had used a voucher (II Sztafeta Mikołajów, 2026-11-12). A paid entry of a paid
+// event still carries its „opłacone” mark; a free one carries none. A free event never
+// mentions payment.
 //
 // Ruling P3-R15: the limit counts paid entries only, so „N / limit” and the bar
 // are paid + free; an entry awaiting payment holds no place and is only named
@@ -64,7 +64,7 @@ function listHeader(peopleComps, teamComps) {
   ].filter(Boolean).join(' · ')
 }
 
-function teamEntry(e) {
+function teamEntry(e, paidEvent) {
   const membersText = e.members.join(', ')
   const size = sizeText(e.size)
   const unnamed = Math.max(0, (e.size ?? 0) - e.members.length)
@@ -84,13 +84,15 @@ function teamEntry(e) {
     gender: null,
     where: membersText,
     what: `${e.competition} · ${size}`,
+    badge: paidEvent && e.payment === 'paid' ? 'opłacone' : null,
   }
 }
 
 /**
  * @param {object} snapshot the /api/startlist answer
+ * @param {{ paidEvent?: boolean }} [opts] paidEvent: the event's pricingMode is not 'free'
  */
-export function startListView(snapshot) {
+export function startListView(snapshot, { paidEvent = false } = {}) {
   const comps = snapshot?.competitions ?? []
   const entries = snapshot?.entries ?? []
   return {
@@ -110,7 +112,7 @@ export function startListView(snapshot) {
       }
     }),
     entries: entries.map((e) => {
-      if (isTeam(e)) return teamEntry(e)
+      if (isTeam(e)) return teamEntry(e, paidEvent)
       const category = e.kidsGroupLabel ?? e.ageGroupLabel ?? null
       return {
         name: e.name,
@@ -122,6 +124,7 @@ export function startListView(snapshot) {
         gender: e.gender ?? null,
         where: [e.town, e.club].filter(Boolean).join(' · '),
         what: [e.competition, category].filter(Boolean).join(' · '),
+        badge: paidEvent && e.payment === 'paid' ? 'opłacone' : null,
       }
     }),
   }

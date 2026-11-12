@@ -33,12 +33,12 @@ describe('startListView (RA8 columns, ruling P3-R14)', () => {
     assert.equal(v.competitions[1].awaitingLabel, null)
   })
 
-  it('paid or free is the organizer\'s: a 0 zł or voucher entry counts like a paid one, nothing says „bez opłaty”', () => {
-    const v = startListView(SNAP)
+  it('the counts never split paid from free: a 0 zł or voucher entry counts like a paid one, nothing says „bez opłaty”', () => {
+    const v = startListView(SNAP, { paidEvent: true })
     assert.equal(v.competitions[2].taken, 5)
     assert.equal(v.competitions[2].takenPct, 25)
     assert.equal(v.header, '58 osób zapisanych · +2 czekają na wpłatę')
-    assert.ok(!/bez opłaty|opłacon/.test(JSON.stringify(v)), JSON.stringify(v))
+    assert.ok(!/bez opłaty|opłacon/.test(JSON.stringify([v.header, v.competitions])), JSON.stringify(v))
     assert.equal(startListView({ competitions: [], entries: [] }).header, '0 osób zapisanych')
   })
 
@@ -55,17 +55,19 @@ describe('startListView (RA8 columns, ruling P3-R14)', () => {
   it('a free event: „N osoby zapisane”, nothing about payment anywhere', () => {
     const v = startListView(FREE_EVENT)
     assert.equal(v.header, '3 osoby zapisane')
+    assert.equal(v.entries[0].badge, null)
     assert.ok(!JSON.stringify(v).includes('opłac'))
   })
 
-  it('each entry: name, town · club, competition · category, and no payment mark', () => {
-    const [a, b, c] = startListView(SNAP).entries
+  it('each entry: name, town · club, competition · category; „opłacone” only for a paid entry', () => {
+    const [a, b, c] = startListView(SNAP, { paidEvent: true }).entries
     assert.deepEqual(a, {
       name: 'Agnieszka Mazur', town: 'Zabrze', club: 'ZATYRANI', categoryId: 'c1', competition: 'Bieg 9 km',
-      category: 'K40–49', gender: null, where: 'Zabrze · ZATYRANI', what: 'Bieg 9 km · K40–49',
+      category: 'K40–49', gender: null, where: 'Zabrze · ZATYRANI', what: 'Bieg 9 km · K40–49', badge: 'opłacone',
     })
     assert.equal(b.where, 'KB Sośnica')
     assert.equal(b.what, 'Bieg 3 km')
+    assert.equal(c.badge, null)
     assert.equal(c.where, '')
   })
 
@@ -163,7 +165,7 @@ describe('G-42 filterStartList (RA8/RA8d filters)', () => {
 })
 
 describe('G-43 a free event never mentions payment', () => {
-  it('every entry free, no payment text anywhere in the view', () => {
+  it('every entry free, no badge, no payment text anywhere in the view', () => {
     const snap = {
       competitions: [{ categoryId: 'f1', name: 'Bieg 5 km', capacity: 50, paid: 0, free: 2, awaiting: 0 }],
       entries: [
@@ -209,7 +211,7 @@ const TEAMS = {
 }
 
 describe('T-72 teams on the start list', () => {
-  const view = startListView(TEAMS)
+  const view = startListView(TEAMS, { paidEvent: true })
   const team = view.entries[2]
 
   it('a team competition counts drużyny, and its card says so', () => {
@@ -226,7 +228,7 @@ describe('T-72 teams on the start list', () => {
       kind: 'team', name: 'Wilcze Stado', membersText: 'Ola, Piotr, Zosia, Staś', members: ['Ola', 'Piotr', 'Zosia', 'Staś'],
       town: 'Gliwice', club: null, categoryId: 't1', competition: 'Sztafeta', category: null, gender: null,
       unnamedText: null, squad: 4,
-      size: '4 osoby', where: 'Ola, Piotr, Zosia, Staś', what: 'Sztafeta · 4 osoby',
+      size: '4 osoby', where: 'Ola, Piotr, Zosia, Staś', what: 'Sztafeta · 4 osoby', badge: 'opłacone',
     })
   })
 
@@ -234,6 +236,7 @@ describe('T-72 teams on the start list', () => {
     assert.equal(view.entries[3].membersText, 'Ewa, Jan')
     assert.equal(view.entries[3].size, '5 osób')
     assert.equal(view.entries[3].unnamedText, '+3 czekają na potwierdzenie')
+    assert.equal(view.entries[3].badge, null)
   })
 
   it('osoba / osoby / osób for 1, 2, 5, 12, 22, 25', () => {
