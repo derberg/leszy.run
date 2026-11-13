@@ -485,3 +485,77 @@ async def test_a_dead_regulamin_pick_is_not_crawled(sample_event):
     assert mock_crawl.call_count == 1
     assert mock_llm.call_count == 1
     assert result["steps"]["regulamin_pass"]["extracted_chars"] == 0
+
+
+# --- A PDF found on the crawled page, already read and matched ---------------
+
+MOSIR_PAGE_URL = "https://mosir.siemianowice.pl/xxi-bieg-mikolajow-i-mikolajek-oraz-nordic-walking/"
+MOSIR_PDF = (
+    "https://mosir.siemianowice.pl/wp-content/uploads/2026/11/"
+    "Zgloszenie_REGULAMIN_2026_Bieg_Mikolajow.pdf"
+)
+MOSIR_PDF_TEXT = (
+    "XXI Bieg Mikołajów i Mikołajek oraz Nordic Walking\n"
+    "Siemianowice Śląskie, 5 grudnia 2026 r., trasa 5,5 km\n"
+    "Udział bezpłatny. Zgłoszenia do 02.12.2026.\n"
+)
+
+
+@pytest.mark.asyncio
+async def test_a_crawled_pdf_that_names_the_event_is_stored_as_the_regulamin(sample_event):
+    """XXI Bieg Mikołajów i Mikołajek (2026-12-05, maratonypolskie:91269).
+
+    Step 4 downloaded the PDF linked from the MOSiR page, read its text and
+    matched it to the event. The merge step then fetched the URL again and
+    token-matched the name against the raw PDF bytes. The streams are
+    compressed, so neither 'mikolajow' nor 'mikolajek' is in them, and the
+    regulamin_url was never written.
+    """
+    event = sample_event
+    event["name"] = "XXI Bieg Mikołajów i Mikołajek"
+    event["date"] = "2026-12-05"
+    event["location"] = "Siemianowice Śląskie"
+    event["registration_url"] = MOSIR_PAGE_URL
+    event["regulamin_url"] = None
+
+    page = "# XXI Bieg Mikołajów i Mikołajek oraz Nordic Walking\n5 grudnia 2026\n"
+
+    def _crawl(urls, max_chars=10_000):
+        return {
+            field: CrawlResult(
+                url=url, content=page, chars=len(page),
+                internal_links=[{
+                    "href": MOSIR_PDF,
+                    "text": "REGULAMIN – KARTA ZGŁOSZENIA >>>DO POBRANIA<<<",
+                }],
+            )
+            for field, url in urls.items() if url == MOSIR_PAGE_URL
+        }
+
+    with (
+        patch("enricher.pipeline.validate_urls") as mock_validate,
+        patch("enricher.pipeline.search_missing_urls") as mock_search,
+        patch("enricher.pipeline.crawl_pages", new_callable=AsyncMock) as mock_crawl,
+        patch("enricher.pipeline.crawl_url_list", new_callable=AsyncMock) as mock_crawl_list,
+        patch("enricher.pipeline.download_pdf", new_callable=AsyncMock) as mock_download,
+        patch("enricher.pipeline.extract_pdf_text", return_value=MOSIR_PDF_TEXT),
+        patch("enricher.pipeline.cleanup_pdf"),
+        patch("enricher.pipeline.call_ollama") as mock_llm,
+        patch("enricher.pipeline.build_prompt") as mock_prompt,
+        # What the byte match on the real PDF returns (measured 2026-11-13).
+        patch("enricher.steps.merge.verify_url_relevance", return_value=False),
+    ):
+        mock_validate.return_value = {
+            "registration_url": UrlStatus(url=MOSIR_PAGE_URL, status="alive", kind="html"),
+        }
+        mock_search.return_value = {}
+        mock_crawl.side_effect = _crawl
+        mock_crawl_list.return_value = {}
+        mock_download.return_value = "/tmp/mikolajki.pdf"
+        mock_prompt.return_value = "p"
+        mock_llm.return_value = {"price_from": 0, "registration_deadline": "2026-12-02"}
+
+        result = await process_event(event, config)
+
+    assert result["steps"]["pdf"]["url"] == MOSIR_PDF
+    assert result["updates"].get("regulamin_url") == MOSIR_PDF
