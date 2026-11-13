@@ -2,6 +2,9 @@ FROM node:22-bookworm-slim
 WORKDIR /app
 # Install Playwright system dependencies (Chromium needs these libs)
 RUN npx playwright install-deps chromium
+# pdftotext: run-data-audit.js reads a regulamin PDF flagged by its file name to
+# check whether it states the event's date. Without it every PDF reads as empty.
+RUN apt-get update && apt-get install -y --no-install-recommends poppler-utils && rm -rf /var/lib/apt/lists/*
 # Copy root workspace manifest + lock file
 COPY package.json package-lock.json ./
 # Copy only backend package.json (not frontend — avoids unnecessary cache busts)

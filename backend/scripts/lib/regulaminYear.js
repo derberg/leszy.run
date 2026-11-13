@@ -49,3 +49,27 @@ export function isStaleRegulaminYear({ url, eventDate, eventName }) {
   if (docYear >= eventYear) return false
   return !seasonEndYears(eventName).some((end) => end >= eventYear && end - 1 <= docYear)
 }
+
+// The file name is only a first filter: organizers reuse last year's address for this
+// year's text. biegikoszalin.eu's ".../biegsyl2025" page lists the 31.12.2026 races,
+// perlymalopolski.pl's "regulamin-rabka-zdroj-2024/" is the 2026 regulamin and
+// "Bieg Mały Patriota 2025 Regulamin.pdf" says 15.11.2026 (daily audit, 2026-11-13).
+// So a flagged document is read, and it is stale only when it does not state the
+// event's date. A document that cannot be read stays flagged, marked unread.
+//
+// @param {{ url: string, eventDate: string }} row
+// @param {{ fetchDoc: (url: string) => Promise<{text?: string, error?: string}>,
+//           statesDate: (text: string, isoDate: string) => boolean }} deps
+// @returns {Promise<{ stale: boolean, unread?: string }>}
+export async function confirmStaleInContent({ url, eventDate }, { fetchDoc, statesDate }) {
+  let doc
+  try {
+    doc = await fetchDoc(url)
+  } catch (err) {
+    return { stale: true, unread: err?.message || 'fetch failed' }
+  }
+  if (doc?.error) return { stale: true, unread: doc.error }
+  const text = String(doc?.text || '')
+  if (!text.trim()) return { stale: true, unread: 'no text extracted' }
+  return { stale: !statesDate(text, eventDate) }
+}

@@ -33,3 +33,24 @@ test('a date in the file name is not read as a season', () => {
   assert.equal(regulaminYear('https://x.pl/regulamin_2025-12-31.pdf'), 2025)
   assert.equal(regulaminYear('https://x.pl/20261220_Olawa_-_regulamin.pdf'), null)
 })
+
+test('a flagged document that states the event date is not stale', async () => {
+  const { confirmStaleInContent } = await import('../scripts/lib/regulaminYear.js')
+  const { statesDate } = await import('../scripts/lib/regulaminHunt.js')
+  const doc = (text) => ({ fetchDoc: async () => ({ kind: 'pdf', text }), statesDate })
+  const row = { url: 'https://x.pl/Bieg%20Ma%C5%82y%20Patriota%202025%20Regulamin.pdf', eventDate: '2026-11-15' }
+
+  assert.deepEqual(await confirmStaleInContent(row, doc('bieg odbędzie się w dniu 15.11.2026 roku')), { stale: false })
+  assert.deepEqual(await confirmStaleInContent({ ...row, eventDate: '2026-12-13' }, doc('termin zawodów: 13 grudnia 2026')), { stale: false })
+  // last edition's text: the old date, not this one
+  assert.deepEqual(await confirmStaleInContent(row, doc('bieg odbędzie się w dniu 16.11.2025 roku')), { stale: true })
+})
+
+test('a flagged document that cannot be read stays stale, marked unread', async () => {
+  const { confirmStaleInContent } = await import('../scripts/lib/regulaminYear.js')
+  const { statesDate } = await import('../scripts/lib/regulaminHunt.js')
+  const row = { url: 'https://x.pl/regulamin-2025.pdf', eventDate: '2026-11-15' }
+  assert.deepEqual(await confirmStaleInContent(row, { fetchDoc: async () => ({ error: 'HTTP 404' }), statesDate }), { stale: true, unread: 'HTTP 404' })
+  assert.deepEqual(await confirmStaleInContent(row, { fetchDoc: async () => ({ kind: 'pdf', text: '' }), statesDate }), { stale: true, unread: 'no text extracted' })
+  assert.deepEqual(await confirmStaleInContent(row, { fetchDoc: async () => { throw new Error('timeout') }, statesDate }), { stale: true, unread: 'timeout' })
+})
