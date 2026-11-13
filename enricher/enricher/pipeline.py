@@ -570,9 +570,16 @@ async def process_event(event: dict, config: Config) -> dict:
     # Step 6: Smart merge. had_content reflects whether we had REGULAMIN content
     # to read — that's what makes the LLM authoritative on event_types/is_kids.
     had_content = bool(regulamin_content or pdf_text)
-    trusted = frozenset(
+    trusted = {
         f for f, u in discovered.items() if u and search_candidates.get(f) == u
-    )
+    }
+    # A PDF from a crawled page was read in Step 4 and passed
+    # pdf_belongs_to_event (and the verify gate, if search-derived). The merge
+    # step's own check token-matches raw bytes, which a compressed PDF never
+    # passes: XXI Bieg Mikołajów i Mikołajek (2026-12-05) lost its regulamin.
+    if discovered_pdf_url and search_candidates.get("regulamin_url") == discovered_pdf_url:
+        trusted.add("regulamin_url")
+    trusted = frozenset(trusted)
     updates = build_updates(
         event, llm_result or {}, url_statuses, search_candidates, config, had_content,
         trusted_fields=trusted,
