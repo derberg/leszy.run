@@ -17,7 +17,9 @@
 import { createClient } from '@supabase/supabase-js'
 import { DEADLINE_MAX_DAYS_BEFORE, deadlineDaysBefore } from '../src/lib/registrationDeadline.js'
 import { NOT_REGULAMIN, IS_REGULAMIN } from '../src/lib/pickRegulaminUrl.js'
-import { regulaminYear, isStaleRegulaminYear } from './lib/regulaminYear.js'
+import { regulaminYear, isStaleRegulaminYear, confirmStaleInContent } from './lib/regulaminYear.js'
+import { fetchDoc } from './lib/regulaminDocument.js'
+import { statesDate } from './lib/regulaminHunt.js'
 
 const asJson = process.argv.includes('--json')
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY)
@@ -84,7 +86,9 @@ async function selectAll(table, columns, applyFilters) {
 // Blachowniańska Leśna Dycha replaced its 2026 regulamin link with the 2025
 // file — and since a re-scrape is authoritative for its own record, we inherit
 // it. Nothing can fix that automatically; surfacing it is the whole point.
-// The rule is isStaleRegulaminYear() in ./lib/regulaminYear.js.
+// The rule is isStaleRegulaminYear() in ./lib/regulaminYear.js. A flagged
+// document is then read (confirmStaleInContent): one that states the event's date
+// is this year's text under last year's name, and is not reported.
 
 function isSuspectRegulamin(url) {
   if (!url) return false
@@ -113,6 +117,7 @@ async function main() {
   const findings = {
     suspect_regulamin: [],
     stale_regulamin_year: [],
+    stale_regulamin_current_text: [],
     implausible_deadline: [],
     implausible_price: [],
     stale_enrichment: [],
@@ -152,6 +157,20 @@ async function main() {
     }
   }
 
+  // Read each flagged document once (calendar_events and scraper_all share URLs).
+  const verdicts = new Map()
+  const confirmed = []
+  for (const f of findings.stale_regulamin_year) {
+    const key = `${f.regulamin_url}|${f.date}`
+    if (!verdicts.has(key)) {
+      verdicts.set(key, confirmStaleInContent({ url: f.regulamin_url, eventDate: f.date }, { fetchDoc, statesDate }))
+    }
+    const v = await verdicts.get(key)
+    if (v.stale) confirmed.push(v.unread ? { ...f, unread: v.unread } : f)
+    else findings.stale_regulamin_current_text.push(f)
+  }
+  findings.stale_regulamin_year = confirmed
+
   // stale_enrichment is informational; everything else decides the exit code.
   const alerting =
     findings.suspect_regulamin.length +
@@ -167,7 +186,7 @@ async function main() {
       ['regulamin_url names a non-regulamin document', findings.suspect_regulamin,
         (f) => `${f.regulamin_url}`],
       ['regulamin filename is from an earlier year than the event', findings.stale_regulamin_year,
-        (f) => `doc year ${f.docYear} · ${f.regulamin_url}`],
+        (f) => `doc year ${f.docYear}${f.unread ? ` (not read: ${f.unread})` : ''} · ${f.regulamin_url}`],
       [`registration deadline more than ${DEADLINE_MAX_DAYS_BEFORE} days before the event, or after it`,
         findings.implausible_deadline,
         (f) => `${f.registration_deadline} (${f.days} days before)`],
@@ -181,7 +200,9 @@ async function main() {
       }
       if (list.length > 20) console.log(`        … and ${list.length - 20} more`)
     }
-    console.log(`\nINFO  enriched over ${STALE_ENRICH_DAYS} days ago, event still upcoming: ` +
+    console.log(`\nINFO  old year in the filename, but the document states the event date: ` +
+      `${findings.stale_regulamin_current_text.length} (not alerted)`)
+    console.log(`INFO  enriched over ${STALE_ENRICH_DAYS} days ago, event still upcoming: ` +
       `${findings.stale_enrichment.length} (not alerted — backlog size, not a defect)`)
     console.log(`\n${alerting} alerting finding(s).`)
   }
