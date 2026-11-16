@@ -1609,6 +1609,11 @@ any row whose data changed, so re-run the enrichment steps afterwards — a
 corrected regulamin usually yields prices, a deadline and distances the previous
 pass could not see.
 
+Then run `run-enrich-flags.js --apply` (the only writer of `is_kids`) and publish
+just that source: `run-publish.js --source <source>` (dry run first, then
+`--apply`). A full publish also writes every other pending diff, including
+rewrites of past races.
+
 **A re-scrape is authoritative for its own record** (`incomingWinsOver` in
 `src/scrapers/index.js`): same source + same source_id replaces stored values, so
 source regressions propagate too. That is deliberate — a URL the source no longer
