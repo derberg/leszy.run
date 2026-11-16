@@ -67,6 +67,10 @@ function cleanDistances(raw) {
     // ("spacer", or "marsz" without poles). Removed with their distance, or
     // "bieg z psem 5km" would survive as "5 km".
     .replace(/(?:bieg\s+z\s+psem|canicross|spacer|marsz(?!\s*(?:nw|nordic)))[^,]*/gi, '')
+    // A race named by its length ("półmaraton, bieg 5km"): the normalizer leaves
+    // words alone, so the length is written here. Półmaraton before maraton.
+    .replace(/\bp[óo]łmaraton\b/gi, '21.1 km')
+    .replace(/\bmaraton\b/gi, '42.2 km')
     // Strip activity-type prefixes before distances: "bieg 8km" → "8km", "nw 5km" → "5km"
     .replace(/\bnw\s+(?=\d)/gi, '')
     .replace(/\bbieg\s+(?=\d)/gi, '')
