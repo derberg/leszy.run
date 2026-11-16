@@ -1632,7 +1632,10 @@ async function mergeIntoScraperAll({ dryRun = false } = {}) {
  * No fuzzy dedup — just skip rows already present (exact source_links match).
  * New rows go in as 'pending' for admin review.
  */
-async function publishToCalendar({ dryRun = false } = {}) {
+// `sources`: publish only scraper_all rows whose primary source is in the list
+// (run-publish.js --source a,b). Every other row is left alone, so one fixed
+// scraper can be published without the rest of the calendar riding along.
+async function publishToCalendar({ dryRun = false, sources = null } = {}) {
   if (!supabase) return { created: 0, skipped: 0, errors: [{ message: 'Supabase not configured' }] }
 
   console.log('[publish] Reading scraper_all...')
@@ -1653,6 +1656,13 @@ async function publishToCalendar({ dryRun = false } = {}) {
     allRows.push(...data)
     if (data.length < pageSize) break
     from += pageSize
+  }
+
+  if (sources && sources.length) {
+    const keep = new Set(sources)
+    const before = allRows.length
+    allRows.splice(0, allRows.length, ...allRows.filter((r) => keep.has(r.source)))
+    console.log(`[publish] --source ${[...keep].join(',')}: ${allRows.length} of ${before} scraper_all rows`)
   }
 
   console.log(`[publish] ${allRows.length} rows in scraper_all`)
