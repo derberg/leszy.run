@@ -74,6 +74,8 @@ const tile = (big, text) => `<div class="tile"><span class="big">${big}</span>${
 
 test('free parking or a free kids run does not make the race free', () => {
   assert.equal(parse(`<html><body>${tile('PARKING', 'Bezpłatny parking przy starcie')}</body></html>`).price_from, null)
+  assert.equal(parse(`<html><body>${tile('PAKIET', 'Pakiet startowy bezpłatny dla każdego')}</body></html>`).price_from, null)
+  assert.equal(parse(`<html><body>${tile('PARKING', 'Bezpłatny parking. Start biegu: 15:00')}</body></html>`).price_from, null)
   assert.equal(parse(`<html><body>${tile('DZIECI', 'Udział dla dzieci bezpłatnie')}</body></html>`).price_from, null)
   assert.equal(parse(`<html><body><p>Zapewniamy bezpłatną wodę.</p></body></html>`).price_from, null)
 })

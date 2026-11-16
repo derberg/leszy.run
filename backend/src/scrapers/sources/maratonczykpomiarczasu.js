@@ -196,13 +196,13 @@ function parseTournamentPage($$, { isKids = false } = {}) {
   }
 
   // "BEZPŁATNIE / Udział w biegu jest bezpłatny" — free entry is price 0. Only a
-  // tile about taking part counts: free parking or water is not a free race,
-  // and a free kids run is not the adult fee.
+  // tile about taking part (udział) counts: free parking, water or a free
+  // pakiet startowy is not a free race, and a free kids run is not the adult fee.
   let free = false
   if (tiers.length === 0) {
     $$('.tile').each((_, el) => {
       const text = $$(el).text()
-      if (!/bezpłatn/i.test(text) || !/udział|start/i.test(text)) return
+      if (!/bezpłatn/i.test(text) || !/udział/i.test(text)) return
       if (!isKids && KIDS_TIER.test(text)) return
       free = true
     })
