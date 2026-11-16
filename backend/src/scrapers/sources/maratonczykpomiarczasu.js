@@ -188,18 +188,41 @@ function parseTournamentPage($$, { isKids = false } = {}) {
     tiers.push(Number(m[2].replace(',', '.')))
   })
 
+  // Custom panel layouts ('mk26') have no collapse-data rows and write the
+  // close in prose: "Zapisy online do 1.12.2026 (wtorek), godz. 23:59".
+  if (!deadline) {
+    const m = $$('body').text().match(/zapisy online do\s+(\d{1,2}\.\d{1,2}\.\d{4})/i)
+    if (m) deadline = parseDeadline(m[1])
+  }
+
+  // "BEZPŁATNIE / Udział w biegu jest bezpłatny" — free entry is price 0. Only a
+  // tile about taking part counts: free parking or water is not a free race,
+  // and a free kids run is not the adult fee.
+  let free = false
+  if (tiers.length === 0) {
+    $$('.tile').each((_, el) => {
+      const text = $$(el).text()
+      if (!/bezpłatn/i.test(text) || !/udział|start/i.test(text)) return
+      if (!isKids && KIDS_TIER.test(text)) return
+      free = true
+    })
+  }
+
   return {
-    price_from: tiers.length > 0 ? Math.min(...tiers) : null,
-    price_to: tiers.length > 0 ? Math.max(...tiers) : null,
+    price_from: tiers.length > 0 ? Math.min(...tiers) : free ? 0 : null,
+    price_to: tiers.length > 0 ? Math.max(...tiers) : free ? 0 : null,
     registration_deadline: deadline,
   }
 }
 
-// "16.08.2026 23:59" → "2026-08-16". A date we cannot read is dropped.
+// "16.08.2026 23:59" → "2026-08-16", "1.12.2026" → "2026-12-01". A date we
+// cannot read is dropped.
 function parseDeadline(raw) {
-  const m = (raw || '').match(/\b(\d{2})\.(\d{2})\.(\d{4})\b/)
+  const m = (raw || '').match(/\b(\d{1,2})\.(\d{1,2})\.(\d{4})\b/)
   if (!m) return null
-  const [, dd, mm, yyyy] = m
+  const yyyy = m[3]
+  const dd = m[1].padStart(2, '0')
+  const mm = m[2].padStart(2, '0')
   const d = new Date(`${yyyy}-${mm}-${dd}T00:00:00Z`)
   if (Number.isNaN(d.getTime()) || d.getUTCDate() !== Number(dd)) return null
   return `${yyyy}-${mm}-${dd}`
@@ -347,6 +370,7 @@ async function scrape({ knownIds = new Set() } = {}) {
         withPrice++
       }
       if (registration_deadline) ev.registration_deadline = registration_deadline
+      if (!ev.distances) ev.distances = parsePanelDistances($$)
     } catch (err) {
       console.error(`[maratonczykpomiarczasu] detail fetch failed for ${ev.source_id}:`, err.message?.slice(0, 80))
     }
@@ -356,4 +380,16 @@ async function scrape({ knownIds = new Set() } = {}) {
   return newResults
 }
 
-export { scrape, parseRows, sharedLinks, titleNamesCity, parseTournamentPage }
+// Custom panel layouts ('mk26') state the distance as a tile headline:
+// <div class="tile"><span class="big">2026 M</span>3 okrążenia…</div>.
+// Only a headline that is a bare number and a unit counts. "100 RODZIN" does not.
+function parsePanelDistances($$) {
+  const found = []
+  $$('.tile .big').each((_, el) => {
+    const m = $$(el).text().trim().match(/^(\d+(?:[.,]\d+)?)\s*(km|m)$/i)
+    if (m) found.push(`${m[1]} ${m[2].toLowerCase()}`)
+  })
+  return cleanDistances(found.join(', '))
+}
+
+export { scrape, parseRows, sharedLinks, titleNamesCity, parseTournamentPage, parsePanelDistances }
