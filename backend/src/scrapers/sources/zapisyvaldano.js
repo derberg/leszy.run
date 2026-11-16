@@ -7,8 +7,16 @@ import * as cheerio from 'cheerio'
 //
 // Listing: /events (server-rendered, no pagination, future events only; ended /
 // cancelled events live under /events/ended and /events/cancelled and are
-// ignored). Each card exposes name, start date ("DD.MM.YYYY HH:MM"), city and a
-// /event/<id> detail link.
+// ignored). Each card exposes the name, the town and a /event/<id> detail link.
+// Since a redesign (found 2026-11-16, the scraper had parsed nothing since June)
+// the card shows only "13 gru", with no year, and the town as
+// "Sztutowo, Ośrodek Bursztynowo" in span.truncate. The year comes from the
+// detail page's "Początek wydarzenia" ("DD.MM.YYYY HH:MM").
+//
+// The host sometimes answers with a "One moment, please..." page that reloads
+// itself after 5 s; the next requests get the real page. robots.txt allows
+// everything. We wait as the page asks and try again, and fail loudly if it
+// persists, so a dead source is an error in the run log, never "found 0".
 //
 // Detail page (/event/<id>) is the canonical registration landing page. The
 // platform's own "Zapisz się" button points at /event/<id>/register, which 302s
@@ -71,7 +79,9 @@ function hasKidsSignal(text) {
   return false
 }
 
-// Parse the /events listing into [{ sourceId, name, date, location }].
+// Parse the /events listing into [{ sourceId, name, date, location }]. `date`
+// is null when the card carries no year (the current layout); the detail page
+// supplies it.
 function parseListing(html) {
   const $ = cheerio.load(html)
   const events = []
@@ -81,96 +91,129 @@ function parseListing(html) {
     if (!m) return // skip /participants, /register, /rules links
     const sourceId = m[1]
     const name = $(a).text().replace(/\s+/g, ' ').trim()
-    // Walk up to the card root, then read the start date and city out of it.
     const card = $(a).closest('div.group')
+    // Old layout: "DD.MM.YYYY HH:MM" in span.font-medium.
     const date = parseDate(card.find('span.font-medium').first().text())
-    // City lives in a class-less <span> in the location row (date spans carry
-    // .font-medium, the dash separator and participant count carry classes).
+    // Current layout: "Town, venue" in span.truncate. Old layout: a class-less
+    // <span> in the location row.
     let location = null
-    card.find('span:not([class])').each((_, s) => {
-      if (location) return
-      const t = $(s).text().replace(/\s+/g, ' ').trim()
-      if (t && !/^\d/.test(t) && t !== '—') location = t
-    })
-    if (!name || !date) return // drop undated / nameless rows per skill rules
+    const truncate = card.find('span.truncate').first().text().replace(/\s+/g, ' ').trim()
+    if (truncate) {
+      location = truncate.split(',')[0].trim() || null
+    } else {
+      card.find('span:not([class])').each((_, s) => {
+        if (location) return
+        const t = $(s).text().replace(/\s+/g, ' ').trim()
+        if (t && !/^\d/.test(t) && t !== '—') location = t
+      })
+    }
+    if (!name) return
     events.push({ sourceId, name, date, location })
   })
   return events
 }
 
-// Parse the detail page for prices, deadline, regulamin, competition names.
-async function fetchDetail(sourceId) {
-  const url = `${BASE_URL}/event/${sourceId}`
-  try {
+// The "One moment, please..." interstitial the host serves now and then.
+function isLoaderPage(html) {
+  return /<title>\s*One moment, please/i.test(html || '')
+}
+
+// GET a page, waiting out the loader the way the page itself asks (reload after
+// 5 s). Throws when the page never arrives.
+async function fetchPage(url, { attempts = 4, waitMs = 6000 } = {}) {
+  for (let i = 0; i < attempts; i++) {
     const res = await fetch(url, { headers: { 'User-Agent': USER_AGENT } })
-    if (!res.ok) {
-      return { competitionNames: [], regulaminUrl: null, priceFrom: null, priceTo: null, registrationDeadline: null }
+    if (!res.ok) throw new Error(`${url}: ${res.status} ${res.statusText}`)
+    const html = await res.text()
+    if (!isLoaderPage(html)) return html
+    if (i < attempts - 1) await new Promise((r) => setTimeout(r, waitMs))
+  }
+  throw new Error(`${url}: still the "One moment, please" loader after ${attempts} tries`)
+}
+
+const EMPTY_DETAIL = { competitionNames: [], regulaminUrl: null, priceFrom: null, priceTo: null, registrationDeadline: null, startDate: null }
+
+// Parse the detail page for start date, prices, deadline, regulamin and
+// competition names.
+function parseDetail(html) {
+  const $ = cheerio.load(html)
+
+  // Prices: the structured Cennik block uses a distinctive price span
+  // (text-rose-600 + font-semibold) holding "<int> zł" per competition/tier.
+  // This class combo only appears on cennik prices — it skips the prose
+  // "opłata podstawowa" / "opłata manipulacyjna" amounts in the description.
+  const prices = []
+  $('span').each((_, el) => {
+    const cls = $(el).attr('class') || ''
+    if (!/text-rose-600/.test(cls) || !/font-semibold/.test(cls)) return
+    const m = $(el).text().match(/(\d+(?:[.,]\d+)?)\s*zł/i)
+    if (!m) return
+    const n = parseFloat(m[1].replace(',', '.'))
+    if (Number.isFinite(n) && n >= 0) prices.push(n)
+  })
+
+  // Competition names: the price-row label span (text-gray-800) sitting next
+  // to each price. Used for event_types / is_kids signal the umbrella hides.
+  const competitionNames = []
+  $('span').each((_, el) => {
+    const cls = $(el).attr('class') || ''
+    if (!/text-gray-800/.test(cls)) return
+    // Only the ones inside a price row (sibling holds a "zł" price)
+    const sib = $(el).parent().find('span.font-semibold')
+    if (!sib.length || !/zł/i.test(sib.text())) return
+    const t = $(el).text().replace(/\s+/g, ' ').trim()
+    if (t) competitionNames.push(t)
+  })
+
+  // registration_deadline: value span following the "Zamknięcie zapisów" label.
+  let registrationDeadline = null
+  $('span').each((_, el) => {
+    if (registrationDeadline) return
+    if (/Zamknięcie zapisów/i.test($(el).text())) {
+      registrationDeadline = parseDate($(el).next('span').text())
     }
-    const $ = cheerio.load(await res.text())
+  })
 
-    // Prices: the structured Cennik block uses a distinctive price span
-    // (text-rose-600 + font-semibold) holding "<int> zł" per competition/tier.
-    // This class combo only appears on cennik prices — it skips the prose
-    // "opłata podstawowa" / "opłata manipulacyjna" amounts in the description.
-    const prices = []
-    $('span').each((_, el) => {
-      const cls = $(el).attr('class') || ''
-      if (!/text-rose-600/.test(cls) || !/font-semibold/.test(cls)) return
-      const m = $(el).text().match(/(\d+(?:[.,]\d+)?)\s*zł/i)
-      if (!m) return
-      const n = parseFloat(m[1].replace(',', '.'))
-      if (Number.isFinite(n) && n >= 0) prices.push(n)
-    })
-
-    // Competition names: the price-row label span (text-gray-800) sitting next
-    // to each price. Used for event_types / is_kids signal the umbrella hides.
-    const competitionNames = []
-    $('span').each((_, el) => {
-      const cls = $(el).attr('class') || ''
-      if (!/text-gray-800/.test(cls)) return
-      // Only the ones inside a price row (sibling holds a "zł" price)
-      const sib = $(el).parent().find('span.font-semibold')
-      if (!sib.length || !/zł/i.test(sib.text())) return
-      const t = $(el).text().replace(/\s+/g, ' ').trim()
-      if (t) competitionNames.push(t)
-    })
-
-    // registration_deadline: value span following the "Zamknięcie zapisów" label.
-    let registrationDeadline = null
-    $('span').each((_, el) => {
-      if (registrationDeadline) return
-      if (/Zamknięcie zapisów/i.test($(el).text())) {
-        registrationDeadline = parseDate($(el).next('span').text())
-      }
-    })
-
-    // Regulamin PDF — /event/<id>/rules/N. Strip the ?t= cache-buster query.
-    let regulaminUrl = null
-    const reg = $('a[href*="/rules/"]').first().attr('href')
-    if (reg) regulaminUrl = reg.split('?')[0]
-
-    return {
-      competitionNames,
-      regulaminUrl,
-      priceFrom: prices.length ? Math.min(...prices) : null,
-      priceTo: prices.length ? Math.max(...prices) : null,
-      registrationDeadline,
+  // Start date: value span following the "Początek wydarzenia" label.
+  let startDate = null
+  $('span').each((_, el) => {
+    if (startDate) return
+    if (/^\s*Początek wydarzenia\s*$/i.test($(el).text())) {
+      startDate = parseDate($(el).next('span').text())
     }
+  })
+
+  // Regulamin PDF — /event/<id>/rules/N. Strip the ?t= cache-buster query.
+  let regulaminUrl = null
+  const reg = $('a[href*="/rules/"]').first().attr('href')
+  if (reg) regulaminUrl = reg.split('?')[0]
+
+  return {
+    competitionNames,
+    regulaminUrl,
+    priceFrom: prices.length ? Math.min(...prices) : null,
+    priceTo: prices.length ? Math.max(...prices) : null,
+    registrationDeadline,
+    startDate,
+  }
+}
+
+async function fetchDetail(sourceId) {
+  try {
+    return parseDetail(await fetchPage(`${BASE_URL}/event/${sourceId}`))
   } catch (err) {
     console.error(`[zapisyvaldano] Detail fetch failed for ${sourceId}:`, err.message)
-    return { competitionNames: [], regulaminUrl: null, priceFrom: null, priceTo: null, registrationDeadline: null }
+    return EMPTY_DETAIL
   }
 }
 
 async function scrape({ knownIds = new Set() } = {}) {
-  let listing = []
-  try {
-    const res = await fetch(LIST_URL, { headers: { 'User-Agent': USER_AGENT } })
-    if (!res.ok) throw new Error(`listing ${res.status} ${res.statusText}`)
-    listing = parseListing(await res.text())
-  } catch (err) {
-    console.error(`[zapisyvaldano] Listing fetch failed:`, err.message)
-    return []
+  // A listing failure throws, so the run log records an error instead of a
+  // quiet "found 0" (which hid this source for five months in 2026).
+  const html = await fetchPage(LIST_URL)
+  const listing = parseListing(html)
+  if (!listing.length && /\/event\/\d+["?#]/.test(html)) {
+    throw new Error('listing links events but none parsed: the page layout changed')
   }
   console.log(`[zapisyvaldano] Listing: ${listing.length} events parsed`)
 
@@ -186,6 +229,11 @@ async function scrape({ knownIds = new Set() } = {}) {
     const detail = await fetchDetail(entry.sourceId)
     await new Promise((r) => setTimeout(r, 1100))
     console.log(`[zapisyvaldano] Detail ${results.length + 1}/${newEntries.length} — ${entry.name}`)
+    const date = detail.startDate || entry.date
+    if (!date) {
+      console.warn(`[zapisyvaldano] ${entry.sourceId} skipped: no start date on the card or the detail page`)
+      continue
+    }
 
     // Mine event types from competition names (catches a Nordic Walking sub-race
     // the umbrella name hides) — BUT only when the umbrella itself carries no
@@ -202,7 +250,7 @@ async function scrape({ knownIds = new Set() } = {}) {
 
     results.push({
       name: entry.name,
-      date: entry.date,
+      date,
       location: entry.location,
       distances: null, // in regulamin PDF only — left for the Python enricher
       registration_url: sourceUrl,
@@ -223,4 +271,4 @@ async function scrape({ knownIds = new Set() } = {}) {
   return results
 }
 
-export { scrape, parseListing, parseDate, detectEventTypes, hasKidsSignal, fetchDetail }
+export { scrape, parseListing, parseDetail, parseDate, detectEventTypes, hasKidsSignal, fetchDetail, isLoaderPage }
