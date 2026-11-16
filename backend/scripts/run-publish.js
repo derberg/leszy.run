@@ -1,7 +1,8 @@
 import { publishToCalendar } from '../src/scrapers/index.js'
 import { writeRunLog } from './lib/run-log.js'
 
-// Usage: cd backend && node --env-file=../.env scripts/run-publish.js [--apply]
+// Usage: cd backend && node --env-file=../.env scripts/run-publish.js [--apply] [--source a,b]
+//   --source limits the run to scraper_all rows of those sources.
 // Pushes scraper_all rows into calendar_events.
 //   - new event (no matching CE row) → INSERT as 'pending'
 //   - existing CE row, scraper_all has fresher data → UPDATE non-locked, fill-empty fields
@@ -29,6 +30,14 @@ const dryRun = !process.argv.includes('--apply')
 // publisher dropped this incoming field on purpose". Hide all of them by
 // default. Pass --show-skips for the full report.
 const showSkips = process.argv.includes('--show-skips')
+const sourceArg = process.argv.indexOf('--source')
+const sources = sourceArg >= 0
+  ? String(process.argv[sourceArg + 1] || '').split(',').map((s) => s.trim()).filter(Boolean)
+  : null
+if (sourceArg >= 0 && !sources.length) {
+  console.error('--source needs a comma-separated list of sources')
+  process.exit(1)
+}
 
 if (dryRun) {
   console.log(c.bold + c.yellow + '\n' + HR_HEAVY)
@@ -62,7 +71,7 @@ function fmtVal(v) {
   return String(v)
 }
 
-publishToCalendar({ dryRun })
+publishToCalendar({ dryRun, sources })
   .then(async ({ created, updated, unchanged, rejectedSkipped, fuzzySkipped, errors, createdLog, updatedLog, fuzzyLog, dateMoveLog }) => {
     // ─── Created ─────────────────────────────────────────────────
     if (createdLog && createdLog.length > 0) {
