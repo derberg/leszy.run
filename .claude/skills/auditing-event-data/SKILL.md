@@ -100,7 +100,9 @@ cd backend && node --env-file=../.env scripts/run-scrapers.js --only <source> --
 # then clear the stamp so the merge reconsiders those rows:
 #   UPDATE scraper_<source> SET merged_at = NULL WHERE date >= current_date;
 cd backend && node --env-file=../.env scripts/run-merge.js --apply
+cd backend && node --env-file=../.env scripts/run-enrich-flags.js --apply   # sole writer of is_kids
 cd backend && node --env-file=../.env scripts/run-normalize.js --apply
+cd backend && node --env-file=../.env scripts/run-publish.js --source <source>   # dry run, then --apply
 ```
 
 `--force` is required. Without it the scraper skips ids it already knows, and
