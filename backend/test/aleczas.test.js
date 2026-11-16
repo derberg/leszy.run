@@ -59,3 +59,12 @@ test('a walk without poles is not a distance', () => {
   assert.equal(row.distances, '5 km')
   assert.deepEqual(row.event_types, ['nordic walking'])
 })
+
+test('a half marathon and a marathon named by word become their length', () => {
+  // aleczas.pl lists Kurpiowski Pśejåk 2027 as "półmaraton, bieg 5km, nw 5km, biegi dla dzieci".
+  const html = entry('Kurpiowski Pśejåk 2027', 'półmaraton, bieg 5km, nw 5km, biegi dla dzieci',
+    '5.06.2027, Nowogród', '#', 'zapisy dla dorosłych od 6 grudnia 2026')
+  assert.equal(parseListing(html)[0].distances, '21.1 km, 5 km')
+  const full = entry('Maraton X', 'maraton, bieg 10km', '5.06.2027, Nowogród', '#', 'zapisy')
+  assert.equal(parseListing(full)[0].distances, '42.2 km, 10 km')
+})
