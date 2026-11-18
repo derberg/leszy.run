@@ -1108,6 +1108,7 @@ Each scraper writes raw data into its own Supabase table (upsert by `source_id`)
 | ultimasport | `scraper_ultimasport` | `source_id` (form id from `formularz.ultimasport.pl/<id>`) |
 | catchtime | `scraper_catchtime` | `source_id` (race page slug, e.g. `bieg-niepodleglosci-11112026`) |
 | zapisyinfo | `scraper_zapisyinfo` | `source_id` (numeric event id from `/imprezy/<id>/`) |
+| etiming | `scraper_etiming` | `source_id` (event slug from `api.etiming.pl/events/<slug>/`) |
 
 **All steps are manual** — run each script in order. No automatic chaining.
 

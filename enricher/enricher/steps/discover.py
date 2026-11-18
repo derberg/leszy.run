@@ -53,7 +53,7 @@ PLATFORM_HOSTS = (
     "chronotex.pl", "zmierzymyczas.pl", "inessport.pl", "ultimasport.pl",
     "pomiaryczasu.pl", "wbtiming.pl", "bgtimesport.pl", "protiming24.pl",
     "sport-time.com.pl", "time4run.com.pl", "ecityup.pl", "maratonczykpomiarczasu.pl",
-    "raatiming.pl", "catchtime.pl", "czasomierzyk.pl", "kepasport.pl",
+    "raatiming.pl", "catchtime.pl", "czasomierzyk.pl", "kepasport.pl", "etiming.pl",
 )
 
 # Calendars and portals that list other people's races.
