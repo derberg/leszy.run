@@ -58,3 +58,19 @@ test('no countdown, no deadline', () => {
   const got = parseDetailPage(page('<p class="text-primary h3">2026-11-11</p>'), FETCHED)
   assert.equal(got.registrationDeadline, null)
 })
+
+test('the phrase outside the countdown div is not a deadline', () => {
+  // e.g. an organizer's description quoting last edition's countdown.
+  const got = parseDetailPage(page('<p>Do końca zapisów on-line pozostało 12 dni</p>'), FETCHED)
+  assert.equal(got.registrationDeadline, null)
+})
+
+test('mapRow does not store registration_deadline until scraper_timekeeper has the column', async () => {
+  // Pins the gap the countdown fix leaves open: the value stops at mapRow, so nothing
+  // reaches scraper_all or the published page. Flip this test together with the
+  // ALTER TABLE and the mapRow line documented in index.js.
+  const { sources } = await import('../src/scrapers/index.js')
+  const timekeeper = sources.find((s) => s.name === 'timekeeper')
+  const row = timekeeper.mapRow({ name: 'x', date: '2027-03-07', source_id: 'x', registration_deadline: '2027-03-05' })
+  assert.equal('registration_deadline' in row, false)
+})

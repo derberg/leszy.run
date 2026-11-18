@@ -146,7 +146,10 @@ function parseDetailPage(html, now = new Date()) {
     }
   })
 
-  const registrationDeadline = parseDeadlineCountdown($('body').text().replace(/\s+/g, ' '), now, date)
+  // Only the countdown's own div (.text-secondary), not free text such as an organizer's
+  // description quoting the phrase.
+  const countdownText = $('div.text-secondary').map((_, el) => $(el).text()).get().join(' ')
+  const registrationDeadline = parseDeadlineCountdown(countdownText.replace(/\s+/g, ' '), now, date)
 
   return {
     date,
