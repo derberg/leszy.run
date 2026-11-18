@@ -30,3 +30,9 @@ test('a page without a fee block, link or known discipline leaves the fields uns
   assert.equal(d.price_from, null)
   assert.equal(d.price_to, null)
 })
+
+test('a page listing more than one discipline leaves event_type unset, not bieg', () => {
+  const multi = html.replace('&nbsp;&nbsp;Biegi<BR>', '&nbsp;&nbsp;Biegi, Nordic Walking<BR>')
+  assert.notEqual(multi, html)
+  assert.equal(parseDetailPage(multi).event_type, null)
+})
