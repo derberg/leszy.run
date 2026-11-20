@@ -32,10 +32,13 @@ const REG_BG = 'https://biegikoszalin.eu/Biegi_Koszalin_2016/regbg2027'
 const REG_MPM = 'https://biegikoszalin.eu/Biegi_Koszalin_2016/mpm'
 const REG_SYLW = 'https://biegikoszalin.eu/Biegi_Koszalin_2016/bieg_sylwestrowy'
 
+// Every page of the hub repeats its menu, so a fixture without it would let
+// a body check pass that the real site defeats.
+const MENU = HUB.match(/<ul class="menu-nav">[\s\S]*?<\/ul>\n<table>/)[0].replace('<table>', '')
 const page = (title, body) =>
-  `<html><head><title>${title}</title></head><body><h1>${title}</h1>${body}</body></html>`
+  `<html><head><title>${title}</title></head><body>${MENU}<h1>${title}</h1>${body}</body></html>`
 const REG_BG_PAGE = page('Regulamin - XVIII KOSZALIŃSKI BIEG GÓRSKI',
-  '<p>IV. DYSTANSE 5 km</p><p>VI. OPŁATA STARTOWA 60 zł / 70 zł / 100 zł</p>')
+  '<p>II. TERMIN 10 kwietnia 2027 r.</p><p>IV. DYSTANSE 5 km</p><p>VI. OPŁATA STARTOWA 60 zł / 70 zł / 100 zł</p>')
 
 const ROW = {
   name: 'XVIII KOSZALIŃSKI BIEG GÓRSKI',
@@ -70,7 +73,7 @@ test('the sibling race on the hub never gets this race regulamin page', async ()
   const fetchImpl = stubFetch({
     [HUB_URL]: HUB,
     [REG_BG]: REG_BG_PAGE,
-    [REG_SYLW]: page('Regulamin - XVII Koszaliński Bieg Sylwestrowy', '<p>Sylwester</p>'),
+    [REG_SYLW]: page('Regulamin - XVII Koszaliński Bieg Sylwestrowy', '<p>31 grudnia 2026</p>'),
   })
   const row = { ...ROW, name: 'XVII Koszaliński Bieg Sylwestrowy', date: '2026-12-31' }
   assert.equal(await resolveRegistrationPageRegulamin(row, { fetchImpl }), REG_SYLW)
@@ -82,7 +85,8 @@ test('a race the hub names no regulamin for gets none', async () => {
   assert.equal(await resolveRegistrationPageRegulamin(row, { fetchImpl }), null)
 })
 
-test('a linked page that does not name the event is not written', async () => {
+test('a linked page that does not name the event is not written, though its menu does', async () => {
+  // biegikoszalin.eu answers an unknown path with 200 and the full menu.
   const fetchImpl = stubFetch({
     [HUB_URL]: HUB,
     [REG_BG]: page('Strona nie istnieje', '<p>404</p>'),
@@ -94,4 +98,17 @@ test('a regulamin page on another host is not claimed', async () => {
   const markup = HUB.replace('href="/Biegi_Koszalin_2016/regbg2027"', 'href="https://inna.pl/regbg2027"')
   const fetchImpl = stubFetch({ [HUB_URL]: markup, 'https://inna.pl/regbg2027': REG_BG_PAGE })
   assert.equal(await resolveRegistrationPageRegulamin(ROW, { fetchImpl }), null)
+})
+
+test("last year's edition never gets this year's regulamin page", async () => {
+  // 'xvii' is a prefix of 'xviii'; the edition has to match on its own.
+  const fetchImpl = stubFetch({ [HUB_URL]: HUB, [REG_BG]: REG_BG_PAGE })
+  const row = { ...ROW, name: 'XVII Koszaliński Bieg Górski', date: '2026-04-11' }
+  assert.equal(await resolveRegistrationPageRegulamin(row, { fetchImpl }), null)
+})
+
+test('a regulamin page for another year is not written', async () => {
+  const fetchImpl = stubFetch({ [HUB_URL]: HUB, [REG_BG]: REG_BG_PAGE })
+  const row = { ...ROW, name: 'Koszaliński Bieg Górski', date: '2028-04-08' }
+  assert.equal(await resolveRegistrationPageRegulamin(row, { fetchImpl }), null)
 })

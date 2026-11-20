@@ -366,6 +366,20 @@ const REGULAMIN_TITLE = /^\s*regulamin\s*[-–:]/i
 
 const bareHost = url => new URL(url).hostname.replace(/^www\./, '')
 
+// Words, lowercased and stripped of diacritics. Tokens are matched as word
+// prefixes ("koszalinski" in "koszalinskiego"), never as substrings of one
+// glued slug, where "xvii" sits inside "xviii".
+const wordsOf = text => String(text || '').split(/[^\p{L}\p{N}]+/u).map(citySlug).filter(Boolean)
+
+// The edition: a Roman numeral up to LXXXIX, or a leading number ("4. MP").
+// A lone "i" counts only as the first word; elsewhere it is the conjunction.
+const ROMAN = /^(?=[ivxl])l?x{0,3}(?:ix|iv|v?i{0,3})$/
+const editionOf = text => {
+  const ws = wordsOf(text)
+  return ws.filter((w, i) => (ROMAN.test(w) && (w !== 'i' || i === 0)) || (i === 0 && /^\d+$/.test(w)))
+    .sort().join(' ')
+}
+
 /**
  * The regulamin a hub publishes as a plain HTML page, titled with the race it
  * belongs to.
@@ -383,15 +397,26 @@ const bareHost = url => new URL(url).hostname.replace(/^www\./, '')
  *   - same host as the page, so a portal's own terms elsewhere never count;
  *   - the link's own text carries EVERY distinctive token of the row's name,
  *     because siblings on one hub share the city and the word "Bieg";
+ *   - when the row's name carries an edition (XVIII), the link names the same
+ *     one, so last year's regulamin never lends this year its prices;
  *   - exactly one such page;
- *   - fetched, it is HTML and its text names the event too.
+ *   - fetched, it is HTML and its own text, with every link and the menu
+ *     removed, names the event and the row's year. The hub template repeats
+ *     the menu, "Regulamin - XVIII Koszaliński Bieg Górski" included, on
+ *     every page, and an unknown path answers 200, so the full body text
+ *     would name the event on any page of the site.
  *
  * @returns {Promise<string|null>}
  */
 async function resolveRegulaminPageLink(html, pageUrl, row, opts) {
   const tokens = nameTokens(row?.name)
   if (tokens.length === 0) return null
-  const names = text => tokens.every(t => citySlug(text).includes(t))
+  const names = text => {
+    const ws = wordsOf(text)
+    return tokens.every(t => ws.some(w => w.startsWith(t)))
+  }
+  const edition = editionOf(row?.name)
+  const year = String(row?.date || '').slice(0, 4)
 
   let host
   try { host = bareHost(pageUrl) } catch { return null }
@@ -404,6 +429,7 @@ async function resolveRegulaminPageLink(html, pageUrl, row, opts) {
     if (!href || DOCUMENT.test(href) || !REGULAMIN_TITLE.test(text)) return
     const score = scoreRegulaminCandidate({ href, text })
     if (score === null || score < 1 || !names(text)) return
+    if (edition && editionOf(text.replace(REGULAMIN_TITLE, '')) !== edition) return
     let url
     try { url = new URL(href, pageUrl); url.hash = '' } catch { return }
     if (!/^https?:$/.test(url.protocol) || bareHost(url.toString()) !== host) return
@@ -414,7 +440,12 @@ async function resolveRegulaminPageLink(html, pageUrl, row, opts) {
   const [url] = found
   const body = await fetchWithin(url, opts, (res, contentType) =>
     contentType.includes('text/html') ? res.text() : null)
-  if (!body || !names(cheerio.load(body)('body').text())) return null
+  if (!body) return null
+  const $page = cheerio.load(body)
+  $page('script, style, nav, header, footer, a').remove()
+  const own = $page('body').text()
+  if (!names(own)) return null
+  if (/^\d{4}$/.test(year) && !own.includes(year)) return null
   return url
 }
 
