@@ -2,7 +2,7 @@ import { useEffect, useId, useRef, useState } from 'react'
 import { uploadExtraImage } from '../../../../lib/organizer.js'
 import { resizePoster } from '../../../../lib/resizePoster.js'
 import { publicFileUrl } from '../../../../lib/registrationFiles.js'
-import { EXTRA_DESCRIPTION_MAX, MAX_EXTRAS, MAX_VARIANTS, VARIANT_LABEL_MAX } from '@registration/sections.js'
+import { EXTRA_DESCRIPTION_MAX, MAX_EXTRAS, MAX_VARIANTS } from '@registration/sections.js'
 import {
   addVariant, assignExtraIds, competitionOn, extraRow, extraSold, extrasSection, newExtraRow, toggleCompetition,
 } from '../../../../lib/extraRows.js'
@@ -125,7 +125,7 @@ function ExtraCard({ row, n, competitions, imageUrl, errors, published, readOnly
                   {/* The name takes the free width (a variant can be a long description); on a phone it has
                       its own line, the limit and × under it. */}
                   <div className="flex flex-wrap sm:flex-nowrap items-center gap-1.5">
-                    <input aria-label={`Wariant ${k}`} name={`v-${v.key}-label`} placeholder="np. M" maxLength={VARIANT_LABEL_MAX}
+                    <input aria-label={`Wariant ${k}`} name={`v-${v.key}-label`} placeholder="np. M"
                       className={`${cellInput} min-w-0 basis-full sm:basis-auto sm:flex-1`} value={v.label}
                       aria-invalid={e.label ? true : undefined} aria-describedby={e.label || e.stock ? errId : undefined} onChange={setVariant(v.key, 'label')} />
                     <span className="hidden sm:inline text-apex-muted">·</span>
