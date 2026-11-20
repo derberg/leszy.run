@@ -285,8 +285,14 @@ export function eventPageModel(raw, now = new Date()) {
     placeLabel: raw.town?.label ?? null,
     eventPlace: join(raw.town?.label, raw.town?.placeDetails),
     organizerName: raw.club?.name ?? null,
-    // registration_settings.contact_email: the address the organizer gave for runners.
+    // „Organizator” in „Dzień zawodów”: the club's legal name (club_payout_details, the party the
+    // organizer agreement names) or, without one, the club's name; its logo and its own website.
+    organizer: organizer(raw.club),
+    // registration_settings.contact_email: the address the organizer gave for runners (required).
     contactEmail: raw.contactEmail ?? null,
+    // The event's own phone (registration_settings.contact_phone), else the club's (Ustawienia):
+    // a club with several events may have a different person on the phone for each.
+    contactPhone: raw.contactPhone || raw.club?.contactPhone || null,
     officePlace: officePlace(raw),
     startPlace: startPlace(raw),
     // The office set „at the event place”: the page says so instead of repeating the address.
@@ -315,6 +321,35 @@ export function eventPageModel(raw, now = new Date()) {
     regulaminUrl: raw.regulamin?.url ?? null,
     courses: courses(competitions),
   }
+}
+
+/** An http(s) address or null, whatever the stored value says. */
+function webUrl(v) {
+  return /^https?:\/\//i.test(v ?? '') ? v : null
+}
+
+/** „zatyrani.pl” for https://www.zatyrani.pl/: the link text of the organizer's website. */
+export function siteLabel(url) {
+  try {
+    const u = new URL(url)
+    const path = u.pathname === '/' ? '' : u.pathname.replace(/\/$/, '')
+    return u.hostname.replace(/^www\./i, '') + path
+  } catch {
+    return url
+  }
+}
+
+/** `tel:` target of a displayed number: digits and a leading plus only. */
+export function telHref(phone) {
+  return `tel:${phone.replace(/[^\d+]/g, '')}`
+}
+
+// Contact lives in „Kontakt z organizatorem” (the event's, else the club's), not repeated here.
+function organizer(club) {
+  const name = club?.legalName || club?.name
+  if (!name) return null
+  const websiteUrl = webUrl(club.websiteUrl)
+  return { name, logoUrl: webUrl(club.logoUrl), websiteUrl, websiteLabel: websiteUrl ? siteLabel(websiteUrl) : null }
 }
 
 // ---------------------------------------------------------------- preview
@@ -434,7 +469,7 @@ export function mergePending(raw, pending, now = new Date()) {
       name: 'name', slug: 'slug', event_date: 'eventDate', first_start_time: 'firstStartTime', opens_at: 'opensAt', closes_at: 'closesAt',
       is_charity: 'isCharity', charity_goal: 'charityGoal', charity_url: 'charityUrl', charity_percent: 'charityPercent', donations_enabled: 'donationsEnabled',
       description: 'description', website_url: 'websiteUrl',
-      contact_email: 'contactEmail',
+      contact_email: 'contactEmail', contact_phone: 'contactPhone',
     })
     out.town = pick({ ...raw.town }, b, { town_label: 'label', town_area: 'area', place_details: 'placeDetails', lat: 'lat', lng: 'lng' })
     const reg = pick({ ...raw.regulamin }, b, { regulamin_kind: 'kind' })

@@ -667,3 +667,13 @@ test('W-79 basics: „Widoczność” is a boolean `listed`, anything else is re
     assert.equal(r.errors.listed, 'Nieprawidłowa wartość.')
   }
 })
+
+test('W-19c basics contactPhone: optional, the registration phone rule, spaces collapsed', () => {
+  assert.equal(validateSection('basics', { contactPhone: ' +48  600 100-200 ' }, DRAFT).value.contact_phone, '+48 600 100-200')
+  assert.deepEqual(validateSection('basics', { contactPhone: '' }, DRAFT).value, { contact_phone: null })
+  for (const bad of ['600', 'zadzwoń', 7]) {
+    const res = validateSection('basics', { contactPhone: bad }, DRAFT)
+    assert.equal(res.ok, false, String(bad))
+    assert.equal(res.errors.contactPhone, 'Podaj poprawny numer telefonu.')
+  }
+})

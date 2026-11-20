@@ -3,10 +3,14 @@
 // voivodeship nobody can filter by, and an is_public that could be a string.
 // Plain ESM, no Deno APIs (node tests import it).
 
+import { isValidEmail } from './registration/emailAddress.js'
+
 export const CLUB_NAME_MIN = 2
 export const CLUB_NAME_MAX = 100
 export const CLUB_DESCRIPTION_MAX = 2000
 export const CLUB_CITY_MAX = 100
+export const CLUB_WEBSITE_MAX = 500
+export const CLUB_WEBSITE_ERROR = 'Podaj adres zaczynający się od http:// albo https://.'
 
 // The values stored in scraper_all / calendar_events, capitalised; the same
 // list as REGION_SLUG_TO_DB in public/src/lib/biegi-mappings.js.
@@ -25,6 +29,57 @@ export function clubNameError(trimmed) {
     return CLUB_NAME_ERROR
   }
   return null
+}
+
+/**
+ * The club's own website (clubs.website_url), shown as the organizer's link on its events'
+ * pages: trimmed, '' and null clear it. The same rule as the column CHECK and as an event's
+ * website_url (rules.webUrl in _shared/registration/sections.js).
+ * @returns {{ value: string|null }|{ error: string }}
+ */
+export function clubWebsite(v) {
+  if (v === null || v === '') return { value: null }
+  if (typeof v !== 'string') return { error: CLUB_WEBSITE_ERROR }
+  const t = v.trim()
+  if (!t) return { value: null }
+  if (t.length > CLUB_WEBSITE_MAX || !/^https?:\/\/\S+$/i.test(t)) return { error: CLUB_WEBSITE_ERROR }
+  try {
+    const u = new URL(t)
+    return (u.protocol === 'https:' || u.protocol === 'http:') && u.hostname ? { value: t } : { error: CLUB_WEBSITE_ERROR }
+  } catch {
+    return { error: CLUB_WEBSITE_ERROR }
+  }
+}
+
+// The registration form's phone rule (PHONE_RE in _shared/registration/person.js) and the column CHECK.
+const PHONE_RE = /^\+?[0-9][0-9 -]{5,19}$/
+export const CLUB_EMAIL_ERROR = 'Podaj poprawny adres e-mail.'
+export const CLUB_PHONE_ERROR = 'Podaj poprawny numer telefonu.'
+
+/**
+ * The club's public contact e-mail (clubs.contact_email), shown with the organizer on its events'
+ * pages: trimmed and lower-cased by the one e-mail rule; '' and null clear it.
+ * @returns {{ value: string|null }|{ error: string }}
+ */
+export function clubContactEmail(v) {
+  if (v === null || v === '') return { value: null }
+  if (typeof v !== 'string') return { error: CLUB_EMAIL_ERROR }
+  const t = v.trim().toLowerCase()
+  if (!t) return { value: null }
+  return isValidEmail(t) ? { value: t } : { error: CLUB_EMAIL_ERROR }
+}
+
+/**
+ * The club's public contact phone (clubs.contact_phone): trimmed, inner whitespace one space;
+ * '' and null clear it.
+ * @returns {{ value: string|null }|{ error: string }}
+ */
+export function clubContactPhone(v) {
+  if (v === null || v === '') return { value: null }
+  if (typeof v !== 'string') return { error: CLUB_PHONE_ERROR }
+  const t = v.trim().replace(/\s+/g, ' ')
+  if (!t) return { value: null }
+  return PHONE_RE.test(t) ? { value: t } : { error: CLUB_PHONE_ERROR }
 }
 
 /**

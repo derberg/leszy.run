@@ -15,7 +15,9 @@ const EMPTY = { legalName: '', nip: '', krs: '', iban: '', address: '' }
 // `wide` spans both columns on desktop; NIP and KRS sit side by side. Numbers stay
 // in the body font: a 32-character grouped IBAN in mono does not fit a 360 px screen.
 const FIELDS = [
-  { key: 'legalName', id: 'payout-legal-name', label: 'Nazwa podmiotu', maxLength: 200, wide: true, identity: true },
+  // Public: the event page names the organizer by it („Organizator”); NIP, KRS, account and address stay private.
+  { key: 'legalName', id: 'payout-legal-name', label: 'Nazwa podmiotu', maxLength: 200, wide: true, identity: true,
+    hint: 'Widoczna na stronach Waszych zawodów jako organizator. NIP, KRS, rachunek i adres pozostają niepubliczne.' },
   { key: 'nip', id: 'payout-nip', label: 'NIP', inputMode: 'numeric', identity: true },
   { key: 'krs', id: 'payout-krs', label: 'KRS', inputMode: 'numeric', identity: true },
   { key: 'iban', id: 'payout-iban', label: 'Numer rachunku', wide: true },
@@ -108,6 +110,7 @@ export default function PayoutDetails({ clubId, isOwner }) {
                   onChange={(e) => setForm((s) => ({ ...s, [f.key]: e.target.value }))}
                   onBlur={f.key === 'iban' ? () => setForm((s) => ({ ...s, iban: groupIban(s.iban) })) : undefined}
                   className={`${fieldInput} tabular-nums ${identityLocked && f.identity ? 'opacity-70 cursor-not-allowed' : ''}`} />
+                {f.hint && <p className="font-sans text-sm text-apex-muted mt-1.5">{f.hint}</p>}
               </div>
             ))}
           </div>

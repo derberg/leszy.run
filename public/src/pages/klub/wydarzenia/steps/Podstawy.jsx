@@ -43,6 +43,7 @@ function initialForm(s) {
     posterUploadId: s.posterUploadId ?? null,
     // Typed by the organizer, never prefilled from anyone's profile (P2-R19).
     contactEmail: s.contactEmail ?? '',
+    contactPhone: s.contactPhone ?? '',
   }
 }
 
@@ -75,6 +76,7 @@ function basicsValue(f, { state, savedSlug, refusedSlug }) {
     regulaminUploadId: f.regulaminUploadId,
     posterUploadId: f.posterUploadId,
     contactEmail: orNull(f.contactEmail.trim()),
+    contactPhone: orNull(f.contactPhone.trim()),
   }
   if (state === 'draft' && f.slug !== savedSlug && f.slug !== refusedSlug) value.slug = f.slug
   if (!!f.opensOn === !!f.closesOn) {
@@ -108,6 +110,8 @@ function FilePick({ label, accept, onFile, disabled, testId }) {
 
 export default function Podstawy({ event, queue, saveState, readOnly, reload, reportInvalid }) {
   const settings = event.settings
+  // The club's public contact from its Ustawienia (get-registration-event).
+  const club = event.clubContact ?? {}
   const [form, setForm] = useState(() => initialForm(settings))
   const formRef = useRef(form) // the latest form, for writes that finish after an await
   const [localErrors, setLocalErrors] = useState({})
@@ -169,7 +173,7 @@ export default function Podstawy({ event, queue, saveState, readOnly, reload, re
     }
     // An address still being typed waits; everything else saves meanwhile.
     const typing = {}
-    for (const field of ['contactEmail', 'charityUrl', 'charityPercent', 'websiteUrl']) {
+    for (const field of ['contactEmail', 'contactPhone', 'charityUrl', 'charityPercent', 'websiteUrl']) {
       if (result.ok || !result.errors[field]) continue
       typing[field] = result.errors[field]
       const { [field]: _dropped, ...rest } = value
@@ -419,10 +423,26 @@ export default function Podstawy({ event, queue, saveState, readOnly, reload, re
         </div>
       </div>
 
-      <div className="max-w-[640px]">
-        <label htmlFor="ev-contact" className={fieldLabel}>E-mail kontaktowy organizatora</label>
-        <EmailInput id="ev-contact" autoComplete="off" className={fieldInput} value={form.contactEmail}
-          onChange={set('contactEmail')} required error={errors.contactEmail} errorClassName="text-apex-red font-sans text-sm mt-1.5" />
+      <div className="max-w-[640px] grid sm:grid-cols-2 gap-5">
+        <div className="min-w-0">
+          <label htmlFor="ev-contact" className={fieldLabel}>E-mail kontaktowy organizatora</label>
+          <EmailInput id="ev-contact" autoComplete="off" className={fieldInput} value={form.contactEmail}
+            onChange={set('contactEmail')} required error={errors.contactEmail} errorClassName="text-apex-red font-sans text-sm mt-1.5" />
+          {/* Offered, never filled in by itself (P2-R19): the organizer picks the address. */}
+          {!form.contactEmail && club.email && !readOnly && (
+            <button type="button" className="mt-1.5 font-sans text-sm text-apex-yellow hover:underline text-left break-all" data-testid="use-club-email"
+              onClick={() => set('contactEmail')(club.email)}>
+              Wpisz e-mail klubu: {club.email}
+            </button>
+          )}
+        </div>
+        <div className="min-w-0">
+          <label htmlFor="ev-phone" className={fieldLabel}>Telefon kontaktowy</label>
+          <input id="ev-phone" type="text" inputMode="tel" autoComplete="off" maxLength={40} className={fieldInput}
+            placeholder={club.phone ?? 'np. +48 600 100 200'} value={form.contactPhone} onChange={set('contactPhone')} />
+          <MonoHint>{club.phone ? `Puste: telefon klubu ${club.phone}` : 'Opcjonalnie'}</MonoHint>
+          <FieldError message={errors.contactPhone} />
+        </div>
       </div>
     </fieldset>
   )

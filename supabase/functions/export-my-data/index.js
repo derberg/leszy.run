@@ -149,7 +149,7 @@ Deno.serve(async (req) => {
     supabaseAdmin.from('club_members')
       .select('role, status, joined_at, left_at, hidden_public, clubs(name)')
       .eq('user_id', userId),
-    supabaseAdmin.from('clubs').select('id, name, description').eq('owner_id', userId),
+    supabaseAdmin.from('clubs').select('id, name, description, website_url, contact_email, contact_phone').eq('owner_id', userId),
     supabaseAdmin.from('club_membership_log')
       .select('event, role, occurred_at, clubs(name)')
       .eq('user_id', userId)
@@ -414,7 +414,11 @@ Deno.serve(async (req) => {
       .from('club_members')
       .select('*', { count: 'exact', head: true })
       .eq('club_id', c.id)
-    owned.push({ name: c.name, description: c.description ?? null, member_count: count ?? 0 })
+    owned.push({
+      name: c.name, description: c.description ?? null, member_count: count ?? 0,
+      // The club's public contact from its Ustawienia: it may be the owner's own number or address.
+      website_url: c.website_url ?? null, contact_email: c.contact_email ?? null, contact_phone: c.contact_phone ?? null,
+    })
   }
 
   const body = {

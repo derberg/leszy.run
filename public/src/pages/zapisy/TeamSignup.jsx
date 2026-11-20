@@ -187,7 +187,7 @@ export default function TeamSignup({ raw: rawProp, categoryId, preview = false, 
   const captainKey = draft.cards[0].key
   const members = draft.cards.length
   const dataInfo = runnerDataInfo({
-    eventName: model.title, organizerName: model.organizerName, contactEmail: model.contactEmail,
+    eventName: model.title, organizerName: model.organizer?.name ?? null, contactEmail: model.contactEmail,
     paid: raw.pricingMode !== 'free', teams: true, nationality: fields.nationality !== 'off',
   })
 

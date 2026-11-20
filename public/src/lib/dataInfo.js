@@ -8,7 +8,7 @@ import { runnerDataInfo } from '../legal/runnerDataInfo.js'
  */
 export function dataInfoOf(raw, model = eventPageModel(raw)) {
   return runnerDataInfo({
-    eventName: model.title, organizerName: model.organizerName, contactEmail: model.contactEmail,
+    eventName: model.title, organizerName: model.organizer?.name ?? null, contactEmail: model.contactEmail,
     paid: raw.pricingMode !== 'free', teams: (raw.competitions ?? []).some((c) => c.kind === 'team'),
     nationality: fieldModes(raw.formFields).nationality !== 'off',
   })

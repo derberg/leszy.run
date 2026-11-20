@@ -3,6 +3,7 @@ import Navbar from '../../components/Navbar.jsx'
 import AuthGuard from '../../components/AuthGuard.jsx'
 import useClub from '../../hooks/useClub.js'
 import { KlubContext } from './context.js'
+import ClubLogoTile from '../../components/ClubLogoTile.jsx'
 
 // Slug-scoped club area shell: /klub/:slug/{panel,czlonkowie,wydarzenia,zaproszenia,ustawienia}.
 // The bare /klub/:slug is the static public page served by Vercel — this layout
@@ -63,9 +64,7 @@ function ClubShell() {
       <header className="border-b border-apex-border pb-5 mb-6">
         <div className="flex items-center gap-3 min-w-0">
           {club.logo_url ? (
-            <div className="w-12 h-12 flex-shrink-0 border-2 border-apex-yellow bg-apex-surface overflow-hidden">
-              <img src={club.logo_url} alt={`Logo ${club.name}`} className="w-full h-full object-cover" />
-            </div>
+            <ClubLogoTile src={club.logo_url} alt={`Logo ${club.name}`} size="header" />
           ) : (
             <div className="w-12 h-12 flex-shrink-0 bg-apex-surface border-2 border-apex-yellow flex items-center justify-center font-display font-bold text-xl text-apex-yellow">
               {club.name?.[0]?.toUpperCase() || '?'}

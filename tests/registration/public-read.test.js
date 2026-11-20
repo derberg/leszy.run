@@ -311,3 +311,38 @@ test('EP-17 the organizer preview carries the public partners only, as /api/even
   const d = await callFn('preview-registration-event', member, { eventId: draft.eventId })
   assert.deepEqual(d.body.data.raw.partners, [], 'a draft with no partners previews an empty list')
 })
+
+// ---------------------------------------------------------------- W-19b
+
+test('W-19b „Organizator”: club carries the legal name, logo, website and contact, never the NIP, KRS, address or account', async () => {
+  const club = (await db().from('clubs').select('id, logo_url, website_url, contact_email, contact_phone').eq('slug', 'zatyrani-test').single()).data
+  const before = (await db().from('club_payout_details').select('*').eq('club_id', club.id).maybeSingle()).data
+  const event = await createPublishedFreeEvent(owner)
+  const logo = 'http://127.0.0.1/storage/v1/object/public/club-logos/x/logo.png'
+  try {
+    assert.ifError((await db().from('clubs').update({ logo_url: logo, website_url: 'https://zatyrani.example/', contact_email: 'klub@zatyrani.example', contact_phone: '+48 600 100 200' }).eq('id', club.id)).error)
+    const details = { club_id: club.id, legal_name: ' Stowarzyszenie ZATYRANI Test ', nip: '5260250995', krs: '0000123456', address: 'ul. Leśna 1, 44-100 Gliwice', iban: 'PL61109010140000071219812874' }
+    assert.ifError((await db().from('club_payout_details').upsert(details)).error)
+    const anon = createClient(localEnv().url, localEnv().anonKey, { auth: { persistSession: false } })
+    const pub = await anon.rpc('registration_public', { p_slug: event.slug })
+    assert.ifError(pub.error)
+    assert.deepEqual(pub.data.club, {
+      name: pub.data.club.name, legalName: 'Stowarzyszenie ZATYRANI Test', logoUrl: logo, websiteUrl: 'https://zatyrani.example/',
+      contactPhone: '+48 600 100 200',
+    })
+    const text = JSON.stringify(pub.data)
+    for (const secret of ['klub@zatyrani.example', '5260250995', '0000123456', 'ul. Leśna 1', 'PL61109010140000071219812874']) assert.equal(text.includes(secret), false, secret)
+
+    // Without payout details the page names the club; the CHECK refuses a non-http(s) website.
+    assert.ifError((await db().from('club_payout_details').update({ legal_name: '' }).eq('club_id', club.id)).error)
+    assert.equal((await anon.rpc('registration_public', { p_slug: event.slug })).data.club.legalName, null)
+    const bad = await db().from('clubs').update({ website_url: 'javascript:alert(1)' }).eq('id', club.id)
+    assert.match(bad.error?.message ?? '', /clubs_website_url_check/)
+    const badPhone = await db().from('clubs').update({ contact_phone: 'zadzwoń' }).eq('id', club.id)
+    assert.match(badPhone.error?.message ?? '', /clubs_contact_phone_check/)
+  } finally {
+    await db().from('clubs').update({ logo_url: club.logo_url, website_url: club.website_url, contact_email: club.contact_email, contact_phone: club.contact_phone }).eq('id', club.id)
+    if (before) await db().from('club_payout_details').upsert(before)
+    else await db().from('club_payout_details').delete().eq('club_id', club.id)
+  }
+})

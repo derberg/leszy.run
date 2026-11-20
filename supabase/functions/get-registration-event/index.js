@@ -56,7 +56,7 @@ Deno.serve(async (req) => {
     const { settings, role } = loaded
     const eventId = settings.event_id
 
-    const [competitions, hours, consents, uploads, pendingRows, registered, hasAgreement, payout, tiers, extras] = await Promise.all([
+    const [competitions, hours, consents, uploads, pendingRows, registered, hasAgreement, payout, tiers, extras, clubRows] = await Promise.all([
       rows(admin.from('competitions').select('*').eq('event_id', eventId).order('sort_order')),
       rows(admin.from('office_hours').select('id, starts_at, ends_at, note').eq('event_id', eventId).order('starts_at')),
       rows(admin.from('event_consents').select('id, kind, text, sort_order, minors_only').eq('event_id', eventId).order('sort_order')),
@@ -73,6 +73,9 @@ Deno.serve(async (req) => {
       rows(admin.from('extras')
         .select('id, name, description, image_upload_id, price, order_until, sort_order, extra_competitions(category_id), extra_variants(id, label, stock, sold, sort_order)')
         .eq('event_id', eventId).order('sort_order').order('id')),
+      // The club's public contact (Ustawienia): Podstawy offers its e-mail and shows its phone as
+      // the one the page falls back to. Published by the club on every event page anyway.
+      rows(admin.from('clubs').select('contact_email, contact_phone').eq('id', settings.club_id)),
     ])
     if (registered.error) throw registered.error
 
@@ -143,6 +146,7 @@ Deno.serve(async (req) => {
       pending: pendingRows[0] ? camel(pendingRows[0]) : null,
       registeredCount: registered.count ?? 0,
       role,
+      clubContact: { email: clubRows[0]?.contact_email ?? null, phone: clubRows[0]?.contact_phone ?? null },
       // Only the checklist sees the payout, as { mode, ready }; the account
       // itself is get-event-payout's alone (ruling P3-R1).
       checklist: publishChecklist({ ...event, hasAgreement, payout, moneyLive }),

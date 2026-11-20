@@ -4,6 +4,7 @@ import { sectionTitle } from './fields.jsx'
 import ClubPicker from '../../components/ClubPicker.jsx'
 import ClubPrompts from './club/prompts.jsx'
 import { useProfil } from './context.js'
+import ClubLogoTile from '../../components/ClubLogoTile.jsx'
 
 // /profil/klub — slim hub: prompts, "my clubs" cards linking into the
 // standalone /klub/:slug/* area, and the create/join picker when clubless.
@@ -23,7 +24,7 @@ export default function Klub() {
             <Link key={c.club_id} to={`/klub/${c.slug}/panel`} data-testid="my-club-card"
               className="flex items-center gap-3 border border-apex-border px-3.5 py-3 no-underline hover:border-apex-yellow/40 transition-all">
               {c.logo_url ? (
-                <img src={c.logo_url} alt="" className="w-10 h-10 object-cover border border-apex-border shrink-0" />
+                <ClubLogoTile src={c.logo_url} size="sm" />
               ) : (
                 <div className="w-10 h-10 shrink-0 bg-apex-surface border border-apex-border flex items-center justify-center font-display font-bold text-apex-yellow">
                   {c.name?.[0]?.toUpperCase() || '?'}

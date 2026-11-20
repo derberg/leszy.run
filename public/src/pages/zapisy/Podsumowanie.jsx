@@ -267,7 +267,7 @@ export default function Podsumowanie({
       </button>
       {team && <p className="text-base text-apex-text">Skład możesz zmieniać do zamknięcia zapisów.</p>}
       {!free && <p className="text-sm text-apex-muted">
-        Płatność obsługuje dpay. Opłaty startowe pobieramy w imieniu i na rzecz organizatora: {raw.club?.name ?? 'klubu'}.
+        Płatność obsługuje dpay. Opłaty startowe pobieramy w imieniu i na rzecz organizatora: {raw.club?.legalName || raw.club?.name || 'klubu'}.
       </p>}
     </div>
   )

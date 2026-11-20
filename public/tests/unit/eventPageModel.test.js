@@ -1,6 +1,7 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
-import { groupCompetitions, startsByTime, eventPageModel, mergePending, previewRaw, statParts } from '../../src/lib/eventPageModel.js'
+import { groupCompetitions, startsByTime, eventPageModel, mergePending, previewRaw, statParts, siteLabel, telHref } from '../../src/lib/eventPageModel.js'
+import { dataInfoOf } from '../../src/lib/dataInfo.js'
 import { withFileUrls } from '../../src/lib/eventFiles.js'
 
 const BASE = 'https://proj.supabase.co'
@@ -140,6 +141,38 @@ describe('eventPageModel organizer and places (RA1, RA2, RA5)', () => {
     assert.equal(m.organizerName, 'ZATYRANI')
     assert.equal(m.contactEmail, 'biuro@zatyrani.pl')
     assert.equal(model({ ...RA1, contactEmail: undefined }).contactEmail, null)
+  })
+
+  it('„Organizator”: the legal name, else the club name; logo and website only as http(s)', () => {
+    assert.deepEqual(model().organizer, { name: 'ZATYRANI', logoUrl: null, websiteUrl: null, websiteLabel: null })
+    const club = {
+      name: 'ZATYRANI', legalName: 'Stowarzyszenie ZATYRANI',
+      logoUrl: 'https://x.supabase.co/storage/v1/object/public/club-logos/a/logo.png', websiteUrl: 'https://www.zatyrani.pl/',
+      contactPhone: '+48 600 100 200',
+    }
+    assert.deepEqual(model({ ...RA1, club }).organizer, {
+      name: 'Stowarzyszenie ZATYRANI', logoUrl: club.logoUrl, websiteUrl: 'https://www.zatyrani.pl/', websiteLabel: 'zatyrani.pl',
+    })
+    // The phone: the event's own, else the club's; the e-mail is always the event's (required).
+    assert.equal(model({ ...RA1, club }).contactPhone, '+48 600 100 200')
+    assert.equal(model({ ...RA1, club, contactPhone: '+48 500 000 111' }).contactPhone, '+48 500 000 111')
+    assert.equal(model({ ...RA1, club, contactPhone: '+48 500 000 111' }).contactEmail, 'biuro@zatyrani.pl')
+    assert.equal(model().contactPhone, null)
+    const bad = model({ ...RA1, club: { name: 'ZATYRANI', legalName: '', logoUrl: 'javascript:x', websiteUrl: 'javascript:alert(1)' } }).organizer
+    assert.deepEqual(bad, { name: 'ZATYRANI', logoUrl: null, websiteUrl: null, websiteLabel: null })
+    assert.equal(model({ ...RA1, club: null }).organizer, null)
+    // The header keeps the club's short name; the data information names the legal one.
+    assert.equal(model({ ...RA1, club }).organizerName, 'ZATYRANI')
+    assert.match(dataInfoOf({ ...RA1, club }).sections.map((x) => (x.blocks ?? []).filter((b) => typeof b === 'string').join(' ')).join(' '), /Organizator: Stowarzyszenie ZATYRANI\./)
+  })
+
+  it('telHref: digits and a leading plus', () => {
+    assert.equal(telHref('+48 600-100 200'), 'tel:+48600100200')
+  })
+
+  it('siteLabel: host without www, with a path', () => {
+    assert.equal(siteLabel('https://www.zatyrani.pl/'), 'zatyrani.pl')
+    assert.equal(siteLabel('http://klub.example.org/o-nas/'), 'klub.example.org/o-nas')
   })
 
   it('office place: its own address and pin, with OpenStreetMap and Google Maps links', () => {
