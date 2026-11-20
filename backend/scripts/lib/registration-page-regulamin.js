@@ -359,6 +359,65 @@ export async function resolveRegulaminFromPageHtml(html, pageUrl, row, deps = {}
   return mine[0].url
 }
 
+// A link whose text opens with the word: "Regulamin - XVIII Koszaliński Bieg
+// Górski". On a registration page that is a title, not a sentence like
+// "Akceptuję regulamin" or "Regulamin i zapisy" sitting on the sign-up form.
+const REGULAMIN_TITLE = /^\s*regulamin\s*[-–:]/i
+
+const bareHost = url => new URL(url).hostname.replace(/^www\./, '')
+
+/**
+ * The regulamin a hub publishes as a plain HTML page, titled with the race it
+ * belongs to.
+ *
+ * XVIII KOSZALIŃSKI BIEG GÓRSKI (2027-04-10, herkules:4350) is the case. Its
+ * registration_url is the B4Sport white-label hub https://biegikoszalin.eu/,
+ * whose menu reads "Regulamin - XVIII Koszaliński Bieg Górski",
+ * "Regulamin - 4. MP MASTERS W BIEGU GÓRSKIM" and
+ * "Regulamin - XVII Koszaliński Bieg Sylwestrowy", each a page on the same
+ * host. No file anywhere, so the document scan above had nothing to claim and
+ * the row published with regulamin_url, prices, distances and deadline null.
+ *
+ * Every link is an HTML page, so the guards are stricter than for documents:
+ *
+ *   - same host as the page, so a portal's own terms elsewhere never count;
+ *   - the link's own text carries EVERY distinctive token of the row's name,
+ *     because siblings on one hub share the city and the word "Bieg";
+ *   - exactly one such page;
+ *   - fetched, it is HTML and its text names the event too.
+ *
+ * @returns {Promise<string|null>}
+ */
+async function resolveRegulaminPageLink(html, pageUrl, row, opts) {
+  const tokens = nameTokens(row?.name)
+  if (tokens.length === 0) return null
+  const names = text => tokens.every(t => citySlug(text).includes(t))
+
+  let host
+  try { host = bareHost(pageUrl) } catch { return null }
+
+  const $ = cheerio.load(html)
+  const found = new Set()
+  $('a[href]').each((_, a) => {
+    const href = ($(a).attr('href') || '').trim()
+    const text = $(a).text()
+    if (!href || DOCUMENT.test(href) || !REGULAMIN_TITLE.test(text)) return
+    const score = scoreRegulaminCandidate({ href, text })
+    if (score === null || score < 1 || !names(text)) return
+    let url
+    try { url = new URL(href, pageUrl); url.hash = '' } catch { return }
+    if (!/^https?:$/.test(url.protocol) || bareHost(url.toString()) !== host) return
+    found.add(url.toString())
+  })
+  if (found.size !== 1) return null
+
+  const [url] = found
+  const body = await fetchWithin(url, opts, (res, contentType) =>
+    contentType.includes('text/html') ? res.text() : null)
+  if (!body || !names(cheerio.load(body)('body').text())) return null
+  return url
+}
+
 /**
  * Find the regulamin linked from a scraper_all-shaped row's own registration
  * page. Returns a fetch-verified URL, or null when the page links none, links
@@ -382,5 +441,6 @@ export async function resolveRegistrationPageRegulamin(row, deps = {}) {
     contentType.includes('text/html') ? res.text() : null)
   if (!html) return null
 
-  return resolveRegulaminFromPageHtml(html, pageUrl, row, deps)
+  return await resolveRegulaminFromPageHtml(html, pageUrl, row, deps)
+    || resolveRegulaminPageLink(html, pageUrl, row, { fetchImpl, timeoutMs, maxDocBytes })
 }
