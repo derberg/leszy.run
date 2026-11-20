@@ -22,8 +22,9 @@ function readDistanceDigits(text, distances) {
   }
   // Metres as a whole word ("Bieg 1963 m"), never "min" or "mm". XIV EDYCJA
   // BIEGU TROPEM WILCZYM (12970) names its races in metres only. Same relay guard.
+  // Lowercase only: a capital M after a birth year means men ("Dzieci 2016 M").
   if (!kmMatch) {
-    const mMatch = text.match(/(?<![\dx×]\s*)\b(\d{2,5})\s*m\b/i)
+    const mMatch = text.match(/(?<![\dx×]\s*)\b(\d{2,5})\s*m\b/)
     if (mMatch) {
       const m = parseInt(mMatch[1])
       const label = m >= 1000 ? `${Number((m / 1000).toFixed(4))} km` : `${m} m`

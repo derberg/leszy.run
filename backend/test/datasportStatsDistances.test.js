@@ -182,6 +182,20 @@ test('metres keep the relay guard and do not match minutes', async () => {
   }
 })
 
+test('a men\'s age-group suffix after a birth year is not read as metres', async () => {
+  const stub = stubFetch((url) =>
+    url.includes('/statcont/')
+      ? statsJson(['Dzieci 2016 M', 'Dzieci 2016-2017 M', 'Rocznik 2015 M'])
+      : SPARSE_PAGE,
+  )
+  try {
+    const detail = await fetchDetailPage('12972')
+    assert.ok(!detail.distances, `expected no distance, got ${detail.distances}`)
+  } finally {
+    stub.restore()
+  }
+})
+
 test('a missing stats JSON leaves distances empty instead of throwing', async () => {
   const stub = stubFetch((url) => (url.includes('/statcont/') ? null : SPARSE_PAGE))
   try {
