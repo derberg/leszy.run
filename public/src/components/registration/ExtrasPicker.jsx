@@ -33,7 +33,15 @@ export default function ExtrasPicker({ idPrefix, extras, picks, onPick, error, d
           return (
             <li key={x.id} className="border border-apex-border bg-apex-surface px-3 py-2.5 flex flex-col gap-2" data-testid="extra">
               <div className="flex items-center gap-3">
-                {x.imageUrl && <img src={x.imageUrl} alt="" className="w-12 h-12 object-cover shrink-0 border border-apex-border" />}
+                {x.imageUrl && (
+                  // The whole photo, never cropped (a product shot is often several items side by side);
+                  // a click opens it full size.
+                  <a href={x.imageUrl} target="_blank" rel="noopener noreferrer" data-testid="extra-image"
+                    aria-label={`${x.name}: zdjęcie w pełnym rozmiarze`}
+                    className="shrink-0 w-24 h-24 border border-apex-border bg-apex-surface-2 hover:border-apex-yellow-dim">
+                    <img src={x.imageUrl} alt="" className="w-full h-full object-contain" />
+                  </a>
+                )}
                 <span id={`${id}-name`} className="min-w-0 flex-1 text-[17px] font-bold text-apex-text-bright [overflow-wrap:anywhere]">
                   {x.name}{singleLabel && <span className="font-medium text-apex-text"> · {singleLabel}</span>}
                 </span>

@@ -2,7 +2,7 @@ import { useEffect, useId, useRef, useState } from 'react'
 import { uploadExtraImage } from '../../../../lib/organizer.js'
 import { resizePoster } from '../../../../lib/resizePoster.js'
 import { publicFileUrl } from '../../../../lib/registrationFiles.js'
-import { EXTRA_DESCRIPTION_MAX, MAX_EXTRAS, MAX_VARIANTS } from '@registration/sections.js'
+import { EXTRA_DESCRIPTION_MAX, MAX_EXTRAS, MAX_VARIANTS, VARIANT_LABEL_MAX } from '@registration/sections.js'
 import {
   addVariant, assignExtraIds, competitionOn, extraRow, extraSold, extrasSection, newExtraRow, toggleCompetition,
 } from '../../../../lib/extraRows.js'
@@ -69,7 +69,7 @@ function ExtraCard({ row, n, competitions, imageUrl, errors, published, readOnly
     <section data-testid="extra" onBlur={onBlur} aria-label={row.name || `Dodatek ${n}`} className={`${cardClass} sm:grid sm:grid-cols-[180px_minmax(0,1fr)] sm:gap-5`}>
       <div className="flex flex-col gap-1.5">
         {imageUrl ? (
-          <img src={imageUrl} alt={row.name || `Dodatek ${n}`} className="w-full h-[140px] object-cover border border-apex-border-mid" />
+          <img src={imageUrl} alt={row.name || `Dodatek ${n}`} className="w-full h-[140px] object-contain bg-apex-surface-2 border border-apex-border-mid" />
         ) : (
           <div className="h-[140px] border border-apex-border-mid bg-apex-surface-2 flex items-center justify-center px-2 text-center font-display font-extrabold text-lg uppercase text-apex-text-bright break-words">
             {row.name || `Dodatek ${n}`}
@@ -122,11 +122,14 @@ function ExtraCard({ row, n, competitions, imageUrl, errors, published, readOnly
               const locked = published && v.sold > 0
               return (
                 <li key={v.key} className="flex flex-col gap-1">
-                  <div className="flex flex-wrap items-center gap-1.5">
-                    <input aria-label={`Wariant ${k}`} name={`v-${v.key}-label`} placeholder="np. M" className={`${cellInput} w-[140px]`} value={v.label}
+                  {/* The name takes the free width (a variant can be a long description); on a phone it has
+                      its own line, the limit and × under it. */}
+                  <div className="flex flex-wrap sm:flex-nowrap items-center gap-1.5">
+                    <input aria-label={`Wariant ${k}`} name={`v-${v.key}-label`} placeholder="np. M" maxLength={VARIANT_LABEL_MAX}
+                      className={`${cellInput} min-w-0 basis-full sm:basis-auto sm:flex-1`} value={v.label}
                       aria-invalid={e.label ? true : undefined} aria-describedby={e.label || e.stock ? errId : undefined} onChange={setVariant(v.key, 'label')} />
-                    <span className="text-apex-muted">·</span>
-                    <input aria-label={`Limit sztuk ${k}`} name={`v-${v.key}-stock`} inputMode="numeric" placeholder="bez limitu" className={`${cellInput} w-[110px]`} value={v.stock}
+                    <span className="hidden sm:inline text-apex-muted">·</span>
+                    <input aria-label={`Limit sztuk ${k}`} name={`v-${v.key}-stock`} inputMode="numeric" placeholder="bez limitu" className={`${cellInput} w-[110px] shrink-0`} value={v.stock}
                       aria-invalid={e.stock ? true : undefined} aria-describedby={e.label || e.stock ? errId : undefined} onChange={setVariant(v.key, 'stock')} />
                     {locked && (
                       <span className="flex items-center gap-1.5">
