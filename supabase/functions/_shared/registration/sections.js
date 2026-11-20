@@ -538,6 +538,8 @@ function validatePayments(value, ctx, c) {
 // every extra. After publish the locks (sold variants, ruling 10) are the database's.
 export const MAX_EXTRAS = 20
 export const MAX_VARIANTS = 20
+// extra_variants.label's CHECK (1..60 characters).
+export const VARIANT_LABEL_MAX = 60
 export const EXTRA_DESCRIPTION_MAX = 500
 export const MAX_STOCK = 100000
 const STOCK_MESSAGE = `Limit sztuk: od 0 do ${MAX_STOCK.toLocaleString('pl-PL')}.`
@@ -547,7 +549,7 @@ function validateVariant(v, c) {
   checkKeys(v, ['id', 'label', 'stock'], c)
   return {
     id: rules.uuid()(v.id, 'id', c) ?? null,
-    label: rules.text(60, { required: true, emptyMsg: 'Podaj nazwę wariantu.' })(v.label, 'label', c) ?? null,
+    label: rules.text(VARIANT_LABEL_MAX, { required: true, emptyMsg: 'Podaj nazwę wariantu.' })(v.label, 'label', c) ?? null,
     stock: Number.isInteger(v.stock) && v.stock >= 0 && v.stock <= MAX_STOCK ? v.stock : c.fail('stock', STOCK_MESSAGE),
   }
 }
