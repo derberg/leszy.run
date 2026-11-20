@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import useSeo from '../../hooks/useSeo.js'
-import { eventPageModel, groupCompetitions, startsByTime, statParts } from '../../lib/eventPageModel.js'
+import { eventPageModel, groupCompetitions, startsByTime, statParts, telHref } from '../../lib/eventPageModel.js'
 import { isUnlistedRegistration } from '../../lib/eventListing.js'
 import { linkParts } from '../../lib/linkify.js'
 import { pluralPl } from '../../lib/plural.js'
@@ -286,7 +286,7 @@ export function EventFrame({ raw, now, preview = false, tab = 'event', links, ch
   )
 }
 
-/** The organizer: the logo whole on a white tile, the legal name, the club's own website. */
+/** The organizer: the logo whole on a white tile, the legal name, the club's website, phone and e-mail. */
 function Organizer({ o }) {
   return (
     <div className="flex flex-wrap items-center gap-x-4 gap-y-2 mt-1 min-w-0">
@@ -296,6 +296,8 @@ function Organizer({ o }) {
         {o.websiteUrl && (
           <a href={o.websiteUrl} target="_blank" rel="noopener noreferrer" className={`text-base break-all ${linkCls}`} data-testid="organizer-website">{o.websiteLabel} ↗</a>
         )}
+        {o.phone && <a href={telHref(o.phone)} className={`text-base whitespace-nowrap ${linkCls}`} data-testid="organizer-phone">{o.phone}</a>}
+        {o.email && <a href={`mailto:${o.email}`} className={`text-base break-all ${linkCls}`} data-testid="organizer-email">{o.email}</a>}
       </div>
     </div>
   )
@@ -457,6 +459,8 @@ function jsonLd(raw, m, url) {
       name: m.organizer.name,
       ...(m.organizer.websiteUrl ? { url: m.organizer.websiteUrl } : {}),
       ...(m.organizer.logoUrl ? { logo: m.organizer.logoUrl } : {}),
+      ...(m.organizer.phone ? { telephone: m.organizer.phone } : {}),
+      ...(m.organizer.email ? { email: m.organizer.email } : {}),
     } : undefined,
     url,
     offers: m.competitions.filter((c) => c.priceLabel).map((c) => ({

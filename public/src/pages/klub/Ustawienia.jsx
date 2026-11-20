@@ -46,6 +46,8 @@ export default function Ustawienia() {
   const [name, setName] = useState(club.name)
   const [description, setDescription] = useState(club.description || '')
   const [website, setWebsite] = useState(club.website_url || '')
+  const [contactEmail, setContactEmail] = useState(club.contact_email || '')
+  const [contactPhone, setContactPhone] = useState(club.contact_phone || '')
   const [isPublic, setIsPublic] = useState(!!club.is_public)
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState(null)
@@ -67,7 +69,7 @@ export default function Ustawienia() {
     setSaveError(null)
     setSaved(false)
     try {
-      const payload = { name: name.trim(), description: description.trim(), website_url: website.trim(), is_public: isPublic }
+      const payload = { name: name.trim(), description: description.trim(), website_url: website.trim(), contact_email: contactEmail.trim(), contact_phone: contactPhone.trim(), is_public: isPublic }
       await updateClub(club.id, payload)
       // No slug in the payload any more — the address is fixed, so the page
       // never has to survive a canonical-URL redirect after saving.
@@ -165,8 +167,22 @@ export default function Ustawienia() {
             <input id="club-website" data-testid="edit-club-website" type="text" inputMode="url" value={website}
               onChange={(e) => setWebsite(e.target.value)} maxLength={500}
               placeholder="https://" className={fieldInput} />
-            <p className={hintClass}>Link przy nazwie organizatora na stronach Waszych zawodów.</p>
           </div>
+          <div className="grid sm:grid-cols-2 gap-5">
+            <div>
+              <label htmlFor="club-contact-email" className={fieldLabel}>E-mail kontaktowy</label>
+              <input id="club-contact-email" data-testid="edit-club-contact-email" type="text" inputMode="email" autoComplete="off"
+                value={contactEmail} onChange={(e) => setContactEmail(e.target.value)} maxLength={254}
+                placeholder="np. biuro@klub.pl" className={fieldInput} />
+            </div>
+            <div>
+              <label htmlFor="club-contact-phone" className={fieldLabel}>Telefon kontaktowy</label>
+              <input id="club-contact-phone" data-testid="edit-club-contact-phone" type="text" inputMode="tel" autoComplete="off"
+                value={contactPhone} onChange={(e) => setContactPhone(e.target.value)} maxLength={40}
+                placeholder="np. +48 600 100 200" className={fieldInput} />
+            </div>
+          </div>
+          <p className={`${hintClass} !mt-1.5`}>Strona, e-mail i telefon są publiczne: pokazujemy je przy organizatorze na stronach Waszych zawodów.</p>
           {/* Parked, not removed: the public club page is off until it is worth
               showing, so the switch stays where owners already expect it and
               says why it does nothing. `isPublic` keeps the stored value, so

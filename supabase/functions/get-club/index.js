@@ -61,7 +61,7 @@ Deno.serve(async (req) => {
 
     const { data: club, error: clubErr } = await supabaseAdmin
       .from('clubs')
-      .select('id, name, slug, description, city, voivodeship, logo_url, website_url, is_public, owner_id, pending_owner_id, created_at')
+      .select('id, name, slug, description, city, voivodeship, logo_url, website_url, contact_email, contact_phone, is_public, owner_id, pending_owner_id, created_at')
       .eq('id', clubId).single()
     if (clubErr) throw clubErr
 

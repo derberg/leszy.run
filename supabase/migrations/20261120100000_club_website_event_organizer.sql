@@ -1,12 +1,16 @@
--- The organizer on the public event page (RA1, „Organizator”): the club's legal name, its logo
--- and its own website, linked when the club gave one.
+-- The organizer on the public event page (RA1, „Organizator”): the club's legal name, its logo,
+-- its own website and its contact phone and e-mail, each shown when the club gave it.
 --   * clubs.website_url: an optional http(s) address the owner or an admin sets in the club's
 --     settings (update-club), the same rule and CHECK as registration_settings.website_url.
 --     It is the club's public page elsewhere than LESZY.RUN, never personal data. clubs stays
 --     REVOKE ALL from anon/authenticated except the existing column grants; nothing here adds one.
+--   * clubs.contact_email / clubs.contact_phone: the club's public contact, optional, set in the
+--     same settings form; validated by update-club (isValidEmail, the registration phone rule),
+--     the CHECKs below are the backstop. The club publishes them on purpose: it is the club's
+--     address for runners, not the owner's login.
 --   * registration_raw (from 20261109100000): `club` carries `legalName`
 --     (club_payout_details.legal_name, the name the organizer agreement names; null when not
---     given), `logoUrl` and `websiteUrl` besides `name`. Never the NIP, KRS, address or IBAN.
+--     given), `logoUrl`, `websiteUrl`, `contactEmail` and `contactPhone` besides `name`. Never the NIP, KRS, address or IBAN.
 --     registration_public returns registration_raw and is not recreated.
 
 ALTER TABLE public.clubs
@@ -15,6 +19,16 @@ ALTER TABLE public.clubs
 ALTER TABLE public.clubs
   ADD CONSTRAINT clubs_website_url_check
     CHECK (website_url IS NULL OR (char_length(website_url) <= 500 AND website_url ~* '^https?://[^[:space:]]+$'));
+
+ALTER TABLE public.clubs
+  ADD COLUMN IF NOT EXISTS contact_email text,
+  ADD COLUMN IF NOT EXISTS contact_phone text;
+
+ALTER TABLE public.clubs
+  ADD CONSTRAINT clubs_contact_email_check
+    CHECK (contact_email IS NULL OR (char_length(contact_email) <= 254 AND contact_email ~ '^[^[:space:]@]+@[^[:space:]@]+\.[^[:space:]@]+$')),
+  ADD CONSTRAINT clubs_contact_phone_check
+    CHECK (contact_phone IS NULL OR contact_phone ~ '^\+?[0-9][0-9 -]{5,19}$');
 
 -- ---------------------------------------------------------------- registration_raw (from 20261109100000)
 
@@ -59,7 +73,9 @@ AS $$
                'name', c.name,
                'legalName', nullif(btrim(d.legal_name), ''),
                'logoUrl', c.logo_url,
-               'websiteUrl', c.website_url)
+               'websiteUrl', c.website_url,
+               'contactEmail', c.contact_email,
+               'contactPhone', c.contact_phone)
                FROM public.clubs c
                LEFT JOIN public.club_payout_details d ON d.club_id = c.id
               WHERE c.id = rs.club_id),

@@ -3,6 +3,8 @@
 // voivodeship nobody can filter by, and an is_public that could be a string.
 // Plain ESM, no Deno APIs (node tests import it).
 
+import { isValidEmail } from './registration/emailAddress.js'
+
 export const CLUB_NAME_MIN = 2
 export const CLUB_NAME_MAX = 100
 export const CLUB_DESCRIPTION_MAX = 2000
@@ -47,6 +49,37 @@ export function clubWebsite(v) {
   } catch {
     return { error: CLUB_WEBSITE_ERROR }
   }
+}
+
+// The registration form's phone rule (PHONE_RE in _shared/registration/person.js) and the column CHECK.
+const PHONE_RE = /^\+?[0-9][0-9 -]{5,19}$/
+export const CLUB_EMAIL_ERROR = 'Podaj poprawny adres e-mail.'
+export const CLUB_PHONE_ERROR = 'Podaj poprawny numer telefonu.'
+
+/**
+ * The club's public contact e-mail (clubs.contact_email), shown with the organizer on its events'
+ * pages: trimmed and lower-cased by the one e-mail rule; '' and null clear it.
+ * @returns {{ value: string|null }|{ error: string }}
+ */
+export function clubContactEmail(v) {
+  if (v === null || v === '') return { value: null }
+  if (typeof v !== 'string') return { error: CLUB_EMAIL_ERROR }
+  const t = v.trim().toLowerCase()
+  if (!t) return { value: null }
+  return isValidEmail(t) ? { value: t } : { error: CLUB_EMAIL_ERROR }
+}
+
+/**
+ * The club's public contact phone (clubs.contact_phone): trimmed, inner whitespace one space;
+ * '' and null clear it.
+ * @returns {{ value: string|null }|{ error: string }}
+ */
+export function clubContactPhone(v) {
+  if (v === null || v === '') return { value: null }
+  if (typeof v !== 'string') return { error: CLUB_PHONE_ERROR }
+  const t = v.trim().replace(/\s+/g, ' ')
+  if (!t) return { value: null }
+  return PHONE_RE.test(t) ? { value: t } : { error: CLUB_PHONE_ERROR }
 }
 
 /**

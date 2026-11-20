@@ -287,7 +287,7 @@ export function eventPageModel(raw, now = new Date()) {
     organizerName: raw.club?.name ?? null,
     // „Organizator” in „Dzień zawodów”: the club's legal name (club_payout_details, the party the
     // organizer agreement names) or, without one, the club's name; its logo and its own website.
-    organizer: organizer(raw.club),
+    organizer: organizer(raw.club, raw.contactEmail),
     // registration_settings.contact_email: the address the organizer gave for runners.
     contactEmail: raw.contactEmail ?? null,
     officePlace: officePlace(raw),
@@ -336,11 +336,22 @@ export function siteLabel(url) {
   }
 }
 
-function organizer(club) {
+/** `tel:` target of a displayed number: digits and a leading plus only. */
+export function telHref(phone) {
+  return `tel:${phone.replace(/[^\d+]/g, '')}`
+}
+
+// The club's contact e-mail is left out when it is the event's own contact address, which
+// „Kontakt z organizatorem” already shows.
+function organizer(club, eventEmail) {
   const name = club?.legalName || club?.name
   if (!name) return null
   const websiteUrl = webUrl(club.websiteUrl)
-  return { name, logoUrl: webUrl(club.logoUrl), websiteUrl, websiteLabel: websiteUrl ? siteLabel(websiteUrl) : null }
+  const email = club.contactEmail && club.contactEmail.toLowerCase() !== (eventEmail ?? '').toLowerCase() ? club.contactEmail : null
+  return {
+    name, logoUrl: webUrl(club.logoUrl), websiteUrl, websiteLabel: websiteUrl ? siteLabel(websiteUrl) : null,
+    email, phone: club.contactPhone || null,
+  }
 }
 
 // ---------------------------------------------------------------- preview

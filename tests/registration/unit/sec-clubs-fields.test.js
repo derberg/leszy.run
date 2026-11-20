@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { clubFieldsError, clubNameError, clubWebsite, CLUB_WEBSITE_ERROR, VOIVODESHIPS } from '../../../supabase/functions/_shared/clubFields.js'
+import { clubFieldsError, clubNameError, clubWebsite, CLUB_WEBSITE_ERROR, clubContactEmail, clubContactPhone, CLUB_EMAIL_ERROR, CLUB_PHONE_ERROR, VOIVODESHIPS } from '../../../supabase/functions/_shared/clubFields.js'
 import { REGION_SLUG_TO_DB } from '../../../public/src/lib/biegi-mappings.js'
 import { removedMemberMayRejoin } from '../../../supabase/functions/_shared/clubInvites.js'
 
@@ -59,4 +59,13 @@ test('clubWebsite: an http(s) address, trimmed; empty clears it; anything else r
   for (const bad of ['zatyrani.pl', 'javascript:alert(1)', 'ftp://x.pl', 'https://a b.pl', 42, `https://x.pl/${'a'.repeat(500)}`]) {
     assert.deepEqual(clubWebsite(bad), { error: CLUB_WEBSITE_ERROR }, String(bad).slice(0, 40))
   }
+})
+
+test('clubContactEmail / clubContactPhone: the registration rules, trimmed; empty clears', () => {
+  assert.deepEqual(clubContactEmail(' Biuro@Klub.PL '), { value: 'biuro@klub.pl' })
+  assert.deepEqual(clubContactEmail(''), { value: null })
+  for (const bad of ['biuro@klub', 'x@gmail..com', 'a b@klub.pl', 7]) assert.deepEqual(clubContactEmail(bad), { error: CLUB_EMAIL_ERROR }, String(bad))
+  assert.deepEqual(clubContactPhone(' +48  600 100-200 '), { value: '+48 600 100-200' })
+  assert.deepEqual(clubContactPhone(null), { value: null })
+  for (const bad of ['600', 'zadzwoń', '+48 600 100 200 300 400 500', 7]) assert.deepEqual(clubContactPhone(bad), { error: CLUB_PHONE_ERROR }, String(bad))
 })
