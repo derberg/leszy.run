@@ -7,7 +7,11 @@
 // (plus-addressing, hyphens, IDN, punycode), and strict only where a typo is certain:
 // - no whitespace, and none of `,` `(` `)` `"` `\` `<` `>` or a control character, which no real
 //   address needs and which change meaning in a PostgREST filter or a mail header (loginEmail.js);
-// - local part: 1..64 characters, no leading or trailing dot, no two dots in a row;
+// - local part: 1..64 ASCII characters, no leading or trailing dot, no two dots in a row. Letters
+//   with diacritics are refused: a captain typed a teammate as jarosławzientara618@gmail.com
+//   (2026-11-20), and Gmail, WP, Onet and Interia have no such accounts, so the consent e-mail went
+//   nowhere. An internationalised local part (SMTPUTF8) is legal, but no Polish provider issues one;
+//   suggestEmail offers the address with the diacritics taken off;
 // - domain: at least two labels of 1..63 letters, digits or hyphens, none starting or ending
 //   with a hyphen, so no empty label (`..`, a leading or trailing dot);
 // - top-level domain: two or more letters, or a punycode `xn--` label (`xn--p1ai`, .рф).
@@ -16,7 +20,8 @@
 export const EMAIL_MAX = 254
 export const EMAIL_INVALID_MESSAGE = 'Podaj poprawny adres e-mail.'
 
-const LOCAL_CHAR_RE = /^[^\s@,()"\\<>\u0000-\u001f\u007f]+$/u
+const LOCAL_CHAR_RE = /^[\u0021-\u007e]+$/
+const LOCAL_FORBIDDEN_RE = /[@,()"\\<>]/
 const LABEL_RE = /^[\p{L}\p{N}](?:[\p{L}\p{N}-]{0,61}[\p{L}\p{N}])?$/u
 const TLD_RE = /^(?:\p{L}{2,63}|xn--[a-z0-9-]{1,59})$/iu
 
@@ -27,7 +32,7 @@ export function isValidEmail(email) {
   if (at <= 0 || email.indexOf('@') !== at) return false
   const local = email.slice(0, at)
   const domain = email.slice(at + 1)
-  if (local.length > 64 || !LOCAL_CHAR_RE.test(local)) return false
+  if (local.length > 64 || !LOCAL_CHAR_RE.test(local) || LOCAL_FORBIDDEN_RE.test(local)) return false
   if (local.startsWith('.') || local.endsWith('.') || local.includes('..')) return false
   const labels = domain.split('.')
   if (labels.length < 2 || !labels.every((l) => LABEL_RE.test(l))) return false
@@ -87,6 +92,14 @@ function closestKnown(domain) {
   return tie ? null : best
 }
 
+// ł and đ have no decomposition, so NFD alone leaves them.
+const UNDECOMPOSED = { ł: 'l', đ: 'd', ø: 'o', ß: 'ss', æ: 'ae', œ: 'oe' }
+const DIACRITICS_RE = /[^\x00-\x7f]/
+
+function stripDiacritics(text) {
+  return text.normalize('NFD').replace(/\p{M}/gu, '').replace(/[łđøßæœ]/g, (c) => UNDECOMPOSED[c])
+}
+
 /**
  * „Czy chodziło o …?”: the address with a provider typo fixed (gmial.com, gmail.con, gmail..com,
  * wp.p, interia.pl.), or null. A suggestion is only ever offered; it never blocks submitting,
@@ -99,15 +112,18 @@ export function suggestEmail(email) {
   const t = email.trim().toLowerCase()
   const at = t.lastIndexOf('@')
   if (at <= 0) return null
-  const local = t.slice(0, at)
+  const local = stripDiacritics(t.slice(0, at))
   const typed = t.slice(at + 1)
-  if (!typed || KNOWN_DOMAINS.includes(typed)) return null
+  if (!typed) return null
+  if (KNOWN_DOMAINS.includes(typed)) {
+    const suggestion = `${local}@${typed}`
+    return suggestion !== t && isValidEmail(suggestion) ? suggestion : null
+  }
   // Doubled, leading and trailing dots, and a comma for a dot, are fixed before the lookup.
   const domain = typed.replace(/,/g, '.').replace(/\.{2,}/g, '.').replace(/^\.+|\.+$/g, '')
-  const fixed = KNOWN_DOMAINS.includes(domain) ? domain : closestKnown(domain)
-  if (!fixed || fixed === typed) return null
+  const fixed = KNOWN_DOMAINS.includes(domain) ? domain : (closestKnown(domain) ?? typed)
   const suggestion = `${local}@${fixed}`
-  return isValidEmail(suggestion) ? suggestion : null
+  return suggestion !== t && isValidEmail(suggestion) ? suggestion : null
 }
 
 /**
@@ -126,6 +142,7 @@ export function emailProblem(email) {
   const [local, domain] = t.split('@')
   if (!local) return 'Brakuje części przed znakiem @.'
   if (!domain) return 'Brakuje części po znaku @.'
+  if (DIACRITICS_RE.test(local)) return 'Adres e-mail nie może mieć polskich liter (ą, ę, ł, ó…) przed znakiem @.'
   if (t.includes('..')) return 'Adres ma dwie kropki obok siebie.'
   if (/^\.|\.$/.test(local) || /^\.|\.$/.test(domain)) return 'Kropka nie może stać na początku ani na końcu adresu.'
   if (!domain.includes('.')) return 'Brakuje końcówki domeny, np. .pl lub .com.'

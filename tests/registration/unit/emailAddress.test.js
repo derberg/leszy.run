@@ -90,3 +90,23 @@ test('emailProblem says what is wrong, and nothing for a valid address', () => {
   assert.equal(emailProblem('jan@-gmail.com'), EMAIL_INVALID_MESSAGE)
   assert.equal(emailProblem(''), EMAIL_INVALID_MESSAGE)
 })
+
+test('refuses diacritics before the @, keeps them in the domain', () => {
+  // The trigger (2026-11-20): a captain typed a teammate as jarosławzientara618@gmail.com. Gmail
+  // has no such account, so the consent e-mail and its reminder went nowhere.
+  for (const bad of ['jarosławzientara618@gmail.com', 'zażółć@wp.pl', 'łukasz@o2.pl', 'émile@x.fr', 'иван@x.ru'])
+    assert.equal(isValidEmail(bad), false, bad)
+  assert.equal(isValidEmail('x@żółw.pl'), true)
+  assert.equal(isLoginEmail('łukasz@gmail.com'), false)
+})
+
+test('offers the address without diacritics', () => {
+  assert.equal(suggestEmail('jarosławzientara618@gmail.com'), 'jaroslawzientara618@gmail.com')
+  assert.equal(suggestEmail('Zażółć.Gęślą@Gmial.com'), 'zazolc.gesla@gmail.com')
+  assert.equal(suggestEmail('łukasz@żółw.pl'), 'lukasz@żółw.pl')
+  assert.equal(suggestEmail('иван@x.ru'), null)
+})
+
+test('emailProblem names the diacritics', () => {
+  assert.equal(emailProblem('jarosławzientara618@gmail.com'), 'Adres e-mail nie może mieć polskich liter (ą, ę, ł, ó…) przed znakiem @.')
+})
