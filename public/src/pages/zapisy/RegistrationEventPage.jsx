@@ -3,7 +3,6 @@ import { Link } from 'react-router-dom'
 import useSeo from '../../hooks/useSeo.js'
 import { eventPageModel, groupCompetitions, startsByTime, statParts } from '../../lib/eventPageModel.js'
 import { isUnlistedRegistration } from '../../lib/eventListing.js'
-import { orderableExtras, soldOut } from '../../lib/cartModel.js'
 import { linkParts } from '../../lib/linkify.js'
 import { pluralPl } from '../../lib/plural.js'
 import { labelCls, linkCls } from '../../components/registration/ui.js'
@@ -295,23 +294,6 @@ function InfoCell({ label, wide, children, testId, id }) {
   )
 }
 
-// Plan 7: the extras a competition offers, still orderable today; one with nothing left reads
-// „Czapka · brak”. One with a description takes its own line, the description under it.
-function ExtrasLine({ extras }) {
-  return (
-    <small className="flex flex-wrap gap-x-3 gap-y-0.5 text-sm text-apex-text font-medium" data-testid="competition-extras">
-      {extras.map((x) => (
-        <span key={x.id} className={`[overflow-wrap:anywhere]${x.description ? ' basis-full' : ''}`} data-testid="competition-extra">
-          {soldOut(x) ? `${x.name} · brak` : <>{x.name} <span className="font-mono text-apex-yellow whitespace-nowrap">{x.priceLabel}</span></>}
-          {x.description && (
-            <span className="block text-apex-muted whitespace-pre-line" data-testid="competition-extra-description">{x.description}</span>
-          )}
-        </span>
-      ))}
-    </small>
-  )
-}
-
 /** „Starty”: one line per start time, each competition with its distance, team size and ages. */
 function Starts({ m }) {
   return (
@@ -335,10 +317,7 @@ function Starts({ m }) {
   )
 }
 
-function EventContent({ raw, m, now, course }) {
-  const extrasBy = m.competitions
-    .map((c) => ({ c, extras: orderableExtras(raw.extras, c.categoryId, now ?? new Date()) }))
-    .filter((x) => x.extras.length > 0)
+function EventContent({ raw, m, course }) {
   return (
     <>
       {(m.charityGoal || m.charityUrl || m.charityPercent != null) && (
@@ -419,18 +398,6 @@ function EventContent({ raw, m, now, course }) {
               ? <a href={`mailto:${m.contactEmail}`} className={`text-base break-all ${linkCls}`} data-testid="contact-link">{m.contactEmail}</a>
               : <span className="text-base text-apex-muted" data-testid="contact-missing">Organizator nie podał jeszcze adresu</span>}
           </InfoCell>
-          {extrasBy.length > 0 && (
-            <InfoCell label="Dodatki do zamówienia" wide testId="extras">
-              <div className="flex flex-col gap-2">
-                {extrasBy.map(({ c, extras }) => (
-                  <div key={c.categoryId} className="flex flex-col gap-0.5" data-testid="extras-row">
-                    {extrasBy.length > 1 || m.competitions.length > 1 ? <span className="text-base text-apex-text-bright font-semibold">{c.name}</span> : null}
-                    <ExtrasLine extras={extras} />
-                  </div>
-                ))}
-              </div>
-            </InfoCell>
-          )}
         </div>
       </section>
 
@@ -495,7 +462,7 @@ export default function RegistrationEventPage({ raw, now, preview = false, links
 
   return (
     <EventFrame raw={raw} now={now} preview={preview} links={links}>
-      {(model) => <EventContent raw={raw} m={model} now={now} course={course} />}
+      {(model) => <EventContent raw={raw} m={model} course={course} />}
     </EventFrame>
   )
 }

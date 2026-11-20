@@ -299,7 +299,6 @@ test('V-90 flag on: a published free charity event with donations and a shirt sh
   await page.goto(`/events/${e.slug}`)
   const nine = page.getByTestId('competition').filter({ hasText: 'Bieg 9 km' })
   await expect(nine).toBeVisible()
-  await expect(page.getByTestId('competition-extra').first()).toBeVisible()
   await nine.click()
   await page.locator('#p-first').fill('Ola')
   await page.locator('#p-last').fill('Bezpłatna')

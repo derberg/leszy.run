@@ -117,17 +117,14 @@ async function charityEvent() {
 
 const ordersOf = async (email) => (await admin().from('orders').select('*').eq('buyer_email', email)).data
 
-test('RA1 lists the extras of each competition; a sold-out one reads „brak”', async ({ actors }) => {
+// RA1 sells nothing: the extras are offered in the form only (user decision 2026-11-20).
+test('RA1 lists no extras', async ({ actors }) => {
   const event = await charityEvent()
   const page = await offline(await actors.viewer.newPage())
   await page.goto(`/events/${event.slug}`)
-  const nine = page.getByTestId('extras-row').filter({ hasText: 'Bieg 9 km' })
-  const three = page.getByTestId('extras-row').filter({ hasText: 'Bieg 3 km' })
-  // In the organizer's order (sort_order, then id): compared as sets.
-  await expect(nine.getByTestId('competition-extra')).toHaveCount(3)
-  expect((await nine.getByTestId('competition-extra').allTextContents()).sort()).toEqual(['Czapka · brak', 'Koszulka 45,00 zł', 'Medal 20,00 zł'])
-  await expect(three.getByTestId('competition-extra')).toHaveCount(2)
-  expect((await three.getByTestId('competition-extra').allTextContents()).sort()).toEqual(['Czapka · brak', 'Koszulka 45,00 zł'])
+  await expect(page.getByTestId('competition').first()).toBeVisible()
+  await expect(page.getByTestId('extras')).toHaveCount(0)
+  await expect(page.getByText('Koszulka')).toHaveCount(0)
 })
 
 for (const width of [1440, 390]) {
@@ -412,8 +409,9 @@ for (const width of [1440, 390]) {
     const page = await offline(await actors.runner.newPage())
     await page.setViewportSize({ width, height: 900 })
     await page.goto(`/events/${event.slug}`)
-    // RA1 lists the shirt under the team competition, and the team form now sells it.
-    await expect(page.getByTestId('competition-extra')).toHaveText(['Koszulka 45,00 zł'])
+    // RA1 lists no extras; the team form sells the shirt.
+    await expect(page.getByTestId('competition').first()).toBeVisible()
+    await expect(page.getByTestId('extras')).toHaveCount(0)
     await page.getByTestId('competition').first().click()
     await page.getByLabel('Nazwa drużyny').fill(teamName)
     await fillMember(page, 'p', { first: 'Ola', last: 'Leśna', birth: '1988-03-01', gender: 'Kobieta', email: ACTOR_EMAILS.runner, phone: '600100200' })
