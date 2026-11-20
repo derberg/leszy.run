@@ -286,7 +286,7 @@ export function EventFrame({ raw, now, preview = false, tab = 'event', links, ch
   )
 }
 
-/** The organizer: the logo whole on a white tile, the legal name, the club's website, phone and e-mail. */
+/** The organizer: the logo whole on a white tile, the legal name, the club's own website. */
 function Organizer({ o }) {
   return (
     <div className="flex flex-wrap items-center gap-x-4 gap-y-2 mt-1 min-w-0">
@@ -296,8 +296,7 @@ function Organizer({ o }) {
         {o.websiteUrl && (
           <a href={o.websiteUrl} target="_blank" rel="noopener noreferrer" className={`text-base break-all ${linkCls}`} data-testid="organizer-website">{o.websiteLabel} ↗</a>
         )}
-        {o.phone && <a href={telHref(o.phone)} className={`text-base whitespace-nowrap ${linkCls}`} data-testid="organizer-phone">{o.phone}</a>}
-        {o.email && <a href={`mailto:${o.email}`} className={`text-base break-all ${linkCls}`} data-testid="organizer-email">{o.email}</a>}
+
       </div>
     </div>
   )
@@ -420,6 +419,7 @@ function EventContent({ raw, m, course }) {
             {m.contactEmail
               ? <a href={`mailto:${m.contactEmail}`} className={`text-base break-all ${linkCls}`} data-testid="contact-link">{m.contactEmail}</a>
               : <span className="text-base text-apex-muted" data-testid="contact-missing">Organizator nie podał jeszcze adresu</span>}
+            {m.contactPhone && <a href={telHref(m.contactPhone)} className={`text-base whitespace-nowrap ${linkCls}`} data-testid="contact-phone">{m.contactPhone}</a>}
           </InfoCell>
           {m.organizer && (
             <InfoCell label="Organizator" wide={organizerWide} testId="organizer-info"><Organizer o={m.organizer} /></InfoCell>
@@ -459,8 +459,8 @@ function jsonLd(raw, m, url) {
       name: m.organizer.name,
       ...(m.organizer.websiteUrl ? { url: m.organizer.websiteUrl } : {}),
       ...(m.organizer.logoUrl ? { logo: m.organizer.logoUrl } : {}),
-      ...(m.organizer.phone ? { telephone: m.organizer.phone } : {}),
-      ...(m.organizer.email ? { email: m.organizer.email } : {}),
+      ...(m.contactPhone ? { telephone: m.contactPhone } : {}),
+      ...(m.contactEmail ? { email: m.contactEmail } : {}),
     } : undefined,
     url,
     offers: m.competitions.filter((c) => c.priceLabel).map((c) => ({

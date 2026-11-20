@@ -111,6 +111,14 @@ const rules = {
     const t = typeof v === 'string' ? v.trim().toLowerCase() : ''
     return isValidEmail(t) ? t : c.fail(field, 'Podaj poprawny adres e-mail.')
   },
+  // A contact phone: the registration form's rule (PHONE_RE in person.js) and the column CHECK.
+  phone: () => (v, field, c) => {
+    if (v === null || v === '') return null
+    if (typeof v !== 'string') return c.fail(field, 'Podaj poprawny numer telefonu.')
+    const t = v.trim().replace(/\s+/g, ' ')
+    if (!t) return null
+    return /^\+?[0-9][0-9 -]{5,19}$/.test(t) ? t : c.fail(field, 'Podaj poprawny numer telefonu.')
+  },
   oneOf: (values, message = 'Nieprawidłowa wartość.') => (v, field, c) => (values.includes(v) ? v : c.fail(field, message)),
   int: (min, max, message) => (v, field, c) => (v === null || v === undefined ? null
     : Number.isInteger(v) && v >= min && v <= max ? v : c.fail(field, message)),
@@ -151,6 +159,8 @@ const BASICS = {
   regulaminUploadId: ['regulamin_upload_id', rules.uuid()],
   posterUploadId: ['poster_upload_id', rules.uuid()],
   contactEmail: ['contact_email', rules.email()],
+  // Optional: the page shows the club's contact phone when the event has none.
+  contactPhone: ['contact_phone', rules.phone()],
   // „Widoczność” (Publikacja): false is „Tylko przez link”, published but on no listing.
   listed: ['listed', rules.bool()],
 }

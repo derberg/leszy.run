@@ -287,9 +287,12 @@ export function eventPageModel(raw, now = new Date()) {
     organizerName: raw.club?.name ?? null,
     // „Organizator” in „Dzień zawodów”: the club's legal name (club_payout_details, the party the
     // organizer agreement names) or, without one, the club's name; its logo and its own website.
-    organizer: organizer(raw.club, raw.contactEmail),
-    // registration_settings.contact_email: the address the organizer gave for runners.
+    organizer: organizer(raw.club),
+    // registration_settings.contact_email: the address the organizer gave for runners (required).
     contactEmail: raw.contactEmail ?? null,
+    // The event's own phone (registration_settings.contact_phone), else the club's (Ustawienia):
+    // a club with several events may have a different person on the phone for each.
+    contactPhone: raw.contactPhone || raw.club?.contactPhone || null,
     officePlace: officePlace(raw),
     startPlace: startPlace(raw),
     // The office set „at the event place”: the page says so instead of repeating the address.
@@ -341,17 +344,12 @@ export function telHref(phone) {
   return `tel:${phone.replace(/[^\d+]/g, '')}`
 }
 
-// The club's contact e-mail is left out when it is the event's own contact address, which
-// „Kontakt z organizatorem” already shows.
-function organizer(club, eventEmail) {
+// Contact lives in „Kontakt z organizatorem” (the event's, else the club's), not repeated here.
+function organizer(club) {
   const name = club?.legalName || club?.name
   if (!name) return null
   const websiteUrl = webUrl(club.websiteUrl)
-  const email = club.contactEmail && club.contactEmail.toLowerCase() !== (eventEmail ?? '').toLowerCase() ? club.contactEmail : null
-  return {
-    name, logoUrl: webUrl(club.logoUrl), websiteUrl, websiteLabel: websiteUrl ? siteLabel(websiteUrl) : null,
-    email, phone: club.contactPhone || null,
-  }
+  return { name, logoUrl: webUrl(club.logoUrl), websiteUrl, websiteLabel: websiteUrl ? siteLabel(websiteUrl) : null }
 }
 
 // ---------------------------------------------------------------- preview
@@ -471,7 +469,7 @@ export function mergePending(raw, pending, now = new Date()) {
       name: 'name', slug: 'slug', event_date: 'eventDate', first_start_time: 'firstStartTime', opens_at: 'opensAt', closes_at: 'closesAt',
       is_charity: 'isCharity', charity_goal: 'charityGoal', charity_url: 'charityUrl', charity_percent: 'charityPercent', donations_enabled: 'donationsEnabled',
       description: 'description', website_url: 'websiteUrl',
-      contact_email: 'contactEmail',
+      contact_email: 'contactEmail', contact_phone: 'contactPhone',
     })
     out.town = pick({ ...raw.town }, b, { town_label: 'label', town_area: 'area', place_details: 'placeDetails', lat: 'lat', lng: 'lng' })
     const reg = pick({ ...raw.regulamin }, b, { regulamin_kind: 'kind' })

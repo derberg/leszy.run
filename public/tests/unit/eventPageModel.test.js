@@ -144,7 +144,7 @@ describe('eventPageModel organizer and places (RA1, RA2, RA5)', () => {
   })
 
   it('„Organizator”: the legal name, else the club name; logo and website only as http(s)', () => {
-    assert.deepEqual(model().organizer, { name: 'ZATYRANI', logoUrl: null, websiteUrl: null, websiteLabel: null, email: null, phone: null })
+    assert.deepEqual(model().organizer, { name: 'ZATYRANI', logoUrl: null, websiteUrl: null, websiteLabel: null })
     const club = {
       name: 'ZATYRANI', legalName: 'Stowarzyszenie ZATYRANI',
       logoUrl: 'https://x.supabase.co/storage/v1/object/public/club-logos/a/logo.png', websiteUrl: 'https://www.zatyrani.pl/',
@@ -152,12 +152,14 @@ describe('eventPageModel organizer and places (RA1, RA2, RA5)', () => {
     }
     assert.deepEqual(model({ ...RA1, club }).organizer, {
       name: 'Stowarzyszenie ZATYRANI', logoUrl: club.logoUrl, websiteUrl: 'https://www.zatyrani.pl/', websiteLabel: 'zatyrani.pl',
-      email: 'klub@zatyrani.pl', phone: '+48 600 100 200',
     })
-    // The event's own contact address is already in „Kontakt z organizatorem”: not repeated.
-    assert.equal(model({ ...RA1, club: { ...club, contactEmail: 'BIURO@zatyrani.pl' } }).organizer.email, null)
+    // The phone: the event's own, else the club's; the e-mail is always the event's (required).
+    assert.equal(model({ ...RA1, club }).contactPhone, '+48 600 100 200')
+    assert.equal(model({ ...RA1, club, contactPhone: '+48 500 000 111' }).contactPhone, '+48 500 000 111')
+    assert.equal(model({ ...RA1, club, contactPhone: '+48 500 000 111' }).contactEmail, 'biuro@zatyrani.pl')
+    assert.equal(model().contactPhone, null)
     const bad = model({ ...RA1, club: { name: 'ZATYRANI', legalName: '', logoUrl: 'javascript:x', websiteUrl: 'javascript:alert(1)' } }).organizer
-    assert.deepEqual(bad, { name: 'ZATYRANI', logoUrl: null, websiteUrl: null, websiteLabel: null, email: null, phone: null })
+    assert.deepEqual(bad, { name: 'ZATYRANI', logoUrl: null, websiteUrl: null, websiteLabel: null })
     assert.equal(model({ ...RA1, club: null }).organizer, null)
     // The header keeps the club's short name; the data information names the legal one.
     assert.equal(model({ ...RA1, club }).organizerName, 'ZATYRANI')

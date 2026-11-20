@@ -170,3 +170,37 @@ test('W-76 a taken address is refused on the step-1 save, before publish, and th
   assert.notEqual(row.slug, a.slug)
   assert.equal(row.description, 'Bez adresu')
 })
+
+test('W-19c the event contact phone: saved in a draft, refused when malformed (also by the column), staged after publish, served by /api/event; the club phone is offered in the wizard', async () => {
+  const r = await callFn('create-registration-event', owner, { clubId, name: `Telefon Leszego ${rand()}` })
+  const { eventId } = r.body.data
+  assert.equal((await save(eventId, { contactPhone: '+48 600 100 200' })).status, 200)
+  assert.equal((await settingsOf(eventId)).contact_phone, '+48 600 100 200')
+  const bad = await save(eventId, { contactPhone: 'zadzwoń' })
+  assert.equal(bad.status, 422)
+  assert.equal(bad.body.fields.contactPhone, 'Podaj poprawny numer telefonu.')
+
+  const club = (await db().from('clubs').select('contact_email, contact_phone').eq('id', clubId).single()).data
+  try {
+    assert.ifError((await db().from('clubs').update({ contact_email: 'biuro@klub.example', contact_phone: '+48 500 000 111' }).eq('id', clubId)).error)
+    const wizard = await callFn('get-registration-event', owner, { eventId })
+    assert.deepEqual(wizard.body.data.clubContact, { email: 'biuro@klub.example', phone: '+48 500 000 111' })
+
+    const event = await createPublishedFreeEvent(owner)
+    const col = await db().from('registration_settings').update({ contact_phone: 'zadzwoń' }).eq('event_id', event.eventId)
+    assert.equal(col.error?.code, '23514')
+    assert.equal((await getEvent(event.slug)).body.contactPhone, null)
+    const s = await save(event.eventId, { contactPhone: '+48 600 100 200' })
+    assert.equal(s.status, 200, JSON.stringify(s.body))
+    assert.equal((await settingsOf(event.eventId)).contact_phone, null, 'nothing live before publish')
+    const preview = await callFn('publish-registration-event', owner, { eventId: event.eventId, action: 'preview_changes' })
+    assert.equal(preview.body.data.diff.find((d) => d.field === 'basics.contact_phone').label, 'Telefon kontaktowy')
+    const pub = await callFn('publish-registration-event', owner, { eventId: event.eventId, action: 'publish_changes', notify: { send: false } })
+    assert.equal(pub.status, 200, JSON.stringify(pub.body))
+    const live = (await getEvent(event.slug)).body
+    assert.equal(live.contactPhone, '+48 600 100 200')
+    assert.equal(live.club.contactPhone, '+48 500 000 111')
+  } finally {
+    await db().from('clubs').update(club).eq('id', clubId)
+  }
+})

@@ -182,7 +182,7 @@ export default function Ustawienia() {
                 placeholder="np. +48 600 100 200" className={fieldInput} />
             </div>
           </div>
-          <p className={`${hintClass} !mt-1.5`}>Strona, e-mail i telefon są publiczne: pokazujemy je przy organizatorze na stronach Waszych zawodów.</p>
+          <p className={`${hintClass} !mt-1.5`}>Strona i telefon są publiczne: pokazujemy je na stronach Waszych zawodów (telefon, gdy wydarzenie nie ma własnego). E-mail podpowiadamy w ustawieniach wydarzenia.</p>
           {/* Parked, not removed: the public club page is off until it is worth
               showing, so the switch stays where owners already expect it and
               says why it does nothing. `isPublic` keeps the stored value, so
