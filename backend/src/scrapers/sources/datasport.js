@@ -20,6 +20,16 @@ function readDistanceDigits(text, distances) {
     const label = `${km} km`
     if (km > 0 && km < 500 && !distances.includes(label)) distances.push(label)
   }
+  // Metres as a whole word ("Bieg 1963 m"), never "min" or "mm". XIV EDYCJA
+  // BIEGU TROPEM WILCZYM (12970) names its races in metres only. Same relay guard.
+  if (!kmMatch) {
+    const mMatch = text.match(/(?<![\dx×]\s*)\b(\d{2,5})\s*m\b/i)
+    if (mMatch) {
+      const m = parseInt(mMatch[1])
+      const label = m >= 1000 ? `${Number((m / 1000).toFixed(4))} km` : `${m} m`
+      if (m > 0 && !distances.includes(label)) distances.push(label)
+    }
+  }
   // Time-based durations (e.g., "Bieg 4h", "Bieg 6H")
   const hourMatch = text.match(/\b(\d{1,2})\s*[hH]\b/)
   if (hourMatch) {
