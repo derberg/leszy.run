@@ -226,6 +226,21 @@ test('W-15 publish: settings published, events row public, categories named, one
   assert.equal(actions[0].club_id, ZT)
 })
 
+test('W-15 a run and a nordic walk over the same courses list each distance once on the calendar row', async () => {
+  const items = [
+    comp({ name: 'Bieg 3 km', distanceLabel: '3 km' }),
+    comp({ name: 'Bieg 9 km' }),
+    comp({ name: 'Nordic Walking 3 km', discipline: 'nw', distanceLabel: '3 km', timed: false }),
+    comp({ name: 'Nordic Walking 9 km', discipline: 'nw', timed: false }),
+    comp({ name: 'Dzieci', distanceLabel: '100 m - 1 km', minAge: 0, maxAge: 15, isKids: true, timed: false }),
+  ]
+  const { eventId } = await completeEvent({ items })
+  const r = await publish(eventId)
+  assert.equal(r.status, 200, JSON.stringify(r.body))
+  const cal = await calendarRows(eventId)
+  assert.deepEqual(cal[0].distances, ['3 km', '9 km', '100 m - 1 km'])
+})
+
 test('W-15 two publishes fired together: one 200, one 409, one calendar row', async () => {
   const { eventId } = await completeEvent()
   const results = await Promise.all([publish(eventId, owner), publish(eventId, zAdmin)])
