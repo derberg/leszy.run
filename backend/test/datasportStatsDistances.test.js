@@ -151,6 +151,51 @@ test('a relay leg is not published as the race distance', async () => {
   }
 })
 
+test('a distance given in metres is read', async () => {
+  // XIV EDYCJA BIEGU TROPEM WILCZYM (12970, 2027-02-28) names its races in
+  // metres only, so no km or hour pattern matched and distances landed empty.
+  // statystyki12970.json, sampled 2026-11-20.
+  const stub = stubFetch((url) =>
+    url.includes('/statcont/')
+      ? statsJson(['Bieg 1963 m', 'Nordic Walking na dystansie 1963 m', 'Bieg Przedszkolaka'])
+      : SPARSE_PAGE,
+  )
+  try {
+    const detail = await fetchDetailPage('12970')
+    assert.equal(detail.distances, '1.963 km')
+  } finally {
+    stub.restore()
+  }
+})
+
+test('metres keep the relay guard and do not match minutes', async () => {
+  const stub = stubFetch((url) =>
+    url.includes('/statcont/')
+      ? statsJson(['Sztafeta 4x400 m', 'Bieg 60 min', 'Bieg dzieci 400 m'])
+      : SPARSE_PAGE,
+  )
+  try {
+    const detail = await fetchDetailPage('12971')
+    assert.equal(detail.distances, '400 m')
+  } finally {
+    stub.restore()
+  }
+})
+
+test('a men\'s age-group suffix after a birth year is not read as metres', async () => {
+  const stub = stubFetch((url) =>
+    url.includes('/statcont/')
+      ? statsJson(['Dzieci 2016 M', 'Dzieci 2016-2017 M', 'Rocznik 2015 M'])
+      : SPARSE_PAGE,
+  )
+  try {
+    const detail = await fetchDetailPage('12972')
+    assert.ok(!detail.distances, `expected no distance, got ${detail.distances}`)
+  } finally {
+    stub.restore()
+  }
+})
+
 test('a missing stats JSON leaves distances empty instead of throwing', async () => {
   const stub = stubFetch((url) => (url.includes('/statcont/') ? null : SPARSE_PAGE))
   try {
