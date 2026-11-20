@@ -191,7 +191,7 @@ function PersonSignup({ raw: rawProp, categoryId, preview = false, backTo }) {
   const people = peopleCount(draft)
   const first = draft.cards[0].person
   const dataInfo = runnerDataInfo({
-    eventName: model.title, organizerName: model.organizerName, contactEmail: model.contactEmail,
+    eventName: model.title, organizerName: model.organizer?.name ?? null, contactEmail: model.contactEmail,
     paid: raw.pricingMode !== 'free', teams: raw.competitions.some((c) => c.kind === 'team'),
     nationality: fields.nationality !== 'off',
   })

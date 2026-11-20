@@ -1,6 +1,7 @@
 import { useState, useRef } from 'react'
 import { uploadClubLogo } from '../lib/clubs.js'
 import { logoResize, LOGO_TYPES, LOGO_TYPE_ERROR } from '../lib/logoResize.js'
+import ClubLogoTile from './ClubLogoTile.jsx'
 
 // File → logoResize (redrawn in the browser as PNG, or JPEG past 2 MB) →
 // upload-club-logo, plus a preview box. The server decodes PNG and JPEG only:
@@ -40,16 +41,14 @@ export default function ClubLogoUpload({ clubId, currentUrl, onUploaded }) {
 
   return (
     <div className="flex items-center gap-3">
-      <div
-        data-testid="logo-preview"
-        className="w-16 h-16 border border-apex-border bg-apex-surface shrink-0 flex items-center justify-center overflow-hidden"
-      >
-        {preview ? (
-          <img src={preview} alt="Logo klubu" className="w-full h-full object-cover" />
-        ) : (
+      {/* The tile the event page's „Organizator” shows: the whole logo, never cropped. */}
+      {preview ? (
+        <ClubLogoTile src={preview} alt="Logo klubu" testId="logo-preview" />
+      ) : (
+        <div data-testid="logo-preview" className="w-16 h-16 border border-apex-border bg-apex-surface shrink-0 flex items-center justify-center">
           <span className="font-mono text-[9px] text-apex-muted">brak logo</span>
-        )}
-      </div>
+        </div>
+      )}
       <div>
         <label
           className={`inline-block font-display font-bold text-[11px] tracking-widest uppercase px-3 py-1.5 border transition-all cursor-pointer ${

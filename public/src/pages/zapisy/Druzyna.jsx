@@ -285,7 +285,7 @@ function Team({ raw: shellRaw, teamId, notice, setNotice }) {
     const ready = !ownsChild || consentsComplete(consents, accepted, serviceAccepted)
     const label = form.kind === 'swap' ? 'Wymień zawodnika' : add
     const dataInfo = runnerDataInfo({
-      eventName: model.title, organizerName: model.organizerName, contactEmail: model.contactEmail,
+      eventName: model.title, organizerName: model.organizer?.name ?? null, contactEmail: model.contactEmail,
       paid: raw.pricingMode !== 'free', teams: true, nationality: fields.nationality !== 'off',
     })
     const change = (patch) => {

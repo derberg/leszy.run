@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { clubFieldsError, clubNameError, VOIVODESHIPS } from '../../../supabase/functions/_shared/clubFields.js'
+import { clubFieldsError, clubNameError, clubWebsite, CLUB_WEBSITE_ERROR, VOIVODESHIPS } from '../../../supabase/functions/_shared/clubFields.js'
 import { REGION_SLUG_TO_DB } from '../../../public/src/lib/biegi-mappings.js'
 import { removedMemberMayRejoin } from '../../../supabase/functions/_shared/clubInvites.js'
 
@@ -47,5 +47,16 @@ test('accept-invite and request-join refuse a removed member before writing', as
     const check = src.indexOf('removedMemberMayRejoin(')
     assert.ok(check > 0, `${fn} calls removedMemberMayRejoin`)
     assert.ok(check < src.indexOf(".from('club_members')\n      .upsert"), `${fn} checks before the upsert`)
+  }
+})
+
+test('clubWebsite: an http(s) address, trimmed; empty clears it; anything else refused', () => {
+  assert.deepEqual(clubWebsite(' https://zatyrani.pl '), { value: 'https://zatyrani.pl' })
+  assert.deepEqual(clubWebsite('http://klub.example.org/o-nas'), { value: 'http://klub.example.org/o-nas' })
+  assert.deepEqual(clubWebsite(''), { value: null })
+  assert.deepEqual(clubWebsite('   '), { value: null })
+  assert.deepEqual(clubWebsite(null), { value: null })
+  for (const bad of ['zatyrani.pl', 'javascript:alert(1)', 'ftp://x.pl', 'https://a b.pl', 42, `https://x.pl/${'a'.repeat(500)}`]) {
+    assert.deepEqual(clubWebsite(bad), { error: CLUB_WEBSITE_ERROR }, String(bad).slice(0, 40))
   }
 })

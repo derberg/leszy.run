@@ -7,6 +7,7 @@ import { linkParts } from '../../lib/linkify.js'
 import { pluralPl } from '../../lib/plural.js'
 import { labelCls, linkCls } from '../../components/registration/ui.js'
 import PartnerLogos from '../../components/PartnerLogos.jsx'
+import ClubLogoTile from '../../components/ClubLogoTile.jsx'
 import CoursePanel from '../../components/registration/CoursePanel.jsx'
 
 // RA1: the public page of an event with online registration, from the
@@ -285,6 +286,21 @@ export function EventFrame({ raw, now, preview = false, tab = 'event', links, ch
   )
 }
 
+/** The organizer: the logo whole on a white tile, the legal name, the club's own website. */
+function Organizer({ o }) {
+  return (
+    <div className="flex flex-wrap items-center gap-x-4 gap-y-2 mt-1 min-w-0">
+      {o.logoUrl && <ClubLogoTile src={o.logoUrl} alt={o.name} testId="organizer-logo" />}
+      <div className="flex flex-col gap-0.5 min-w-0">
+        <span className="text-lg leading-tight font-semibold text-apex-text-bright break-words" data-testid="organizer-name">{o.name}</span>
+        {o.websiteUrl && (
+          <a href={o.websiteUrl} target="_blank" rel="noopener noreferrer" className={`text-base break-all ${linkCls}`} data-testid="organizer-website">{o.websiteLabel} ↗</a>
+        )}
+      </div>
+    </div>
+  )
+}
+
 function InfoCell({ label, wide, children, testId, id }) {
   return (
     <div id={id} className={`flex flex-col gap-1 p-4 bg-apex-surface min-w-0 ${wide ? 'sm:col-span-2' : ''}`} data-testid={testId}>
@@ -318,6 +334,9 @@ function Starts({ m }) {
 }
 
 function EventContent({ raw, m, course }) {
+  // Half cells before „Organizator”: start place, office, regulamin, contact.
+  const halves = (m.startPlace ? 1 : 0) + (m.office.length > 0 || m.officePlace ? 1 : 0) + 2
+  const organizerWide = halves % 2 === 0
   return (
     <>
       {(m.charityGoal || m.charityUrl || m.charityPercent != null) && (
@@ -361,6 +380,8 @@ function EventContent({ raw, m, course }) {
 
       <PartnerLogos partners={raw.partners ?? []} variant="dark" />
 
+      {/* The cells after „Starty” sit two to a row: „Organizator” takes a whole row only when the
+          ones before it fill theirs, so the grid never shows a hole. */}
       <section className="flex flex-col gap-3" data-testid="race-day">
         <h2 className={h2Cls}>Dzień zawodów{m.raceDayLabel ? ` · ${m.raceDayLabel}` : ''}</h2>
         <div className="grid sm:grid-cols-2 gap-px bg-apex-border border border-apex-border">
@@ -398,6 +419,9 @@ function EventContent({ raw, m, course }) {
               ? <a href={`mailto:${m.contactEmail}`} className={`text-base break-all ${linkCls}`} data-testid="contact-link">{m.contactEmail}</a>
               : <span className="text-base text-apex-muted" data-testid="contact-missing">Organizator nie podał jeszcze adresu</span>}
           </InfoCell>
+          {m.organizer && (
+            <InfoCell label="Organizator" wide={organizerWide} testId="organizer-info"><Organizer o={m.organizer} /></InfoCell>
+          )}
         </div>
       </section>
 
@@ -428,7 +452,12 @@ function jsonLd(raw, m, url) {
       address: { '@type': 'PostalAddress', addressLocality: m.placeLabel, addressCountry: 'PL' },
       ...(raw.town?.lat != null ? { geo: { '@type': 'GeoCoordinates', latitude: raw.town.lat, longitude: raw.town.lng } } : {}),
     } : undefined,
-    organizer: m.organizerName ? { '@type': 'Organization', name: m.organizerName } : undefined,
+    organizer: m.organizer ? {
+      '@type': 'Organization',
+      name: m.organizer.name,
+      ...(m.organizer.websiteUrl ? { url: m.organizer.websiteUrl } : {}),
+      ...(m.organizer.logoUrl ? { logo: m.organizer.logoUrl } : {}),
+    } : undefined,
     url,
     offers: m.competitions.filter((c) => c.priceLabel).map((c) => ({
       '@type': 'Offer',

@@ -2,7 +2,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { getCorsHeaders, guardRequest } from '../_shared/cors.js'
 import { getSession } from '../_shared/session.js'
 import { normalizeClubName } from '../_shared/clubText.js'
-import { clubNameError, clubFieldsError } from '../_shared/clubFields.js'
+import { clubNameError, clubFieldsError, clubWebsite } from '../_shared/clubFields.js'
 
 function json(body, status, req) {
   return new Response(JSON.stringify(body), {
@@ -32,10 +32,12 @@ Deno.serve(async (req) => {
   if (!session) return json({ error: 'Authorization required' }, 401, req)
 
   try {
-    const { club_id, name, description, is_public, city, voivodeship, slug } = await req.json()
+    const { club_id, name, description, is_public, city, voivodeship, slug, website_url } = await req.json()
     if (!club_id) return json({ error: 'club_id required' }, 400, req)
     const fieldsInvalid = clubFieldsError({ description, city, voivodeship, is_public })
     if (fieldsInvalid) return json({ error: fieldsInvalid }, 400, req)
+    const website = website_url === undefined ? null : clubWebsite(website_url)
+    if (website?.error) return json({ error: website.error }, 400, req)
 
     if (!(await requireManager(supabaseAdmin, club_id, session.userId))) {
       return json({ error: 'Brak uprawnień.' }, 403, req)
@@ -82,11 +84,12 @@ Deno.serve(async (req) => {
     if (is_public !== undefined) updates.is_public = is_public
     if (city !== undefined) updates.city = city
     if (voivodeship !== undefined) updates.voivodeship = voivodeship === '' ? null : voivodeship
+    if (website) updates.website_url = website.value
 
     if (Object.keys(updates).length === 0) {
       const { data: club, error: clubErr } = await supabaseAdmin
         .from('clubs')
-        .select('id, name, slug, description, city, voivodeship, logo_url, is_public, owner_id, created_at')
+        .select('id, name, slug, description, city, voivodeship, logo_url, website_url, is_public, owner_id, created_at')
         .eq('id', club_id).single()
       if (clubErr) throw clubErr
       return json({ data: { club } }, 200, req)
@@ -96,7 +99,7 @@ Deno.serve(async (req) => {
       .from('clubs')
       .update(updates)
       .eq('id', club_id)
-      .select('id, name, slug, description, city, voivodeship, logo_url, is_public, owner_id, created_at')
+      .select('id, name, slug, description, city, voivodeship, logo_url, website_url, is_public, owner_id, created_at')
       .single()
     if (updateErr) {
       if (updateErr.code === '23505') {

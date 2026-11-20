@@ -7,6 +7,8 @@ export const CLUB_NAME_MIN = 2
 export const CLUB_NAME_MAX = 100
 export const CLUB_DESCRIPTION_MAX = 2000
 export const CLUB_CITY_MAX = 100
+export const CLUB_WEBSITE_MAX = 500
+export const CLUB_WEBSITE_ERROR = 'Podaj adres zaczynający się od http:// albo https://.'
 
 // The values stored in scraper_all / calendar_events, capitalised; the same
 // list as REGION_SLUG_TO_DB in public/src/lib/biegi-mappings.js.
@@ -25,6 +27,26 @@ export function clubNameError(trimmed) {
     return CLUB_NAME_ERROR
   }
   return null
+}
+
+/**
+ * The club's own website (clubs.website_url), shown as the organizer's link on its events'
+ * pages: trimmed, '' and null clear it. The same rule as the column CHECK and as an event's
+ * website_url (rules.webUrl in _shared/registration/sections.js).
+ * @returns {{ value: string|null }|{ error: string }}
+ */
+export function clubWebsite(v) {
+  if (v === null || v === '') return { value: null }
+  if (typeof v !== 'string') return { error: CLUB_WEBSITE_ERROR }
+  const t = v.trim()
+  if (!t) return { value: null }
+  if (t.length > CLUB_WEBSITE_MAX || !/^https?:\/\/\S+$/i.test(t)) return { error: CLUB_WEBSITE_ERROR }
+  try {
+    const u = new URL(t)
+    return (u.protocol === 'https:' || u.protocol === 'http:') && u.hostname ? { value: t } : { error: CLUB_WEBSITE_ERROR }
+  } catch {
+    return { error: CLUB_WEBSITE_ERROR }
+  }
 }
 
 /**

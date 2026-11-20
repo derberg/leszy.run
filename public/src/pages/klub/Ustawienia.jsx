@@ -45,6 +45,7 @@ export default function Ustawienia() {
   // non-managers get redirected — the guard return happens after them.
   const [name, setName] = useState(club.name)
   const [description, setDescription] = useState(club.description || '')
+  const [website, setWebsite] = useState(club.website_url || '')
   const [isPublic, setIsPublic] = useState(!!club.is_public)
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState(null)
@@ -66,7 +67,7 @@ export default function Ustawienia() {
     setSaveError(null)
     setSaved(false)
     try {
-      const payload = { name: name.trim(), description: description.trim(), is_public: isPublic }
+      const payload = { name: name.trim(), description: description.trim(), website_url: website.trim(), is_public: isPublic }
       await updateClub(club.id, payload)
       // No slug in the payload any more — the address is fixed, so the page
       // never has to survive a canonical-URL redirect after saving.
@@ -158,6 +159,13 @@ export default function Ustawienia() {
               onChange={(e) => setDescription(e.target.value)} rows={4} maxLength={2000}
               placeholder="Napisz kilka zdań o klubie — kto biega, skąd jesteście, jak dołączyć…"
               className={`${fieldInput} resize-none`} />
+          </div>
+          <div>
+            <label htmlFor="club-website" className={fieldLabel}>Strona klubu</label>
+            <input id="club-website" data-testid="edit-club-website" type="text" inputMode="url" value={website}
+              onChange={(e) => setWebsite(e.target.value)} maxLength={500}
+              placeholder="https://" className={fieldInput} />
+            <p className={hintClass}>Link przy nazwie organizatora na stronach Waszych zawodów.</p>
           </div>
           {/* Parked, not removed: the public club page is off until it is worth
               showing, so the switch stays where owners already expect it and

@@ -285,6 +285,9 @@ export function eventPageModel(raw, now = new Date()) {
     placeLabel: raw.town?.label ?? null,
     eventPlace: join(raw.town?.label, raw.town?.placeDetails),
     organizerName: raw.club?.name ?? null,
+    // „Organizator” in „Dzień zawodów”: the club's legal name (club_payout_details, the party the
+    // organizer agreement names) or, without one, the club's name; its logo and its own website.
+    organizer: organizer(raw.club),
     // registration_settings.contact_email: the address the organizer gave for runners.
     contactEmail: raw.contactEmail ?? null,
     officePlace: officePlace(raw),
@@ -315,6 +318,29 @@ export function eventPageModel(raw, now = new Date()) {
     regulaminUrl: raw.regulamin?.url ?? null,
     courses: courses(competitions),
   }
+}
+
+/** An http(s) address or null, whatever the stored value says. */
+function webUrl(v) {
+  return /^https?:\/\//i.test(v ?? '') ? v : null
+}
+
+/** „zatyrani.pl” for https://www.zatyrani.pl/: the link text of the organizer's website. */
+export function siteLabel(url) {
+  try {
+    const u = new URL(url)
+    const path = u.pathname === '/' ? '' : u.pathname.replace(/\/$/, '')
+    return u.hostname.replace(/^www\./i, '') + path
+  } catch {
+    return url
+  }
+}
+
+function organizer(club) {
+  const name = club?.legalName || club?.name
+  if (!name) return null
+  const websiteUrl = webUrl(club.websiteUrl)
+  return { name, logoUrl: webUrl(club.logoUrl), websiteUrl, websiteLabel: websiteUrl ? siteLabel(websiteUrl) : null }
 }
 
 // ---------------------------------------------------------------- preview
