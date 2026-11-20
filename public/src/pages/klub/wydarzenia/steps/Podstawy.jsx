@@ -439,7 +439,7 @@ export default function Podstawy({ event, queue, saveState, readOnly, reload, re
         <div className="min-w-0">
           <label htmlFor="ev-phone" className={fieldLabel}>Telefon kontaktowy</label>
           <input id="ev-phone" type="text" inputMode="tel" autoComplete="off" maxLength={40} className={fieldInput}
-            placeholder={club.phone ?? '+48 600 100 200'} value={form.contactPhone} onChange={set('contactPhone')} />
+            placeholder={club.phone ?? 'np. +48 600 100 200'} value={form.contactPhone} onChange={set('contactPhone')} />
           <MonoHint>{club.phone ? `Puste: telefon klubu ${club.phone}` : 'Opcjonalnie'}</MonoHint>
           <FieldError message={errors.contactPhone} />
         </div>
