@@ -148,7 +148,7 @@ describe('eventPageModel organizer and places (RA1, RA2, RA5)', () => {
     const club = {
       name: 'ZATYRANI', legalName: 'Stowarzyszenie ZATYRANI',
       logoUrl: 'https://x.supabase.co/storage/v1/object/public/club-logos/a/logo.png', websiteUrl: 'https://www.zatyrani.pl/',
-      contactEmail: 'klub@zatyrani.pl', contactPhone: '+48 600 100 200',
+      contactPhone: '+48 600 100 200',
     }
     assert.deepEqual(model({ ...RA1, club }).organizer, {
       name: 'Stowarzyszenie ZATYRANI', logoUrl: club.logoUrl, websiteUrl: 'https://www.zatyrani.pl/', websiteLabel: 'zatyrani.pl',

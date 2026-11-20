@@ -328,10 +328,10 @@ test('W-19b „Organizator”: club carries the legal name, logo, website and co
     assert.ifError(pub.error)
     assert.deepEqual(pub.data.club, {
       name: pub.data.club.name, legalName: 'Stowarzyszenie ZATYRANI Test', logoUrl: logo, websiteUrl: 'https://zatyrani.example/',
-      contactEmail: 'klub@zatyrani.example', contactPhone: '+48 600 100 200',
+      contactPhone: '+48 600 100 200',
     })
     const text = JSON.stringify(pub.data)
-    for (const secret of ['5260250995', '0000123456', 'ul. Leśna 1', 'PL61109010140000071219812874']) assert.equal(text.includes(secret), false, secret)
+    for (const secret of ['klub@zatyrani.example', '5260250995', '0000123456', 'ul. Leśna 1', 'PL61109010140000071219812874']) assert.equal(text.includes(secret), false, secret)
 
     // Without payout details the page names the club; the CHECK refuses a non-http(s) website.
     assert.ifError((await db().from('club_payout_details').update({ legal_name: '' }).eq('club_id', club.id)).error)

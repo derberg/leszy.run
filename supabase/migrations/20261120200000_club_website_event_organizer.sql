@@ -15,7 +15,8 @@
 --   * apply_registration_section (from 20261109100000): the basics branch writes contact_phone.
 --   * registration_raw (from 20261109100000): `club` carries `legalName`
 --     (club_payout_details.legal_name, the name the organizer agreement names; null when not
---     given), `logoUrl`, `websiteUrl`, `contactEmail` and `contactPhone` besides `name`; the event's
+--     given), `logoUrl`, `websiteUrl` and `contactPhone` besides `name` (never the club's
+--     contact_email: the page shows the event's own, and the wizard reads the club's privately); the event's
 --     `contactPhone` beside `contactEmail`. Never the NIP, KRS, address or IBAN.
 --     registration_public returns registration_raw and is not recreated.
 
@@ -593,7 +594,6 @@ AS $$
                'legalName', nullif(btrim(d.legal_name), ''),
                'logoUrl', c.logo_url,
                'websiteUrl', c.website_url,
-               'contactEmail', c.contact_email,
                'contactPhone', c.contact_phone)
                FROM public.clubs c
                LEFT JOIN public.club_payout_details d ON d.club_id = c.id
