@@ -1568,6 +1568,9 @@ function RfidSettings({ event, hasFreeRelay, onSave, saving }) {
   }
   const [form, setForm] = useState(baseline)
   const isDirty = JSON.stringify(form) !== JSON.stringify(baseline)
+  // A cleared number input is NaN, sent as null, which these NOT NULL columns refuse.
+  const hasEmpty = ['minFinishSeconds', 'goneWindowSeconds', 'gunBackfillSeconds', 'rssiThreshold', 'lapArrivalSilenceSeconds']
+    .some(k => Number.isNaN(form[k]))
 
   const { data: readerConfig } = useQuery({ queryKey: ['reader-config'], queryFn: () => api.reader.getConfig() })
   const { data: mainStatus, error: mainError } = useQuery({
@@ -1667,8 +1670,8 @@ function RfidSettings({ event, hasFreeRelay, onSave, saving }) {
           </div>
 
           {readerOnline ? (
-            <Button onClick={() => onSave({ ...form, confirmRssiCdbm: form.confirmRssiCdbm === '' ? null : form.confirmRssiCdbm })} disabled={saving || !isDirty}>
-              {saving ? 'Zapisywanie...' : isDirty ? 'Zapisz ustawienia RFID' : 'Zapisano'}
+            <Button onClick={() => onSave({ ...form, confirmRssiCdbm: form.confirmRssiCdbm === '' ? null : form.confirmRssiCdbm })} disabled={saving || !isDirty || hasEmpty}>
+              {saving ? 'Zapisywanie...' : hasEmpty ? 'Uzupełnij puste pola' : isDirty ? 'Zapisz ustawienia RFID' : 'Zapisano'}
             </Button>
           ) : (
             <p className="text-xs text-apex-red">Czytnik niedostępny — zapis wyłączony.</p>
