@@ -50,7 +50,20 @@ function parseListingDate(dayStr, monthStr) {
   return `${year}-${month}-${day}`
 }
 
-function parseDetailPage(html) {
+// The page states no registration-end date, only a countdown: "Do końca zapisów on-line
+// pozostało 107 dni". The deadline is the fetch day in Warsaw plus that many days, so it
+// can drift by a day around midnight. The price-tier dates beside it are not the deadline.
+// Clamped to the race day; absent when the block is (registration closed).
+function parseDeadlineCountdown(text, now, eventDate) {
+  const match = text.match(/Do końca zapisów on-line pozostało\s+(\d+)\s+dni/i)
+  if (!match) return null
+  const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Warsaw' }).format(now)
+  const [y, m, d] = today.split('-').map(Number)
+  const deadline = new Date(Date.UTC(y, m - 1, d + Number(match[1]))).toISOString().slice(0, 10)
+  return eventDate && deadline > eventDate ? eventDate : deadline
+}
+
+function parseDetailPage(html, now = new Date()) {
   const $ = cheerio.load(html)
 
   // Date: p.text-primary.h3 with font-family Oxanium under "Data zawodow" heading
@@ -133,8 +146,14 @@ function parseDetailPage(html) {
     }
   })
 
+  // Only the countdown's own div (.text-secondary), not free text such as an organizer's
+  // description quoting the phrase.
+  const countdownText = $('div.text-secondary').map((_, el) => $(el).text()).get().join(' ')
+  const registrationDeadline = parseDeadlineCountdown(countdownText.replace(/\s+/g, ' '), now, date)
+
   return {
     date,
+    registrationDeadline,
     location,
     priceFrom,
     priceTo,
@@ -256,6 +275,7 @@ async function scrape({ knownIds = new Set() } = {}) {
     const event = {
       name: entry.name,
       date: detail?.date || entry.listingDate || null,
+      registration_deadline: detail?.registrationDeadline || null,
       location: detail?.location || entry.location || '',
       // Neither the listing nor the detail page states a distance — see parseDetailPage
       // on why the cost card's start labels are not one. Stays empty, as it always was.

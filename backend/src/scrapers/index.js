@@ -171,6 +171,16 @@ const sources = [
     // then add `price_from: raw.price_from ?? null` and `price_to: raw.price_to ?? null`
     // below and re-scrape; the rest of the pipeline already carries a 0 through
     // (toIntPrice keeps it, alwaysOverwrite uses `??`).
+    //
+    // registration_deadline is in the same state: scrape() reads it off the "Do końca
+    // zapisów on-line pozostało N dni" countdown, but scraper_timekeeper has no such
+    // column (`column scraper_timekeeper.registration_deadline does not exist`, checked
+    // 2026-11-18). After
+    //
+    //   ALTER TABLE scraper_timekeeper ADD COLUMN IF NOT EXISTS registration_deadline text;
+    //
+    // add `registration_deadline: raw.registration_deadline || null` below; the merge
+    // already carries it into scraper_all through rowDeadline().
     mapRow: (raw) => ({
       name: raw.name,
       date: raw.date,
