@@ -2,6 +2,7 @@ import { createClient } from '@supabase/supabase-js'
 import { sql } from 'drizzle-orm'
 import { events, categories, participants, checkpoints, raceRuns, results, eventDocuments, teamLaps, hostTeams, teamBatons } from '../db/schema.js'
 import { pullCheckpointLinks } from './checkpointLinks.js'
+import { getDetector as defaultGetDetector } from '../mqtt/client.js'
 
 // Reverse sync: Supabase → local, for event CONFIG + results — so an event created/edited
 // on ONE device (e.g. the Mac) shows up automatically on EVERY other device (e.g. a Pi)
@@ -188,8 +189,20 @@ async function fetchPages(client, name, onPage) {
   }
 }
 
-// `client` defaults to the worker's own Supabase client; tests pass a stub.
-export async function pullConfig(db, client = supabase) {
+// A pulled baton change must reach a race running on this host: reload the batons of every
+// event whose team_batons rows changed, from the local rows (a locally dirty row was not
+// overwritten, so the local table is what this host times with). No detector: nothing to do.
+async function reloadPulledBatons(db, eventIds, detector) {
+  if (!detector || !eventIds.size) return
+  for (const eventId of eventIds) {
+    const batons = await db.select({ teamId: teamBatons.teamId, epc: teamBatons.epc }).from(teamBatons)
+      .where(sql`${teamBatons.eventId} = ${eventId} AND ${teamBatons.epc} IS NOT NULL`)
+    detector.reloadBatons(eventId, batons)
+  }
+}
+
+// `client` defaults to the worker's own Supabase client; tests pass a stub, and `getDetector`.
+export async function pullConfig(db, client = supabase, { getDetector = defaultGetDetector } = {}) {
   if (!client) return
   const skip = newSkipSets()
   let filter = null
@@ -198,6 +211,11 @@ export async function pullConfig(db, client = supabase) {
       const cols = columnMeta(table)
       let examined = 0
       let skipped = 0
+      // team_batons: the local tag of each row before the pull, to tell which events changed.
+      const localBatonEpc = name === 'team_batons'
+        ? new Map((await db.select({ id: teamBatons.id, epc: teamBatons.epc }).from(teamBatons)).map(r => [r.id, r.epc ?? null]))
+        : null
+      const batonEvents = new Set()
 
       const upsertRows = async (data) => {
         for (const remote of data) {
@@ -226,6 +244,7 @@ export async function pullConfig(db, client = supabase) {
               // pushed → synced_at NULL) is left untouched so the local change wins.
               setWhere: sql`${table.syncedAt} IS NOT NULL`,
             })
+            if (localBatonEpc && localBatonEpc.get(remote.id) !== (remote.epc ?? null)) batonEvents.add(remote.event_id)
           } catch (e) {
             // Secondary unique constraints (e.g. categories(event_id, slug),
             // results(race_run_id, participant_id)) can collide when a row exists locally
@@ -257,6 +276,7 @@ export async function pullConfig(db, client = supabase) {
       } else {
         await fetchPages(client, name, upsertRows)
       }
+      if (localBatonEpc) await reloadPulledBatons(db, batonEvents, getDetector())
 
       if (examined) {
         const note = skipped ? ` (${skipped} row(s) refused: test data or not for this host)` : ''
