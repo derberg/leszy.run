@@ -5,7 +5,7 @@ import { createFakeDb, createFakeBroadcast, wait } from './helpers/fakeDb.js'
 
 // Relay in any order (Sztafeta Mikołajów): laps per team, credited to whoever closes them.
 const QUIET = 40
-const ARRIVAL = 500 // stands in for the 60 s of silence; above the 200 ms read dedup window
+const ARRIVAL = 500 // stands in for the event's arrival silence; above the 200 ms read dedup window
 
 const config = (over = {}) => ({
   rssiThreshold: -9000, goneWindowSeconds: 0.04, minFinishSeconds: 0, gunBackfillEnabled: false,
@@ -120,4 +120,21 @@ test('reloadTeamLaps: a lap removed by the operator frees the team to count agai
   await wait(ARRIVAL + 20)
   detector.processEvent(read('E1')); await wait(QUIET + 60)
   assert.equal(laps(db).length, 1)
+})
+
+test('the event sets the arrival silence; it wins over the default', async (t) => {
+  // The default would need 5 s of silence; the event asks for 0.3 s (a short loop).
+  const { detector, db } = await makeRace(t, { arrival: 5000, cfg: config({ lapArrivalSilenceSeconds: 0.3 }) })
+  detector.processEvent(read('E1')); await wait(QUIET + 60)         // lap 1: p1
+  await wait(320)
+  detector.processEvent(read('E1')); await wait(QUIET + 60)         // back after 0.3 s+: lap 2
+  assert.deepEqual(laps(db).map(l => l.participantId), ['p1', 'p1'])
+})
+
+test('a silence shorter than the event setting does not close a lap', async (t) => {
+  const { detector, db } = await makeRace(t, { arrival: 10, cfg: config({ lapArrivalSilenceSeconds: 2 }) })
+  detector.processEvent(read('E1')); await wait(QUIET + 60)         // lap 1: p1
+  await wait(300)
+  detector.processEvent(read('E1')); await wait(QUIET + 60)         // only 0.4 s unheard: no lap
+  assert.deepEqual(laps(db).map(l => l.participantId), ['p1'])
 })

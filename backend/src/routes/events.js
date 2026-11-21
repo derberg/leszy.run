@@ -39,7 +39,7 @@ export async function eventsRoutes(fastify) {
 
   // Update event (includes RFID settings)
   fastify.patch('/events/:id', async (req, reply) => {
-    const allowed = ['name', 'description', 'date', 'location', 'rfidMode', 'rfidTopicMain', 'rfidTopicFinish', 'rssiThreshold', 'confirmRssiCdbm', 'declineThresholdCdbm', 'fallbackSeconds', 'gunBackfillSeconds', 'gunBackfillEnabled', 'minFinishSeconds', 'slug', 'publicResultsUrl', 'eventUrl', 'visibility']
+    const allowed = ['name', 'description', 'date', 'location', 'rfidMode', 'rfidTopicMain', 'rfidTopicFinish', 'rssiThreshold', 'confirmRssiCdbm', 'declineThresholdCdbm', 'fallbackSeconds', 'gunBackfillSeconds', 'gunBackfillEnabled', 'minFinishSeconds', 'lapArrivalSilenceSeconds', 'slug', 'publicResultsUrl', 'eventUrl', 'visibility']
     const updates = {}
     for (const key of allowed) {
       if (req.body[key] !== undefined) updates[key] = req.body[key]
@@ -47,6 +47,11 @@ export async function eventsRoutes(fastify) {
     if (updates.slug !== undefined) {
       updates.slug = updates.slug.toLowerCase().replace(/[^a-z0-9-]/g, '')
       if (!updates.slug) return reply.code(400).send({ error: 'Invalid slug' })
+    }
+    if (updates.lapArrivalSilenceSeconds !== undefined) {
+      const v = updates.lapArrivalSilenceSeconds
+      // Supabase refuses anything outside 1..600, and the push sends every dirty event in one batch.
+      if (!Number.isInteger(v) || v < 1 || v > 600) return reply.code(400).send({ error: 'lapArrivalSilenceSeconds must be an integer from 1 to 600' })
     }
     if (Object.keys(updates).length === 0) return reply.code(400).send({ error: 'No fields to update' })
 

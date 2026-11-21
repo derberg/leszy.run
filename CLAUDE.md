@@ -370,7 +370,7 @@ team is never timed by a tag of its own, and its standing is derived by `compute
   registration's team back on every member of that team, a runner moved on the host included.
 - `'relay_free'` (any order, the default for a team competition; Sztafeta Mikołajów): the team runs
   laps in any order, a member may run several. A pass closes a team lap only when its tag had been
-  silent 60 s before it (came in from the course, so a teammate waiting at the gate never counts)
+  silent `lap_arrival_silence_seconds` before it (event setting „Cisza przed okrążeniem”, default 15 s, was a fixed 60 s that a 400 m loop beats; came in from the course, so a teammate waiting at the gate never counts)
   and `min_finish_seconds` after the team's previous lap. Each lap is a `team_laps` row (pushed and
   pulled like `results`) credited to that runner. Teams rank by laps done, then by when the last
   one closed. `team_lap_count` fixes the number of laps (NULL: as many as possible) and
@@ -403,7 +403,8 @@ Configurable per event (stored in `events` table):
   ```
   Weak runners clustered on one port → antenna problem. Spread across all ports → tag/bib problem. `gate_crossings.peak_rssi_cdbm` records each confirmed crossing's peak, so low-confidence crossings can be reviewed **after** a race.
 - `gone_window_seconds`: default `3` s. The silence that closes a START pass. The finish does not use it
-- `min_finish_seconds`: default `300` s (was `30`). Reads within this window after the gun never open a finish pass. With no floor a runner leaving the shared start/finish gate stays audible for well over 30 s; lower it only for short test loops
+- `min_finish_seconds`: default `300` s (was `30`). Reads within this window after the gun never open a finish pass. With no floor a runner leaving the shared start/finish gate stays audible for well over 30 s; lower it only for short test loops. In a relay in any order it is also the shortest gap between two laps of one team
+- `lap_arrival_silence_seconds`: default `15` s (a fixed 60 s before). Relay in any order only: a read closes a team lap only when that tag was unheard this long, so a teammate standing in the changeover zone (read continuously) never closes one. Keep it below the time the fastest runner spends out of antenna range on one lap
 - `gun_backfill_seconds`: default `60` s — after this long from the gun, checked-in runners not read at the start line get gun time as their start (`startTimeSource='gun'`, `startTimeTrigger='auto_backfill'`) so their next crossing counts as a finish. A runner with no check-in never gets gun time, from this timer or from the finish-crossing fallback, so stopping the race leaves them DNS rather than DNF. Check-ins are read when the gun time is assigned, not at race start, because a last-minute check-in reaches the local DB through `checkinSync` up to 30 s later
 - `gun_backfill_enabled`: default `true` — set `false` to disable automatic gun-time backfill entirely: neither the timer nor the finish-crossing fallback assigns gun time, so start-less runners stay start-less until manual backfill (`POST /races/:id/assign-gun-start`, UI "Nadaj czas strzałki"). Runners read normally at start keep both netto (`duration_ms`) and brutto (`gun_duration_ms`)
 - `fallback_seconds`: **unused** (column kept for compat): the old finish force-confirm timer

@@ -136,8 +136,9 @@ const FINISH_QUIET_MS = 2000
 const FINISH_MAX_PASS_MS = 6000
 // Relay in any order: a pass closes a team lap only when its tag had been silent this long
 // before it (the runner came in from the course). A teammate waiting at the gate is read
-// continuously and so never closes a lap.
-const LAP_ARRIVAL_SILENCE_MS = 60_000
+// continuously and so never closes a lap. Per event: `lap_arrival_silence_seconds`; this is the
+// fallback for a config without it. It was a fixed 60 s, which a 400 m loop beats.
+const LAP_ARRIVAL_SILENCE_MS = 15_000
 
 
 export class CrossingDetector {
@@ -226,6 +227,9 @@ export class CrossingDetector {
         lapCount: eventConfig.teamLapCount ?? null,
         timeLimitMs: eventConfig.teamTimeLimitSeconds ? eventConfig.teamTimeLimitSeconds * 1000 : null,
         minLapMs: (eventConfig.minFinishSeconds ?? DEFAULT_MIN_FINISH_SECONDS) * 1000,
+        arrivalSilenceMs: eventConfig.lapArrivalSilenceSeconds != null
+          ? eventConfig.lapArrivalSilenceSeconds * 1000
+          : this.lapArrivalSilenceMs,
       })
       this.activeRaces.get(raceRun.id).freeRelay = freeRelay
       console.log(`[Detector] Relay (any order) race ${raceRun.id}: ${freeRelay.teams.size} team(s), ${laps.length} lap(s) already recorded`)
@@ -740,7 +744,7 @@ export class CrossingDetector {
     }
   }
 
-  // Relay in any order. A pass opens only for a tag that comes in after LAP_ARRIVAL_SILENCE_MS
+  // Relay in any order. A pass opens only for a tag that comes in after the event's arrival silence
   // of silence (from the course, not standing at the gate) and at least min_finish_seconds
   // after the team's previous lap. It is timed at its peak like a finish pass, and closes one
   // lap of the team, credited to this runner. Whoever runs next, and how often, does not matter.
@@ -779,7 +783,7 @@ export class CrossingDetector {
       return
     }
     if (!pass) {
-      const arrived = prevSeen === undefined || at.getTime() - prevSeen >= this.lapArrivalSilenceMs
+      const arrived = prevSeen === undefined || at.getTime() - prevSeen >= fr.arrivalSilenceMs
       if (!arrived || at - team.lastBoundary < fr.minLapMs) return
       pass = { epc: event.epc, raceRunId, firstAt: now, peakAt: now, peakRssi: -Infinity, peakTime: null, antennaPort: null, topic: null, goneTimer: null, closeLap: close }
       this.inRange.set(key, pass)
@@ -910,7 +914,7 @@ export function buildRelayChains(participantList) {
  * recorded `laps`), and when it stops: after `lapCount` laps, or at `timeLimitMs` after the gun,
  * or never (both null: as many laps as it can until the operator stops the race).
  */
-export function buildFreeRelay(participantList, laps, { gunStartTime, lapCount, minLapMs, timeLimitMs = null }) {
+export function buildFreeRelay(participantList, laps, { gunStartTime, lapCount, minLapMs, timeLimitMs = null, arrivalSilenceMs = LAP_ARRIVAL_SILENCE_MS }) {
   const teamOf = new Map()
   const size = new Map()
   for (const p of participantList) {
@@ -923,7 +927,7 @@ export function buildFreeRelay(participantList, laps, { gunStartTime, lapCount, 
     teams.set(teamId, { target: lapCount ?? Infinity, laps: 0, lastBoundary: gunStartTime, done: false })
   }
   applyLaps(teams, laps, gunStartTime)
-  return { teamOf, teams, lastSeen: new Map(), minLapMs, timeLimitMs, gunStartTime }
+  return { teamOf, teams, lastSeen: new Map(), minLapMs, timeLimitMs, gunStartTime, arrivalSilenceMs }
 }
 
 // Each team's lap count and last lap from its live (not deleted) laps.

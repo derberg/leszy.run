@@ -143,3 +143,13 @@ test('assign-gun-start never writes a result for a removed participant', async (
   const written = log.inserted.filter((i) => i.table === 'results').map((i) => i.values.participantId)
   assert.deepEqual(written, ['ok'])
 })
+
+test('PATCH event refuses a lap arrival silence Supabase would refuse', async () => {
+  const { app } = await appFor({})
+  for (const v of [0, 601, 2.5, null, '15']) {
+    const res = await app.inject({ method: 'PATCH', url: '/api/events/e1', payload: { lapArrivalSilenceSeconds: v } })
+    assert.equal(res.statusCode, 400, `value ${v}`)
+  }
+  const ok = await app.inject({ method: 'PATCH', url: '/api/events/e1', payload: { lapArrivalSilenceSeconds: 15 } })
+  assert.equal(ok.statusCode, 200)
+})
