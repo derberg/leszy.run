@@ -67,6 +67,7 @@ export default function TeamsTab({ eventId, categories }) {
       )}
       {relayCats.map(cat => {
         const isBaton = cat.teamLapSource === 'baton'
+        const running = activeCats.has(cat.id)
         const teams = [...new Set(participants.filter(p => p.teamId && p.categoryId === cat.id).map(p => p.teamId))]
           .map(teamId => ({ teamId, text: teamLabelText(labels.get(teamId)), bibs: participants.filter(p => p.teamId === teamId && p.bibNumber != null).map(p => p.bibNumber).sort((a, b) => a - b) }))
           .sort((a, b) => (a.text || '').localeCompare(b.text || '', 'pl', { sensitivity: 'base' }))
@@ -75,8 +76,8 @@ export default function TeamsTab({ eventId, categories }) {
             <div className="flex flex-wrap items-center justify-between gap-2 border-b border-apex-border px-4 py-3">
               <h2 className="font-display text-xl uppercase tracking-wider text-apex-text-bright">{cat.name}</h2>
               <div className="flex items-center gap-2 flex-wrap">
-                {activeCats.has(cat.id) && (
-                  <span className="text-xs text-apex-yellow whitespace-nowrap">Zmiana zadziała od następnego startu</span>
+                {running && (
+                  <span className="text-xs text-apex-yellow whitespace-nowrap">Nie można zmienić sposobu liczenia w trakcie biegu.</span>
                 )}
                 <span className="text-xs uppercase tracking-widest text-apex-muted whitespace-nowrap">Liczenie okrążeń</span>
                 <div className="flex">
@@ -86,7 +87,7 @@ export default function TeamsTab({ eventId, categories }) {
                       size="sm"
                       variant={(cat.teamLapSource || 'runner') === v ? 'default' : 'outline'}
                       className="whitespace-nowrap"
-                      disabled={setSource.isPending}
+                      disabled={setSource.isPending || running}
                       onClick={() => (cat.teamLapSource || 'runner') !== v && setSource.mutate({ id: cat.id, teamLapSource: v })}
                     >
                       {l}
