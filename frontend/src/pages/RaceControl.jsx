@@ -1,6 +1,7 @@
 import { useParams, Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useState, useRef, useMemo } from 'react'
+import { teamLabels, teamLabelText } from '../lib/teamGroups.js'
 import { api } from '../lib/api.js'
 import { useWsEvent } from '../lib/ws.js'
 import { formatDateTime, formatDuration, statusLabel, statusColor, cn } from '../lib/utils.js'
@@ -40,6 +41,25 @@ export default function RaceControl() {
     queryKey: ['participants', id],
     queryFn: () => api.participants.list(id),
   })
+
+  const batonCats = categories.filter(c => c.teamMode === 'relay_free' && c.teamLapSource === 'baton')
+  const { data: batons = [] } = useQuery({
+    queryKey: ['team-batons', id],
+    queryFn: () => api.teamBatons.list(id).then(r => r.data ?? r),
+    enabled: batonCats.length > 0,
+  })
+  const { data: teamNames = {} } = useQuery({
+    queryKey: ['team-names', id],
+    queryFn: () => api.participants.teamNames(id),
+    enabled: batonCats.length > 0,
+    staleTime: 60_000,
+  })
+  const batonLabels = teamLabels(participants, teamNames)
+  const missingBatons = (catId) => {
+    const have = new Set(batons.filter(b => b.epc).map(b => b.teamId))
+    const ids = new Set(participants.filter(p => p.teamId && p.categoryId === catId).map(p => p.teamId))
+    return [...ids].filter(t => !have.has(t)).map(t => teamLabelText(batonLabels.get(t)))
+  }
 
   const participantMap = Object.fromEntries(participants.map(p => [p.id, p]))
   const epcMap = Object.fromEntries(participants.filter(p => p.rfidEpc).map(p => [p.rfidEpc, p]))
@@ -326,6 +346,12 @@ export default function RaceControl() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <div className="space-y-3">
           {categories.map(cat => (
+            <div key={cat.id} className="space-y-1">
+              {cat.teamMode === 'relay_free' && cat.teamLapSource === 'baton' && missingBatons(cat.id).length > 0 && (
+                <p className="text-xs text-apex-red border border-apex-red/40 px-3 py-1.5">
+                  Brak pałki: {missingBatons(cat.id).join(', ')}
+                </p>
+              )}
             <RaceCard
               key={cat.id}
               category={cat}
@@ -333,6 +359,7 @@ export default function RaceControl() {
               participants={participants.filter(p => p.categoryId === cat.id)}
               onRefresh={() => qc.invalidateQueries({ queryKey: ['races', id] })}
             />
+            </div>
           ))}
           {categories.length === 0 && (
             <div className="py-12 text-center text-apex-muted text-sm">Brak kategorii. Dodaj je w zakładce zawodów.</div>

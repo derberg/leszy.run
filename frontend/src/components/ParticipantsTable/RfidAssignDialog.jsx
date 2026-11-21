@@ -8,7 +8,7 @@ const RECENT_TTL = 5000
 const MAX_TAGS = 8
 const DOMINANT_RSSI_GAP = 800  // cdBm gap to consider a tag "dominant" (8 dBm)
 
-export default function RfidAssignDialog({ participant, onAssign, onClose }) {
+export default function RfidAssignDialog({ participant, label, onAssign, onClose }) {
   const [tags, setTags] = useState(new Map())
   const [selected, setSelected] = useState(null)
   const [error, setError] = useState(null)
@@ -80,7 +80,7 @@ export default function RfidAssignDialog({ participant, onAssign, onClose }) {
         <div className="border-b border-apex-border px-5 py-4">
           <h2 className="font-display text-2xl uppercase tracking-wider">Przypisz RFID</h2>
           <p className="text-sm text-apex-muted mt-0.5">
-            #{participant.bibNumber} {participant.firstName} {participant.lastName}
+            {label ?? `#${participant.bibNumber} ${participant.firstName} ${participant.lastName}`}
           </p>
         </div>
 

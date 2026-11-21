@@ -13,11 +13,12 @@ import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '.
 import { AlertDialog, AlertDialogTrigger, AlertDialogContent, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogAction, AlertDialogCancel } from '../components/ui/alert-dialog.jsx'
 import ParticipantsTable from '../components/ParticipantsTable/ParticipantsTable.jsx'
 import ImportSection from '../components/ImportWizard/ImportSection.jsx'
+import TeamsTab from '../components/Teams/TeamsTab.jsx'
 import VisionAudit from '../components/VisionAudit/VisionAudit.jsx'
 import LinkQrButton from '../components/LinkQrButton.jsx'
-import { Flag, Users, Tag, Settings, Plus, Trash2, Pencil, ExternalLink, Copy, FileText, RefreshCw, ClipboardCopy, Eye, EyeOff, Handshake, Upload, X, Terminal, Info, ChevronDown, Camera } from 'lucide-react'
+import { Flag, Users, UsersRound, Tag, Settings, Plus, Trash2, Pencil, ExternalLink, Copy, FileText, RefreshCw, ClipboardCopy, Eye, EyeOff, Handshake, Upload, X, Terminal, Info, ChevronDown, Camera } from 'lucide-react'
 
-const VALID_TABS = ['categories', 'participants', 'rfid', 'camera', 'checkpoints', 'settings', 'documents', 'partners']
+const VALID_TABS = ['categories', 'participants', 'teams', 'rfid', 'camera', 'checkpoints', 'settings', 'documents', 'partners']
 
 // Legend for CheckpointAgentBadge below — keep classes in exact sync with that
 // component so the swatches shown here match the real badges pixel-for-pixel.
@@ -235,6 +236,7 @@ export default function EventDetail() {
         <TabsList>
           <TabsTrigger value="categories"><Tag size={13} className="mr-1.5" />Kategorie</TabsTrigger>
           <TabsTrigger value="participants"><Users size={13} className="mr-1.5" />Uczestnicy</TabsTrigger>
+          <TabsTrigger value="teams"><UsersRound size={13} className="mr-1.5" />Zespoły</TabsTrigger>
           <TabsTrigger value="checkpoints"><Flag size={13} className="mr-1.5" />Punkty kontrolne</TabsTrigger>
           <TabsTrigger value="rfid"><Settings size={13} className="mr-1.5" />Ustawienia RFID</TabsTrigger>
           <TabsTrigger value="camera"><Camera size={13} className="mr-1.5" />Audyt kamery</TabsTrigger>
@@ -323,6 +325,10 @@ export default function EventDetail() {
               invalidateKey={['participants', id]}
             />
           </div>
+        </TabsContent>
+
+        <TabsContent value="teams">
+          <TeamsTab eventId={id} categories={categories} />
         </TabsContent>
 
         {/* Ustawienia RFID */}
