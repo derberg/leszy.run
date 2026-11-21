@@ -10,7 +10,7 @@ import { Card, CardHeader, CardTitle, CardContent } from '../ui/card.jsx'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogBody, DialogFooter } from '../ui/dialog.jsx'
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '../ui/select.jsx'
 import { ChevronDown, ChevronRight, Pencil, Plus, RotateCcw, Trash2 } from 'lucide-react'
-import { sameLapNeighbours, needsDecision, SAME_LAP_FALLBACK_MS } from '../../lib/teamLapReview.js'
+import { sameLapNeighbours, needsDecision, possiblyMissedLaps, SAME_LAP_FALLBACK_MS } from '../../lib/teamLapReview.js'
 
 // Relay in any order: the teams' laps live, and the operator's corrections (add a lap the
 // chip missed, move one to the teammate who ran it, fix its time, remove a false one).
@@ -105,7 +105,13 @@ export default function TeamLapsPanel({ category, run }) {
   const runnerOf = (lap) => results.find(r => r.participantId === lap.participantId)?.participant
   const lapLine = (lap) => `${clock(lap.closedAt)} · ${lap.participantId ? fullName(runnerOf(lap)) : 'bez biegacza'}`
   const sameLap = (lap) => lap.status === 'candidate' && !lap.deletedAt && sameLapNeighbours(lap, laps, sameLapMs).length > 0
-  const pending = laps.filter(needsDecision)
+  // Baton relay: a counted lap far longer than the team's usual one may hide a lap whose baton
+  // read was missed. It waits in „Do decyzji” until approved or split with „+ Okrążenie”.
+  const missed = category.teamLapSource === 'baton'
+    ? possiblyMissedLaps(laps.map(l => ({ ...l, legMs: legOf.get(l.id)?.legMs })))
+    : new Set()
+  const maybeMissed = (lap) => missed.has(lap.id) && !lap.reviewedAt
+  const pending = laps.filter(l => needsDecision(l, missed))
     .sort((a, b) => new Date(a.closedAt) - new Date(b.closedAt))
   const teamLabel = (teamId) => teamNames[teamId] || membersOf(teamId).map(p => p.lastName).join(' · ')
   const toggle = (id) => setOpen(s => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n })
@@ -129,7 +135,7 @@ export default function TeamLapsPanel({ category, run }) {
               {pending.map(l => (
                 <div key={l.id}>
                   <div className="px-1 pt-1 text-[11px] text-apex-muted truncate">{teamLabel(l.teamId)}</div>
-                  <LapRow lap={{ ...l, leg: legOf.get(l.id)?.leg, legMs: legOf.get(l.id)?.legMs }} members={membersOf(l.teamId)} act={act} sameLap={sameLap(l)} decide />
+                  <LapRow lap={{ ...l, leg: legOf.get(l.id)?.leg, legMs: legOf.get(l.id)?.legMs }} members={membersOf(l.teamId)} act={act} sameLap={sameLap(l)} maybeMissed={maybeMissed(l)} decide />
                 </div>
               ))}
             </div>
@@ -180,7 +186,7 @@ export default function TeamLapsPanel({ category, run }) {
                   <tr key={`${t.teamId}-laps`} className="bg-apex-surface-2">
                     <td></td>
                     <td colSpan={6} className="px-2 py-2">
-                      <LapList rows={rowsOf(t.teamId)} members={membersOf(t.teamId)} byRunner={byRunner} act={act} sameLap={sameLap} />
+                      <LapList rows={rowsOf(t.teamId)} members={membersOf(t.teamId)} byRunner={byRunner} act={act} sameLap={sameLap} maybeMissed={maybeMissed} />
                     </td>
                   </tr>
                 ),
@@ -216,9 +222,9 @@ const STATE_CLASS = {
   liczone: 'text-apex-muted border-apex-border',
 }
 
-function LapList({ rows, members, byRunner, act, sameLap }) {
+function LapList({ rows, members, byRunner, act, sameLap, maybeMissed }) {
   if (!rows.length) return <div className="text-apex-muted">—</div>
-  if (!byRunner) return <div className="divide-y divide-apex-border">{rows.map(l => <LapRow key={l.id} lap={l} members={members} act={act} sameLap={sameLap(l)} />)}</div>
+  if (!byRunner) return <div className="divide-y divide-apex-border">{rows.map(l => <LapRow key={l.id} lap={l} members={members} act={act} sameLap={sameLap(l)} maybeMissed={maybeMissed(l)} />)}</div>
   const groups = [...members.map(p => [p.id, fullName(p)]), [null, 'bez biegacza']]
   return (
     <div className="space-y-2">
@@ -230,7 +236,7 @@ function LapList({ rows, members, byRunner, act, sameLap }) {
             <div className="text-[11px] font-bold uppercase tracking-wider text-apex-muted">
               {label} · {mine.filter(l => !l.deletedAt && l.status === 'counted').length} okr.
             </div>
-            <div className="divide-y divide-apex-border">{mine.map(l => <LapRow key={l.id} lap={l} members={members} act={act} sameLap={sameLap(l)} />)}</div>
+            <div className="divide-y divide-apex-border">{mine.map(l => <LapRow key={l.id} lap={l} members={members} act={act} sameLap={sameLap(l)} maybeMissed={maybeMissed(l)} />)}</div>
           </div>
         )
       })}
@@ -238,7 +244,7 @@ function LapList({ rows, members, byRunner, act, sameLap }) {
   )
 }
 
-function LapRow({ lap, members, act, decide, sameLap }) {
+function LapRow({ lap, members, act, decide, sameLap, maybeMissed }) {
   const state = stateOf(lap)
   const counted = lap.status === 'counted' && !lap.deletedAt
   const iconBtn = 'text-apex-muted hover:text-apex-text'
@@ -259,6 +265,7 @@ function LapRow({ lap, members, act, decide, sameLap }) {
       <span className="font-mono text-apex-muted whitespace-nowrap">{lap.peakRssiCdbm != null ? `${(lap.peakRssiCdbm / 100).toFixed(1)} dBm` : ''}</span>
       <span className={cn('border px-1.5 py-0.5 uppercase tracking-wider text-[10px] whitespace-nowrap', STATE_CLASS[state])}>{state}</span>
       {sameLap && <span className="text-apex-yellow whitespace-nowrap">to samo okrążenie?</span>}
+      {maybeMissed && <span className="text-apex-yellow whitespace-nowrap">możliwe pominięte okrążenie</span>}
       <span className="ml-auto flex items-center gap-1.5 whitespace-nowrap">
         {lap.status === 'candidate' && !lap.deletedAt && (
           <Button variant="outline" size="sm" className="whitespace-nowrap" onClick={() => act.count(lap)}>Zalicz</Button>
