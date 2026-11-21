@@ -18,7 +18,8 @@ export const BURST_GAP_MS = 5000
 // [T - ATTRIBUTION_BEFORE_MS, T + ATTRIBUTION_AFTER_MS].
 export const ATTRIBUTION_BEFORE_MS = 10_000
 export const ATTRIBUTION_AFTER_MS = 2000
-// A runner burst is a candidate only with no baton lap of the team within this of its peak.
+// A runner burst is a candidate only with no baton lap of the team from this long before it
+// started to this long after its last read.
 export const CANDIDATE_WINDOW_MS = 10_000
 
 /**
@@ -69,15 +70,19 @@ export function attributeLap(bursts, memberIds, lapAtMs, { beforeMs = ATTRIBUTIO
 }
 
 /**
- * Whether a runner burst is a lap that came in without the baton: it came from the course,
- * has not raised a candidate yet, started at least `minLapMs` after the team's last counted
- * lap (a runner who handed over and walks back is not one), and no baton lap of the team lies
- * within the candidate window of its peak.
+ * Whether a runner burst that has ENDED is a lap that came in without the baton. Decide it only
+ * once no read has come for the burst gap and the window after the burst has passed, so a baton
+ * lap that closes as the runner leaves is known. It is a candidate when it came from the course,
+ * has not been decided yet, started at least `minLapMs` after the team's last counted lap (a
+ * runner who handed over and walks back is not one), and no baton lap of the team closed between
+ * `windowMs` before the burst started and `windowMs` after its last read (`burst.lastSeen`):
+ * a runner who arrived with the baton, or a teammate who waited at the line and left with it,
+ * is never a candidate.
  */
 export function isCandidate(burst, { teamLastCountedMs, minLapMs, batonLapTimesMs, windowMs = CANDIDATE_WINDOW_MS }) {
   if (!burst.fromCourse || burst.candidateDone) return false
   if (burst.start - teamLastCountedMs < minLapMs) return false
-  return !batonLapTimesMs.some(t => Math.abs(t - burst.peakAt) <= windowMs)
+  return !batonLapTimesMs.some(t => t >= burst.start - windowMs && t <= burst.lastSeen + windowMs)
 }
 
 /**

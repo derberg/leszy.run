@@ -92,11 +92,20 @@ test('isCandidate: a runner who handed over and walks back within min lap is no 
   assert.equal(isCandidate(burst(), { teamLastCountedMs: 380_000, minLapMs: 60_000, batonLapTimesMs: [380_000] }), false)
 })
 
-test('isCandidate: a baton lap within 10 s of the runner\'s peak means the baton came too', () => {
+test('isCandidate: a baton lap from 10 s before the burst to 10 s after it ended means the baton came or left with them', () => {
+  // burst 400 s .. 402 s
   const opts = (t) => ({ teamLastCountedMs: 0, minLapMs: 60_000, batonLapTimesMs: [t] })
-  assert.equal(isCandidate(burst(), opts(401_000 + CANDIDATE_WINDOW_MS)), false)
-  assert.equal(isCandidate(burst(), opts(401_000 - CANDIDATE_WINDOW_MS)), false)
-  assert.equal(isCandidate(burst(), opts(401_000 + CANDIDATE_WINDOW_MS + 1)), true)
+  assert.equal(isCandidate(burst(), opts(400_000 - CANDIDATE_WINDOW_MS)), false)
+  assert.equal(isCandidate(burst(), opts(402_000 + CANDIDATE_WINDOW_MS)), false)
+  assert.equal(isCandidate(burst(), opts(400_000 - CANDIDATE_WINDOW_MS - 1)), true)
+  assert.equal(isCandidate(burst(), opts(402_000 + CANDIDATE_WINDOW_MS + 1)), true)
+})
+
+test('isCandidate: a teammate who waited at the line and left with the baton is no candidate', () => {
+  // walked up at 70 s into the lap (min lap 60 s), waited 20 s, the baton lap closed at 90 s as
+  // they took it; the burst ends a second later
+  const waiter = burst({ start: 70_000, lastSeen: 91_000, peakAt: 72_000 })
+  assert.equal(isCandidate(waiter, { teamLastCountedMs: 0, minLapMs: 60_000, batonLapTimesMs: [0, 90_000] }), false)
 })
 
 test('isCandidate: not from the course, or already raised, is no candidate', () => {

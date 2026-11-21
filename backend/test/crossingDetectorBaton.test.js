@@ -11,7 +11,8 @@ import { createFakeDb, createFakeBroadcast, wait } from './helpers/fakeDb.js'
 const QUIET = 40
 const ARRIVAL = 500
 const WINDOWS = { burstGapMs: 400, attributionBeforeMs: 600, attributionAfterMs: 200, candidateWindowMs: 300 }
-const CANDIDATE_CHECK = WINDOWS.candidateWindowMs + QUIET
+// A runner burst is decided once it has ended (burst gap) and the candidate window after it passed.
+const CANDIDATE_CHECK = WINDOWS.burstGapMs + WINDOWS.candidateWindowMs + 60
 
 const config = (over = {}) => ({
   id: 'e1',
@@ -199,4 +200,42 @@ test('after a restart, recorded baton laps keep a returning runner from becoming
   await wait(QUIET + CANDIDATE_CHECK + 60)
   assert.equal(candidates(db).length, 0)
   assert.equal(teamState(detector).laps, 1)
+})
+
+test('a teammate who walks up mid-lap, waits longer than the window, and leaves with the baton is no candidate', async (t) => {
+  // min lap 1 s. Lap 1: p1 brings the baton (p2 runs off with it, unread).
+  const { detector, db } = await makeRace(t, { cfg: config({ minFinishSeconds: 1 }) })
+  await hold(detector, ['E1', 'B1'], 300)
+  await wait(1000)                                      // p1 off the line, p2 on the course
+  await hold(detector, ['E1'], 1200)                    // p1 walks up (min lap + δ) and waits
+  await hold(detector, ['E1', 'E2', 'B1'], 300)         // p2 brings the baton, p1 takes it
+  await hold(detector, ['E2'], 300)                     // p1 gone with the baton, p2 stays a moment
+  await wait(QUIET + CANDIDATE_CHECK + 100)
+  assert.deepEqual(counted(db).map(l => [l.participantId, l.source]), [['p1', 'baton'], ['p2', 'baton']])
+  assert.equal(candidates(db).length, 0)
+})
+
+test('a runner in from the course without the baton is one candidate, written only after the burst ends', async (t) => {
+  const { detector, db } = await makeRace(t)
+  detector.processEvent(read('E1', -6000))
+  await wait(10)
+  const peak = read('E1', -3500)
+  detector.processEvent(peak)
+  await hold(detector, ['E1'], 800, { rssi: -6000 })     // stays longer than the window
+  assert.equal(candidates(db).length, 0, 'still at the line: undecided')
+  await wait(CANDIDATE_CHECK + 100)
+  assert.equal(candidates(db).length, 1)
+  assert.equal(candidates(db)[0].participantId, 'p1')
+  assert.equal(candidates(db)[0].closedAt.getTime(), new Date(peak.receivedAt).getTime())
+  assert.equal(teamState(detector).laps, 0)
+})
+
+test('a waiter who arrived just before the baton and its runner leaves the lap without a runner', async (t) => {
+  const { detector, db } = await makeRace(t)
+  await hold(detector, ['E2'], 300)                     // p2 walks up 0.3 s before (window 0.6 s)
+  await hold(detector, ['E2', 'E1', 'B1'], 300)         // p1 arrives with the baton
+  await wait(QUIET + CANDIDATE_CHECK + 100)
+  assert.equal(counted(db).length, 1)
+  assert.equal(counted(db)[0].participantId, null, 'two arrivals: the operator picks the runner')
+  assert.equal(candidates(db).length, 0)
 })
