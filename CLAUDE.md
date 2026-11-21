@@ -78,6 +78,12 @@ Reach a Pi by its Tailscale address before trying `.local`. On 2026-10-14 the
 phone hotspot stopped passing traffic between the Mac and checkpoint1, even
 though both were on it and both had internet.
 
+Update a Pi with `~/leszyrun/scripts/update-pi.sh` on the Pi. It pulls main and
+picks the role from the installed systemd unit: `leszyrun-backend` (checkpoint1,
+the timing host: root `npm install`, frontend build, restart backend and
+frontend) or `leszyrun-checkpoint` (checkpoint2, the agent: agent install, UI
+build, restart). The backend migrates itself on start.
+
 ## Hardware documentation
 
 - `docs/impinj-r700-api/endpoints.md` — known R700 REST API endpoints (system status, antennas, MQTT, inventory presets)
