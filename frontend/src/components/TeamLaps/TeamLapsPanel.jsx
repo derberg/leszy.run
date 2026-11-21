@@ -246,7 +246,7 @@ function LapRow({ lap, members, act, decide, sameLap }) {
     <div className={cn('py-1.5 flex flex-wrap items-center gap-x-2 gap-y-1', lap.deletedAt && 'opacity-60')}>
       <span className="w-12 font-bold text-apex-muted uppercase shrink-0">{counted && lap.leg != null ? `Okr. ${lap.leg}` : ''}</span>
       <span className={cn('font-mono text-apex-muted', lap.deletedAt && 'line-through')}>{clock(lap.closedAt)}</span>
-      <span className="font-mono w-16 text-right">{counted && lap.legMs != null ? formatDuration(lap.legMs) : '—'}</span>
+      <span className="font-mono min-w-[6rem] shrink-0 whitespace-nowrap text-right">{counted && lap.legMs != null ? formatDuration(lap.legMs) : '—'}</span>
       <div className="min-w-[9rem] flex-1 basis-40">
         <Select value={lap.participantId ?? ''} onValueChange={v => act.setRunner(lap, v)}>
           <SelectTrigger className="h-7 text-xs" title="Zmień biegacza"><SelectValue placeholder="bez biegacza" /></SelectTrigger>
