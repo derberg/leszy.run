@@ -287,6 +287,7 @@ All messages are JSON: `{ type, payload }`
 - No page-level loading spinners — use skeleton placeholders
 - shadcn/ui components only (no mixing other component libraries)
 - File naming: PascalCase for components, camelCase for lib/utils
+- The admin panel is opened over plain http on `.local` and Tailscale addresses, which is not a secure context: no `crypto.randomUUID()`, `navigator.clipboard` or other secure-context API in `frontend/` (`newTeamId()` in `lib/teamGroups.js` builds a UUID from `getRandomValues`)
 
 ## RFID Crossing Detector
 
