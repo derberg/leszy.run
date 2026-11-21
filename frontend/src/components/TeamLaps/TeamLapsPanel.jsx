@@ -27,6 +27,14 @@ export default function TeamLapsPanel({ category, run }) {
   const qc = useQueryClient()
   const key = ['team-laps', run.id]
   const { data: laps = [] } = useQuery({ queryKey: key, queryFn: () => api.teamLaps.list(run.id), refetchInterval: 5000 })
+  // The same names as the participants table: a host team's from host_teams, a registration
+  // team's read from Supabase (never stored on the host); none → the squad's surnames.
+  const { data: teamNames = {} } = useQuery({
+    queryKey: ['team-names', category.eventId],
+    queryFn: () => api.participants.teamNames(category.eventId),
+    enabled: !!category.eventId,
+    staleTime: 60_000,
+  })
   useWsEvent('team:lap', (p) => { if (p?.raceRunId === run.id) qc.invalidateQueries({ queryKey: key }) })
 
   const [open, setOpen] = useState(() => new Set())
@@ -79,8 +87,11 @@ export default function TeamLapsPanel({ category, run }) {
                   </td>
                   <td className="px-2 py-1.5 font-display text-lg text-apex-yellow">{t.position ?? '—'}</td>
                   <td className="px-2 py-1.5">
-                    {/* The host holds no team names: the squad's surnames say which team it is. */}
-                    <span className="block truncate text-apex-text">{membersOf(t.teamId).map(p => p.lastName).join(' · ')}</span>
+                    {(() => {
+                      const surnames = membersOf(t.teamId).map(p => p.lastName).join(' · ')
+                      const name = teamNames[t.teamId]
+                      return <span className={cn('block truncate', name ? 'text-apex-text-bright' : 'text-apex-text')} title={surnames}>{name || surnames}</span>
+                    })()}
                   </td>
                   <td className="px-2 py-1.5 text-right font-mono font-bold text-apex-yellow-bright">{t.completed}</td>
                   <td className="px-2 py-1.5 text-right font-mono">{t.totalMs != null ? formatDuration(t.totalMs) : '—'}</td>

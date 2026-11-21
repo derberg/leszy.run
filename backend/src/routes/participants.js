@@ -1,5 +1,5 @@
-import { eq, and, isNull, sql, max, ne } from 'drizzle-orm'
-import { participants, categories, results, raceRuns, checkins, events } from '../db/schema.js'
+import { eq, and, isNull, isNotNull, sql, max, ne } from 'drizzle-orm'
+import { participants, categories, results, raceRuns, checkins, events, hostTeams } from '../db/schema.js'
 import { setScanMode } from '../mqtt/client.js'
 import Papa from 'papaparse'
 import { pickEmoji } from '../lib/emoji.js'
@@ -8,8 +8,10 @@ import { createClient } from '@supabase/supabase-js'
 import { withdrawalRefusal } from '../lib/withdrawal.js'
 import { isRemoved, isRegistrationEvent, REGISTRATION_DELETE_REFUSAL } from '../lib/registrationGuards.js'
 import { checkinParticipantRow } from '../lib/checkinParticipantRow.js'
-import { fetchTeamNames } from '../lib/teamNames.js'
+import { fetchTeamNames, fetchRegistrationTeamIds } from '../lib/teamNames.js'
 import { teamEditRefusal } from '../lib/teamEdit.js'
+import { hostTeamNameRefusal, mergeTeamNames } from '../lib/hostTeams.js'
+import { localTeamNameInputs } from '../lib/hostTeamNames.js'
 
 function getSupabase() {
   const url = process.env.SUPABASE_URL
@@ -17,6 +19,8 @@ function getSupabase() {
   if (!url || !key) return null
   return createClient(url, key)
 }
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 export async function participantsRoutes(fastify) {
   const { db } = fastify
@@ -31,10 +35,49 @@ export async function participantsRoutes(fastify) {
     return { data: rows }
   })
 
-  // Team names of the event's registration teams, { [teamId]: name }, read from Supabase
-  // per request and never stored on the host (lib/teamNames.js). {} when offline.
+  // Team names of the event, { [teamId]: name }: the registration teams' read from Supabase per
+  // request and never stored on the host (lib/teamNames.js, {} when offline), plus the names of
+  // the teams set up on the hosts (host_teams), which are local and so work offline. A
+  // registration team's name always wins (lib/hostTeams.js mergeTeamNames).
   fastify.get('/events/:eventId/team-names', async (req) => {
-    return { data: await fetchTeamNames(getSupabase(), req.params.eventId) }
+    const { eventId } = req.params
+    if (!UUID_RE.test(eventId)) return { data: {} }
+    const supabase = getSupabase()
+    const [remote, remoteTeamIds, local] = await Promise.all([
+      fetchTeamNames(supabase, eventId),
+      fetchRegistrationTeamIds(supabase, eventId),
+      localTeamNameInputs(db, eventId),
+    ])
+    return { data: mergeTeamNames(remote, local.hostRows, [...remoteTeamIds, ...local.registrationMemberTeamIds]) }
+  })
+
+  // Name (or rename) a team set up on the host. A registration team is refused (its name stays
+  // in Supabase's `teams`, lib/hostTeams.js). Pushed to Supabase and pulled by the other hosts.
+  fastify.put('/events/:eventId/host-teams/:teamId', async (req, reply) => {
+    const { eventId, teamId } = req.params
+    const valid = UUID_RE.test(eventId) && UUID_RE.test(teamId)
+    const [members, existing, remoteTeamIds] = valid
+      ? await Promise.all([
+          db.select({ id: participants.id, registrationId: participants.registrationId }).from(participants)
+            .where(and(eq(participants.eventId, eventId), eq(participants.teamId, teamId),
+              isNull(participants.removedAt), isNull(participants.deletedAt))),
+          db.query.hostTeams.findFirst({ where: eq(hostTeams.id, teamId) }),
+          fetchRegistrationTeamIds(getSupabase(), eventId),
+        ])
+      : [[], null, []]
+    const { refusal, name } = hostTeamNameRefusal({
+      eventId, teamId, name: req.body?.name, members, existing,
+      registrationTeam: remoteTeamIds.includes(teamId),
+    })
+    if (refusal) return reply.code(refusal.status).send({ error: refusal.error })
+    const now = new Date()
+    // One statement, so two first-time names at once end in one row, not a primary-key 500. A row
+    // of another event under the id is never overwritten (setWhere): nothing returned → 409.
+    const [row] = await db.insert(hostTeams).values({ id: teamId, eventId, name, createdAt: now, updatedAt: now })
+      .onConflictDoUpdate({ target: hostTeams.id, set: { name, updatedAt: now }, setWhere: eq(hostTeams.eventId, eventId) })
+      .returning()
+    if (!row) return reply.code(409).send({ error: 'Ta drużyna należy do innego wydarzenia.' })
+    return { data: row }
   })
 
   // Create participant

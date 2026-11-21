@@ -5,14 +5,14 @@ import { api } from '../../lib/api.js'
 import { cn } from '../../lib/utils.js'
 import { sortParticipants } from '../../lib/participantOrder.js'
 import { checkinCounts } from '../../lib/checkinCounts.js'
-import { teamLabels, teamLabelText, teamMembersByTeam, teamOptions, newTeamId, legAfterMove } from '../../lib/teamGroups.js'
+import { teamLabels, teamLabelText, teamMembersByTeam, teamOptions, newTeamId, legAfterMove, hostTeamNameToSave, HOST_TEAM_NAME_MAX } from '../../lib/teamGroups.js'
 import { Button } from '../ui/button.jsx'
 import { Input } from '../ui/input.jsx'
 import { Badge } from '../ui/badge.jsx'
 import { AlertDialog, AlertDialogContent, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogAction, AlertDialogCancel } from '../ui/alert-dialog.jsx'
 import RfidAssignDialog from './RfidAssignDialog.jsx'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogBody, DialogFooter } from '../ui/dialog.jsx'
-import { Trash2, Wifi, UserCheck, UserX, Plus, X, MessageSquare, Send, Check, RotateCcw, Ban, Users } from 'lucide-react'
+import { Trash2, Wifi, UserCheck, UserX, Plus, X, MessageSquare, Send, Check, RotateCcw, Ban, Users, Pencil } from 'lucide-react'
 import { Tooltip } from '../ui/tooltip.jsx'
 
 export default function ParticipantsTable({ eventId, categories }) {
@@ -35,7 +35,8 @@ export default function ParticipantsTable({ eventId, categories }) {
     queryFn: () => api.participants.list(eventId),
   })
 
-  // Only an event with team members asks for team names (read from Supabase, never stored).
+  // Only an event with team members asks for team names (a registration team's read from
+  // Supabase and never stored; a host team's from host_teams).
   const teamCats = new Set((categories || []).filter(c => c.teamMode).map(c => c.id))
   const hasTeams = participants.some(p => p.teamId) || teamCats.size > 0
   const { data: teamNames = {} } = useQuery({
@@ -43,6 +44,18 @@ export default function ParticipantsTable({ eventId, categories }) {
     queryFn: () => api.participants.teamNames(eventId),
     enabled: hasTeams,
     staleTime: 60_000,
+  })
+
+  const renameTeam = useMutation({
+    mutationFn: ({ teamId, name }) => api.participants.setHostTeamName(eventId, teamId, name),
+    onMutate: async ({ teamId, name }) => {
+      await qc.cancelQueries({ queryKey: ['team-names', eventId] })
+      const prev = qc.getQueryData(['team-names', eventId])
+      qc.setQueryData(['team-names', eventId], old => ({ ...(old || {}), [teamId]: name }))
+      return { prev }
+    },
+    onError: (_, __, ctx) => qc.setQueryData(['team-names', eventId], ctx.prev),
+    onSettled: () => qc.invalidateQueries({ queryKey: ['team-names', eventId] }),
   })
 
   const { data: eventDocuments = [] } = useQuery({
@@ -225,67 +238,6 @@ export default function ParticipantsTable({ eventId, categories }) {
     )
   }
 
-  // The runner's team: a pick of the teams in the same category, a new team, or none; and the
-  // leg in a fixed-order relay. Saved on the host only (backend lib/teamEdit.js), before the gun.
-  const TeamCell = ({ participant: p }) => {
-    const label = teamLabelText(labels.get(p.teamId))
-    const isEditing = editingCell?.rowId === p.id && editingCell?.columnId === 'teamId'
-    const isEditingLeg = editingCell?.rowId === p.id && editingCell?.columnId === 'teamLeg'
-    const fixedLeg = fixedLegCats.has(p.categoryId)
-    const save = (body) => { setEditingCell(null); update.mutate({ id: p.id, ...body }) }
-
-    const teamPart = isEditing ? (
-      <select
-        className="h-7 text-xs border border-apex-yellow bg-apex-surface px-1 focus:outline-none w-full min-w-0"
-        defaultValue={p.teamId ?? ''}
-        autoFocus
-        onChange={e => {
-          const v = e.target.value
-          if (v === (p.teamId ?? '')) return setEditingCell(null)
-          const teamId = v === '__new' ? newTeamId() : (v || null)
-          save({ teamId, teamLeg: legAfterMove(participants, teamId, p.id, fixedLeg) })
-        }}
-        onBlur={() => setEditingCell(null)}
-        onKeyDown={e => { if (e.key === 'Escape') setEditingCell(null) }}
-      >
-        <option value="">— bez drużyny —</option>
-        {teamOptions(participants, labels, p.categoryId).map(o => (
-          <option key={o.teamId} value={o.teamId}>{o.label} ({o.size})</option>
-        ))}
-        <option value="__new">+ nowa drużyna</option>
-      </select>
-    ) : (
-      <div
-        className="cursor-text hover:bg-terrain-sand px-1 min-w-0 truncate rounded-sm"
-        title={label || 'Przypisz do drużyny'}
-        onClick={() => setEditingCell({ rowId: p.id, columnId: 'teamId' })}
-      >
-        <span className={cn(labels.get(p.teamId)?.name ? 'text-apex-text-bright' : 'text-apex-muted')}>{label || '— bez drużyny'}</span>
-      </div>
-    )
-
-    const legPart = !fixedLeg || !p.teamId ? null : isEditingLeg ? (
-      <Input
-        className="h-6 w-12 text-xs border-apex-yellow"
-        type="number" min={1}
-        defaultValue={p.teamLeg ?? ''}
-        autoFocus
-        onBlur={e => {
-          const n = e.target.value === '' ? null : Number(e.target.value)
-          if (n === (p.teamLeg ?? null) || (n !== null && !(Number.isInteger(n) && n >= 1))) return setEditingCell(null)
-          save({ teamLeg: n })
-        }}
-        onKeyDown={e => { if (e.key === 'Enter') e.target.blur(); if (e.key === 'Escape') setEditingCell(null) }}
-      />
-    ) : (
-      <button type="button" className="shrink-0 font-mono text-[10px] text-apex-muted hover:text-apex-yellow"
-        title="Zmiana w sztafecie" onClick={() => setEditingCell({ rowId: p.id, columnId: 'teamLeg' })}>
-        zm. {p.teamLeg ?? '?'}
-      </button>
-    )
-
-    return <div className="flex items-center gap-1.5 min-w-0 text-xs">{teamPart}{legPart}</div>
-  }
 
   return (
     <div>
@@ -308,6 +260,9 @@ export default function ParticipantsTable({ eventId, categories }) {
               )}
               {update.error && (
                 <span className="text-apex-red">Nie zapisano zmiany: {update.error.message}</span>
+              )}
+              {renameTeam.error && (
+                <span className="text-apex-red">Nie zapisano nazwy drużyny: {renameTeam.error.message}</span>
               )}
               {unwithdraw.error && (
                 <span className="text-apex-red">Nie udało się cofnąć „nie startuje”: {unwithdraw.error.message}</span>
@@ -407,7 +362,14 @@ export default function ParticipantsTable({ eventId, categories }) {
                 </td>
                 <td className="px-2 py-1 min-w-28 max-w-48">
                   <CategoryCell participant={p} />
-                  {hasTeams && (p.teamId || teamCats.has(p.categoryId)) && <TeamCell participant={p} />}
+                  {hasTeams && (p.teamId || teamCats.has(p.categoryId)) && (
+                    <TeamCell
+                      participant={p} participants={participants} labels={labels}
+                      fixedLeg={fixedLegCats.has(p.categoryId)}
+                      editingCell={editingCell} setEditingCell={setEditingCell}
+                      onUpdate={update.mutate} onRename={renameTeam.mutate}
+                    />
+                  )}
                 </td>
                 <td className="px-2 py-1 w-14"><EditableCell participant={p} field="tshirtSize" /></td>
                 <td className="px-2 py-1 w-24">
@@ -751,4 +713,94 @@ export default function ParticipantsTable({ eventId, categories }) {
       </Dialog>
     </div>
   )
+}
+
+// The runner's team: a pick of the teams in the same category, a new team, or none; and the
+// leg in a fixed-order relay. Saved on the host only (backend lib/teamEdit.js), before the gun.
+// Module level, not inside ParticipantsTable: a component defined in a render is a new type on
+// every render, so a background refetch remounted the cell and lost a name or leg being typed.
+function TeamCell({ participant: p, participants, labels, fixedLeg, editingCell, setEditingCell, onUpdate, onRename }) {
+  const team = labels.get(p.teamId)
+  const label = teamLabelText(team)
+  const isEditing = editingCell?.rowId === p.id && editingCell?.columnId === 'teamId'
+  const isEditingLeg = editingCell?.rowId === p.id && editingCell?.columnId === 'teamLeg'
+  const isEditingName = editingCell?.rowId === p.id && editingCell?.columnId === 'teamName'
+  const save = (body) => { setEditingCell(null); onUpdate({ id: p.id, ...body }) }
+
+  // A host team's name (host_teams): typed in place, saved on blur or Enter. A registration
+  // team's name belongs to the registration and stays read-only here.
+  const teamPart = isEditingName ? (
+    <Input
+      className="h-7 text-xs w-full min-w-0 border-apex-yellow"
+      defaultValue={team?.name ?? ''}
+      placeholder={team?.fallback}
+      maxLength={HOST_TEAM_NAME_MAX}
+      autoFocus
+      aria-label="Nazwa drużyny"
+      onBlur={e => {
+        const name = hostTeamNameToSave(e.target.value, team?.name)
+        setEditingCell(null)
+        if (name) onRename({ teamId: p.teamId, name })
+      }}
+      onKeyDown={e => { if (e.key === 'Enter') e.target.blur(); if (e.key === 'Escape') setEditingCell(null) }}
+    />
+  ) : isEditing ? (
+    <select
+      className="h-7 text-xs border border-apex-yellow bg-apex-surface px-1 focus:outline-none w-full min-w-0"
+      defaultValue={p.teamId ?? ''}
+      autoFocus
+      onChange={e => {
+        const v = e.target.value
+        if (v === (p.teamId ?? '')) return setEditingCell(null)
+        const teamId = v === '__new' ? newTeamId() : (v || null)
+        save({ teamId, teamLeg: legAfterMove(participants, teamId, p.id, fixedLeg) })
+      }}
+      onBlur={() => setEditingCell(null)}
+      onKeyDown={e => { if (e.key === 'Escape') setEditingCell(null) }}
+    >
+      <option value="">— bez drużyny —</option>
+      {teamOptions(participants, labels, p.categoryId).map(o => (
+        <option key={o.teamId} value={o.teamId}>{o.label} ({o.size})</option>
+      ))}
+      <option value="__new">+ nowa drużyna</option>
+    </select>
+  ) : (
+    <div
+      className="cursor-text hover:bg-terrain-sand px-1 min-w-0 truncate rounded-sm"
+      title={label || 'Przypisz do drużyny'}
+      onClick={() => setEditingCell({ rowId: p.id, columnId: 'teamId' })}
+    >
+      <span className={cn(team?.name ? 'text-apex-text-bright' : 'text-apex-muted')}>{label || '— bez drużyny'}</span>
+    </div>
+  )
+
+  const namePart = !p.teamId || !team?.host || isEditing || isEditingName ? null : (
+    <button type="button" className="shrink-0 text-apex-muted hover:text-apex-yellow"
+      title="Nazwa drużyny" aria-label="Nazwa drużyny"
+      onClick={() => setEditingCell({ rowId: p.id, columnId: 'teamName' })}>
+      <Pencil size={11} />
+    </button>
+  )
+
+  const legPart = !fixedLeg || !p.teamId ? null : isEditingLeg ? (
+    <Input
+      className="h-6 w-12 text-xs border-apex-yellow"
+      type="number" min={1}
+      defaultValue={p.teamLeg ?? ''}
+      autoFocus
+      onBlur={e => {
+        const n = e.target.value === '' ? null : Number(e.target.value)
+        if (n === (p.teamLeg ?? null) || (n !== null && !(Number.isInteger(n) && n >= 1))) return setEditingCell(null)
+        save({ teamLeg: n })
+      }}
+      onKeyDown={e => { if (e.key === 'Enter') e.target.blur(); if (e.key === 'Escape') setEditingCell(null) }}
+    />
+  ) : (
+    <button type="button" className="shrink-0 font-mono text-[10px] text-apex-muted hover:text-apex-yellow"
+      title="Zmiana w sztafecie" onClick={() => setEditingCell({ rowId: p.id, columnId: 'teamLeg' })}>
+      zm. {p.teamLeg ?? '?'}
+    </button>
+  )
+
+  return <div className="flex items-center gap-1.5 min-w-0 text-xs">{teamPart}{namePart}{legPart}</div>
 }

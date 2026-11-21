@@ -1,7 +1,7 @@
 // Run: node --test frontend/src/lib/teamGroups.test.js
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { teamLabels, teamLabelText, teamMembersByTeam, teamOptions } from './teamGroups.js'
+import { teamLabels, teamLabelText, teamMembersByTeam, teamOptions, hostTeamNameToSave, HOST_TEAM_NAME_MAX } from './teamGroups.js'
 
 const p = (id, firstName, lastName, teamId, teamLeg = null) => ({ id, firstName, lastName, teamId, teamLeg })
 const rows = [
@@ -50,4 +50,18 @@ test('a moved runner takes the next free leg in a fixed relay, none otherwise', 
   assert.equal(legAfterMove(rows, 'fresh', '1', true), 1)
   assert.equal(legAfterMove(rows, 't2', '1', false), null)
   assert.equal(legAfterMove(rows, null, '1', true), null)
+})
+
+test('a team is the host\'s to name only when no member came from the online registration', () => {
+  const labels = teamLabels([...rows, { ...p('7', 'Reg', 'Zapisana', 't3'), registrationId: 'r1' }, p('8', 'Bez', 'Zapisu', 't3')])
+  assert.equal(labels.get('t1').host, true)
+  assert.equal(labels.get('t3').host, false)
+})
+
+test('a typed host team name is saved trimmed, and not at all when empty, too long or unchanged', () => {
+  assert.equal(hostTeamNameToSave('  Renifery   z Lasu ', null), 'Renifery z Lasu')
+  assert.equal(hostTeamNameToSave('   ', null), null)
+  assert.equal(hostTeamNameToSave('Renifery ', 'Renifery'), null)
+  assert.equal(hostTeamNameToSave('x'.repeat(HOST_TEAM_NAME_MAX + 1), null), null)
+  assert.equal(hostTeamNameToSave('Elfy', 'Renifery'), 'Elfy')
 })

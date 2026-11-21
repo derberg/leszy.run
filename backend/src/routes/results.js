@@ -6,6 +6,16 @@ import { PDFDocument, rgb, StandardFonts } from 'pdf-lib'
 import Papa from 'papaparse'
 import { recalcPositions, UNRANKED } from '../lib/positions.js'
 import { computeTeamResults } from '@leszyrun/ui/teamResults'
+import { createClient } from '@supabase/supabase-js'
+import { mergeTeamNames } from '../lib/hostTeams.js'
+import { localTeamNameInputs } from '../lib/hostTeamNames.js'
+import { fetchRegistrationTeamIds } from '../lib/teamNames.js'
+
+function getSupabase() {
+  const url = process.env.SUPABASE_URL
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY
+  return url && key ? createClient(url, key) : null
+}
 
 const RESULT_STATUSES = ['registered', 'checked_in', 'started', 'finished', 'dnf', 'dns', 'dsq']
 
@@ -37,8 +47,9 @@ export async function resultsRoutes(fastify) {
   })
 
   // Team standings of a race run, derived from the members' own results (@leszyrun/ui
-  // computeTeamResults). The host holds no team names, so teams are labelled by their
-  // members' surnames here; the public snapshot adds the registration's names.
+  // computeTeamResults). Only the names of teams set up on the hosts (host_teams) are local, with
+  // the same registration filter as GET team-names (mergeTeamNames); a registration team, whose
+  // name the host never holds, is labelled by its members' surnames.
   fastify.get('/races/:raceRunId/teams', async (req, reply) => {
     const run = await db.query.raceRuns.findFirst({
       where: eq(raceRuns.id, req.params.raceRunId),
@@ -55,10 +66,17 @@ export async function resultsRoutes(fastify) {
     const laps = mode === 'relay_free'
       ? await db.select().from(teamLaps).where(eq(teamLaps.raceRunId, run.id))
       : []
+    const eventId = run.category.eventId
+    const [local, remoteTeamIds] = await Promise.all([
+      localTeamNameInputs(db, eventId),
+      fetchRegistrationTeamIds(getSupabase(), eventId),
+    ])
+    const teamNames = mergeTeamNames({}, local.hostRows, [...remoteTeamIds, ...local.registrationMemberTeamIds])
     return {
       mode,
       data: computeTeamResults({
         mode, results: live, laps,
+        teamNames,
         lapCount: run.category.teamLapCount ?? undefined,
         raceFinished: run.status === 'finished' || run.status === 'cancelled',
         gunStartedAt: run.startedAt,
