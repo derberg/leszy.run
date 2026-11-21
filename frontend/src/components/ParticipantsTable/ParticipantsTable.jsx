@@ -266,8 +266,8 @@ export default function ParticipantsTable({ eventId, categories }) {
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-apex-border bg-apex-surface-2">
-              {['Emoji', 'Nr', 'Imię', 'Nazwisko', 'Email', 'Tel', 'Klub', 'Płeć', 'Data ur.', 'Kategoria', ...(hasTeams ? ['Drużyna'] : []), 'Koszulka', 'RFID', 'SMS', 'Z', 'NS', ''].map(h => (
-                <th key={h} className="text-left px-3 py-2 text-xs font-bold uppercase tracking-wider text-apex-muted whitespace-nowrap">
+              {['', 'Nr', 'Zawodnik', 'Kontakt', 'Klub', 'Płeć / ur.', hasTeams ? 'Kategoria / drużyna' : 'Kategoria', 'Kosz.', 'RFID', 'SMS', 'Z', 'NS', ''].map((h, hi) => (
+                <th key={hi} className="text-left px-2 py-2 text-xs font-bold uppercase tracking-wider text-apex-muted whitespace-nowrap">
                   {h === 'Z' ? (
                     <Tooltip content={
                       <div className="flex flex-col gap-1.5 font-normal normal-case tracking-normal whitespace-nowrap">
@@ -306,21 +306,23 @@ export default function ParticipantsTable({ eventId, categories }) {
                   </button>
                 </td>
                 <td className="px-2 py-1 w-14"><EditableCell participant={p} field="bibNumber" type="number" /></td>
-                <td className={cn('px-2 py-1', p.withdrawnAt && 'line-through')}><EditableCell participant={p} field="firstName" /></td>
-                <td className="keep px-2 py-1">
-                  {p.withdrawnAt ? (
-                    <div className="flex items-center gap-1.5">
-                      <div className="line-through opacity-45"><EditableCell participant={p} field="lastName" /></div>
-                      <span className="border border-apex-yellow text-apex-yellow font-mono text-[10px] font-bold px-1 leading-4">DNS</span>
+                <td className="keep px-2 py-1 min-w-40 max-w-56">
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    <div className={cn('flex min-w-0 flex-1 [&>div]:min-w-0', p.withdrawnAt && 'line-through opacity-45')}>
+                      <EditableCell participant={p} field="firstName" />
+                      <EditableCell participant={p} field="lastName" />
                     </div>
-                  ) : (
-                    <EditableCell participant={p} field="lastName" />
-                  )}
+                    {p.withdrawnAt && (
+                      <span className="shrink-0 border border-apex-yellow text-apex-yellow font-mono text-[10px] font-bold px-1 leading-4">DNS</span>
+                    )}
+                  </div>
                 </td>
-                <td className="px-2 py-1 max-w-36"><EditableCell participant={p} field="email" type="email" /></td>
-                <td className="px-2 py-1 max-w-28"><EditableCell participant={p} field="phone" type="tel" /></td>
-                <td className="px-2 py-1"><EditableCell participant={p} field="club" /></td>
-                <td className="px-2 py-1 w-16">
+                <td className="px-2 py-1 max-w-44">
+                  <EditableCell participant={p} field="email" type="email" />
+                  <EditableCell participant={p} field="phone" type="tel" />
+                </td>
+                <td className="px-2 py-1 max-w-40"><EditableCell participant={p} field="club" /></td>
+                <td className="px-2 py-1 w-24">
                   <select
                     className="text-xs bg-transparent border-0 cursor-pointer focus:outline-none hover:bg-terrain-sand"
                     value={p.gender ?? ''}
@@ -330,8 +332,6 @@ export default function ParticipantsTable({ eventId, categories }) {
                     <option value="M">M</option>
                     <option value="K">K</option>
                   </select>
-                </td>
-                <td className="px-2 py-1 w-28">
                   <EditableCell
                     participant={p}
                     field="birthDate"
@@ -339,30 +339,28 @@ export default function ParticipantsTable({ eventId, categories }) {
                     display={p.birthDate ? p.birthDate.split('-').reverse().join('.') : null}
                   />
                 </td>
-                <td className="px-2 py-1 min-w-28"><CategoryCell participant={p} /></td>
-                {hasTeams && (
-                  <td className="px-2 py-1 min-w-32 max-w-48 text-xs">
-                    {p.teamId ? (
-                      <div className="flex items-center gap-1.5 min-w-0" title={teamLabelText(labels.get(p.teamId))}>
+                <td className="px-2 py-1 min-w-28 max-w-48">
+                  <CategoryCell participant={p} />
+                  {hasTeams && p.teamId && (
+                      <div className="flex items-center gap-1.5 min-w-0 px-1 text-xs" title={teamLabelText(labels.get(p.teamId))}>
                         <span className={cn('truncate', labels.get(p.teamId)?.name ? 'text-apex-text-bright' : 'text-apex-muted')}>
                           {teamLabelText(labels.get(p.teamId))}
                         </span>
                         {p.teamLeg != null && fixedLegCats.has(p.categoryId) && <span className="shrink-0 font-mono text-[10px] text-apex-muted">zm. {p.teamLeg}</span>}
                       </div>
-                    ) : <span className="text-apex-muted">—</span>}
-                  </td>
-                )}
-                <td className="px-2 py-1 w-20"><EditableCell participant={p} field="tshirtSize" /></td>
-                <td className="px-2 py-1 w-28">
+                  )}
+                </td>
+                <td className="px-2 py-1 w-14"><EditableCell participant={p} field="tshirtSize" /></td>
+                <td className="px-2 py-1 w-24">
                   {p.rfidEpc ? (
                     <div className="flex items-center gap-1">
                       <button
                         onClick={() => setRfidTarget(p)}
-                        className="flex items-center gap-1 text-xs text-apex-yellow hover:text-apex-yellow-dark font-mono"
+                        className="flex items-center gap-1 whitespace-nowrap text-xs text-apex-yellow hover:text-apex-yellow-dark font-mono"
                         title={p.rfidEpc}
                       >
                         <Wifi size={11} />
-                        <span>{p.rfidEpc}</span>
+                        <span>{p.rfidEpc.length > 8 ? `…${p.rfidEpc.slice(-6)}` : p.rfidEpc}</span>
                       </button>
                       <button
                         onClick={() => update.mutate({ id: p.id, rfidEpc: null })}
@@ -381,7 +379,7 @@ export default function ParticipantsTable({ eventId, categories }) {
                     </button>
                   )}
                 </td>
-                <td className="px-2 py-1 w-16">
+                <td className="px-2 py-1 w-12">
                   {p.smsSentAt ? (
                     <div className="flex items-center gap-1">
                       <span className="text-apex-yellow" title={`Wysłano: ${new Date(p.smsSentAt).toLocaleString('pl-PL')}`}>
@@ -403,8 +401,9 @@ export default function ParticipantsTable({ eventId, categories }) {
                       onClick={() => { setSendingSmsFor(p.id); sendSms.mutate([p.id]) }}
                       disabled={sendingSmsFor === p.id}
                       className="text-xs text-apex-text hover:text-apex-yellow flex items-center gap-1"
+                      title="Wyślij SMS z linkiem do zameldowania"
                     >
-                      <Send size={11} /> Wyślij
+                      <Send size={13} />
                     </button>
                   ) : (
                     <span className="text-apex-muted text-xs">—</span>
