@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { computeTeamResults, teamRunners, formatTeamMs } from '../src/lib/teamResults.js'
+import { computeTeamResults, teamRunners, formatTeamMs, lapRunnerCells } from '../src/lib/teamResults.js'
 
 const MIN = 60_000
 let n = 0
@@ -183,4 +183,11 @@ test('relay_free: the lap after a candidate is timed from the last counted lap',
   laps[1].status = 'candidate'
   const [t] = computeTeamResults({ mode: 'relay_free', results: [{ ...a, status: 'started' }], laps, gunStartedAt: GUN })
   assert.deepEqual(t.members.map(m => m.legMs / MIN), [10, 11])
+})
+
+test('relay_free: a lap with no runner is shown as „bez biegacza”, never as „#” and a blank name', () => {
+  const a = row('A', null, { lastName: 'Nowak' })
+  const [t] = computeTeamResults({ mode: 'relay_free', results: [{ ...a, status: 'started' }], laps: lapsOf('A', [[a.participantId, 10], [null, 10]]), gunStartedAt: GUN })
+  assert.deepEqual(lapRunnerCells(t.members[1], () => 'X'), { bib: '', name: 'bez biegacza', missing: true })
+  assert.deepEqual(lapRunnerCells(t.members[0], (m) => m.participant.lastName), { bib: `#${a.participant.bibNumber}`, name: 'Nowak', missing: false })
 })

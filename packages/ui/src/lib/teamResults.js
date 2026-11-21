@@ -263,3 +263,15 @@ export function formatTeamMs(ms) {
   const pad = (n) => String(n).padStart(2, '0')
   return h ? `${h}:${pad(m)}:${pad(s)}` : `${m}:${pad(s)}`
 }
+
+/**
+ * The bib and name cells of one row of a team's lap or leg list. A baton lap nobody has been
+ * credited with yet (participantId null) reads „bez biegacza”.
+ * @param {{ participantId?: string|null, participant?: { bibNumber?: number } }} m
+ * @param {(m: object) => string} nameOf the runner's display name
+ */
+export function lapRunnerCells(m, nameOf) {
+  if (m.participantId == null) return { bib: '', name: 'bez biegacza', missing: true }
+  const bib = m.participant?.bibNumber
+  return { bib: bib != null ? `#${bib}` : '', name: nameOf(m), missing: false }
+}
