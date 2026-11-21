@@ -42,7 +42,7 @@ export async function categoriesRoutes(fastify) {
 
   // Update category
   fastify.patch('/categories/:id', async (req, reply) => {
-    const allowed = ['name', 'slug', 'untimed', 'teamMode', 'teamLapCount', 'teamTimeLimitSeconds']
+    const allowed = ['name', 'slug', 'untimed', 'teamMode', 'teamLapCount', 'teamTimeLimitSeconds', 'teamLapSource']
     const updates = {}
     for (const key of allowed) {
       if (req.body[key] !== undefined) updates[key] = req.body[key]
@@ -116,7 +116,8 @@ export async function categoriesRoutes(fastify) {
 
 const positiveIntOrNull = (v) => v == null || (Number.isInteger(v) && v >= 1)
 
-function teamFieldsError({ teamMode, teamLapCount, teamTimeLimitSeconds }) {
+function teamFieldsError({ teamMode, teamLapCount, teamTimeLimitSeconds, teamLapSource }) {
+  if (teamLapSource !== undefined && !['runner', 'baton'].includes(teamLapSource)) return "teamLapSource must be 'runner' or 'baton'"
   if (teamMode !== undefined && ![null, 'relay', 'relay_free'].includes(teamMode)) return "teamMode must be 'relay_free', 'relay' or null"
   if (!positiveIntOrNull(teamLapCount)) return 'teamLapCount must be a positive integer or null'
   if (!positiveIntOrNull(teamTimeLimitSeconds)) return 'teamTimeLimitSeconds must be a positive integer or null'

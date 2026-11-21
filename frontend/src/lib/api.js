@@ -159,6 +159,12 @@ export const api = {
     update: (id, body) => request('PATCH', `/team-laps/${id}`, body),
   },
 
+  // Relay baton tags: which tag each team hands over
+  teamBatons: {
+    list: (eventId) => request('GET', `/events/${eventId}/team-batons`),
+    put: (eventId, teamId, epc) => request('PUT', `/events/${eventId}/team-batons/${teamId}`, { epc }),
+  },
+
   // Event Documents
   documents: {
     list: (eventId) => request('GET', `/events/${eventId}/documents`),

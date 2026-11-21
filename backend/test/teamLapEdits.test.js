@@ -42,3 +42,19 @@ test('remove and restore', () => {
   assert.deepEqual(lapEdit({ run, participant: null, lap, body: { deleted: true }, now: NOW }).values, { deletedAt: NOW })
   assert.deepEqual(lapEdit({ run, participant: null, lap, body: { deleted: false }, now: NOW }).values, { deletedAt: null })
 })
+
+test('a candidate lap is approved with status counted; a counted one is 409', () => {
+  assert.deepEqual(lapEdit({ run, participant: null, lap: { ...lap, status: 'candidate' }, body: { status: 'counted' }, now: NOW }).values, { status: 'counted' })
+  const out = lapEdit({ run, participant: null, lap: { ...lap, status: 'counted' }, body: { status: 'counted' }, now: NOW })
+  assert.equal(out.status, 409)
+  assert.equal(out.error, 'To okrążenie jest już liczone.')
+})
+
+test('reviewed sets or clears reviewedAt', () => {
+  assert.deepEqual(lapEdit({ run, participant: null, lap, body: { reviewed: true }, now: NOW }).values, { reviewedAt: NOW })
+  assert.deepEqual(lapEdit({ run, participant: null, lap, body: { reviewed: false }, now: NOW }).values, { reviewedAt: null })
+})
+
+test('participantId null clears the runner and keeps the team', () => {
+  assert.deepEqual(lapEdit({ run, participant: null, lap, body: { participantId: null }, now: NOW }).values, { participantId: null })
+})
