@@ -1564,6 +1564,7 @@ function RfidSettings({ event, onSave, saving }) {
     // round-trips cleanly instead of becoming NaN.
     confirmRssiCdbm: event.confirmRssiCdbm ?? '',
     minFinishSeconds: event.minFinishSeconds ?? 300,
+    lapArrivalSilenceSeconds: event.lapArrivalSilenceSeconds ?? 15,
   }
   const [form, setForm] = useState(baseline)
   const isDirty = JSON.stringify(form) !== JSON.stringify(baseline)
@@ -1614,7 +1615,14 @@ function RfidSettings({ event, onSave, saving }) {
               <span className="text-xs font-bold uppercase tracking-widest text-apex-muted mb-1 block">Ignorowanie mety po starcie (sekundy)</span>
               <Input type="number" step="1" min="0" max="600" value={form.minFinishSeconds} onChange={e => set('minFinishSeconds', parseInt(e.target.value))} className="max-w-32" />
               <p className="text-xs text-apex-muted mt-1">
-                Domyślnie: 300. Przez tyle sekund od strzału odczyty nie liczą się jako meta, bo zawodnik oddalający się od bramki startowej jest jeszcze słyszalny. Ustaw poniżej najszybszego możliwego czasu na trasie; przy krótkich testach obniż (np. 10 s).
+                Domyślnie: 300. Przez tyle sekund od strzału odczyty nie liczą się jako meta, bo zawodnik oddalający się od bramki startowej jest jeszcze słyszalny. Ustaw poniżej najszybszego możliwego czasu na trasie; przy krótkich testach obniż (np. 10 s). W sztafecie w dowolnej kolejności to także najkrótszy odstęp między dwoma okrążeniami jednej drużyny: ustaw poniżej najszybszego okrążenia.
+              </p>
+            </label>
+            <label className="block">
+              <span className="text-xs font-bold uppercase tracking-widest text-apex-muted mb-1 block">Cisza przed okrążeniem (sekundy)</span>
+              <Input type="number" step="1" min="1" max="600" value={form.lapArrivalSilenceSeconds} onChange={e => set('lapArrivalSilenceSeconds', parseInt(e.target.value))} className="max-w-32" />
+              <p className="text-xs text-apex-muted mt-1">
+                Domyślnie: 15. Tylko sztafeta w dowolnej kolejności. Przejście zamyka okrążenie drużyny tylko wtedy, gdy chip zawodnika nie był słyszany przez tyle sekund, czyli zawodnik przybiegł z trasy. Zmiennik czekający w strefie zmian jest czytany cały czas, więc nie zamknie okrążenia. Ustaw poniżej czasu, przez który najszybszy zawodnik jest poza zasięgiem anten na jednym okrążeniu (pętla 400 m: około 10–15 s). Strefa zmian musi być w zasięgu anten, a kto nie biegnie, nie może wracać pod bramkę.
               </p>
             </label>
             <div className="block">

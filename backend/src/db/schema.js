@@ -25,6 +25,8 @@ export const events = pgTable('events', {
   gunBackfillSeconds: integer('gun_backfill_seconds').notNull().default(60),
   gunBackfillEnabled: boolean('gun_backfill_enabled').notNull().default(true), // false = never auto-assign gun start time (timer + finish fallback both off)
   minFinishSeconds: integer('min_finish_seconds').notNull().default(300),
+  // Relay in any order: a read closes a team lap only after the tag was unheard this long.
+  lapArrivalSilenceSeconds: integer('lap_arrival_silence_seconds').notNull().default(15),
   slug: text('slug').notNull().unique(),
   publicResultsUrl: text('public_results_url'),
   eventUrl: text('event_url'),

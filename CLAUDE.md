@@ -361,7 +361,7 @@ team is never timed by a tag of its own, and its standing is derived by `compute
   registration's team back on every member of that team, a runner moved on the host included.
 - `'relay_free'` (any order, the default for a team competition; Sztafeta Mikołajów): the team runs
   laps in any order, a member may run several. A pass closes a team lap only when its tag had been
-  silent 60 s before it (came in from the course, so a teammate waiting at the gate never counts)
+  silent `lap_arrival_silence_seconds` before it (event setting „Cisza przed okrążeniem”, default 15 s, was a fixed 60 s that a 400 m loop beats; came in from the course, so a teammate waiting at the gate never counts)
   and `min_finish_seconds` after the team's previous lap. Each lap is a `team_laps` row (pushed and
   pulled like `results`) credited to that runner. Teams rank by laps done, then by when the last
   one closed. `team_lap_count` fixes the number of laps (NULL: as many as possible) and
