@@ -83,6 +83,9 @@ picks the role from the installed systemd unit: `leszyrun-backend` (checkpoint1,
 the timing host: root `npm install`, frontend build, restart backend and
 frontend) or `leszyrun-checkpoint` (checkpoint2, the agent: agent install, UI
 build, restart). The backend migrates itself on start.
+The timing host's systemd units and its panel server are in `deploy/pi/`
+(install steps in its README); nothing it runs lives outside the repository
+except `~/leszyrun/.env` and the Wi-Fi profiles.
 
 ## Hardware documentation
 
