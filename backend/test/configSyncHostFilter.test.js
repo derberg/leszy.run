@@ -291,3 +291,10 @@ test('pullConfig: an events read error fails the whole poll, no child row is pul
   assert.deepEqual(db.inserted, [])
   assert.ok(errors.mock.calls.some((c) => String(c.arguments.join(' ')).includes('boom')))
 })
+
+test('team_batons: refused with the event, kept otherwise', () => {
+  const skip = newSkipSets()
+  skip.events.add('E')
+  assert.equal(isTestRow('team_batons', { id: 'b', event_id: 'E' }, skip), true)
+  assert.equal(isTestRow('team_batons', { id: 'b', event_id: 'F' }, skip), false)
+})

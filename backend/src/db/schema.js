@@ -53,6 +53,9 @@ export const categories = pgTable('categories', {
   // 'relay_free' only: laps closed later than this after the gun do not count. NULL: no limit
   // (the operator stops the race).
   teamTimeLimitSeconds: integer('team_time_limit_seconds'),
+  // 'relay_free' only: what closes a lap. 'runner': the runner's own tag at the gate.
+  // 'baton': a tag carried by the team (team_batons) read at the gate; the runner is not read.
+  teamLapSource: text('team_lap_source').notNull().default('runner'),   // 'runner' | 'baton'
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
   syncedAt: timestamp('synced_at', { withTimezone: true }),
 }, (t) => [
@@ -126,10 +129,12 @@ export const teamLaps = pgTable('team_laps', {
   id: uuid('id').primaryKey().defaultRandom(),
   raceRunId: uuid('race_run_id').notNull().references(() => raceRuns.id, { onDelete: 'cascade' }),
   teamId: uuid('team_id').notNull(),
-  participantId: uuid('participant_id').notNull().references(() => participants.id, { onDelete: 'cascade' }),
+  participantId: uuid('participant_id').references(() => participants.id, { onDelete: 'cascade' }),   // NULL: a baton lap nobody has been assigned yet
   closedAt: timestamp('closed_at', { withTimezone: true }).notNull(),
   peakRssiCdbm: integer('peak_rssi_cdbm'),
-  source: text('source').notNull().default('chip'),   // 'chip' | 'manual'
+  source: text('source').notNull().default('chip'),   // 'chip' | 'manual' | 'baton'
+  status: text('status').notNull().default('counted'),   // 'counted' | 'candidate' (a baton read awaiting review)
+  reviewedAt: timestamp('reviewed_at', { withTimezone: true }),
   deletedAt: timestamp('deleted_at', { withTimezone: true }),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
   syncedAt: timestamp('synced_at', { withTimezone: true }),
@@ -147,6 +152,21 @@ export const hostTeams = pgTable('host_teams', {
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow(),
   syncedAt: timestamp('synced_at', { withTimezone: true }),
 })
+
+// The tag a relay team carries as its baton (categories.team_lap_source = 'baton'). One per
+// team; an EPC belongs to one team per event. epc NULL: the team has no baton assigned yet.
+export const teamBatons = pgTable('team_batons', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  eventId: uuid('event_id').notNull().references(() => events.id, { onDelete: 'cascade' }),
+  teamId: uuid('team_id').notNull(),
+  epc: text('epc'),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow(),
+  syncedAt: timestamp('synced_at', { withTimezone: true }),
+}, (t) => [
+  unique().on(t.eventId, t.teamId),
+  uniqueIndex('team_batons_event_epc_key').on(t.eventId, t.epc).where(sql`${t.epc} IS NOT NULL`),
+])
 
 export const gateCrossings = pgTable('gate_crossings', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -342,6 +362,11 @@ export const eventsRelations = relations(events, ({ many }) => ({
   categories: many(categories),
   eventDocuments: many(eventDocuments),
   checkins: many(checkins),
+  teamBatons: many(teamBatons),
+}))
+
+export const teamBatonsRelations = relations(teamBatons, ({ one }) => ({
+  event: one(events, { fields: [teamBatons.eventId], references: [events.id] }),
 }))
 
 export const categoriesRelations = relations(categories, ({ one, many }) => ({
