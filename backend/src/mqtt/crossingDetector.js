@@ -256,7 +256,8 @@ export class CrossingDetector {
           freeRelay.membersOf.get(teamId).push(pid)
         }
         freeRelay.bursts = new Map()
-        // participantId -> the timer that decides the runner's current burst once it ends
+        // burst -> { timer, participantId, teamId }: the timer that decides that burst once it ends.
+        // Keyed by burst, so a runner's new burst never cancels the decision of the previous one.
         freeRelay.candidateTimers = new Map()
         const withBaton = new Set(freeRelay.batonTeamOf.values())
         const without = [...freeRelay.teams.keys()].filter(id => !withBaton.has(id))
@@ -281,9 +282,6 @@ export class CrossingDetector {
     // Force-confirm any pending inRange entries before clearing them
     const pendingConfirms = []
     const race = this.activeRaces.get(raceRunId)
-    // Runner bursts not yet decided are dropped, not evaluated: a candidate needs the window after
-    // the burst, which a stopped race no longer has. The operator can add a lap by hand.
-    for (const timer of race?.freeRelay?.candidateTimers?.values() ?? []) clearTimeout(timer)
     for (const [key, tag] of this.inRange) {
       // A relay-in-any-order lap pass closes as a lap: the runner crossed before the stop.
       if (tag.raceRunId === raceRunId && tag.closeLap) {
@@ -318,6 +316,18 @@ export class CrossingDetector {
         }
         this.inRange.delete(key)
       }
+    }
+    // Baton relay: runner bursts not decided yet are decided now, after the open baton passes
+    // above closed. A stopped race gets no more baton laps, so the window after a burst holds
+    // nothing that is not already known.
+    const timers = race?.freeRelay?.candidateTimers
+    if (timers) {
+      for (const [burst, { timer, participantId, teamId }] of timers) {
+        clearTimeout(timer)
+        const write = this.#decideBurst({ raceRunId, race, participantId, teamId, burst })
+        if (write) pendingConfirms.push(write)
+      }
+      timers.clear()
     }
     if (pendingConfirms.length) {
       await Promise.all(pendingConfirms)
@@ -880,38 +890,46 @@ export class CrossingDetector {
 
   // Baton relay: a runner's read never closes a lap. It extends the runner's burst (used to
   // attribute baton laps). A burst that came from the course is decided once it has ended: every
-  // read re-arms the runner's timer for the burst gap plus the candidate window, and when it fires
-  // with no baton lap of the team near the burst (isCandidate), the burst becomes a candidate lap,
-  // which counts nowhere until the operator approves it.
+  // read of that burst re-arms its timer for the burst gap plus the candidate window, and when it
+  // fires with no baton lap of the team near the burst (isCandidate), the burst becomes a candidate
+  // lap, which counts nowhere until the operator approves it. A read that starts a new burst leaves
+  // the previous burst's timer running.
   #trackRunnerInBatonRace({ event, raceRunId, participantId, teamId, race }) {
     const fr = race.freeRelay
     const atMs = new Date(event.receivedAt).getTime()
     const burst = noteRead(fr.bursts, participantId, atMs, event.rssiCdbm, fr.arrivalSilenceMs, this.batonWindows.burstGapMs)
-    clearTimeout(fr.candidateTimers.get(participantId))
-    fr.candidateTimers.delete(participantId)
+    clearTimeout(fr.candidateTimers.get(burst)?.timer)
+    fr.candidateTimers.delete(burst)
     if (!burst.fromCourse || burst.candidateDone) return
 
     const timer = setTimeout(() => {
-      if (fr.candidateTimers.get(participantId) === timer) fr.candidateTimers.delete(participantId)
+      if (fr.candidateTimers.get(burst)?.timer === timer) fr.candidateTimers.delete(burst)
       if (this.activeRaces.get(raceRunId) !== race) return
-      const team = fr.teams.get(teamId)
-      if (team.done) return
-      const candidate = isCandidate(burst, {
-        teamLastCountedMs: team.lastBoundary.getTime(),
-        minLapMs: fr.minLapMs,
-        batonLapTimesMs: team.batonLapTimes,
-        windowMs: this.batonWindows.candidateWindowMs,
-      })
-      // Decided either way: a later read of this burst (none is expected) never re-raises it.
-      burst.candidateDone = true
-      if (!candidate) return
-      const closedAt = new Date(burst.peakAt)
-      this.#recordLap({
-        raceRunId, teamId, lapNumber: null, participantId, closedAt,
-        lapMs: closedAt - team.lastBoundary, peakRssi: burst.peakRssi, source: 'chip', status: 'candidate',
-      })
+      this.#decideBurst({ raceRunId, race, participantId, teamId, burst })
     }, this.batonWindows.burstGapMs + this.batonWindows.candidateWindowMs)
-    fr.candidateTimers.set(participantId, timer)
+    fr.candidateTimers.set(burst, { timer, participantId, teamId })
+  }
+
+  // Decides one runner burst: a candidate lap when no baton lap of the team is near it.
+  // Returns the write's promise, or undefined when nothing is written.
+  #decideBurst({ raceRunId, race, participantId, teamId, burst }) {
+    const fr = race.freeRelay
+    const team = fr.teams.get(teamId)
+    if (!team || team.done || burst.candidateDone) return
+    const candidate = isCandidate(burst, {
+      teamLastCountedMs: team.lastBoundary.getTime(),
+      minLapMs: fr.minLapMs,
+      batonLapTimesMs: team.batonLapTimes,
+      windowMs: this.batonWindows.candidateWindowMs,
+    })
+    // Decided either way: a later read of this burst (none is expected) never re-raises it.
+    burst.candidateDone = true
+    if (!candidate) return
+    const closedAt = new Date(burst.peakAt)
+    return this.#recordLap({
+      raceRunId, teamId, lapNumber: null, participantId, closedAt,
+      lapMs: closedAt - team.lastBoundary, peakRssi: burst.peakRssi, source: 'chip', status: 'candidate',
+    })
   }
 
   async #recordLap({ raceRunId, teamId, lapNumber, participantId, closedAt, lapMs, peakRssi, source = 'chip', status = 'counted' }) {

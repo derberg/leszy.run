@@ -189,7 +189,7 @@ test('stopping the race closes an open baton pass as a lap', async (t) => {
   await detector.stopRace('rr1')
   assert.deepEqual(counted(db).map(l => [l.participantId, l.source]), [['p1', 'baton']])
   await wait(CANDIDATE_CHECK + 60)
-  assert.equal(candidates(db).length, 0, 'no candidate check runs after the stop')
+  assert.equal(candidates(db).length, 0, 'the runner came with the baton: no candidate at the stop')
 })
 
 test('after a restart, recorded baton laps keep a returning runner from becoming a candidate', async (t) => {
@@ -237,5 +237,37 @@ test('a waiter who arrived just before the baton and its runner leaves the lap w
   await wait(QUIET + CANDIDATE_CHECK + 100)
   assert.equal(counted(db).length, 1)
   assert.equal(counted(db)[0].participantId, null, 'two arrivals: the operator picks the runner')
+  assert.equal(candidates(db).length, 0)
+})
+
+test('a runner who steps out and returns within the arrival silence still gets the first burst decided', async (t) => {
+  const { detector, db } = await makeRace(t)
+  const peak = read('E1', -3500)
+  detector.processEvent(peak)                           // in from the course, no baton
+  await wait(WINDOWS.burstGapMs + 50)                   // a new burst (gap) ...
+  detector.processEvent(read('E1', -6000))              // ... within the arrival silence: not from the course
+  await wait(CANDIDATE_CHECK + 100)
+  assert.equal(candidates(db).length, 1, 'exactly one candidate, for the first burst')
+  assert.equal(candidates(db)[0].closedAt.getTime(), new Date(peak.receivedAt).getTime())
+})
+
+test('stopping the race decides a runner burst in progress: no baton → one candidate', async (t) => {
+  const { detector, db } = await makeRace(t)
+  detector.processEvent(read('E1', -3500))
+  await wait(5)
+  await detector.stopRace('rr1')
+  assert.deepEqual(candidates(db).map(l => [l.participantId, l.status]), [['p1', 'candidate']])
+  await wait(CANDIDATE_CHECK + 60)
+  assert.equal(candidates(db).length, 1, 'decided once')
+})
+
+test('stopping the race decides a runner burst in progress: a baton lap inside the window → no candidate', async (t) => {
+  const { detector, db } = await makeRace(t)
+  detector.processEvent(read('E1', -3600))
+  detector.processEvent(read('B1', -3500))
+  await wait(QUIET + 60)                                // the baton lap has closed
+  assert.equal(counted(db).length, 1)
+  await detector.stopRace('rr1')
+  await wait(CANDIDATE_CHECK + 60)
   assert.equal(candidates(db).length, 0)
 })
