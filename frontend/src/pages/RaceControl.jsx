@@ -2,6 +2,7 @@ import { useParams, Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useState, useRef, useMemo } from 'react'
 import { teamLabels, teamLabelText } from '../lib/teamGroups.js'
+import { batonTagClashes } from '../lib/batons.js'
 import { api } from '../lib/api.js'
 import { useWsEvent } from '../lib/ws.js'
 import { formatDateTime, formatDuration, statusLabel, statusColor, cn } from '../lib/utils.js'
@@ -59,6 +60,11 @@ export default function RaceControl() {
     const have = new Set(batons.filter(b => b.epc).map(b => b.teamId))
     const ids = new Set(participants.filter(p => p.teamId && p.categoryId === catId).map(p => p.teamId))
     return [...ids].filter(t => !have.has(t)).map(t => teamLabelText(batonLabels.get(t)))
+  }
+  const batonClashes = batonTagClashes(batons, participants)
+  const clashingBatons = (catId) => {
+    const ids = new Set(participants.filter(p => p.teamId && p.categoryId === catId).map(p => p.teamId))
+    return [...ids].filter(t => batonClashes.has(t)).map(t => teamLabelText(batonLabels.get(t)))
   }
 
   const participantMap = Object.fromEntries(participants.map(p => [p.id, p]))
@@ -350,6 +356,11 @@ export default function RaceControl() {
               {cat.teamMode === 'relay_free' && cat.teamLapSource === 'baton' && missingBatons(cat.id).length > 0 && (
                 <p className="text-xs text-apex-red border border-apex-red/40 px-3 py-1.5">
                   Brak pałki: {missingBatons(cat.id).join(', ')}
+                </p>
+              )}
+              {cat.teamMode === 'relay_free' && cat.teamLapSource === 'baton' && clashingBatons(cat.id).length > 0 && (
+                <p className="text-xs text-apex-red border border-apex-red/40 px-3 py-1.5">
+                  Tag pałki jest też tagiem zawodnika: {clashingBatons(cat.id).join(', ')}
                 </p>
               )}
             <RaceCard

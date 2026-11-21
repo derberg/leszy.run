@@ -24,7 +24,23 @@ export function batonRefusal({ teamId, epc, members, participantEpcs, otherBaton
     return { status: 422, error: 'Ten tag jest przypisany zawodnikowi.' }
   }
   if ((otherBatons || []).some(b => b.teamId !== teamId && b.epc && b.epc.toUpperCase() === tag)) {
-    return { status: 422, error: 'Ten tag ma już pałka innej drużyny.' }
+    return { status: 422, error: 'Ten tag jest już przypisany pałce innej drużyny.' }
+  }
+  return null
+}
+
+/**
+ * Why a runner can not get this tag, or null: a baton tag of the event is never a runner's
+ * (a read of it would both close a lap and count as the runner).
+ * @param {unknown} epc the runner's new tag (null/empty: clearing)
+ * @param {Array<string|null>} batonEpcs the event's baton tags
+ * @returns {{ status: number, error: string } | null}
+ */
+export function runnerTagRefusal(epc, batonEpcs) {
+  const tag = normalizeBatonEpc(epc)
+  if (!tag) return null
+  if ((batonEpcs || []).some(b => typeof b === 'string' && b.toUpperCase() === tag)) {
+    return { status: 422, error: 'Ten tag ma pałka drużyny.' }
   }
   return null
 }

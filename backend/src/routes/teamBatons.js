@@ -46,7 +46,7 @@ export async function teamBatonsRoutes(fastify) {
         .returning()
     } catch (err) {
       // Two teams claiming one tag at once: the partial unique index decides.
-      if (err.code === '23505') return reply.code(422).send({ error: 'Ten tag ma już pałka innej drużyny.' })
+      if (err.code === '23505') return reply.code(422).send({ error: 'Ten tag jest już przypisany pałce innej drużyny.' })
       throw err
     }
     if (!row) return reply.code(409).send({ error: 'Ta drużyna należy do innego wydarzenia.' })

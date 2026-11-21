@@ -5,6 +5,7 @@ import { teamLabels, teamLabelText } from '../../lib/teamGroups.js'
 import { Button } from '../ui/button.jsx'
 import RfidAssignDialog from '../ParticipantsTable/RfidAssignDialog.jsx'
 import { Wifi } from 'lucide-react'
+import { batonTagClashes } from '../../lib/batons.js'
 
 const shortEpc = (epc) => epc.length > 8 ? `…${epc.slice(-6)}` : epc
 
@@ -31,6 +32,13 @@ export default function TeamsTab({ eventId, categories }) {
     enabled: relayCats.length > 0,
   })
 
+  const { data: races = [] } = useQuery({
+    queryKey: ['races', eventId],
+    queryFn: () => api.races.list(eventId),
+    enabled: relayCats.length > 0,
+  })
+  const activeCats = new Set(races.filter(r => r.status === 'active').map(r => r.categoryId))
+
   const refresh = () => qc.invalidateQueries({ queryKey: ['team-batons', eventId] })
 
   const setBaton = useMutation({
@@ -46,6 +54,7 @@ export default function TeamsTab({ eventId, categories }) {
 
   const labels = teamLabels(participants, teamNames)
   const batonOf = Object.fromEntries(batons.filter(b => b.epc).map(b => [b.teamId, b.epc]))
+  const clashes = batonTagClashes(batons, participants)
 
   if (relayCats.length === 0) {
     return <div className="py-12 text-center text-apex-muted text-sm">Brak kategorii sztafetowych.</div>
@@ -66,6 +75,9 @@ export default function TeamsTab({ eventId, categories }) {
             <div className="flex flex-wrap items-center justify-between gap-2 border-b border-apex-border px-4 py-3">
               <h2 className="font-display text-xl uppercase tracking-wider text-apex-text-bright">{cat.name}</h2>
               <div className="flex items-center gap-2 flex-wrap">
+                {activeCats.has(cat.id) && (
+                  <span className="text-xs text-apex-yellow whitespace-nowrap">Zmiana zadziała od następnego startu</span>
+                )}
                 <span className="text-xs uppercase tracking-widest text-apex-muted whitespace-nowrap">Liczenie okrążeń</span>
                 <div className="flex">
                   {[['baton', 'pałka'], ['runner', 'zawodnicy']].map(([v, l]) => (
@@ -91,6 +103,7 @@ export default function TeamsTab({ eventId, categories }) {
                     <div className="min-w-0 flex-1 basis-40">
                       <div className="truncate text-sm text-apex-text-bright">{t.text}</div>
                       <div className="font-mono text-xs text-apex-muted">{t.bibs.map(b => `#${b}`).join(' ') || '—'}</div>
+                      {clashes.has(t.teamId) && <div className="text-xs text-apex-red">Tag pałki jest też tagiem zawodnika</div>}
                     </div>
                     <div className="whitespace-nowrap text-xs font-mono">
                       {epc ? (

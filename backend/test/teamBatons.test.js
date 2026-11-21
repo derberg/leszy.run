@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { batonRefusal, normalizeBatonEpc } from '../src/lib/teamBatons.js'
+import { batonRefusal, normalizeBatonEpc, runnerTagRefusal } from '../src/lib/teamBatons.js'
 
 const base = { teamId: 'T', epc: 'ABC', members: [{ id: 'p1' }], participantEpcs: ['P1', 'P2'], otherBatons: [{ teamId: 'U', epc: 'U1' }] }
 
@@ -22,10 +22,18 @@ test('a runner tag is refused', () => {
 })
 
 test("another team's baton tag is refused, the team's own is not", () => {
-  assert.deepEqual(batonRefusal({ ...base, epc: 'u1' }), { status: 422, error: 'Ten tag ma już pałka innej drużyny.' })
+  assert.deepEqual(batonRefusal({ ...base, epc: 'u1' }), { status: 422, error: 'Ten tag jest już przypisany pałce innej drużyny.' })
   assert.equal(batonRefusal({ ...base, epc: 'x', otherBatons: [{ teamId: 'T', epc: 'X' }] }), null)
 })
 
 test('epc must be null or a non-empty string', () => {
   for (const epc of ['', '   ', 5, undefined]) assert.equal(batonRefusal({ ...base, epc }).status, 400)
+})
+
+test("a runner can not get a baton's tag (any case), and may get any other or none", () => {
+  const batons = ['B1', null]
+  assert.deepEqual(runnerTagRefusal(' b1 ', batons), { status: 422, error: 'Ten tag ma pałka drużyny.' })
+  assert.equal(runnerTagRefusal('E1', batons), null)
+  assert.equal(runnerTagRefusal(null, batons), null)
+  assert.equal(runnerTagRefusal('B1', []), null)
 })
