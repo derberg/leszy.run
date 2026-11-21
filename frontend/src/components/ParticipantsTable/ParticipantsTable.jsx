@@ -5,13 +5,14 @@ import { api } from '../../lib/api.js'
 import { cn } from '../../lib/utils.js'
 import { sortParticipants } from '../../lib/participantOrder.js'
 import { checkinCounts } from '../../lib/checkinCounts.js'
+import { teamLabels, teamLabelText, teamMembersByTeam, teamOptions, newTeamId, legAfterMove } from '../../lib/teamGroups.js'
 import { Button } from '../ui/button.jsx'
 import { Input } from '../ui/input.jsx'
 import { Badge } from '../ui/badge.jsx'
 import { AlertDialog, AlertDialogContent, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogAction, AlertDialogCancel } from '../ui/alert-dialog.jsx'
 import RfidAssignDialog from './RfidAssignDialog.jsx'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogBody, DialogFooter } from '../ui/dialog.jsx'
-import { Trash2, Wifi, UserCheck, UserX, Plus, X, MessageSquare, Send, Check, RotateCcw, Ban } from 'lucide-react'
+import { Trash2, Wifi, UserCheck, UserX, Plus, X, MessageSquare, Send, Check, RotateCcw, Ban, Users } from 'lucide-react'
 import { Tooltip } from '../ui/tooltip.jsx'
 
 export default function ParticipantsTable({ eventId, categories }) {
@@ -27,10 +28,21 @@ export default function ParticipantsTable({ eventId, categories }) {
   const [minorCheckinTarget, setMinorCheckinTarget] = useState(null) // participant needing doc confirmation
   const [minorDocChecks, setMinorDocChecks] = useState({}) // { docId: true/false }
   const [tshirtConfirmed, setTshirtConfirmed] = useState(false)
+  const [teamsOnly, setTeamsOnly] = useState(false)
 
   const { data: participants = [] } = useQuery({
     queryKey: ['participants', eventId],
     queryFn: () => api.participants.list(eventId),
+  })
+
+  // Only an event with team members asks for team names (read from Supabase, never stored).
+  const teamCats = new Set((categories || []).filter(c => c.teamMode).map(c => c.id))
+  const hasTeams = participants.some(p => p.teamId) || teamCats.size > 0
+  const { data: teamNames = {} } = useQuery({
+    queryKey: ['team-names', eventId],
+    queryFn: () => api.participants.teamNames(eventId),
+    enabled: hasTeams,
+    staleTime: 60_000,
   })
 
   const { data: eventDocuments = [] } = useQuery({
@@ -110,11 +122,18 @@ export default function ParticipantsTable({ eventId, categories }) {
   const openWithdraw = (p) => { withdraw.reset(); setWithdrawTarget(p) }
 
   const catMap = Object.fromEntries((categories || []).map(c => [c.id, c.name]))
+  // A leg number means something only in a fixed-order relay; 'relay_free' runs in any order.
+  const fixedLegCats = new Set((categories || []).filter(c => c.teamMode === 'relay').map(c => c.id))
 
   // Display order: category (event's category order), then last name, then
   // first name, see lib/participantOrder.js. The API returns rows in bib order;
   // the table body renders this array directly (no TanStack sort model).
-  const sortedParticipants = sortParticipants(participants, categories)
+  const labels = teamLabels(participants, teamNames)
+  const teamCount = labels.size
+  const showTeamsOnly = hasTeams && teamsOnly
+  const sortedParticipants = showTeamsOnly
+    ? teamMembersByTeam(participants, labels)
+    : sortParticipants(participants, categories)
 
   const isMinor = (p) => {
     if (!p?.birthDate) return false
@@ -206,6 +225,68 @@ export default function ParticipantsTable({ eventId, categories }) {
     )
   }
 
+  // The runner's team: a pick of the teams in the same category, a new team, or none; and the
+  // leg in a fixed-order relay. Saved on the host only (backend lib/teamEdit.js), before the gun.
+  const TeamCell = ({ participant: p }) => {
+    const label = teamLabelText(labels.get(p.teamId))
+    const isEditing = editingCell?.rowId === p.id && editingCell?.columnId === 'teamId'
+    const isEditingLeg = editingCell?.rowId === p.id && editingCell?.columnId === 'teamLeg'
+    const fixedLeg = fixedLegCats.has(p.categoryId)
+    const save = (body) => { setEditingCell(null); update.mutate({ id: p.id, ...body }) }
+
+    const teamPart = isEditing ? (
+      <select
+        className="h-7 text-xs border border-apex-yellow bg-apex-surface px-1 focus:outline-none w-full min-w-0"
+        defaultValue={p.teamId ?? ''}
+        autoFocus
+        onChange={e => {
+          const v = e.target.value
+          if (v === (p.teamId ?? '')) return setEditingCell(null)
+          const teamId = v === '__new' ? newTeamId() : (v || null)
+          save({ teamId, teamLeg: legAfterMove(participants, teamId, p.id, fixedLeg) })
+        }}
+        onBlur={() => setEditingCell(null)}
+        onKeyDown={e => { if (e.key === 'Escape') setEditingCell(null) }}
+      >
+        <option value="">— bez drużyny —</option>
+        {teamOptions(participants, labels, p.categoryId).map(o => (
+          <option key={o.teamId} value={o.teamId}>{o.label} ({o.size})</option>
+        ))}
+        <option value="__new">+ nowa drużyna</option>
+      </select>
+    ) : (
+      <div
+        className="cursor-text hover:bg-terrain-sand px-1 min-w-0 truncate rounded-sm"
+        title={label || 'Przypisz do drużyny'}
+        onClick={() => setEditingCell({ rowId: p.id, columnId: 'teamId' })}
+      >
+        <span className={cn(labels.get(p.teamId)?.name ? 'text-apex-text-bright' : 'text-apex-muted')}>{label || '— bez drużyny'}</span>
+      </div>
+    )
+
+    const legPart = !fixedLeg || !p.teamId ? null : isEditingLeg ? (
+      <Input
+        className="h-6 w-12 text-xs border-apex-yellow"
+        type="number" min={1}
+        defaultValue={p.teamLeg ?? ''}
+        autoFocus
+        onBlur={e => {
+          const n = e.target.value === '' ? null : Number(e.target.value)
+          if (n === (p.teamLeg ?? null) || (n !== null && !(Number.isInteger(n) && n >= 1))) return setEditingCell(null)
+          save({ teamLeg: n })
+        }}
+        onKeyDown={e => { if (e.key === 'Enter') e.target.blur(); if (e.key === 'Escape') setEditingCell(null) }}
+      />
+    ) : (
+      <button type="button" className="shrink-0 font-mono text-[10px] text-apex-muted hover:text-apex-yellow"
+        title="Zmiana w sztafecie" onClick={() => setEditingCell({ rowId: p.id, columnId: 'teamLeg' })}>
+        zm. {p.teamLeg ?? '?'}
+      </button>
+    )
+
+    return <div className="flex items-center gap-1.5 min-w-0 text-xs">{teamPart}{legPart}</div>
+  }
+
   return (
     <div>
       <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
@@ -225,6 +306,9 @@ export default function ParticipantsTable({ eventId, categories }) {
                   <Ban size={13} /> {counts.withdrawn} nie startuje
                 </span>
               )}
+              {update.error && (
+                <span className="text-apex-red">Nie zapisano zmiany: {update.error.message}</span>
+              )}
               {unwithdraw.error && (
                 <span className="text-apex-red">Nie udało się cofnąć „nie startuje”: {unwithdraw.error.message}</span>
               )}
@@ -232,6 +316,11 @@ export default function ParticipantsTable({ eventId, categories }) {
           )
         })()}
         <div className="flex items-center gap-2">
+          {hasTeams && (
+            <Button size="sm" variant={showTeamsOnly ? 'default' : 'outline'} className="whitespace-nowrap" onClick={() => setTeamsOnly(v => !v)} aria-pressed={showTeamsOnly}>
+              <Users size={13} /> Drużyny ({teamCount})
+            </Button>
+          )}
           <Button size="sm" variant="outline" onClick={() => setBulkSmsOpen(true)}>
             <MessageSquare size={13} /> Wyślij SMS do wszystkich
           </Button>
@@ -243,8 +332,8 @@ export default function ParticipantsTable({ eventId, categories }) {
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-apex-border bg-apex-surface-2">
-              {['Emoji', 'Nr', 'Imię', 'Nazwisko', 'Email', 'Tel', 'Klub', 'Płeć', 'Data ur.', 'Kategoria', 'Koszulka', 'RFID', 'SMS', 'Z', 'NS', ''].map(h => (
-                <th key={h} className="text-left px-3 py-2 text-xs font-bold uppercase tracking-wider text-apex-muted whitespace-nowrap">
+              {['', 'Nr', 'Zawodnik', 'Kontakt', 'Klub', 'Płeć / ur.', hasTeams ? 'Kategoria / drużyna' : 'Kategoria', 'Kosz.', 'RFID', 'SMS', 'Z', 'NS', ''].map((h, hi) => (
+                <th key={hi} className="text-left px-2 py-2 text-xs font-bold uppercase tracking-wider text-apex-muted whitespace-nowrap">
                   {h === 'Z' ? (
                     <Tooltip content={
                       <div className="flex flex-col gap-1.5 font-normal normal-case tracking-normal whitespace-nowrap">
@@ -266,8 +355,12 @@ export default function ParticipantsTable({ eventId, categories }) {
             </tr>
           </thead>
           <tbody className="divide-y divide-apex-border">
-            {sortedParticipants.map(p => (
-              <tr key={p.id} className={cn('hover:bg-apex-surface-2 group', p.withdrawnAt && '[&>td:not(.keep)]:opacity-45')}>
+            {sortedParticipants.map((p, i) => (
+              <tr key={p.id} className={cn(
+                'hover:bg-apex-surface-2 group',
+                p.withdrawnAt && '[&>td:not(.keep)]:opacity-45',
+                showTeamsOnly && i > 0 && sortedParticipants[i - 1].teamId !== p.teamId && 'border-t-2 border-t-apex-border-bright',
+              )}>
                 <td className="px-2 py-1 w-10 text-center text-lg group/emoji relative">
                   <span>{p.emoji || '🏃'}</span>
                   <button
@@ -279,21 +372,23 @@ export default function ParticipantsTable({ eventId, categories }) {
                   </button>
                 </td>
                 <td className="px-2 py-1 w-14"><EditableCell participant={p} field="bibNumber" type="number" /></td>
-                <td className={cn('px-2 py-1', p.withdrawnAt && 'line-through')}><EditableCell participant={p} field="firstName" /></td>
-                <td className="keep px-2 py-1">
-                  {p.withdrawnAt ? (
-                    <div className="flex items-center gap-1.5">
-                      <div className="line-through opacity-45"><EditableCell participant={p} field="lastName" /></div>
-                      <span className="border border-apex-yellow text-apex-yellow font-mono text-[10px] font-bold px-1 leading-4">DNS</span>
+                <td className="keep px-2 py-1 min-w-40 max-w-56">
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    <div className={cn('flex min-w-0 flex-1 [&>div]:min-w-0', p.withdrawnAt && 'line-through opacity-45')}>
+                      <EditableCell participant={p} field="firstName" />
+                      <EditableCell participant={p} field="lastName" />
                     </div>
-                  ) : (
-                    <EditableCell participant={p} field="lastName" />
-                  )}
+                    {p.withdrawnAt && (
+                      <span className="shrink-0 border border-apex-yellow text-apex-yellow font-mono text-[10px] font-bold px-1 leading-4">DNS</span>
+                    )}
+                  </div>
                 </td>
-                <td className="px-2 py-1 max-w-36"><EditableCell participant={p} field="email" type="email" /></td>
-                <td className="px-2 py-1 max-w-28"><EditableCell participant={p} field="phone" type="tel" /></td>
-                <td className="px-2 py-1"><EditableCell participant={p} field="club" /></td>
-                <td className="px-2 py-1 w-16">
+                <td className="px-2 py-1 max-w-44">
+                  <EditableCell participant={p} field="email" type="email" />
+                  <EditableCell participant={p} field="phone" type="tel" />
+                </td>
+                <td className="px-2 py-1 max-w-40"><EditableCell participant={p} field="club" /></td>
+                <td className="px-2 py-1 w-24">
                   <select
                     className="text-xs bg-transparent border-0 cursor-pointer focus:outline-none hover:bg-terrain-sand"
                     value={p.gender ?? ''}
@@ -303,8 +398,6 @@ export default function ParticipantsTable({ eventId, categories }) {
                     <option value="M">M</option>
                     <option value="K">K</option>
                   </select>
-                </td>
-                <td className="px-2 py-1 w-28">
                   <EditableCell
                     participant={p}
                     field="birthDate"
@@ -312,18 +405,21 @@ export default function ParticipantsTable({ eventId, categories }) {
                     display={p.birthDate ? p.birthDate.split('-').reverse().join('.') : null}
                   />
                 </td>
-                <td className="px-2 py-1 min-w-28"><CategoryCell participant={p} /></td>
-                <td className="px-2 py-1 w-20"><EditableCell participant={p} field="tshirtSize" /></td>
-                <td className="px-2 py-1 w-28">
+                <td className="px-2 py-1 min-w-28 max-w-48">
+                  <CategoryCell participant={p} />
+                  {hasTeams && (p.teamId || teamCats.has(p.categoryId)) && <TeamCell participant={p} />}
+                </td>
+                <td className="px-2 py-1 w-14"><EditableCell participant={p} field="tshirtSize" /></td>
+                <td className="px-2 py-1 w-24">
                   {p.rfidEpc ? (
                     <div className="flex items-center gap-1">
                       <button
                         onClick={() => setRfidTarget(p)}
-                        className="flex items-center gap-1 text-xs text-apex-yellow hover:text-apex-yellow-dark font-mono"
+                        className="flex items-center gap-1 whitespace-nowrap text-xs text-apex-yellow hover:text-apex-yellow-dark font-mono"
                         title={p.rfidEpc}
                       >
                         <Wifi size={11} />
-                        <span>{p.rfidEpc}</span>
+                        <span>{p.rfidEpc.length > 8 ? `…${p.rfidEpc.slice(-6)}` : p.rfidEpc}</span>
                       </button>
                       <button
                         onClick={() => update.mutate({ id: p.id, rfidEpc: null })}
@@ -342,7 +438,7 @@ export default function ParticipantsTable({ eventId, categories }) {
                     </button>
                   )}
                 </td>
-                <td className="px-2 py-1 w-16">
+                <td className="px-2 py-1 w-12">
                   {p.smsSentAt ? (
                     <div className="flex items-center gap-1">
                       <span className="text-apex-yellow" title={`Wysłano: ${new Date(p.smsSentAt).toLocaleString('pl-PL')}`}>
@@ -364,8 +460,9 @@ export default function ParticipantsTable({ eventId, categories }) {
                       onClick={() => { setSendingSmsFor(p.id); sendSms.mutate([p.id]) }}
                       disabled={sendingSmsFor === p.id}
                       className="text-xs text-apex-text hover:text-apex-yellow flex items-center gap-1"
+                      title="Wyślij SMS z linkiem do zameldowania"
                     >
-                      <Send size={11} /> Wyślij
+                      <Send size={13} />
                     </button>
                   ) : (
                     <span className="text-apex-muted text-xs">—</span>

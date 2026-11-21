@@ -49,6 +49,7 @@ export const api = {
   // Participants
   participants: {
     list: (eventId) => request('GET', `/events/${eventId}/participants`),
+    teamNames: (eventId) => request('GET', `/events/${eventId}/team-names`),
     create: (eventId, body) => request('POST', `/events/${eventId}/participants`, body),
     update: (id, body) => request('PATCH', `/participants/${id}`, body),
     delete: (id) => request('DELETE', `/participants/${id}`),
