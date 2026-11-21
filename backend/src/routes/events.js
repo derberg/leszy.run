@@ -48,6 +48,11 @@ export async function eventsRoutes(fastify) {
       updates.slug = updates.slug.toLowerCase().replace(/[^a-z0-9-]/g, '')
       if (!updates.slug) return reply.code(400).send({ error: 'Invalid slug' })
     }
+    if (updates.lapArrivalSilenceSeconds !== undefined) {
+      const v = updates.lapArrivalSilenceSeconds
+      // Supabase refuses anything outside 1..600, and the push sends every dirty event in one batch.
+      if (!Number.isInteger(v) || v < 1 || v > 600) return reply.code(400).send({ error: 'lapArrivalSilenceSeconds must be an integer from 1 to 600' })
+    }
     if (Object.keys(updates).length === 0) return reply.code(400).send({ error: 'No fields to update' })
 
     const [row] = await db.update(events).set(updates).where(eq(events.id, req.params.id)).returning()
