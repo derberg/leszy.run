@@ -33,3 +33,12 @@ export function teamMembersByTeam(participants, labels) {
     .filter(p => p.teamId)
     .sort((a, b) => cmp(text(a), text(b)) || cmp(a.teamId, b.teamId) || byLegThenName(a, b))
 }
+
+// The teams a runner of `categoryId` can be moved to: every team that has a member in that
+// category, by label. A team lives in one competition, so another category's teams are left out.
+export function teamOptions(participants, labels, categoryId) {
+  const ids = new Set((participants || []).filter(p => p.teamId && p.categoryId === categoryId).map(p => p.teamId))
+  return [...ids]
+    .map(teamId => ({ teamId, label: teamLabelText(labels.get(teamId)), size: labels.get(teamId)?.size ?? 0 }))
+    .sort((a, b) => cmp(a.label, b.label) || cmp(a.teamId, b.teamId))
+}

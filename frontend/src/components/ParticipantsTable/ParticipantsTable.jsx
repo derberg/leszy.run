@@ -5,7 +5,7 @@ import { api } from '../../lib/api.js'
 import { cn } from '../../lib/utils.js'
 import { sortParticipants } from '../../lib/participantOrder.js'
 import { checkinCounts } from '../../lib/checkinCounts.js'
-import { teamLabels, teamLabelText, teamMembersByTeam } from '../../lib/teamGroups.js'
+import { teamLabels, teamLabelText, teamMembersByTeam, teamOptions } from '../../lib/teamGroups.js'
 import { Button } from '../ui/button.jsx'
 import { Input } from '../ui/input.jsx'
 import { Badge } from '../ui/badge.jsx'
@@ -36,7 +36,8 @@ export default function ParticipantsTable({ eventId, categories }) {
   })
 
   // Only an event with team members asks for team names (read from Supabase, never stored).
-  const hasTeams = participants.some(p => p.teamId)
+  const teamCats = new Set((categories || []).filter(c => c.teamMode).map(c => c.id))
+  const hasTeams = participants.some(p => p.teamId) || teamCats.size > 0
   const { data: teamNames = {} } = useQuery({
     queryKey: ['team-names', eventId],
     queryFn: () => api.participants.teamNames(eventId),
@@ -224,6 +225,67 @@ export default function ParticipantsTable({ eventId, categories }) {
     )
   }
 
+  // The runner's team: a pick of the teams in the same category, a new team, or none; and the
+  // leg in a fixed-order relay. Saved on the host only (backend lib/teamEdit.js), before the gun.
+  const TeamCell = ({ participant: p }) => {
+    const label = teamLabelText(labels.get(p.teamId))
+    const isEditing = editingCell?.rowId === p.id && editingCell?.columnId === 'teamId'
+    const isEditingLeg = editingCell?.rowId === p.id && editingCell?.columnId === 'teamLeg'
+    const fixedLeg = fixedLegCats.has(p.categoryId)
+    const save = (body) => { setEditingCell(null); update.mutate({ id: p.id, ...body }) }
+
+    const teamPart = isEditing ? (
+      <select
+        className="h-7 text-xs border border-apex-yellow bg-apex-surface px-1 focus:outline-none w-full min-w-0"
+        defaultValue={p.teamId ?? ''}
+        autoFocus
+        onChange={e => {
+          const v = e.target.value
+          if (v === (p.teamId ?? '')) return setEditingCell(null)
+          save({ teamId: v === '__new' ? crypto.randomUUID() : (v || null), ...(v ? {} : { teamLeg: null }) })
+        }}
+        onBlur={() => setEditingCell(null)}
+        onKeyDown={e => { if (e.key === 'Escape') setEditingCell(null) }}
+      >
+        <option value="">— bez drużyny —</option>
+        {teamOptions(participants, labels, p.categoryId).map(o => (
+          <option key={o.teamId} value={o.teamId}>{o.label} ({o.size})</option>
+        ))}
+        <option value="__new">+ nowa drużyna</option>
+      </select>
+    ) : (
+      <div
+        className="cursor-text hover:bg-terrain-sand px-1 min-w-0 truncate rounded-sm"
+        title={label || 'Przypisz do drużyny'}
+        onClick={() => setEditingCell({ rowId: p.id, columnId: 'teamId' })}
+      >
+        <span className={cn(labels.get(p.teamId)?.name ? 'text-apex-text-bright' : 'text-apex-muted')}>{label || '— bez drużyny'}</span>
+      </div>
+    )
+
+    const legPart = !fixedLeg || !p.teamId ? null : isEditingLeg ? (
+      <Input
+        className="h-6 w-12 text-xs border-apex-yellow"
+        type="number" min={1}
+        defaultValue={p.teamLeg ?? ''}
+        autoFocus
+        onBlur={e => {
+          const n = e.target.value === '' ? null : Number(e.target.value)
+          if (n === (p.teamLeg ?? null) || (n !== null && !(Number.isInteger(n) && n >= 1))) return setEditingCell(null)
+          save({ teamLeg: n })
+        }}
+        onKeyDown={e => { if (e.key === 'Enter') e.target.blur(); if (e.key === 'Escape') setEditingCell(null) }}
+      />
+    ) : (
+      <button type="button" className="shrink-0 font-mono text-[10px] text-apex-muted hover:text-apex-yellow"
+        title="Zmiana w sztafecie" onClick={() => setEditingCell({ rowId: p.id, columnId: 'teamLeg' })}>
+        zm. {p.teamLeg ?? '?'}
+      </button>
+    )
+
+    return <div className="flex items-center gap-1.5 min-w-0 text-xs">{teamPart}{legPart}</div>
+  }
+
   return (
     <div>
       <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
@@ -242,6 +304,9 @@ export default function ParticipantsTable({ eventId, categories }) {
                 <span className="flex items-center gap-1" title="Zameldowani, ale nie startują">
                   <Ban size={13} /> {counts.withdrawn} nie startuje
                 </span>
+              )}
+              {update.error && (
+                <span className="text-apex-red">Nie zapisano zmiany: {update.error.message}</span>
               )}
               {unwithdraw.error && (
                 <span className="text-apex-red">Nie udało się cofnąć „nie startuje”: {unwithdraw.error.message}</span>
@@ -341,14 +406,7 @@ export default function ParticipantsTable({ eventId, categories }) {
                 </td>
                 <td className="px-2 py-1 min-w-28 max-w-48">
                   <CategoryCell participant={p} />
-                  {hasTeams && p.teamId && (
-                      <div className="flex items-center gap-1.5 min-w-0 px-1 text-xs" title={teamLabelText(labels.get(p.teamId))}>
-                        <span className={cn('truncate', labels.get(p.teamId)?.name ? 'text-apex-text-bright' : 'text-apex-muted')}>
-                          {teamLabelText(labels.get(p.teamId))}
-                        </span>
-                        {p.teamLeg != null && fixedLegCats.has(p.categoryId) && <span className="shrink-0 font-mono text-[10px] text-apex-muted">zm. {p.teamLeg}</span>}
-                      </div>
-                  )}
+                  {hasTeams && (p.teamId || teamCats.has(p.categoryId)) && <TeamCell participant={p} />}
                 </td>
                 <td className="px-2 py-1 w-14"><EditableCell participant={p} field="tshirtSize" /></td>
                 <td className="px-2 py-1 w-24">

@@ -9,6 +9,7 @@ import { withdrawalRefusal } from '../lib/withdrawal.js'
 import { isRemoved, isRegistrationEvent, REGISTRATION_DELETE_REFUSAL } from '../lib/registrationGuards.js'
 import { checkinParticipantRow } from '../lib/checkinParticipantRow.js'
 import { fetchTeamNames } from '../lib/teamNames.js'
+import { teamEditRefusal } from '../lib/teamEdit.js'
 
 function getSupabase() {
   const url = process.env.SUPABASE_URL
@@ -65,6 +66,10 @@ export async function participantsRoutes(fastify) {
     const updates = {}
     for (const key of allowed) {
       if (req.body[key] !== undefined) updates[key] = req.body[key] === '' ? null : req.body[key]
+    }
+    if (updates.teamId !== undefined || updates.teamLeg !== undefined) {
+      const refusal = teamEditRefusal(updates, await liveResultCount(db, req.params.id))
+      if (refusal) return reply.code(refusal.status).send({ error: refusal.error })
     }
     updates.updatedAt = new Date()
     if (Object.keys(updates).length === 0) return reply.code(400).send({ error: 'No fields to update' })

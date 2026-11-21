@@ -1,7 +1,7 @@
 // Run: node --test frontend/src/lib/teamGroups.test.js
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { teamLabels, teamLabelText, teamMembersByTeam } from './teamGroups.js'
+import { teamLabels, teamLabelText, teamMembersByTeam, teamOptions } from './teamGroups.js'
 
 const p = (id, firstName, lastName, teamId, teamLeg = null) => ({ id, firstName, lastName, teamId, teamLeg })
 const rows = [
@@ -24,4 +24,14 @@ test('labels a team by its name, else by its members surnames (leg order first)'
 test('lists team members only, grouped by team label, then leg, then name', () => {
   const labels = teamLabels(rows, { t1: 'Renifery' })
   assert.deepEqual(teamMembersByTeam(rows, labels).map(r => r.id), ['3', '2', '5', '1'])
+})
+
+test('team options are the teams of the same category, by label', () => {
+  const rows2 = [...rows.map(r => ({ ...r, categoryId: 'relay' })), { ...p('6', 'Kuba', 'Inny', 't3'), categoryId: 'other' }]
+  const labels = teamLabels(rows2, { t1: 'Renifery' })
+  assert.deepEqual(teamOptions(rows2, labels, 'relay'), [
+    { teamId: 't2', label: 'Nowak · Kowal', size: 2 },
+    { teamId: 't1', label: 'Renifery', size: 2 },
+  ])
+  assert.deepEqual(teamOptions(rows2, labels, 'none'), [])
 })
