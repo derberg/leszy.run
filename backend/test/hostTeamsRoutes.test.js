@@ -6,12 +6,13 @@ import Fastify from 'fastify'
 import { PgDialect } from 'drizzle-orm/pg-core'
 import { getTableName } from 'drizzle-orm'
 import { participantsRoutes } from '../src/routes/participants.js'
+import { resultsRoutes } from '../src/routes/results.js'
 
 const EVENT = '11111111-2222-4333-8444-555555555555'
 const TEAM = 'aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee'
 const dialect = new PgDialect()
 
-function stubDb({ members = [], existing = null, hostRows = [], upserted = [{ id: TEAM }] } = {}) {
+function stubDb({ members = [], existing = null, hostRows = [], upserted = [{ id: TEAM }], run = null, runResults = [] } = {}) {
   const log = { selects: [], inserted: [], updated: [] }
   const chain = (value, onEnd) => {
     const c = {}
@@ -33,16 +34,20 @@ function stubDb({ members = [], existing = null, hostRows = [], upserted = [{ id
     },
     insert: (t) => chain(upserted, (v) => log.inserted.push({ table: getTableName(t), v })),
     update: (t) => chain([{ id: TEAM }], (v) => log.updated.push({ table: getTableName(t), v })),
-    query: { hostTeams: { findFirst: async () => existing } },
+    query: {
+      hostTeams: { findFirst: async () => existing },
+      raceRuns: { findFirst: async () => run },
+      results: { findMany: async () => runResults },
+    },
   }
   return { db, log }
 }
 
-async function appFor(opts) {
+async function appFor(opts, routes = participantsRoutes) {
   const { db, log } = stubDb(opts)
   const app = Fastify()
   app.decorate('db', db)
-  await app.register(async (api) => { await api.register(participantsRoutes) }, { prefix: '/api' })
+  await app.register(async (api) => { await api.register(routes) }, { prefix: '/api' })
   return { app, log }
 }
 const put = (app, name, teamId = TEAM) => app.inject({ method: 'PUT', url: `/api/events/${EVENT}/host-teams/${teamId}`, payload: { name } })
@@ -92,6 +97,28 @@ test('team-names returns the host names offline, minus teams with a live registr
     assert.deepEqual(res.json(), { data: { [TEAM]: 'Renifery' } })
     const sel = log.selects.find(s => s.table === 'participants').sql
     for (const f of [/"registration_id" is not null/, /"removed_at" is null/, /"deleted_at" is null/]) assert.match(sel, f)
+  } finally {
+    if (saved !== undefined) process.env.SUPABASE_URL = saved
+  }
+})
+
+test('race teams standings use the same filter: a host name is dropped once a registration runner is in the team', async () => {
+  const saved = process.env.SUPABASE_URL
+  delete process.env.SUPABASE_URL
+  try {
+    const OTHER = 'bbbbbbbb-bbbb-4ccc-8ddd-eeeeeeeeeeee'
+    const person = (id, teamId, lastName) => ({ id: `r-${id}`, participantId: id, status: 'started', participant: { id, teamId, lastName, firstName: 'X' } })
+    const { app } = await appFor({
+      run: { id: 'run1', status: 'active', startedAt: new Date().toISOString(), category: { eventId: EVENT, teamMode: 'relay_free' } },
+      runResults: [person('a', TEAM, 'Nowak'), person('b', OTHER, 'Kowal')],
+      hostRows: [{ id: TEAM, name: 'Renifery' }, { id: OTHER, name: 'Elfy' }],
+      members: [{ teamId: OTHER }],
+    }, resultsRoutes)
+    const res = await app.inject({ method: 'GET', url: '/api/races/run1/teams' })
+    assert.equal(res.statusCode, 200)
+    const names = Object.fromEntries(res.json().data.map(t => [t.teamId, t.name]))
+    assert.equal(names[TEAM], 'Renifery')
+    assert.notEqual(names[OTHER], 'Elfy')
   } finally {
     if (saved !== undefined) process.env.SUPABASE_URL = saved
   }

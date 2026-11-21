@@ -29,3 +29,24 @@ test('registration team ids come from Supabase teams of the event; none offline 
   const bad = { from: () => ({ select: () => ({ eq: async () => ({ data: null, error: { message: 'x' } }) }) }) }
   assert.deepEqual(await fetchRegistrationTeamIds(bad, EVENT), [])
 })
+
+test('a Supabase read that hangs gives up after the timeout, aborting the query, and falls back', async () => {
+  const signals = []
+  const hanging = () => {
+    const q = new Promise(() => {})
+    q.abortSignal = (s) => { signals.push(s); return q }
+    return q
+  }
+  const sb = { rpc: hanging, from: () => ({ select: () => ({ eq: hanging }) }) }
+  const t0 = Date.now()
+  assert.deepEqual(await fetchTeamNames(sb, EVENT, { timeoutMs: 50 }), {})
+  assert.deepEqual(await fetchRegistrationTeamIds(sb, EVENT, { timeoutMs: 50 }), [])
+  assert.ok(Date.now() - t0 < 1000)
+  assert.equal(signals.length, 2)
+  assert.ok(signals.every(s => s instanceof AbortSignal))
+})
+
+test('the default timeout is about 3 s', async () => {
+  const { SUPABASE_TIMEOUT_MS } = await import('../src/lib/teamNames.js')
+  assert.equal(SUPABASE_TIMEOUT_MS, 3000)
+})

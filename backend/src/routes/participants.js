@@ -11,6 +11,7 @@ import { checkinParticipantRow } from '../lib/checkinParticipantRow.js'
 import { fetchTeamNames, fetchRegistrationTeamIds } from '../lib/teamNames.js'
 import { teamEditRefusal } from '../lib/teamEdit.js'
 import { hostTeamNameRefusal, mergeTeamNames } from '../lib/hostTeams.js'
+import { localTeamNameInputs } from '../lib/hostTeamNames.js'
 
 function getSupabase() {
   const url = process.env.SUPABASE_URL
@@ -42,16 +43,12 @@ export async function participantsRoutes(fastify) {
     const { eventId } = req.params
     if (!UUID_RE.test(eventId)) return { data: {} }
     const supabase = getSupabase()
-    const [remote, remoteTeamIds, hostRows, regMembers] = await Promise.all([
+    const [remote, remoteTeamIds, local] = await Promise.all([
       fetchTeamNames(supabase, eventId),
       fetchRegistrationTeamIds(supabase, eventId),
-      db.select({ id: hostTeams.id, name: hostTeams.name }).from(hostTeams).where(eq(hostTeams.eventId, eventId)),
-      db.select({ teamId: participants.teamId }).from(participants).where(and(
-        eq(participants.eventId, eventId), isNotNull(participants.teamId), isNotNull(participants.registrationId),
-        isNull(participants.removedAt), isNull(participants.deletedAt),
-      )),
+      localTeamNameInputs(db, eventId),
     ])
-    return { data: mergeTeamNames(remote, hostRows, [...remoteTeamIds, ...regMembers.map(m => m.teamId)]) }
+    return { data: mergeTeamNames(remote, local.hostRows, [...remoteTeamIds, ...local.registrationMemberTeamIds]) }
   })
 
   // Name (or rename) a team set up on the host. A registration team is refused (its name stays
