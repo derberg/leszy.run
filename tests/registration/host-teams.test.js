@@ -1,7 +1,7 @@
 // Names of relay teams set up on a timing host (migration 20261121110000_host_teams.sql): the host
 // pushes host_teams, results_team_names() serves them to the public results next to the
 // registration teams', anon cannot touch the table, and purge_host_team_names() replaces a name
-// 30 days after the race. Scenarios HT-1…HT-4 in docs/registration/scenario-matrix.md. LOCAL stack only.
+// 30 days after the race. Scenarios HT-1…HT-5 in docs/registration/scenario-matrix.md. LOCAL stack only.
 import { after, test } from 'node:test'
 import assert from 'node:assert/strict'
 import crypto from 'node:crypto'
@@ -85,4 +85,23 @@ test('HT-4 purge_host_team_names replaces the name 30 days after the race and le
   assert.equal((await one('host_teams', { id: badTeam })).name, 'Bez daty', 'an impossible date is no date, not an error')
 
   assert.ok((await anon().rpc('purge_host_team_names')).error, 'anon cannot run the purge')
+})
+
+test('HT-5 a named host team loses its public name once a registration runner is moved into it', async () => {
+  await acceptAgreement('zatyrani-test')
+  const owner = await sessionFor('owner@zatyrani-test.local')
+  const event = await freeTeamEvent(owner)
+  const cat = event.categoryIds[0]
+  const out = await teamOk(event, { members: [captain(runnerEmail('captain')), adult(cat, 'adult')] })
+  const hostTeam = crypto.randomUUID()
+  ok(await db().from('participants').insert({ event_id: event.eventId, category_id: cat, first_name: 'Ola', last_name: 'Biuro', team_id: hostTeam }))
+  ok(await db().from('host_teams').insert({ id: hostTeam, event_id: event.eventId, name: 'Z biura' }))
+  try {
+    assert.ok((await names(event.eventId)).some((r) => r.team_id === hostTeam && r.name === 'Z biura'))
+    const moved = await one('participants', { registration_id: out.registrations[1].id })
+    ok(await db().from('participants').update({ team_id: hostTeam }).eq('id', moved.id))
+    assert.ok(!(await names(event.eventId)).some((r) => r.team_id === hostTeam), 'the host name is no longer published')
+  } finally {
+    await db().from('host_teams').delete().eq('id', hostTeam)
+  }
 })

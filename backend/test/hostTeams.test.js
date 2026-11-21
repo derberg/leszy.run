@@ -39,12 +39,21 @@ test('a stored name of another event under the same id is 409; a rename of the s
   assert.equal(ask({ existing: { eventId: EVENT } }).refusal, null)
 })
 
-test('the host names win over Supabase for the same team, the rest are kept', () => {
+test('a registration name always wins; a host row never stands in for a registration team', () => {
   assert.deepEqual(
-    mergeTeamNames({ a: 'Mikołaje', b: 'Stara nazwa' }, [{ id: 'b', name: 'Nowa nazwa' }, { id: 'c', name: 'Elfy' }]),
-    { a: 'Mikołaje', b: 'Nowa nazwa', c: 'Elfy' },
+    mergeTeamNames({ reg: 'Wilcze Stado', h1: 'Stara nazwa' }, [{ id: 'reg', name: 'Podszyta' }, { id: 'h1', name: 'Nowa nazwa' }, { id: 'h2', name: 'Elfy' }], ['reg']),
+    { reg: 'Wilcze Stado', h1: 'Nowa nazwa', h2: 'Elfy' },
+    'the host row of a host team is newer than Supabase\'s pushed copy; the one under a registration id is dropped',
   )
   assert.deepEqual(mergeTeamNames(undefined, undefined), {})
+})
+
+test('a host team a registration runner was moved into loses its host name', () => {
+  assert.deepEqual(mergeTeamNames({}, [{ id: 'h1', name: 'Renifery' }, { id: 'h2', name: 'Elfy' }], new Set(['h1'])), { h2: 'Elfy' })
+})
+
+test('a team Supabase reports as a registration team cannot be named on the host', () => {
+  assert.equal(ask({ registrationTeam: true }).refusal.status, 409)
 })
 
 test('the neutral name spells Supabase team_neutral_name()', () => {

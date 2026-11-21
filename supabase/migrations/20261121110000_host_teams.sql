@@ -29,8 +29,9 @@ REVOKE ALL ON public.host_teams FROM anon, authenticated;
 -- ---------------------------------------------------------------- public read
 
 -- Same signature, body extended: the registration teams exactly as in 20261118100000, plus the
--- host teams of the event that have a live member and are not a registration team. CREATE OR
--- REPLACE keeps the grants; they are restated as they were.
+-- host teams of the event that have a live member and no live member from the online registration,
+-- and are not a registration team. CREATE OR REPLACE keeps the grants; they are restated as
+-- they were.
 CREATE OR REPLACE FUNCTION public.results_team_names(p_event_id uuid)
   RETURNS TABLE (team_id uuid, name text)
   LANGUAGE sql
@@ -51,6 +52,12 @@ AS $$
     FROM public.host_teams h
    WHERE h.event_id = p_event_id
      AND NOT EXISTS (SELECT 1 FROM public.teams t WHERE t.id = h.id)
+     -- A registration runner moved into the team since it was named makes it not the host's
+     -- to name: its name is no longer published (lib/hostTeams.js, the same rule on the host).
+     AND NOT EXISTS (SELECT 1 FROM public.participants p
+                      WHERE p.event_id = h.event_id AND p.team_id = h.id
+                        AND p.removed_at IS NULL AND p.deleted_at IS NULL
+                        AND p.registration_id IS NOT NULL)
      AND NOT EXISTS (SELECT 1 FROM public.registration_settings rs
                       WHERE rs.event_id = h.event_id AND rs.state = 'draft')
      AND EXISTS (SELECT 1 FROM public.participants p

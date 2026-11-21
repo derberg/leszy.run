@@ -350,6 +350,7 @@ team is never timed by a tag of its own, and its standing is derived by `compute
   Wyniki's relay panel) show it; `team-names` merges it locally, so it works offline. A team with any member
   that has a `registration_id` is refused (409): a registration team's name stays in Supabase's `teams`, and
   `results_team_names()` lets a `teams` row win over a `host_teams` row of the same id (`lib/hostTeams.js`).
+  A registration runner moved into a named host team drops its host name, there and in `team-names`.
   No delete (deletes do not sync); rename instead.
   Clicking the team moves the runner to another team of the same category, a new team or none (and
   sets the leg in a fixed-order relay): `PATCH /api/participants/:id` `{ teamId, teamLeg }`, refused 409

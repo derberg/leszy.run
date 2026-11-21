@@ -1,4 +1,4 @@
-import { eq, and, isNull, sql, max, ne } from 'drizzle-orm'
+import { eq, and, isNull, isNotNull, sql, max, ne } from 'drizzle-orm'
 import { participants, categories, results, raceRuns, checkins, events, hostTeams } from '../db/schema.js'
 import { setScanMode } from '../mqtt/client.js'
 import Papa from 'papaparse'
@@ -8,7 +8,7 @@ import { createClient } from '@supabase/supabase-js'
 import { withdrawalRefusal } from '../lib/withdrawal.js'
 import { isRemoved, isRegistrationEvent, REGISTRATION_DELETE_REFUSAL } from '../lib/registrationGuards.js'
 import { checkinParticipantRow } from '../lib/checkinParticipantRow.js'
-import { fetchTeamNames } from '../lib/teamNames.js'
+import { fetchTeamNames, fetchRegistrationTeamIds } from '../lib/teamNames.js'
 import { teamEditRefusal } from '../lib/teamEdit.js'
 import { hostTeamNameRefusal, mergeTeamNames } from '../lib/hostTeams.js'
 
@@ -36,15 +36,22 @@ export async function participantsRoutes(fastify) {
 
   // Team names of the event, { [teamId]: name }: the registration teams' read from Supabase per
   // request and never stored on the host (lib/teamNames.js, {} when offline), plus the names of
-  // the teams set up on the hosts (host_teams), which are local and so work offline.
+  // the teams set up on the hosts (host_teams), which are local and so work offline. A
+  // registration team's name always wins (lib/hostTeams.js mergeTeamNames).
   fastify.get('/events/:eventId/team-names', async (req) => {
-    const [remote, hostRows] = await Promise.all([
-      fetchTeamNames(getSupabase(), req.params.eventId),
-      UUID_RE.test(req.params.eventId)
-        ? db.select({ id: hostTeams.id, name: hostTeams.name }).from(hostTeams).where(eq(hostTeams.eventId, req.params.eventId))
-        : [],
+    const { eventId } = req.params
+    if (!UUID_RE.test(eventId)) return { data: {} }
+    const supabase = getSupabase()
+    const [remote, remoteTeamIds, hostRows, regMembers] = await Promise.all([
+      fetchTeamNames(supabase, eventId),
+      fetchRegistrationTeamIds(supabase, eventId),
+      db.select({ id: hostTeams.id, name: hostTeams.name }).from(hostTeams).where(eq(hostTeams.eventId, eventId)),
+      db.select({ teamId: participants.teamId }).from(participants).where(and(
+        eq(participants.eventId, eventId), isNotNull(participants.teamId), isNotNull(participants.registrationId),
+        isNull(participants.removedAt), isNull(participants.deletedAt),
+      )),
     ])
-    return { data: mergeTeamNames(remote, hostRows) }
+    return { data: mergeTeamNames(remote, hostRows, [...remoteTeamIds, ...regMembers.map(m => m.teamId)]) }
   })
 
   // Name (or rename) a team set up on the host. A registration team is refused (its name stays
@@ -52,19 +59,27 @@ export async function participantsRoutes(fastify) {
   fastify.put('/events/:eventId/host-teams/:teamId', async (req, reply) => {
     const { eventId, teamId } = req.params
     const valid = UUID_RE.test(eventId) && UUID_RE.test(teamId)
-    const [members, existing] = valid
+    const [members, existing, remoteTeamIds] = valid
       ? await Promise.all([
           db.select({ id: participants.id, registrationId: participants.registrationId }).from(participants)
-            .where(and(eq(participants.eventId, eventId), eq(participants.teamId, teamId), isNull(participants.removedAt))),
+            .where(and(eq(participants.eventId, eventId), eq(participants.teamId, teamId),
+              isNull(participants.removedAt), isNull(participants.deletedAt))),
           db.query.hostTeams.findFirst({ where: eq(hostTeams.id, teamId) }),
+          fetchRegistrationTeamIds(getSupabase(), eventId),
         ])
-      : [[], null]
-    const { refusal, name } = hostTeamNameRefusal({ eventId, teamId, name: req.body?.name, members, existing })
+      : [[], null, []]
+    const { refusal, name } = hostTeamNameRefusal({
+      eventId, teamId, name: req.body?.name, members, existing,
+      registrationTeam: remoteTeamIds.includes(teamId),
+    })
     if (refusal) return reply.code(refusal.status).send({ error: refusal.error })
     const now = new Date()
-    const [row] = existing
-      ? await db.update(hostTeams).set({ name, updatedAt: now }).where(eq(hostTeams.id, teamId)).returning()
-      : await db.insert(hostTeams).values({ id: teamId, eventId, name, createdAt: now, updatedAt: now }).returning()
+    // One statement, so two first-time names at once end in one row, not a primary-key 500. A row
+    // of another event under the id is never overwritten (setWhere): nothing returned → 409.
+    const [row] = await db.insert(hostTeams).values({ id: teamId, eventId, name, createdAt: now, updatedAt: now })
+      .onConflictDoUpdate({ target: hostTeams.id, set: { name, updatedAt: now }, setWhere: eq(hostTeams.eventId, eventId) })
+      .returning()
+    if (!row) return reply.code(409).send({ error: 'Ta drużyna należy do innego wydarzenia.' })
     return { data: row }
   })
 

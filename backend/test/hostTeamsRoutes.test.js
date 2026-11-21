@@ -11,11 +11,12 @@ const EVENT = '11111111-2222-4333-8444-555555555555'
 const TEAM = 'aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee'
 const dialect = new PgDialect()
 
-function stubDb({ members = [], existing = null, hostRows = [] } = {}) {
+function stubDb({ members = [], existing = null, hostRows = [], upserted = [{ id: TEAM }] } = {}) {
   const log = { selects: [], inserted: [], updated: [] }
   const chain = (value, onEnd) => {
     const c = {}
     for (const m of ['set', 'values', 'where', 'returning']) c[m] = (v) => { if (m === 'values' || m === 'set') onEnd(v); return c }
+    c.onConflictDoUpdate = (o) => { log.conflict = { set: o.set, setWhere: dialect.sqlToQuery(o.setWhere).sql }; return c }
     c.then = (res, rej) => Promise.resolve(value).then(res, rej)
     return c
   }
@@ -30,7 +31,7 @@ function stubDb({ members = [], existing = null, hostRows = [] } = {}) {
       }
       return c
     },
-    insert: (t) => chain([{ id: TEAM }], (v) => log.inserted.push({ table: getTableName(t), v })),
+    insert: (t) => chain(upserted, (v) => log.inserted.push({ table: getTableName(t), v })),
     update: (t) => chain([{ id: TEAM }], (v) => log.updated.push({ table: getTableName(t), v })),
     query: { hostTeams: { findFirst: async () => existing } },
   }
@@ -46,7 +47,7 @@ async function appFor(opts) {
 }
 const put = (app, name, teamId = TEAM) => app.inject({ method: 'PUT', url: `/api/events/${EVENT}/host-teams/${teamId}`, payload: { name } })
 
-test('names a host team: reads its live members of that event, inserts the trimmed name', async () => {
+test('names a host team in one upsert: reads its live members of that event, stores the trimmed name', async () => {
   const { app, log } = await appFor({ members: [{ id: 'p1', registrationId: null }] })
   const res = await put(app, '  Renifery ')
   assert.equal(res.statusCode, 200)
@@ -54,14 +55,15 @@ test('names a host team: reads its live members of that event, inserts the trimm
   assert.match(sel, /"event_id" = \$1/)
   assert.match(sel, /"team_id" = \$2/)
   assert.match(sel, /"removed_at" is null/)
+  assert.match(sel, /"deleted_at" is null/)
   assert.deepEqual(log.inserted.map(i => [i.table, i.v.id, i.v.eventId, i.v.name]), [['host_teams', TEAM, EVENT, 'Renifery']])
+  assert.equal(log.conflict.set.name, 'Renifery', 'a concurrent first name updates instead of failing on the primary key')
+  assert.match(log.conflict.setWhere, /"event_id" = \$1/)
 })
 
-test('renames a stored host team in place', async () => {
-  const { app, log } = await appFor({ members: [{ id: 'p1', registrationId: null }], existing: { id: TEAM, eventId: EVENT, name: 'Stara' } })
-  assert.equal((await put(app, 'Nowa')).statusCode, 200)
-  assert.equal(log.inserted.length, 0)
-  assert.equal(log.updated[0].v.name, 'Nowa')
+test('a row of another event under the id is not overwritten: 409', async () => {
+  const { app } = await appFor({ members: [{ id: 'p1', registrationId: null }], upserted: [] })
+  assert.equal((await put(app, 'Nowa')).statusCode, 409)
 })
 
 test('refuses a registration team, an unknown team and a bad id, writing nothing', async () => {
@@ -77,14 +79,20 @@ test('refuses a registration team, an unknown team and a bad id, writing nothing
   }
 })
 
-test('team-names returns the host names offline (no Supabase configured)', async () => {
-  const saved = [process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY]
+test('team-names returns the host names offline, minus teams with a live registration member', async () => {
+  const saved = process.env.SUPABASE_URL
   delete process.env.SUPABASE_URL
   try {
-    const { app } = await appFor({ hostRows: [{ id: TEAM, name: 'Renifery' }] })
+    const OTHER = 'bbbbbbbb-bbbb-4ccc-8ddd-eeeeeeeeeeee'
+    const { app, log } = await appFor({
+      hostRows: [{ id: TEAM, name: 'Renifery' }, { id: OTHER, name: 'Elfy' }],
+      members: [{ teamId: OTHER }],
+    })
     const res = await app.inject({ method: 'GET', url: `/api/events/${EVENT}/team-names` })
     assert.deepEqual(res.json(), { data: { [TEAM]: 'Renifery' } })
+    const sel = log.selects.find(s => s.table === 'participants').sql
+    for (const f of [/"registration_id" is not null/, /"removed_at" is null/, /"deleted_at" is null/]) assert.match(sel, f)
   } finally {
-    if (saved[0] !== undefined) process.env.SUPABASE_URL = saved[0]
+    if (saved !== undefined) process.env.SUPABASE_URL = saved
   }
 })

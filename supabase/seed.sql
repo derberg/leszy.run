@@ -39,4 +39,6 @@ SELECT vault.create_secret('local-registration-watchdog-secret', 'registration_w
 -- The registration-* cron jobs stay defined but never fire on a local or CI stack: a test owns
 -- the moment orders expire and the job runs (it calls expire_orders(), registration-jobs and
 -- registration-watchdog itself). The seed never runs in production, where they stay active.
-SELECT cron.alter_job(jobid, active := false) FROM cron.job WHERE jobname LIKE 'registration-%';
+-- purge-host-team-names likewise: HT-4 calls purge_host_team_names() itself.
+SELECT cron.alter_job(jobid, active := false) FROM cron.job
+ WHERE jobname LIKE 'registration-%' OR jobname = 'purge-host-team-names';

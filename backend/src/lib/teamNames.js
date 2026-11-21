@@ -24,3 +24,20 @@ export async function fetchTeamNames(supabase, eventId) {
     return {}
   }
 }
+
+// Ids of the event's registration teams (Supabase `teams`, released ones too), so the host never
+// lets its own host_teams row stand in for a registration team's name. [] without Supabase.
+export async function fetchRegistrationTeamIds(supabase, eventId) {
+  if (!supabase || !UUID_RE.test(String(eventId || ''))) return []
+  try {
+    const { data, error } = await supabase.from('teams').select('id').eq('event_id', eventId)
+    if (error) {
+      console.warn(`[teamNames] teams failed: ${error.message}`)
+      return []
+    }
+    return (data || []).map(r => r.id).filter(Boolean)
+  } catch (err) {
+    console.warn(`[teamNames] teams failed: ${err.message}`)
+    return []
+  }
+}

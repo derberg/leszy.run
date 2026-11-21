@@ -18,11 +18,12 @@ export const isRegistrationTeam = (members) => (members || []).some(p => p.regis
 /**
  * Why naming a host team is refused, or null with the name to store.
  * @param {{ eventId: string, teamId: string, name: unknown, members: Array<{registrationId?: string|null}>,
- *           existing?: { eventId: string }|null }} input  members: the event's live participants
- *           with that team_id; existing: the host_teams row already stored under that id
+ *           existing?: { eventId: string }|null, registrationTeam?: boolean }} input  members: the
+ *           event's live participants with that team_id; existing: the host_teams row already
+ *           stored under that id; registrationTeam: Supabase has a `teams` row with that id
  * @returns {{ refusal: { status: number, error: string } } | { refusal: null, name: string }}
  */
-export function hostTeamNameRefusal({ eventId, teamId, name, members, existing }) {
+export function hostTeamNameRefusal({ eventId, teamId, name, members, existing, registrationTeam = false }) {
   const refuse = (status, error) => ({ refusal: { status, error } })
   if (!UUID_RE.test(String(eventId || '')) || !UUID_RE.test(String(teamId || ''))) return refuse(400, 'eventId and teamId must be UUIDs')
   const clean = normalizeHostTeamName(name)
@@ -30,14 +31,28 @@ export function hostTeamNameRefusal({ eventId, teamId, name, members, existing }
   if ([...clean].length > HOST_TEAM_NAME_MAX) return refuse(400, `Nazwa drużyny może mieć najwyżej ${HOST_TEAM_NAME_MAX} znaków.`)
   if (existing && existing.eventId !== eventId) return refuse(409, 'Ta drużyna należy do innego wydarzenia.')
   if (!members?.length) return refuse(404, 'Nie ma takiej drużyny w tym wydarzeniu.')
-  if (isRegistrationTeam(members)) return refuse(409, 'Nazwę drużyny z zapisów zmienia kapitan lub organizator w zapisach.')
+  if (registrationTeam || isRegistrationTeam(members)) return refuse(409, 'Nazwę drużyny z zapisów zmienia kapitan lub organizator w zapisach.')
   return { refusal: null, name: clean }
 }
 
-/** Supabase's names, then this host's own, which win: a rename not pushed yet is the newest. */
-export function mergeTeamNames(remote = {}, hostRows = []) {
-  const names = { ...remote }
-  for (const row of hostRows || []) if (row?.id && row.name) names[row.id] = row.name
+/**
+ * The event's team names. A registration team's name always comes from Supabase: a host row under
+ * the id of a registration team is dropped, as results_team_names does. `registrationTeamIds` is
+ * every id that is not the host's to name: Supabase's `teams` of the event, plus every team with a
+ * live member from the online registration (one moved into a host team after it was named drops
+ * that host name, here and in results_team_names). For any other id the host's own row wins over
+ * Supabase's copy of it, which is only the last pushed one (a rename may not be pushed yet).
+ * @param {Object<string,string>} remote  results_team_names(): teamId → name
+ * @param {Array<{id:string,name:string}>} hostRows  this event's host_teams rows
+ * @param {Iterable<string>} [registrationTeamIds]
+ */
+export function mergeTeamNames(remote = {}, hostRows = [], registrationTeamIds = []) {
+  const notHost = new Set(registrationTeamIds)
+  const names = { ...(remote || {}) }
+  for (const row of hostRows || []) {
+    if (!row?.id || notHost.has(row.id)) continue
+    if (row.name) names[row.id] = row.name
+  }
   return names
 }
 

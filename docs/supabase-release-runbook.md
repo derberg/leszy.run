@@ -143,6 +143,14 @@ In production all five registration jobs (with `registration-watchdog`, next sec
 `registration-*` job, but the seed only runs on a local or CI stack (`supabase start` on a fresh stack, or `supabase db reset`); a
 production job that reads `false` was switched off by hand and nothing expires or gets sent.
 
+`purge-host-team-names` (`20261121110000_host_teams.sql`, daily 01:40 UTC, SQL only) replaces the name of a
+team made on a timing host (`host_teams`) 30 days after the race. The seed deactivates it on a local or CI
+stack too; in production it must be `active = true`:
+
+```sql
+SELECT jobname, schedule, active FROM cron.job WHERE jobname = 'purge-host-team-names';  -- 1 row, '40 1 * * *', active = true
+```
+
 Expect `status_code = 200` with a body starting `{"data":{"checked"` (before dpay is configured
 it carries `"skipped"` for the two dpay steps; that is expected). A NULL `status_code` (with
 `timed_out` or `error_msg` set) is a failure too: pg_net could not reach the function or gave up. A 404 means the two
