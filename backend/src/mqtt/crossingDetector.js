@@ -952,7 +952,15 @@ export class CrossingDetector {
     for (const [raceRunId, race] of this.activeRaces) {
       const fr = race.freeRelay
       if (!fr?.batonTeamOf || race.eventId !== eventId) continue
-      fr.batonTeamOf = batonTeamMap(batons, fr.teams)
+      const next = batonTeamMap(batons, fr.teams)
+      // A tag assigned mid-race is usually scanned at the gate antenna to assign it. Treat it as
+      // seen now, so it must be silent for the arrival silence (out on the course) before its
+      // reads can close a lap. A tag that was already this race's baton keeps its state.
+      const now = Date.now()
+      for (const epc of next.keys()) {
+        if (!fr.batonTeamOf.has(epc)) fr.lastSeen.set(epc, now)
+      }
+      fr.batonTeamOf = next
       console.log(`[Detector] Baton relay race ${raceRunId}: ${fr.batonTeamOf.size} baton(s) after a change`)
     }
   }

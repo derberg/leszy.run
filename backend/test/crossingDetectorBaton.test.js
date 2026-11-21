@@ -168,6 +168,32 @@ test('reloadBatons: a baton changed mid-race takes effect for the event\'s races
   detector.processEvent(read('B1'))
   await wait(QUIET + 60)
   assert.equal(counted(db).length, 0, 'the old tag is no baton any more')
+  await wait(ARRIVAL + 20)
+  detector.processEvent(read('B2'))
+  await wait(QUIET + 60)
+  assert.equal(counted(db).length, 1)
+})
+
+test('reloadBatons: a baton scanned at the gate to assign it mid-race makes no lap until it comes back from the course', async (t) => {
+  const { detector, db } = await makeRace(t)
+  detector.reloadBatons('e1', [{ teamId: 'T', epc: 'B1' }, { teamId: 'T', epc: 'B2' }])
+  // The operator holds the new tag at the antenna right after assigning it.
+  await hold(detector, ['B2'], 300)
+  await wait(QUIET + 60)
+  assert.equal(counted(db).length, 0, 'the assignment scan is no lap')
+  // The already mapped baton is not reseeded: it still closes a lap on its first read.
+  detector.processEvent(read('B1'))
+  await wait(QUIET + 60)
+  assert.equal(counted(db).length, 1, 'an already mapped tag keeps its state')
+})
+
+test('reloadBatons: a newly mapped baton closes a lap once it has been silent for the arrival silence', async (t) => {
+  const { detector, db } = await makeRace(t)
+  detector.reloadBatons('e1', [{ teamId: 'T', epc: 'B2' }])
+  detector.processEvent(read('B2'))
+  await wait(QUIET + 60)
+  assert.equal(counted(db).length, 0)
+  await wait(ARRIVAL + 20)
   detector.processEvent(read('B2'))
   await wait(QUIET + 60)
   assert.equal(counted(db).length, 1)
