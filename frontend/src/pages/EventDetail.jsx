@@ -329,7 +329,7 @@ export default function EventDetail() {
         <TabsContent value="rfid">
           <div className="max-w-lg space-y-4">
             <MqttStatus />
-            <RfidSettings event={event} onSave={(vals) => updateEvent.mutate(vals)} saving={updateEvent.isPending} />
+            <RfidSettings event={event} hasFreeRelay={categories.some(c => c.teamMode === 'relay_free')} onSave={(vals) => updateEvent.mutate(vals)} saving={updateEvent.isPending} />
           </div>
         </TabsContent>
 
@@ -1550,7 +1550,7 @@ function EventSettings({ eventId, event, updateEvent }) {
   )
 }
 
-function RfidSettings({ event, onSave, saving }) {
+function RfidSettings({ event, hasFreeRelay, onSave, saving }) {
   // Saved values from the server are the dirty-tracking baseline. After a successful
   // save the event query refetches, this recomputes to match `form`, and the Save
   // button auto-disables again — the visual "changes applied" signal.
@@ -1605,24 +1605,17 @@ function RfidSettings({ event, onSave, saving }) {
 
           <div className="pt-2 border-t border-stone-100 space-y-4">
             <label className="block">
-              <span className="text-xs font-bold uppercase tracking-widest text-apex-muted mb-1 block">Okno przejścia (sekundy)</span>
-              <Input type="number" step="1" min="1" max="10" value={form.goneWindowSeconds} onChange={e => set('goneWindowSeconds', parseInt(e.target.value))} className="max-w-32" />
-              <p className="text-xs text-apex-muted mt-1">
-                Domyślnie: 3. Meta: przejście trwa tyle sekund od pierwszego odczytu i dostaje czas najmocniejszego odczytu z tego okna. Start: przejście zapisuje się po tylu sekundach ciszy, bo zawodnicy stoją w strefie startu.
-              </p>
-            </label>
-            <label className="block">
               <span className="text-xs font-bold uppercase tracking-widest text-apex-muted mb-1 block">Ignorowanie mety po starcie (sekundy)</span>
               <Input type="number" step="1" min="0" max="600" value={form.minFinishSeconds} onChange={e => set('minFinishSeconds', parseInt(e.target.value))} className="max-w-32" />
               <p className="text-xs text-apex-muted mt-1">
-                Domyślnie: 300. Przez tyle sekund od strzału odczyty nie liczą się jako meta, bo zawodnik oddalający się od bramki startowej jest jeszcze słyszalny. Ustaw poniżej najszybszego możliwego czasu na trasie; przy krótkich testach obniż (np. 10 s). W sztafecie w dowolnej kolejności to także najkrótszy odstęp między dwoma okrążeniami jednej drużyny: ustaw poniżej najszybszego okrążenia.
+                Domyślnie: 300. Przez tyle sekund od strzału odczyty nie liczą się jako meta, bo zawodnik oddalający się od bramki startowej jest jeszcze słyszalny. Ustaw poniżej najszybszego możliwego czasu na trasie; przy krótkich testach obniż (np. 10 s). W sztafecie w dowolnej kolejności to także najkrótszy odstęp między dwoma okrążeniami jednej drużyny: ustaw poniżej najszybszego okrążenia. W sztafecie ze stałą kolejnością liczy się od przekazania zmiany.
               </p>
             </label>
             <label className="block">
-              <span className="text-xs font-bold uppercase tracking-widest text-apex-muted mb-1 block">Cisza przed okrążeniem (sekundy)</span>
-              <Input type="number" step="1" min="1" max="600" value={form.lapArrivalSilenceSeconds} onChange={e => set('lapArrivalSilenceSeconds', parseInt(e.target.value))} className="max-w-32" />
+              <span className="text-xs font-bold uppercase tracking-widest text-apex-muted mb-1 block">Okno przejścia (sekundy)</span>
+              <Input type="number" step="1" min="1" max="10" value={form.goneWindowSeconds} onChange={e => set('goneWindowSeconds', parseInt(e.target.value))} className="max-w-32" />
               <p className="text-xs text-apex-muted mt-1">
-                Domyślnie: 15. Tylko sztafeta w dowolnej kolejności. Przejście zamyka okrążenie drużyny tylko wtedy, gdy chip zawodnika nie był słyszany przez tyle sekund, czyli zawodnik przybiegł z trasy. Zmiennik czekający w strefie zmian jest czytany cały czas, więc nie zamknie okrążenia. Ustaw poniżej czasu, przez który najszybszy zawodnik jest poza zasięgiem anten na jednym okrążeniu (pętla 400 m: około 10–15 s). Strefa zmian musi być w zasięgu anten, a kto nie biegnie, nie może wracać pod bramkę.
+                Domyślnie: 3. Tylko start: przejście zapisuje się po tylu sekundach ciszy, z czasem najmocniejszego odczytu, bo zawodnicy stoją w strefie startu. Meta zamyka się sama 2 s po najmocniejszym odczycie, najpóźniej 6 s od pierwszego.
               </p>
             </label>
             <div className="block">
@@ -1655,6 +1648,20 @@ function RfidSettings({ event, onSave, saving }) {
               />
               <p className="text-xs text-apex-muted mt-1">
                 Domyślnie: wyłączony. Gdy ustawiony, przejście liczy się tylko wtedy, gdy jego najmocniejszy odczyt jest co najmniej taki. Odrzuca chip usłyszany z daleka, np. z trasy biegnącej obok bramki. Zawodnik 5 m przed antenami ma -7000…-7700, więc ustawiaj go dopiero po pomiarze na bramce.
+              </p>
+            </label>
+          </div>
+
+          <div className="pt-2 border-t border-stone-100 space-y-4">
+            <div>
+              <span className="text-xs font-bold uppercase tracking-widest text-apex-text-bright block">Sztafeta w dowolnej kolejności</span>
+              {!hasFreeRelay && <p className="text-xs text-apex-muted mt-1">Brak kategorii ze sztafetą w dowolnej kolejności.</p>}
+            </div>
+            <label className={`block ${!hasFreeRelay ? 'opacity-60' : ''}`}>
+              <span className="text-xs font-bold uppercase tracking-widest text-apex-muted mb-1 block">Cisza przed okrążeniem (sekundy)</span>
+              <Input type="number" step="1" min="1" max="600" value={form.lapArrivalSilenceSeconds} onChange={e => set('lapArrivalSilenceSeconds', parseInt(e.target.value))} disabled={!hasFreeRelay} className={`max-w-32 ${!hasFreeRelay ? 'opacity-40 pointer-events-none' : ''}`} />
+              <p className="text-xs text-apex-muted mt-1">
+                Domyślnie: 15. Przejście zamyka okrążenie drużyny tylko wtedy, gdy chip zawodnika nie był słyszany przez tyle sekund, czyli zawodnik przybiegł z trasy. Zmiennik czekający w strefie zmian jest czytany cały czas, więc nie zamknie okrążenia. Ustaw poniżej czasu, przez który najszybszy zawodnik jest poza zasięgiem anten na jednym okrążeniu (pętla 400 m: około 10–15 s). Strefa zmian musi być w zasięgu anten, a kto nie biegnie, nie może wracać pod bramkę.
               </p>
             </label>
           </div>
