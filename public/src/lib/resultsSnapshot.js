@@ -112,7 +112,7 @@ async function readTeams(supabase, eventId, categoryIds, shownRuns) {
     optional(() => readAll(() => supabase.from('participants_public')
       .select('id, team_id, team_leg').in('category_id', teamCatIds).order('id')), []),
     freeRunIds.length ? optional(() => readAll(() => supabase.from('team_laps')
-      .select('id, race_run_id, team_id, participant_id, closed_at, deleted_at')
+      .select('id, race_run_id, team_id, participant_id, closed_at, deleted_at, status')
       .in('race_run_id', freeRunIds).order('id')), []) : [],
     optional(async () => {
       const { data, error } = await supabase.rpc('results_team_names', { p_event_id: eventId })
@@ -123,8 +123,8 @@ async function readTeams(supabase, eventId, categoryIds, shownRuns) {
   return {
     categories: Object.fromEntries(teamCats.map(c => [c.id, { mode: c.team_mode, lapCount: c.team_lap_count ?? null }])),
     members: Object.fromEntries(members.filter(m => m.team_id).map(m => [m.id, { teamId: m.team_id, teamLeg: m.team_leg ?? null }])),
-    // A removed lap is the operator's correction: the public never sees it.
-    laps: laps.filter(l => !l.deleted_at).map(l => ({
+    // A removed lap is the operator's correction, a candidate one is unconfirmed: the public sees neither.
+    laps: laps.filter(l => !l.deleted_at && l.status !== 'candidate').map(l => ({
       id: l.id, raceRunId: l.race_run_id, teamId: l.team_id, participantId: l.participant_id, closedAt: l.closed_at,
     })),
     names: Object.fromEntries(names.map(n => [n.team_id, n.name])),

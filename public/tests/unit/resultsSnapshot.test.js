@@ -246,6 +246,7 @@ describe('buildResultsSnapshot teams', () => {
     team_laps: [
       { id: 'l1', race_run_id: 'srun', team_id: 'T', participant_id: 's1', closed_at: '2026-12-06T10:10:00Z', deleted_at: null },
       { id: 'l2', race_run_id: 'srun', team_id: 'T', participant_id: 's1', closed_at: '2026-12-06T10:10:30Z', deleted_at: '2026-12-06T10:12:00Z' },
+      { id: 'l3', race_run_id: 'srun', team_id: 'T', participant_id: null, closed_at: '2026-12-06T10:20:00Z', deleted_at: null, status: 'candidate' },
     ],
   }
   const names = (name, args) => ({ data: name === 'results_team_names' && args.p_event_id === 'e1' ? [{ team_id: 'T', name: 'Zatyrani' }] : [], error: null })

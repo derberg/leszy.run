@@ -59,7 +59,7 @@ export function computeTeamResults({ mode, results, teamNames = {}, laps = [], l
   }
   const lapsByTeam = new Map()
   for (const l of laps) {
-    if (l.deletedAt) continue
+    if (l.deletedAt || l.status === 'candidate') continue
     if (!lapsByTeam.has(l.teamId)) lapsByTeam.set(l.teamId, [])
     lapsByTeam.get(l.teamId).push(l)
   }

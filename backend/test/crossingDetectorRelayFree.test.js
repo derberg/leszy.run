@@ -138,3 +138,9 @@ test('a silence shorter than the event setting does not close a lap', async (t) 
   detector.processEvent(read('E1')); await wait(QUIET + 60)         // only 0.4 s unheard: no lap
   assert.deepEqual(laps(db).map(l => l.participantId), ['p1'])
 })
+
+test('buildFreeRelay: a candidate lap is not counted', () => {
+  const fr = buildFreeRelay(TEAM, [{ teamId: 'T', closedAt: new Date(5000).toISOString(), status: 'candidate' }], { gunStartTime: new Date(0), lapCount: null, minLapMs: 0 })
+  assert.equal(fr.teams.get('T').laps, 0)
+  assert.equal(fr.teams.get('T').lastBoundary.getTime(), 0)
+})

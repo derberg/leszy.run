@@ -930,11 +930,11 @@ export function buildFreeRelay(participantList, laps, { gunStartTime, lapCount, 
   return { teamOf, teams, lastSeen: new Map(), minLapMs, timeLimitMs, gunStartTime, arrivalSilenceMs }
 }
 
-// Each team's lap count and last lap from its live (not deleted) laps.
+// Each team's lap count and last lap from its counted laps (not deleted, not a baton candidate).
 function applyLaps(teams, laps, gunStartTime) {
   for (const t of teams.values()) { t.laps = 0; t.lastBoundary = gunStartTime }
   for (const lap of laps) {
-    if (lap.deletedAt) continue
+    if (lap.deletedAt || lap.status === 'candidate') continue
     const t = teams.get(lap.teamId)
     if (!t) continue
     t.laps += 1
