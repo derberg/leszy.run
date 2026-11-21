@@ -339,7 +339,7 @@ See the mermaid flowchart at the top of `crossingDetector.js` for a full diagram
 team is never timed by a tag of its own, and its standing is derived by `computeTeamResults()` in
 `@leszyrun/ui` (`GET /api/races/:raceRunId/teams`). Membership is `participants.team_id` /
 `team_leg` (from Supabase `registrations`; the host never holds a team name).
-- The admin participants table shows a „Drużyna” column and a „Drużyny (N)” toggle (team members only,
+- The admin participants table shows each member's team under the category („Kategoria / drużyna”) and a „Drużyny (N)” toggle (team members only,
   grouped by team) for an event with team members. Names come from `GET /api/events/:eventId/team-names`,
   which calls `results_team_names()` in Supabase per request and stores nothing (`lib/teamNames.js`);
   offline, a team is labelled by its members' surnames (`frontend/src/lib/teamGroups.js`).
