@@ -18,6 +18,7 @@ test('a malformed team id or leg is 400', () => {
   assert.equal(teamEditRefusal({ teamId: 'abc' }, 0).status, 400)
   assert.equal(teamEditRefusal({ teamLeg: 0 }, 0).status, 400)
   assert.equal(teamEditRefusal({ teamLeg: '2' }, 0).status, 400)
+  assert.equal(teamEditRefusal({ teamLeg: 1e10 }, 0).status, 400)
 })
 
 test('once the runner has a live result the team is locked (409)', () => {

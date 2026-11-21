@@ -35,3 +35,19 @@ test('team options are the teams of the same category, by label', () => {
   ])
   assert.deepEqual(teamOptions(rows2, labels, 'none'), [])
 })
+
+test('newTeamId makes a v4 UUID without crypto.randomUUID', async () => {
+  const { newTeamId } = await import('./teamGroups.js')
+  const id = newTeamId({ getRandomValues: (a) => a.fill(255) })
+  assert.match(id, /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/)
+  assert.notEqual(newTeamId(), newTeamId())
+})
+
+test('a moved runner takes the next free leg in a fixed relay, none otherwise', async () => {
+  const { legAfterMove } = await import('./teamGroups.js')
+  assert.equal(legAfterMove(rows, 't2', '1', true), 3)
+  assert.equal(legAfterMove(rows, 't2', '2', true), 2)
+  assert.equal(legAfterMove(rows, 'fresh', '1', true), 1)
+  assert.equal(legAfterMove(rows, 't2', '1', false), null)
+  assert.equal(legAfterMove(rows, null, '1', true), null)
+})

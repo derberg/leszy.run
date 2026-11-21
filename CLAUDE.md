@@ -348,7 +348,8 @@ team is never timed by a tag of its own, and its standing is derived by `compute
   once the runner has a result in a run that was not cancelled (`lib/teamEdit.js`; the detector takes the
   teams at race start). It changes `participants.team_id` only, which the push sends to Supabase's
   participants row and so to the public results; `registrations.team_id` (start list, Zgłoszenia, the fee)
-  stays as registered.
+  stays as registered. Until registration closes, a squad edit in Supabase (`team_squad_edit`) puts the
+  registration's team back on every member of that team, a runner moved on the host included.
 - `'relay_free'` (any order, the default for a team competition; Sztafeta Mikołajów): the team runs
   laps in any order, a member may run several. A pass closes a team lap only when its tag had been
   silent 60 s before it (came in from the course, so a teammate waiting at the gate never counts)

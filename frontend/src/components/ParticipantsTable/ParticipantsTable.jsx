@@ -5,7 +5,7 @@ import { api } from '../../lib/api.js'
 import { cn } from '../../lib/utils.js'
 import { sortParticipants } from '../../lib/participantOrder.js'
 import { checkinCounts } from '../../lib/checkinCounts.js'
-import { teamLabels, teamLabelText, teamMembersByTeam, teamOptions } from '../../lib/teamGroups.js'
+import { teamLabels, teamLabelText, teamMembersByTeam, teamOptions, newTeamId, legAfterMove } from '../../lib/teamGroups.js'
 import { Button } from '../ui/button.jsx'
 import { Input } from '../ui/input.jsx'
 import { Badge } from '../ui/badge.jsx'
@@ -242,7 +242,8 @@ export default function ParticipantsTable({ eventId, categories }) {
         onChange={e => {
           const v = e.target.value
           if (v === (p.teamId ?? '')) return setEditingCell(null)
-          save({ teamId: v === '__new' ? crypto.randomUUID() : (v || null), ...(v ? {} : { teamLeg: null }) })
+          const teamId = v === '__new' ? newTeamId() : (v || null)
+          save({ teamId, teamLeg: legAfterMove(participants, teamId, p.id, fixedLeg) })
         }}
         onBlur={() => setEditingCell(null)}
         onKeyDown={e => { if (e.key === 'Escape') setEditingCell(null) }}

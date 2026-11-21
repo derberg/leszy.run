@@ -42,3 +42,23 @@ export function teamOptions(participants, labels, categoryId) {
     .map(teamId => ({ teamId, label: teamLabelText(labels.get(teamId)), size: labels.get(teamId)?.size ?? 0 }))
     .sort((a, b) => cmp(a.label, b.label) || cmp(a.teamId, b.teamId))
 }
+
+// A v4 UUID for a team made on the host. crypto.randomUUID() exists only in a secure context
+// (HTTPS or localhost), and the admin panel is opened over plain http on `.local` and Tailscale
+// addresses, so it is built from getRandomValues, which works everywhere.
+export function newTeamId(cryptoObj = globalThis.crypto) {
+  const b = cryptoObj.getRandomValues(new Uint8Array(16))
+  b[6] = (b[6] & 0x0f) | 0x40
+  b[8] = (b[8] & 0x3f) | 0x80
+  const h = [...b].map(x => x.toString(16).padStart(2, '0')).join('')
+  return `${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(16, 20)}-${h.slice(20)}`
+}
+
+// The leg a runner gets when moved into `teamId`: in a fixed-order relay the team's next free
+// leg (a kept old leg would repeat or skip one, and the detector then times the team as
+// individuals); otherwise none, since a relay in any order has no legs.
+export function legAfterMove(participants, teamId, runnerId, fixedLeg) {
+  if (!teamId || !fixedLeg) return null
+  const legs = (participants || []).filter(p => p.teamId === teamId && p.id !== runnerId && p.teamLeg != null).map(p => p.teamLeg)
+  return legs.length ? Math.max(...legs) + 1 : 1
+}
