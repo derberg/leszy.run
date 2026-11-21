@@ -5,13 +5,14 @@ import { api } from '../../lib/api.js'
 import { cn } from '../../lib/utils.js'
 import { sortParticipants } from '../../lib/participantOrder.js'
 import { checkinCounts } from '../../lib/checkinCounts.js'
+import { teamLabels, teamLabelText, teamMembersByTeam } from '../../lib/teamGroups.js'
 import { Button } from '../ui/button.jsx'
 import { Input } from '../ui/input.jsx'
 import { Badge } from '../ui/badge.jsx'
 import { AlertDialog, AlertDialogContent, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogAction, AlertDialogCancel } from '../ui/alert-dialog.jsx'
 import RfidAssignDialog from './RfidAssignDialog.jsx'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogBody, DialogFooter } from '../ui/dialog.jsx'
-import { Trash2, Wifi, UserCheck, UserX, Plus, X, MessageSquare, Send, Check, RotateCcw, Ban } from 'lucide-react'
+import { Trash2, Wifi, UserCheck, UserX, Plus, X, MessageSquare, Send, Check, RotateCcw, Ban, Users } from 'lucide-react'
 import { Tooltip } from '../ui/tooltip.jsx'
 
 export default function ParticipantsTable({ eventId, categories }) {
@@ -27,10 +28,20 @@ export default function ParticipantsTable({ eventId, categories }) {
   const [minorCheckinTarget, setMinorCheckinTarget] = useState(null) // participant needing doc confirmation
   const [minorDocChecks, setMinorDocChecks] = useState({}) // { docId: true/false }
   const [tshirtConfirmed, setTshirtConfirmed] = useState(false)
+  const [teamsOnly, setTeamsOnly] = useState(false)
 
   const { data: participants = [] } = useQuery({
     queryKey: ['participants', eventId],
     queryFn: () => api.participants.list(eventId),
+  })
+
+  // Only an event with team members asks for team names (read from Supabase, never stored).
+  const hasTeams = participants.some(p => p.teamId)
+  const { data: teamNames = {} } = useQuery({
+    queryKey: ['team-names', eventId],
+    queryFn: () => api.participants.teamNames(eventId),
+    enabled: hasTeams,
+    staleTime: 60_000,
   })
 
   const { data: eventDocuments = [] } = useQuery({
@@ -110,11 +121,18 @@ export default function ParticipantsTable({ eventId, categories }) {
   const openWithdraw = (p) => { withdraw.reset(); setWithdrawTarget(p) }
 
   const catMap = Object.fromEntries((categories || []).map(c => [c.id, c.name]))
+  // A leg number means something only in a fixed-order relay; 'relay_free' runs in any order.
+  const fixedLegCats = new Set((categories || []).filter(c => c.teamMode === 'relay').map(c => c.id))
 
   // Display order: category (event's category order), then last name, then
   // first name, see lib/participantOrder.js. The API returns rows in bib order;
   // the table body renders this array directly (no TanStack sort model).
-  const sortedParticipants = sortParticipants(participants, categories)
+  const labels = teamLabels(participants, teamNames)
+  const teamCount = labels.size
+  const showTeamsOnly = hasTeams && teamsOnly
+  const sortedParticipants = showTeamsOnly
+    ? teamMembersByTeam(participants, labels)
+    : sortParticipants(participants, categories)
 
   const isMinor = (p) => {
     if (!p?.birthDate) return false
@@ -232,6 +250,11 @@ export default function ParticipantsTable({ eventId, categories }) {
           )
         })()}
         <div className="flex items-center gap-2">
+          {hasTeams && (
+            <Button size="sm" variant={showTeamsOnly ? 'default' : 'outline'} className="whitespace-nowrap" onClick={() => setTeamsOnly(v => !v)} aria-pressed={showTeamsOnly}>
+              <Users size={13} /> Drużyny ({teamCount})
+            </Button>
+          )}
           <Button size="sm" variant="outline" onClick={() => setBulkSmsOpen(true)}>
             <MessageSquare size={13} /> Wyślij SMS do wszystkich
           </Button>
@@ -243,7 +266,7 @@ export default function ParticipantsTable({ eventId, categories }) {
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-apex-border bg-apex-surface-2">
-              {['Emoji', 'Nr', 'Imię', 'Nazwisko', 'Email', 'Tel', 'Klub', 'Płeć', 'Data ur.', 'Kategoria', 'Koszulka', 'RFID', 'SMS', 'Z', 'NS', ''].map(h => (
+              {['Emoji', 'Nr', 'Imię', 'Nazwisko', 'Email', 'Tel', 'Klub', 'Płeć', 'Data ur.', 'Kategoria', ...(hasTeams ? ['Drużyna'] : []), 'Koszulka', 'RFID', 'SMS', 'Z', 'NS', ''].map(h => (
                 <th key={h} className="text-left px-3 py-2 text-xs font-bold uppercase tracking-wider text-apex-muted whitespace-nowrap">
                   {h === 'Z' ? (
                     <Tooltip content={
@@ -266,8 +289,12 @@ export default function ParticipantsTable({ eventId, categories }) {
             </tr>
           </thead>
           <tbody className="divide-y divide-apex-border">
-            {sortedParticipants.map(p => (
-              <tr key={p.id} className={cn('hover:bg-apex-surface-2 group', p.withdrawnAt && '[&>td:not(.keep)]:opacity-45')}>
+            {sortedParticipants.map((p, i) => (
+              <tr key={p.id} className={cn(
+                'hover:bg-apex-surface-2 group',
+                p.withdrawnAt && '[&>td:not(.keep)]:opacity-45',
+                showTeamsOnly && i > 0 && sortedParticipants[i - 1].teamId !== p.teamId && 'border-t-2 border-t-apex-border-bright',
+              )}>
                 <td className="px-2 py-1 w-10 text-center text-lg group/emoji relative">
                   <span>{p.emoji || '🏃'}</span>
                   <button
@@ -313,6 +340,18 @@ export default function ParticipantsTable({ eventId, categories }) {
                   />
                 </td>
                 <td className="px-2 py-1 min-w-28"><CategoryCell participant={p} /></td>
+                {hasTeams && (
+                  <td className="px-2 py-1 min-w-32 max-w-48 text-xs">
+                    {p.teamId ? (
+                      <div className="flex items-center gap-1.5 min-w-0" title={teamLabelText(labels.get(p.teamId))}>
+                        <span className={cn('truncate', labels.get(p.teamId)?.name ? 'text-apex-text-bright' : 'text-apex-muted')}>
+                          {teamLabelText(labels.get(p.teamId))}
+                        </span>
+                        {p.teamLeg != null && fixedLegCats.has(p.categoryId) && <span className="shrink-0 font-mono text-[10px] text-apex-muted">zm. {p.teamLeg}</span>}
+                      </div>
+                    ) : <span className="text-apex-muted">—</span>}
+                  </td>
+                )}
                 <td className="px-2 py-1 w-20"><EditableCell participant={p} field="tshirtSize" /></td>
                 <td className="px-2 py-1 w-28">
                   {p.rfidEpc ? (

@@ -339,6 +339,10 @@ See the mermaid flowchart at the top of `crossingDetector.js` for a full diagram
 team is never timed by a tag of its own, and its standing is derived by `computeTeamResults()` in
 `@leszyrun/ui` (`GET /api/races/:raceRunId/teams`). Membership is `participants.team_id` /
 `team_leg` (from Supabase `registrations`; the host never holds a team name).
+- The admin participants table shows a „Drużyna” column and a „Drużyny (N)” toggle (team members only,
+  grouped by team) for an event with team members. Names come from `GET /api/events/:eventId/team-names`,
+  which calls `results_team_names()` in Supabase per request and stores nothing (`lib/teamNames.js`);
+  offline, a team is labelled by its members' surnames (`frontend/src/lib/teamGroups.js`).
 - `'relay_free'` (any order, the default for a team competition; Sztafeta Mikołajów): the team runs
   laps in any order, a member may run several. A pass closes a team lap only when its tag had been
   silent 60 s before it (came in from the course, so a teammate waiting at the gate never counts)

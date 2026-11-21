@@ -8,6 +8,7 @@ import { createClient } from '@supabase/supabase-js'
 import { withdrawalRefusal } from '../lib/withdrawal.js'
 import { isRemoved, isRegistrationEvent, REGISTRATION_DELETE_REFUSAL } from '../lib/registrationGuards.js'
 import { checkinParticipantRow } from '../lib/checkinParticipantRow.js'
+import { fetchTeamNames } from '../lib/teamNames.js'
 
 function getSupabase() {
   const url = process.env.SUPABASE_URL
@@ -27,6 +28,12 @@ export async function participantsRoutes(fastify) {
       orderBy: participants.bibNumber,
     })
     return { data: rows }
+  })
+
+  // Team names of the event's registration teams, { [teamId]: name }, read from Supabase
+  // per request and never stored on the host (lib/teamNames.js). {} when offline.
+  fastify.get('/events/:eventId/team-names', async (req) => {
+    return { data: await fetchTeamNames(getSupabase(), req.params.eventId) }
   })
 
   // Create participant
