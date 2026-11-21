@@ -10,6 +10,7 @@ import { Card, CardHeader, CardTitle, CardContent } from '../ui/card.jsx'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogBody, DialogFooter } from '../ui/dialog.jsx'
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '../ui/select.jsx'
 import { ChevronDown, ChevronRight, Pencil, Plus, RotateCcw, Trash2 } from 'lucide-react'
+import { sameLapNeighbours, needsDecision, SAME_LAP_FALLBACK_MS } from '../../lib/teamLapReview.js'
 
 // Relay in any order: the teams' laps live, and the operator's corrections (add a lap the
 // chip missed, move one to the teammate who ran it, fix its time, remove a false one).
@@ -35,12 +36,21 @@ export default function TeamLapsPanel({ category, run }) {
     enabled: !!category.eventId,
     staleTime: 60_000,
   })
+  const { data: event } = useQuery({
+    queryKey: ['events', category.eventId],
+    queryFn: () => api.events.get(category.eventId),
+    enabled: !!category.eventId,
+    staleTime: 60_000,
+  })
+  // Two laps of one team closer than the min lap time are one lap.
+  const sameLapMs = event?.minFinishSeconds > 0 ? event.minFinishSeconds * 1000 : SAME_LAP_FALLBACK_MS
   useWsEvent('team:lap', (p) => { if (p?.raceRunId === run.id) qc.invalidateQueries({ queryKey: key }) })
 
   const [open, setOpen] = useState(() => new Set())
   const [dialog, setDialog] = useState(null) // { teamId, lap? }
   const [error, setError] = useState('')
   const [byRunner, setByRunner] = useState(false)
+  const [confirm, setConfirm] = useState(null) // { title, lines, actions: [{ label, run }] }
 
   const done = () => { setError(''); qc.invalidateQueries({ queryKey: key }) }
   const create = useMutation({ mutationFn: (body) => api.teamLaps.create(run.id, body), onSuccess: () => { done(); setDialog(null) }, onError: (e) => setError(e.message) })
@@ -63,11 +73,39 @@ export default function TeamLapsPanel({ category, run }) {
     setRunner: (lap, participantId) => update.mutate({ id: lap.id, participantId }),
     editTime: (lap) => setDialog({ teamId: lap.teamId, lap: { ...lap, lapId: lap.id } }),
     review: (lap) => update.mutate({ id: lap.id, reviewed: !lap.reviewedAt }),
-    reject: (lap) => update.mutate({ id: lap.id, deleted: true }),
+    // A counted lap is a lap of the standings: removing it asks first.
+    reject: (lap) => lap.status === 'counted'
+      ? setConfirm({
+        title: 'Odrzucić okrążenie?',
+        lines: [lapLine(lap)],
+        actions: [{ label: 'Odrzuć', run: () => update.mutate({ id: lap.id, deleted: true }) }],
+      })
+      : update.mutate({ id: lap.id, deleted: true }),
     restore: (lap) => update.mutate({ id: lap.id, deleted: false }),
-    count: (lap) => update.mutate({ id: lap.id, status: 'counted' }),
+    // Approving a candidate: other candidates of the team within the min lap time are the same
+    // lap; they are rejected only once the operator confirms the list.
+    count: (lap) => {
+      const others = sameLapNeighbours(lap, laps, sameLapMs).filter(l => l.status === 'candidate')
+      if (!others.length) return update.mutate({ id: lap.id, status: 'counted' })
+      setConfirm({
+        title: `Zaliczyć ${clock(lap.closedAt)} i odrzucić?`,
+        lines: others.map(lapLine),
+        actions: [
+          { label: 'Tylko zalicz', outline: true, run: () => update.mutate({ id: lap.id, status: 'counted' }) },
+          { label: 'Zalicz i odrzuć', run: async () => {
+            try {
+              await update.mutateAsync({ id: lap.id, status: 'counted' })
+              for (const o of others) await update.mutateAsync({ id: o.id, deleted: true })
+            } catch { /* the error is shown by the mutation */ }
+          } },
+        ],
+      })
+    },
   }
-  const pending = laps.filter(l => !l.deletedAt && (l.status === 'candidate' || !l.participantId))
+  const runnerOf = (lap) => results.find(r => r.participantId === lap.participantId)?.participant
+  const lapLine = (lap) => `${clock(lap.closedAt)} · ${lap.participantId ? fullName(runnerOf(lap)) : 'bez biegacza'}`
+  const sameLap = (lap) => lap.status === 'candidate' && !lap.deletedAt && sameLapNeighbours(lap, laps, sameLapMs).length > 0
+  const pending = laps.filter(needsDecision)
     .sort((a, b) => new Date(a.closedAt) - new Date(b.closedAt))
   const teamLabel = (teamId) => teamNames[teamId] || membersOf(teamId).map(p => p.lastName).join(' · ')
   const toggle = (id) => setOpen(s => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n })
@@ -91,7 +129,7 @@ export default function TeamLapsPanel({ category, run }) {
               {pending.map(l => (
                 <div key={l.id}>
                   <div className="px-1 pt-1 text-[11px] text-apex-muted truncate">{teamLabel(l.teamId)}</div>
-                  <LapRow lap={{ ...l, leg: legOf.get(l.id)?.leg, legMs: legOf.get(l.id)?.legMs }} members={membersOf(l.teamId)} act={act} decide />
+                  <LapRow lap={{ ...l, leg: legOf.get(l.id)?.leg, legMs: legOf.get(l.id)?.legMs }} members={membersOf(l.teamId)} act={act} sameLap={sameLap(l)} decide />
                 </div>
               ))}
             </div>
@@ -142,7 +180,7 @@ export default function TeamLapsPanel({ category, run }) {
                   <tr key={`${t.teamId}-laps`} className="bg-apex-surface-2">
                     <td></td>
                     <td colSpan={6} className="px-2 py-2">
-                      <LapList rows={rowsOf(t.teamId)} members={membersOf(t.teamId)} byRunner={byRunner} act={act} />
+                      <LapList rows={rowsOf(t.teamId)} members={membersOf(t.teamId)} byRunner={byRunner} act={act} sameLap={sameLap} />
                     </td>
                   </tr>
                 ),
@@ -164,6 +202,7 @@ export default function TeamLapsPanel({ category, run }) {
             : create.mutate(vals)}
         />
       )}
+      {confirm && <ConfirmDialog {...confirm} saving={update.isPending} onClose={() => setConfirm(null)} />}
     </Card>
   )
 }
@@ -177,9 +216,9 @@ const STATE_CLASS = {
   liczone: 'text-apex-muted border-apex-border',
 }
 
-function LapList({ rows, members, byRunner, act }) {
+function LapList({ rows, members, byRunner, act, sameLap }) {
   if (!rows.length) return <div className="text-apex-muted">—</div>
-  if (!byRunner) return <div className="divide-y divide-apex-border">{rows.map(l => <LapRow key={l.id} lap={l} members={members} act={act} />)}</div>
+  if (!byRunner) return <div className="divide-y divide-apex-border">{rows.map(l => <LapRow key={l.id} lap={l} members={members} act={act} sameLap={sameLap(l)} />)}</div>
   const groups = [...members.map(p => [p.id, fullName(p)]), [null, 'bez biegacza']]
   return (
     <div className="space-y-2">
@@ -191,7 +230,7 @@ function LapList({ rows, members, byRunner, act }) {
             <div className="text-[11px] font-bold uppercase tracking-wider text-apex-muted">
               {label} · {mine.filter(l => !l.deletedAt && l.status === 'counted').length} okr.
             </div>
-            <div className="divide-y divide-apex-border">{mine.map(l => <LapRow key={l.id} lap={l} members={members} act={act} />)}</div>
+            <div className="divide-y divide-apex-border">{mine.map(l => <LapRow key={l.id} lap={l} members={members} act={act} sameLap={sameLap(l)} />)}</div>
           </div>
         )
       })}
@@ -199,7 +238,7 @@ function LapList({ rows, members, byRunner, act }) {
   )
 }
 
-function LapRow({ lap, members, act, decide }) {
+function LapRow({ lap, members, act, decide, sameLap }) {
   const state = stateOf(lap)
   const counted = lap.status === 'counted' && !lap.deletedAt
   const iconBtn = 'text-apex-muted hover:text-apex-text'
@@ -219,6 +258,7 @@ function LapRow({ lap, members, act, decide }) {
       <span className="text-apex-muted whitespace-nowrap">{SOURCE[lap.source] ?? lap.source}</span>
       <span className="font-mono text-apex-muted whitespace-nowrap">{lap.peakRssiCdbm != null ? `${(lap.peakRssiCdbm / 100).toFixed(1)} dBm` : ''}</span>
       <span className={cn('border px-1.5 py-0.5 uppercase tracking-wider text-[10px] whitespace-nowrap', STATE_CLASS[state])}>{state}</span>
+      {sameLap && <span className="text-apex-yellow whitespace-nowrap">to samo okrążenie?</span>}
       <span className="ml-auto flex items-center gap-1.5 whitespace-nowrap">
         {lap.status === 'candidate' && !lap.deletedAt && (
           <Button variant="outline" size="sm" className="whitespace-nowrap" onClick={() => act.count(lap)}>Zalicz</Button>
@@ -226,7 +266,7 @@ function LapRow({ lap, members, act, decide }) {
         {!decide && (
           <button type="button" title="Zmień czas" className={iconBtn} onClick={() => act.editTime(lap)}><Pencil size={13} /></button>
         )}
-        {counted && !decide && (
+        {counted && (!decide || !lap.reviewedAt) && (
           <Button variant="outline" size="sm" className="whitespace-nowrap" onClick={() => act.review(lap)}>
             {lap.reviewedAt ? 'Cofnij zatw.' : 'Zatwierdź'}
           </Button>
@@ -246,7 +286,7 @@ function LapDialog({ members, lap, saving, error, onClose, onSave }) {
     <Dialog open onOpenChange={onClose}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>{lap ? `Okrążenie ${lap.leg} · czas` : 'Dodaj okrążenie'}</DialogTitle>
+          <DialogTitle>{!lap ? 'Dodaj okrążenie' : lap.leg != null ? `Okrążenie ${lap.leg} · czas` : 'Zmień czas'}</DialogTitle>
         </DialogHeader>
         <DialogBody className="space-y-3">
           {!lap && (
@@ -275,6 +315,32 @@ function LapDialog({ members, lap, saving, error, onClose, onSave }) {
             onClick={() => onSave({ participantId, closedAt: new Date(at).toISOString() })}>
             {saving ? 'Zapisywanie...' : 'Zapisz'}
           </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+function ConfirmDialog({ title, lines, actions, saving, onClose }) {
+  return (
+    <Dialog open onOpenChange={onClose}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>{title}</DialogTitle>
+        </DialogHeader>
+        <DialogBody>
+          <ul className="space-y-1 font-mono text-xs">
+            {lines.map((line, i) => <li key={i}>{line}</li>)}
+          </ul>
+        </DialogBody>
+        <DialogFooter className="flex-wrap">
+          <Button variant="outline" className="whitespace-nowrap" onClick={onClose}>Anuluj</Button>
+          {actions.map(a => (
+            <Button key={a.label} variant={a.outline ? 'outline' : 'default'} className="whitespace-nowrap" disabled={saving}
+              onClick={async () => { await a.run(); onClose() }}>
+              {a.label}
+            </Button>
+          ))}
         </DialogFooter>
       </DialogContent>
     </Dialog>
