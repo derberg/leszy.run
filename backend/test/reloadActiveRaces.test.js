@@ -35,3 +35,29 @@ test('no detector: nothing reloaded, no query', async () => {
   assert.equal(await reloadActiveRaces(db, null), 0)
   assert.equal(queried, false)
 })
+
+test('a baton relay category reloads with its lap source and the event\'s tagged batons', async () => {
+  const event = { id: 'e1' }
+  const run = { id: 'r1', status: 'active', category: { event, teamMode: 'relay_free', teamLapCount: null, teamTimeLimitSeconds: null, teamLapSource: 'baton', participants: [] } }
+  const batons = [{ teamId: 'T', epc: 'B1' }]
+  let selected = 0
+  const db = {
+    query: { raceRuns: { findMany: async () => [run] } },
+    select: () => ({ from: () => ({ where: async () => { selected++; return batons } }) }),
+  }
+  const calls = []
+  await reloadActiveRaces(db, { startRace: async (...args) => { calls.push(args) } })
+  assert.equal(selected, 1)
+  assert.equal(calls[0][1].teamLapSource, 'baton')
+  assert.deepEqual(calls[0][1].batons, batons)
+})
+
+test('a relay category counting runner tags never reads team_batons', async () => {
+  const event = { id: 'e1' }
+  const run = { id: 'r1', status: 'active', category: { event, teamMode: 'relay_free', teamLapSource: 'runner', participants: [] } }
+  const db = { query: { raceRuns: { findMany: async () => [run] } }, select: () => { throw new Error('no team_batons read') } }
+  const calls = []
+  await reloadActiveRaces(db, { startRace: async (...args) => { calls.push(args) } })
+  assert.equal(calls[0][1].teamLapSource, 'runner')
+  assert.equal(calls[0][1].batons, undefined)
+})
