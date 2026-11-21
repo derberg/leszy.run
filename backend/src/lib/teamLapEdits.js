@@ -5,7 +5,7 @@
 /**
  * What a correction may write, or why it is refused.
  * @param {object} p
- * @param {{ id: string, startedAt: Date|string|null, category: { teamMode: string|null } }} p.run
+ * @param {{ id: string, startedAt: Date|string|null, category: { teamMode: string|null, teamLapSource?: string } }} p.run
  * @param {{ id: string, teamId: string|null, categoryId: string|null, removedAt?: Date|null }|null} p.participant
  *        the runner the lap is credited to (new or changed); null when the edit keeps the runner
  * @param {{ teamId: string, participantId: string|null, status?: string }|null} p.lap the lap being changed (null: a new lap)
@@ -19,7 +19,9 @@ export function lapEdit({ run, participant, lap, body, now = new Date() }) {
 
   const values = {}
   if (body.participantId === null && lap) {
-    // The runner is unknown (a baton pass nobody could attribute): the lap keeps its team.
+    // The runner is unknown (a baton pass nobody could attribute): the lap keeps its team. Only
+    // a baton relay has such laps; where the runner's tag counts the lap, a lap is a runner's.
+    if (run.category.teamLapSource !== 'baton') return refuse(409, 'W tym biegu okrążenie musi mieć zawodnika.')
     values.participantId = null
   } else if (body.participantId !== undefined || !lap) {
     if (!participant) return refuse(400, 'Wybierz zawodnika.')
@@ -42,11 +44,14 @@ export function lapEdit({ run, participant, lap, body, now = new Date() }) {
   }
 
   if (body.status !== undefined) {
-    if (body.status !== 'counted') return refuse(400, 'Status może być tylko „counted”.')
+    if (body.status !== 'counted') return refuse(400, 'Nieprawidłowy status okrążenia.')
     if (lap?.status !== 'candidate') return refuse(409, 'To okrążenie jest już liczone.')
     values.status = 'counted'
   }
-  if (body.reviewed !== undefined) values.reviewedAt = body.reviewed ? now : null
+  if (body.reviewed !== undefined) {
+    if (typeof body.reviewed !== 'boolean') return refuse(400, 'Nieprawidłowa wartość zatwierdzenia.')
+    values.reviewedAt = body.reviewed ? now : null
+  }
 
   if (body.deleted !== undefined) values.deletedAt = body.deleted ? now : null
   if (!lap) values.source = 'manual'

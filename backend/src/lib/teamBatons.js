@@ -19,7 +19,7 @@ export function batonRefusal({ teamId, epc, members, participantEpcs, otherBaton
   if (!members?.length) return { status: 404, error: 'Nie ma takiej drużyny.' }
   if (epc === null) return null
   const tag = normalizeBatonEpc(epc)
-  if (!tag) return { status: 400, error: 'Tag musi być niepustym tekstem albo null.' }
+  if (!tag) return { status: 400, error: 'Nieprawidłowy tag.' }
   if ((participantEpcs || []).some(e => typeof e === 'string' && e.trim().toUpperCase() === tag)) {
     return { status: 422, error: 'Ten tag jest przypisany zawodnikowi.' }
   }
