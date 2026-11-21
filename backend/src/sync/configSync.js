@@ -217,40 +217,82 @@ export async function pullConfig(db, client = supabase, { getDetector = defaultG
         : null
       const batonEvents = new Set()
 
-      const upsertRows = async (data) => {
-        for (const remote of data) {
-          if (!remote.id) continue
-          if (isTestRow(name, remote, skip, filter.settingsByEvent, filter.knownLocalEventIds, filter.settingsFailed)) {
-            rememberSkipped(name, remote, skip)
-            skipped++
-            continue
-          }
-          const now = new Date()
-          const values = toLocalRow(cols, remote)
-          values.syncedAt = now // never trust remote synced_at; stamp local so push won't echo
+      // One remote row → local upsert values, or null when the row is refused.
+      const prepare = (remote) => {
+        if (!remote.id) return null
+        if (isTestRow(name, remote, skip, filter.settingsByEvent, filter.knownLocalEventIds, filter.settingsFailed)) {
+          rememberSkipped(name, remote, skip)
+          skipped++
+          return null
+        }
+        const now = new Date()
+        const values = toLocalRow(cols, remote)
+        values.syncedAt = now // never trust remote synced_at; stamp local so push won't echo
 
-          const set = {}
-          for (const { prop } of cols) {
-            if (prop === 'id' || prop === 'syncedAt') continue
-            if (prop in values) set[prop] = values[prop]
-          }
-          set.syncedAt = now
-
+        const set = {}
+        for (const { prop } of cols) {
+          if (prop === 'id' || prop === 'syncedAt') continue
+          if (prop in values) set[prop] = values[prop]
+        }
+        set.syncedAt = now
+        return { values, set }
+      }
+      const upsertOne = (conn, { values, set }) => conn.insert(table).values(values).onConflictDoUpdate({
+        target: table.id,
+        set,
+        // Guard: only refresh a CLEAN local row. A dirty row (local edit not yet
+        // pushed → synced_at NULL) is left untouched so the local change wins.
+        setWhere: sql`${table.syncedAt} IS NOT NULL`,
+      })
+      const noteBaton = (remote) => {
+        if (localBatonEpc && localBatonEpc.get(remote.id) !== (remote.epc ?? null)) batonEvents.add(remote.event_id)
+      }
+      // Row by row: a row that fails is logged and skipped, never wedging the batch.
+      const upsertEach = async (items) => {
+        for (const { remote, prepared } of items) {
           try {
-            await db.insert(table).values(values).onConflictDoUpdate({
-              target: table.id,
-              set,
-              // Guard: only refresh a CLEAN local row. A dirty row (local edit not yet
-              // pushed → synced_at NULL) is left untouched so the local change wins.
-              setWhere: sql`${table.syncedAt} IS NOT NULL`,
-            })
-            if (localBatonEpc && localBatonEpc.get(remote.id) !== (remote.epc ?? null)) batonEvents.add(remote.event_id)
+            await upsertOne(db, prepared)
+            noteBaton(remote)
           } catch (e) {
             // Secondary unique constraints (e.g. categories(event_id, slug),
             // results(race_run_id, participant_id)) can collide when a row exists locally
             // under a different id. Log and skip that one row — never wedge the batch.
             console.error(`[ConfigSync] upsert ${name} ${remote.id}: ${e.message}`)
           }
+        }
+      }
+
+      const upsertRows = async (data) => {
+        const items = []
+        for (const remote of data) {
+          const prepared = prepare(remote)
+          if (prepared) items.push({ remote, prepared })
+        }
+        if (name === 'team_batons') {
+          // A tag moved between two teams (a swap) is valid only as a whole: the (event_id, epc)
+          // unique is DEFERRABLE INITIALLY DEFERRED, so apply each event's rows in one transaction
+          // and the constraint is checked at commit. If the commit fails (e.g. a new tag collides
+          // with a locally dirty row the guard kept), fall back to row by row so every other
+          // row still applies.
+          const byEvent = new Map()
+          for (const it of items) {
+            const list = byEvent.get(it.remote.event_id) ?? []
+            list.push(it)
+            byEvent.set(it.remote.event_id, list)
+          }
+          for (const [eventId, list] of byEvent) {
+            try {
+              await db.transaction(async (tx) => {
+                for (const it of list) await upsertOne(tx, it.prepared)
+              })
+              for (const it of list) noteBaton(it.remote)
+            } catch (e) {
+              console.error(`[ConfigSync] upsert team_batons of event ${eventId} in one transaction: ${e.message} — applying row by row`)
+              await upsertEach(list)
+            }
+          }
+        } else {
+          await upsertEach(items)
         }
         examined += data.length
       }

@@ -16,9 +16,13 @@ CREATE TABLE public.team_batons (
   created_at  timestamptz DEFAULT now(),
   updated_at  timestamptz DEFAULT now(),
   synced_at   timestamptz,
-  CONSTRAINT team_batons_id_is_team_id CHECK (id = team_id)
+  CONSTRAINT team_batons_id_is_team_id CHECK (id = team_id),
+  -- One tag is one team's baton. Checked at commit, not per row: two teams' tags swapped in one
+  -- push (one multi-row upsert) or one pull transaction are valid only as a whole, and a
+  -- per-row check refused each row against the other's old tag forever. NULLs are distinct, so
+  -- any number of teams may have no baton. Never an ON CONFLICT arbiter (the push conflicts on id).
+  CONSTRAINT team_batons_event_epc_key UNIQUE (event_id, epc) DEFERRABLE INITIALLY DEFERRED
 );
-CREATE UNIQUE INDEX team_batons_event_epc_key ON public.team_batons (event_id, epc) WHERE epc IS NOT NULL;
 ALTER TABLE public.team_batons ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON public.team_batons FROM anon, authenticated;
 

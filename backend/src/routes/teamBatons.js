@@ -45,7 +45,7 @@ export async function teamBatonsRoutes(fastify) {
         .onConflictDoUpdate({ target: teamBatons.id, set: { epc, updatedAt: now }, setWhere: eq(teamBatons.eventId, eventId) })
         .returning()
     } catch (err) {
-      // Two teams claiming one tag at once: the partial unique index decides.
+      // Two teams claiming one tag at once: the (event_id, epc) unique decides.
       if (err.code === '23505') return reply.code(422).send({ error: 'Ten tag jest już przypisany pałce innej drużyny.' })
       throw err
     }

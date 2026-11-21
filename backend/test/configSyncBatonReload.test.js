@@ -28,7 +28,7 @@ function supabaseWith(batons) {
 // Local db: team_batons holds `local` before the pull and `after` once it ran.
 function dbWith(local, after) {
   let pulled = false
-  return {
+  const db = {
     select: () => ({
       from: (t) => {
         const name = getTableName(t)
@@ -39,7 +39,9 @@ function dbWith(local, after) {
     insert: (t) => ({
       values: () => ({ onConflictDoUpdate: () => { if (getTableName(t) === 'team_batons') pulled = true; return Promise.resolve() } }),
     }),
+    transaction: (fn) => fn(db),
   }
+  return db
 }
 
 test('a changed baton is reloaded into the detector with the event\'s batons that have a tag', async (t) => {

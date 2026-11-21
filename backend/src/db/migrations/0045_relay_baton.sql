@@ -13,10 +13,11 @@ CREATE TABLE IF NOT EXISTS "team_batons" (
   "created_at" timestamp with time zone DEFAULT now(),
   "updated_at" timestamp with time zone DEFAULT now(),
   "synced_at" timestamp with time zone,
-  CONSTRAINT "team_batons_id_is_team_id" CHECK ("id" = "team_id")
+  CONSTRAINT "team_batons_id_is_team_id" CHECK ("id" = "team_id"),
+  -- One tag is one team's baton, checked at commit so a swap pulled in one transaction applies
+  -- (configSync). NULLs are distinct: any number of teams may have no baton.
+  CONSTRAINT "team_batons_event_epc_key" UNIQUE ("event_id", "epc") DEFERRABLE INITIALLY DEFERRED
 );
---> statement-breakpoint
-CREATE UNIQUE INDEX IF NOT EXISTS "team_batons_event_epc_key" ON "team_batons" ("event_id", "epc") WHERE "epc" IS NOT NULL;
 --> statement-breakpoint
 CREATE TRIGGER trg_reset_synced_at_team_batons
   BEFORE UPDATE ON team_batons

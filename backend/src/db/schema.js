@@ -164,9 +164,10 @@ export const teamBatons = pgTable('team_batons', {
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow(),
   syncedAt: timestamp('synced_at', { withTimezone: true }),
-}, (t) => [
-  uniqueIndex('team_batons_event_epc_key').on(t.eventId, t.epc).where(sql`${t.epc} IS NOT NULL`),
-])
+  // UNIQUE (event_id, epc) DEFERRABLE INITIALLY DEFERRED lives in 0045_relay_baton.sql only:
+  // Drizzle's schema API cannot express DEFERRABLE. Checked at commit, so a swap of two teams'
+  // tags pulled in one transaction applies (configSync.js).
+})
 
 export const gateCrossings = pgTable('gate_crossings', {
   id: uuid('id').primaryKey().defaultRandom(),

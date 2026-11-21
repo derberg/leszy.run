@@ -86,8 +86,9 @@ async function markSynced(db, table, rows, now) {
 // - checkpoint_observations has UNIQUE(checkpoint_id, bib_number) in Supabase (migration
 //   20260727173000) besides the id: the checkpoint agent or a volunteer may have inserted the
 //   pair first under a different id.
-// - team_batons has a unique (event_id, epc) index: a tag moved from one team to another within
-//   one cycle can be refused until the other row is pushed.
+// - team_batons has UNIQUE (event_id, epc) DEFERRABLE INITIALLY DEFERRED: a swap of two teams'
+//   tags pushed in one batch is checked at commit and goes through; a batch that still fails
+//   (e.g. a tag another host already holds) falls back so the other rows are pushed.
 // Every other table keeps the all-or-nothing batch.
 export const PER_ROW_FALLBACK = new Set(['checkpoint_observations', 'team_batons'])
 
