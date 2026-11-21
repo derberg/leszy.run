@@ -46,6 +46,12 @@ export default function TeamsTab({ eventId, categories }) {
     onSuccess: () => { setError(null); refresh() },
     onError: (err) => setError(err.message),
   })
+  // The baton tag read from the reader dialog. A refusal rejects mutateAsync, which the dialog
+  // shows inline; the page-level error stays for the other actions.
+  const assignBaton = useMutation({
+    mutationFn: ({ teamId, epc }) => api.teamBatons.put(eventId, teamId, epc),
+    onSuccess: () => { setError(null); refresh(); setTarget(null) },
+  })
   const setSource = useMutation({
     mutationFn: ({ id, teamLapSource }) => api.categories.update(id, { teamLapSource }),
     onSuccess: () => { setError(null); qc.invalidateQueries({ queryKey: ['categories', eventId] }) },
@@ -133,7 +139,7 @@ export default function TeamsTab({ eventId, categories }) {
       {target && (
         <RfidAssignDialog
           label={target.label}
-          onAssign={async (epc) => { await api.teamBatons.put(eventId, target.teamId, epc); refresh(); setError(null); setTarget(null) }}
+          onAssign={(epc) => assignBaton.mutateAsync({ teamId: target.teamId, epc })}
           onClose={() => setTarget(null)}
         />
       )}

@@ -363,13 +363,12 @@ export default function RaceControl() {
                   Tag pałki jest też tagiem zawodnika: {clashingBatons(cat.id).join(', ')}
                 </p>
               )}
-            <RaceCard
-              key={cat.id}
-              category={cat}
-              race={raceByCategory[cat.id]}
-              participants={participants.filter(p => p.categoryId === cat.id)}
-              onRefresh={() => qc.invalidateQueries({ queryKey: ['races', id] })}
-            />
+              <RaceCard
+                category={cat}
+                race={raceByCategory[cat.id]}
+                participants={participants.filter(p => p.categoryId === cat.id)}
+                onRefresh={() => qc.invalidateQueries({ queryKey: ['races', id] })}
+              />
             </div>
           ))}
           {categories.length === 0 && (
