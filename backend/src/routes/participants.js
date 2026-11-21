@@ -1,5 +1,5 @@
 import { eq, and, isNull, sql, max, ne } from 'drizzle-orm'
-import { participants, categories, results, raceRuns, checkins, events } from '../db/schema.js'
+import { participants, categories, results, raceRuns, checkins, events, hostTeams } from '../db/schema.js'
 import { setScanMode } from '../mqtt/client.js'
 import Papa from 'papaparse'
 import { pickEmoji } from '../lib/emoji.js'
@@ -10,6 +10,7 @@ import { isRemoved, isRegistrationEvent, REGISTRATION_DELETE_REFUSAL } from '../
 import { checkinParticipantRow } from '../lib/checkinParticipantRow.js'
 import { fetchTeamNames } from '../lib/teamNames.js'
 import { teamEditRefusal } from '../lib/teamEdit.js'
+import { hostTeamNameRefusal, mergeTeamNames } from '../lib/hostTeams.js'
 
 function getSupabase() {
   const url = process.env.SUPABASE_URL
@@ -17,6 +18,8 @@ function getSupabase() {
   if (!url || !key) return null
   return createClient(url, key)
 }
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 export async function participantsRoutes(fastify) {
   const { db } = fastify
@@ -31,10 +34,38 @@ export async function participantsRoutes(fastify) {
     return { data: rows }
   })
 
-  // Team names of the event's registration teams, { [teamId]: name }, read from Supabase
-  // per request and never stored on the host (lib/teamNames.js). {} when offline.
+  // Team names of the event, { [teamId]: name }: the registration teams' read from Supabase per
+  // request and never stored on the host (lib/teamNames.js, {} when offline), plus the names of
+  // the teams set up on the hosts (host_teams), which are local and so work offline.
   fastify.get('/events/:eventId/team-names', async (req) => {
-    return { data: await fetchTeamNames(getSupabase(), req.params.eventId) }
+    const [remote, hostRows] = await Promise.all([
+      fetchTeamNames(getSupabase(), req.params.eventId),
+      UUID_RE.test(req.params.eventId)
+        ? db.select({ id: hostTeams.id, name: hostTeams.name }).from(hostTeams).where(eq(hostTeams.eventId, req.params.eventId))
+        : [],
+    ])
+    return { data: mergeTeamNames(remote, hostRows) }
+  })
+
+  // Name (or rename) a team set up on the host. A registration team is refused (its name stays
+  // in Supabase's `teams`, lib/hostTeams.js). Pushed to Supabase and pulled by the other hosts.
+  fastify.put('/events/:eventId/host-teams/:teamId', async (req, reply) => {
+    const { eventId, teamId } = req.params
+    const valid = UUID_RE.test(eventId) && UUID_RE.test(teamId)
+    const [members, existing] = valid
+      ? await Promise.all([
+          db.select({ id: participants.id, registrationId: participants.registrationId }).from(participants)
+            .where(and(eq(participants.eventId, eventId), eq(participants.teamId, teamId), isNull(participants.removedAt))),
+          db.query.hostTeams.findFirst({ where: eq(hostTeams.id, teamId) }),
+        ])
+      : [[], null]
+    const { refusal, name } = hostTeamNameRefusal({ eventId, teamId, name: req.body?.name, members, existing })
+    if (refusal) return reply.code(refusal.status).send({ error: refusal.error })
+    const now = new Date()
+    const [row] = existing
+      ? await db.update(hostTeams).set({ name, updatedAt: now }).where(eq(hostTeams.id, teamId)).returning()
+      : await db.insert(hostTeams).values({ id: teamId, eventId, name, createdAt: now, updatedAt: now }).returning()
+    return { data: row }
   })
 
   // Create participant

@@ -11,7 +11,7 @@ import { drizzle } from 'drizzle-orm/postgres-js'
 import { migrate } from 'drizzle-orm/postgres-js/migrator'
 import { eq, inArray } from 'drizzle-orm'
 import * as schema from '../src/db/schema.js'
-import { purgeRegistrationContact, cutoffDate } from '../scripts/lib/purgeRegistrationContact.js'
+import { purgeRegistrationContact, purgeHostTeamNames, cutoffDate } from '../scripts/lib/purgeRegistrationContact.js'
 
 // 55432 + n x 100 under REG_TEST_SLOT=n (tests/registration/helpers/slot.js).
 const SCRATCH_PORT = String(55432 + Number(process.env.REG_TEST_SLOT || 0) * 100)
@@ -25,7 +25,7 @@ const dayFromCutoff = (offset) => {
   const [y, m, d] = cutoffDate().split('-').map(Number)
   return new Date(Date.UTC(y, m - 1, d + offset)).toISOString().slice(0, 10)
 }
-const made = { events: [], participants: [] }
+const made = { events: [], participants: [], hostTeams: [] }
 
 before(async () => {
   if (!isScratch) return
@@ -38,6 +38,7 @@ before(async () => {
 })
 after(async () => {
   if (!reachable) return
+  if (made.hostTeams.length) await db.delete(schema.hostTeams).where(inArray(schema.hostTeams.id, made.hostTeams))
   if (made.participants.length) await db.delete(schema.participants).where(inArray(schema.participants.id, made.participants))
   if (made.events.length) await db.delete(schema.events).where(inArray(schema.events.id, made.events))
   await sql.end({ timeout: 1 })
@@ -85,4 +86,29 @@ test('W-44 a dry run changes nothing and reports the count; --apply nulls only r
   await purgeRegistrationContact(db, { apply: true })
   assert.equal(await phoneOf(recent.viaRegistration), '600100200', 'a second run changes nothing more')
   assert.equal(await phoneOf(old.viaRegistration), null)
+})
+
+test('host team names of events 30+ days past are replaced with the neutral name; recent ones stay', { skip: !isScratch }, async (t) => {
+  if (!reachable) return t.skip(`no scratch Postgres on 127.0.0.1:${SCRATCH_PORT}`)
+  const team = async (daysFromCutoff) => {
+    const [ev] = await db.insert(schema.events).values({ name: `teams ${daysFromCutoff}`, slug: `teams-${crypto.randomUUID()}`, date: dayFromCutoff(daysFromCutoff) }).returning()
+    made.events.push(ev.id)
+    const id = crypto.randomUUID()
+    await db.insert(schema.hostTeams).values({ id, eventId: ev.id, name: 'Rodzina Leśnych', syncedAt: new Date() })
+    made.hostTeams.push(id)
+    return id
+  }
+  const nameOf = async (id) => (await db.select({ name: schema.hostTeams.name }).from(schema.hostTeams).where(eq(schema.hostTeams.id, id)))[0].name
+  const due = await team(0)
+  const recent = await team(1)
+
+  const dry = await purgeHostTeamNames(db)
+  assert.ok(dry.count >= 1)
+  assert.equal(await nameOf(due), 'Rodzina Leśnych')
+
+  await purgeHostTeamNames(db, { apply: true })
+  assert.equal(await nameOf(due), `Drużyna ${due.slice(0, 8).toUpperCase()}`)
+  assert.equal(await nameOf(recent), 'Rodzina Leśnych')
+  const [{ syncedAt }] = await db.select({ syncedAt: schema.hostTeams.syncedAt }).from(schema.hostTeams).where(eq(schema.hostTeams.id, due))
+  assert.equal(syncedAt, null, 'the replaced name is pushed')
 })

@@ -1,5 +1,5 @@
 import { eq, and, asc, desc } from 'drizzle-orm'
-import { results, participants, raceRuns, categories, events, checkpointImports, checkpointReadings, teamLaps } from '../db/schema.js'
+import { results, participants, raceRuns, categories, events, checkpointImports, checkpointReadings, teamLaps, hostTeams } from '../db/schema.js'
 import { broadcast } from '../ws/broadcaster.js'
 import { isRemoved } from '../lib/registrationGuards.js'
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib'
@@ -37,8 +37,8 @@ export async function resultsRoutes(fastify) {
   })
 
   // Team standings of a race run, derived from the members' own results (@leszyrun/ui
-  // computeTeamResults). The host holds no team names, so teams are labelled by their
-  // members' surnames here; the public snapshot adds the registration's names.
+  // computeTeamResults). Only the names of teams set up on the hosts (host_teams) are local;
+  // a registration team, whose name the host never holds, is labelled by its members' surnames.
   fastify.get('/races/:raceRunId/teams', async (req, reply) => {
     const run = await db.query.raceRuns.findFirst({
       where: eq(raceRuns.id, req.params.raceRunId),
@@ -55,10 +55,13 @@ export async function resultsRoutes(fastify) {
     const laps = mode === 'relay_free'
       ? await db.select().from(teamLaps).where(eq(teamLaps.raceRunId, run.id))
       : []
+    const named = await db.select({ id: hostTeams.id, name: hostTeams.name }).from(hostTeams)
+      .where(eq(hostTeams.eventId, run.category.eventId))
     return {
       mode,
       data: computeTeamResults({
         mode, results: live, laps,
+        teamNames: Object.fromEntries(named.map(t => [t.id, t.name])),
         lapCount: run.category.teamLapCount ?? undefined,
         raceFinished: run.status === 'finished' || run.status === 'cancelled',
         gunStartedAt: run.startedAt,

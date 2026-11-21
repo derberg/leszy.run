@@ -133,6 +133,19 @@ export const teamLaps = pgTable('team_laps', {
   syncedAt: timestamp('synced_at', { withTimezone: true }),
 })
 
+// The name of a relay team set up on this host (participants.team_id shared by its members,
+// no online registration). Pushed and pulled like categories, so every host shows it. A
+// registration team's name is never stored here (lib/hostTeams.js refuses it); it stays in
+// Supabase's `teams`. Supabase replaces the name 30 days after the race (purge_host_team_names).
+export const hostTeams = pgTable('host_teams', {
+  id: uuid('id').primaryKey(),
+  eventId: uuid('event_id').notNull().references(() => events.id, { onDelete: 'cascade' }),
+  name: text('name').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow(),
+  syncedAt: timestamp('synced_at', { withTimezone: true }),
+})
+
 export const gateCrossings = pgTable('gate_crossings', {
   id: uuid('id').primaryKey().defaultRandom(),
   raceRunId: uuid('race_run_id').notNull().references(() => raceRuns.id, { onDelete: 'cascade' }),
