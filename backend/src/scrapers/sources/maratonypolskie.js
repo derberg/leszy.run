@@ -18,6 +18,53 @@ const MAX_RETRIES = 3
 // merge level.
 const IGNORED_NAMES = ['ITMBWieczorem', 'WtorkiBiegowe']
 
+// The search list has no discipline, sign-up link or fees; the event's detail page
+// (action=5) carries all three. The site serves it in iso-8859-2.
+const DETAIL_URL = (code) => `https://www.maratonypolskie.pl/mp_index.php?dzial=3&action=5&code=${code}`
+
+// Discipline label next to pikto/dyscypN.png → the event_type other scrapers use.
+// Unknown labels stay unset rather than guessed.
+const DISCIPLINE_MAP = {
+  biegi: 'bieg',
+}
+
+function parseDetailPage(html) {
+  const $ = cheerio.load(html)
+
+  const label = $('img[src*="pikto/dyscyp"]').first().closest('tr').text().trim().toLowerCase()
+  const event_type = DISCIPLINE_MAP[label] || null
+
+  let registration_url = null
+  const signup = $('a[target="zglosz"]').first().attr('href')
+  if (signup) {
+    try { registration_url = new URL(signup, 'https://www.maratonypolskie.pl/').href } catch { /* malformed href */ }
+  }
+
+  // Fee tiers: orange "179 pln" cells inside the table headed "OPŁATY STARTOWE".
+  const prices = []
+  // Closest table only, so orange text elsewhere on the page is not read as a fee.
+  $('b').filter((_, b) => /OPŁATY STARTOWE/i.test($(b).text()))
+    .closest('table')
+    .find('font[color="orange" i]')
+    .each((_, el) => {
+      const m = $(el).text().match(/(\d+(?:[.,]\d+)?)\s*pln/i)
+      if (m) prices.push(Number(m[1].replace(',', '.')))
+    })
+
+  return {
+    event_type,
+    registration_url,
+    price_from: prices.length ? Math.min(...prices) : null,
+    price_to: prices.length ? Math.max(...prices) : null,
+  }
+}
+
+async function fetchDetail(code) {
+  const res = await fetch(DETAIL_URL(code), { headers: { 'User-Agent': 'leszy.run/1.0 (lukasz@leszy.run)' } })
+  if (!res.ok) throw new Error(`HTTP ${res.status}`)
+  return parseDetailPage(new TextDecoder('iso-8859-2').decode(await res.arrayBuffer()))
+}
+
 function parseSearchResults(html, today) {
   const $ = cheerio.load(html)
   const events = []
@@ -173,8 +220,25 @@ async function scrape({ knownIds = new Set() } = {}) {
     }
   }
 
+  // Only new events reach here (known source_ids are skipped above).
+  for (const event of allEvents) {
+    if (!/^\d+$/.test(event.source_id)) continue
+    try {
+      const detail = await fetchDetail(event.source_id)
+      if (detail.event_type) event.event_type = detail.event_type
+      if (detail.registration_url) event.registration_url = detail.registration_url
+      if (detail.price_from != null) {
+        event.price_from = detail.price_from
+        event.price_to = detail.price_to
+      }
+    } catch (err) {
+      console.error(`[maratonypolskie] Detail ${event.source_id} failed:`, err.message?.slice(0, 100))
+    }
+    await new Promise(r => setTimeout(r, 300))
+  }
+
   console.log(`[maratonypolskie] Scraped ${allEvents.length} events total`)
   return allEvents
 }
 
-export { scrape }
+export { scrape, parseDetailPage }

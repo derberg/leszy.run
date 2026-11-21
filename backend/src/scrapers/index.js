@@ -62,6 +62,17 @@ const sources = [
     name: 'maratonypolskie',
     scrape: scrapeMaratonypolskie,
     table: 'scraper_maratonypolskie',
+    // scrape() now emits event_type, registration_url, price_from and price_to off
+    // the action=5 detail page, but scraper_maratonypolskie has none of these
+    // columns (checked 2026-11-18), so they are dropped here, as for timekeeper.
+    // Mapping them first would fail every insert. One migration opens it:
+    //
+    //   ALTER TABLE scraper_maratonypolskie ADD COLUMN IF NOT EXISTS event_type text;
+    //   ALTER TABLE scraper_maratonypolskie ADD COLUMN IF NOT EXISTS registration_url text;
+    //   ALTER TABLE scraper_maratonypolskie ADD COLUMN IF NOT EXISTS price_from numeric;
+    //   ALTER TABLE scraper_maratonypolskie ADD COLUMN IF NOT EXISTS price_to   numeric;
+    //
+    // then map them below and re-scrape.
     mapRow: (raw) => ({
       name: raw.name,
       date: raw.date,
