@@ -1,0 +1,14 @@
+[Unit]
+Description=LeszyRun admin frontend (static)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=leszyrun
+ExecStart=/usr/bin/node /home/leszyrun/leszyrun/deploy/pi/serve-frontend.mjs
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

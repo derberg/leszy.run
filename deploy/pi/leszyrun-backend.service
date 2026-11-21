@@ -1,0 +1,15 @@
+[Unit]
+Description=LeszyRun main backend
+After=network-online.target postgresql.service mosquitto.service
+Wants=network-online.target postgresql.service mosquitto.service
+
+[Service]
+Type=simple
+User=leszyrun
+WorkingDirectory=/home/leszyrun/leszyrun/backend
+ExecStart=/usr/bin/node --env-file-if-exists=/home/leszyrun/leszyrun/.env src/server.js
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target
