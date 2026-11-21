@@ -82,6 +82,47 @@ async function markSynced(db, table, rows, now) {
   return stamped
 }
 
+// Tables whose batch push falls back to one row at a time on a unique violation:
+// - checkpoint_observations has UNIQUE(checkpoint_id, bib_number) in Supabase (migration
+//   20260727173000) besides the id: the checkpoint agent or a volunteer may have inserted the
+//   pair first under a different id.
+// - team_batons has a unique (event_id, epc) index: a tag moved from one team to another within
+//   one cycle can be refused until the other row is pushed.
+// Every other table keeps the all-or-nothing batch.
+export const PER_ROW_FALLBACK = new Set(['checkpoint_observations', 'team_batons'])
+
+/**
+ * Pushes rows one at a time. A pushed row is stamped like a batch row (markSynced). A refused
+ * row is left dirty and returned, so it is pushed again next cycle, except a checkpoint
+ * observation refused on its (checkpoint_id, bib_number) pair, which is retired (see below).
+ * @returns {Promise<Array<{ id: string, message: string }>>} the rows left dirty
+ */
+export async function pushRowsOneByOne(client, db, table, name, rows, snakeRows) {
+  const now = new Date()
+  const failed = []
+  for (let i = 0; i < rows.length; i++) {
+    const row = rows[i]
+    const { error } = await client.from(name).upsert(snakeRows[i], { onConflict: 'id' })
+    if (error) {
+      if (name === 'checkpoint_observations' && error.code === '23505') {
+        // INVARIANT: the (checkpoint_id, bib_number) pair already exists remotely under a
+        // different id ⇒ treat this local row as synced. First-observation-wins by design
+        // (matches the checkpoint-agent's own uploader). Stamped unconditionally on purpose:
+        // this row is being retired, not pushed, so a concurrent local edit must not keep it
+        // dirty forever — the remote pair wins regardless of local changes.
+        await db.update(table).set({ syncedAt: now }).where(sql`id = ${row.id}`)
+        continue
+      }
+      console.error(`[Sync] Error syncing ${name} row ${row.id} (left dirty):`, error.message)
+      failed.push({ id: row.id, message: error.message })
+      continue
+    }
+    // Same lost-update guard as the batch path.
+    await markSynced(db, table, [row], now)
+  }
+  return failed
+}
+
 // Dirty rows plus their xmin version token.
 function selectDirty(db, table) {
   return db.select({ ...getTableColumns(table), __xmin: sql`xmin::text`.as('__xmin') })
@@ -231,44 +272,13 @@ async function runSync(db) {
 
       const { error } = await supabase.from(name).upsert(snakeRows, { onConflict: 'id' })
       if (error) {
-        // checkpoint_observations has UNIQUE(checkpoint_id, bib_number) in Supabase
-        // (migration 20260727173000) in addition to the id PK. If a local row's
-        // (checkpoint_id, bib_number) pair already exists remotely under a
-        // DIFFERENT id — the checkpoint-agent or a volunteer inserted that pair
-        // first — the batched upsert 23505s on that one row and wedges every
-        // other pending row in the same batch forever. Fall back to per-row
-        // upserts so a single bad row can't block the rest. This fallback is
-        // scoped to checkpoint_observations only; every other table keeps the
-        // original all-or-nothing batch behavior.
-        if (name === 'checkpoint_observations' && error.code === '23505') {
+        // A batch upsert is all or nothing, so one row refused by a unique constraint other
+        // than the id would wedge every other pending row of the table forever. For the
+        // tables in PER_ROW_FALLBACK, push row by row instead (pushRowsOneByOne).
+        if (PER_ROW_FALLBACK.has(name) && error.code === '23505') {
           console.error(`[Sync] Batch upsert conflict on ${name} (${error.message}) — falling back to per-row upserts`)
-          const now = new Date()
-          for (let i = 0; i < rows.length; i++) {
-            const row = rows[i]
-            const snakeRow = snakeRows[i]
-            const { error: rowError } = await supabase.from(name).upsert(snakeRow, { onConflict: 'id' })
-            if (rowError) {
-              if (rowError.code === '23505') {
-                // INVARIANT: the (checkpoint_id, bib_number) pair already exists
-                // remotely under a different id ⇒ treat this local row as synced.
-                // First-observation-wins by design (matches the checkpoint-agent's
-                // own uploader) — the remote pair was recorded first, so this row
-                // has nothing left to contribute; mark it synced so it stops
-                // blocking future batches instead of retrying forever. Stamped
-                // unconditionally on purpose: this row is being retired, not
-                // pushed, so a concurrent local edit must not keep it dirty
-                // forever — the remote pair wins regardless of local changes.
-                await db.update(table).set({ syncedAt: now }).where(sql`id = ${row.id}`)
-              } else {
-                console.error(`[Sync] Error syncing ${name} row ${row.id}:`, rowError.message)
-                syncErrors.push(`${name} row ${row.id}: ${rowError.message}`)
-              }
-              continue
-            }
-            // Same lost-update guard as the batch path: this row WAS pushed, so
-            // only retire it if it hasn't changed since the snapshot.
-            await markSynced(db, table, [row], now)
-          }
+          const failed = await pushRowsOneByOne(supabase, db, table, name, rows, snakeRows)
+          for (const f of failed) syncErrors.push(`${name} row ${f.id}: ${f.message}`)
           console.log(`[Sync] Per-row fallback complete for ${name}`)
           continue
         }

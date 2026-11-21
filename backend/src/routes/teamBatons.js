@@ -39,14 +39,17 @@ export async function teamBatonsRoutes(fastify) {
     const now = new Date()
     let row
     try {
-      ;[row] = await db.insert(teamBatons).values({ eventId, teamId, epc, createdAt: now, updatedAt: now })
-        .onConflictDoUpdate({ target: [teamBatons.eventId, teamBatons.teamId], set: { epc, updatedAt: now } })
+      // id = team id, like host_teams: two hosts setting one team's baton write one row, so the
+      // second push updates it instead of failing on (event_id, team_id) forever.
+      ;[row] = await db.insert(teamBatons).values({ id: teamId, eventId, teamId, epc, createdAt: now, updatedAt: now })
+        .onConflictDoUpdate({ target: teamBatons.id, set: { epc, updatedAt: now }, setWhere: eq(teamBatons.eventId, eventId) })
         .returning()
     } catch (err) {
       // Two teams claiming one tag at once: the partial unique index decides.
       if (err.code === '23505') return reply.code(422).send({ error: 'Ten tag ma już pałka innej drużyny.' })
       throw err
     }
+    if (!row) return reply.code(409).send({ error: 'Ta drużyna należy do innego wydarzenia.' })
     const after = await db.select({ teamId: teamBatons.teamId, epc: teamBatons.epc }).from(teamBatons)
       .where(and(eq(teamBatons.eventId, eventId), isNotNull(teamBatons.epc)))
     getDetector()?.reloadBatons(eventId, after)

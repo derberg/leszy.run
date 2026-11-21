@@ -8,8 +8,8 @@ import { teamBatonsRoutes } from '../src/routes/teamBatons.js'
 const EVENT = '11111111-2222-4333-8444-555555555555'
 const TEAM = 'aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee'
 
-async function appFor({ members = [{ id: 'p1' }], tagged = [], batons = [] } = {}) {
-  const log = { inserted: [], conflict: null }
+async function appFor({ members = [{ id: 'p1' }], tagged = [], batons = [], returned } = {}) {
+  const log = { inserted: [], conflict: null, conflictOpts: null }
   let pSel = 0
   const db = {
     select: () => {
@@ -22,8 +22,8 @@ async function appFor({ members = [{ id: 'p1' }], tagged = [], batons = [] } = {
     insert: () => {
       const c = {}
       c.values = (v) => { log.inserted.push(v); c.v = v; return c }
-      c.onConflictDoUpdate = (o) => { log.conflict = o.set; return c }
-      c.returning = () => Promise.resolve([{ ...c.v }])
+      c.onConflictDoUpdate = (o) => { log.conflict = o.set; log.conflictOpts = o; return c }
+      c.returning = () => Promise.resolve(returned ?? [{ ...c.v }])
       return c
     },
   }
@@ -66,4 +66,20 @@ test('GET lists the rows', async () => {
   const { app } = await appFor({ batons: [{ teamId: TEAM, epc: null }] })
   const res = await app.inject({ method: 'GET', url: `/api/events/${EVENT}/team-batons` })
   assert.deepEqual(res.json().data, [{ teamId: TEAM, epc: null }])
+})
+
+test('the row id is the team id, so two hosts writing one team share one row', async () => {
+  const { app, log } = await appFor()
+  assert.equal((await put(app, 'AB12')).statusCode, 200)
+  assert.equal(log.inserted[0].id, TEAM)
+  assert.equal(log.inserted[0].teamId, TEAM)
+  assert.equal(getTableName(log.conflictOpts.target.table), 'team_batons')
+  assert.equal(log.conflictOpts.target.name, 'id')
+  assert.ok(log.conflictOpts.setWhere, 'only a row of this event is updated')
+})
+
+test('a team id that belongs to another event answers 409', async () => {
+  const { app } = await appFor({ returned: [] })
+  const res = await put(app, 'AB12')
+  assert.equal(res.statusCode, 409)
 })

@@ -6,15 +6,17 @@
 -- code that pushes team_batons or the new team_laps columns, or every push of them is refused
 -- (the push retries next cycle).
 
+-- id is the team id (like host_teams): every host writes the same row for a team, so two hosts
+-- setting one team's baton never push two rows that refuse each other.
 CREATE TABLE public.team_batons (
-  id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  id          uuid PRIMARY KEY,
   event_id    uuid NOT NULL REFERENCES public.events(id) ON DELETE CASCADE,
   team_id     uuid NOT NULL,
   epc         text,
   created_at  timestamptz DEFAULT now(),
   updated_at  timestamptz DEFAULT now(),
   synced_at   timestamptz,
-  UNIQUE (event_id, team_id)
+  CONSTRAINT team_batons_id_is_team_id CHECK (id = team_id)
 );
 CREATE UNIQUE INDEX team_batons_event_epc_key ON public.team_batons (event_id, epc) WHERE epc IS NOT NULL;
 ALTER TABLE public.team_batons ENABLE ROW LEVEL SECURITY;

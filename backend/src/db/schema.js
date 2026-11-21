@@ -155,8 +155,9 @@ export const hostTeams = pgTable('host_teams', {
 
 // The tag a relay team carries as its baton (categories.team_lap_source = 'baton'). One per
 // team; an EPC belongs to one team per event. epc NULL: the team has no baton assigned yet.
+// id is the team id (like host_teams), so every host writes the same row for a team.
 export const teamBatons = pgTable('team_batons', {
-  id: uuid('id').primaryKey().defaultRandom(),
+  id: uuid('id').primaryKey(),
   eventId: uuid('event_id').notNull().references(() => events.id, { onDelete: 'cascade' }),
   teamId: uuid('team_id').notNull(),
   epc: text('epc'),
@@ -164,7 +165,6 @@ export const teamBatons = pgTable('team_batons', {
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow(),
   syncedAt: timestamp('synced_at', { withTimezone: true }),
 }, (t) => [
-  unique().on(t.eventId, t.teamId),
   uniqueIndex('team_batons_event_epc_key').on(t.eventId, t.epc).where(sql`${t.epc} IS NOT NULL`),
 ])
 
