@@ -229,7 +229,7 @@ test('T-80 a relay across every audience: built in the wizard, paid once, one co
   await expect(entry).not.toContainText('Piotr')
   await expect(entry).not.toContainText('Borowy')
   await expect(entry).toContainText('+1 czeka na potwierdzenie')
-  await expect(entry.locator('td').nth(4)).toHaveText('4')
+  await expect(entry.locator('td').nth(3)).toHaveText('4')
   await expect(viewer.getByTestId('list-competition')).toContainText(`${RELAY} · drużyny`)
   await expect(viewer.getByTestId('list-competition')).toContainText('1 / 20')
 

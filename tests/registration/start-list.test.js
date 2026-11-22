@@ -101,7 +101,7 @@ async function eventWithOrders() {
   return { event, bieg, marsz, dzieci, people, orders }
 }
 
-test('P-45 start_list: name, town, club, competition, age group and payment; nothing personal; awaiting listed as awaiting, expired and cancelled never listed', async () => {
+test('P-45 start_list: name, club, competition, age group and payment, no town; nothing personal; awaiting listed as awaiting, expired and cancelled never listed', async () => {
   const { event, bieg, marsz, dzieci, people, orders } = await eventWithOrders()
 
   const { data, error } = await anon.rpc('start_list', { p_event_id: event.eventId })
@@ -116,22 +116,21 @@ test('P-45 start_list: name, town, club, competition, age group and payment; not
   // deleted account, the expired and the cancelled entries are not.
   assert.deepEqual(Object.keys(byName).sort(), ['Anna Zielna', 'Bartek Czekaj', 'Ewa Kijek', 'Kuba Młody', 'Zosia Mała'])
   assert.deepEqual(byName['Bartek Czekaj'], {
-    name: 'Bartek Czekaj', town: 'Zabrze', club: null, categoryId: bieg, competition: 'Bieg 9 km', ageGroupLabel: 'K open',
+    name: 'Bartek Czekaj', club: null, categoryId: bieg, competition: 'Bieg 9 km', ageGroupLabel: 'K open',
     kidsGroupLabel: null, gender: 'K', payment: 'awaiting',
   })
   assert.deepEqual(byName['Anna Zielna'], {
-    name: 'Anna Zielna', town: 'Gliwice', club: 'ZATYRANI', categoryId: bieg, competition: 'Bieg 9 km', ageGroupLabel: 'K open',
+    name: 'Anna Zielna', club: 'ZATYRANI', categoryId: bieg, competition: 'Bieg 9 km', ageGroupLabel: 'K open',
     kidsGroupLabel: null, gender: 'K', payment: 'paid',
   })
   assert.equal(byName['Ewa Kijek'].competition, 'Marsz 5 km')
   assert.equal(byName['Ewa Kijek'].ageGroupLabel, 'K40')
-  // P3-R14: no town for a runner under 18 on the event date; the club stays.
-  assert.equal(byName['Kuba Młody'].town, null)
+  // 2026-11-22: no town for anybody (P3-R14 hid it under 18 only); the club stays.
+  for (const e of data.entries) assert.equal('town' in e, false, e.name)
   assert.equal(byName['Kuba Młody'].club, 'UKS Sokół')
   assert.equal(byName['Kuba Młody'].payment, 'paid')
   // I1: a 0 zł entry of a paid event is free, never „opłacone”.
   assert.equal(byName['Zosia Mała'].payment, 'free')
-  assert.equal(byName['Zosia Mała'].town, null)
   assert.deepEqual(data.entries.filter((e) => e.payment === 'awaiting').map((e) => e.name), ['Bartek Czekaj'])
 
   // Nothing personal or financial at any depth, by key and by value.
@@ -317,7 +316,7 @@ test('G-40 start_list: gender and the kids-group label; no birth, @, phone, bib,
   assert.equal(error, null, error?.message)
   const byName = Object.fromEntries(data.entries.map((e) => [e.name, e]))
   assert.deepEqual(byName['Zosia Wiśniewska'], {
-    name: 'Zosia Wiśniewska', town: null, club: 'UKS Sokół', categoryId: f.kids, competition: 'Bieg dzieci 1 km',
+    name: 'Zosia Wiśniewska', club: 'UKS Sokół', categoryId: f.kids, competition: 'Bieg dzieci 1 km',
     ageGroupLabel: 'K dzieci', kidsGroupLabel: 'Dzieci I', gender: 'K', payment: 'paid',
   })
   assert.equal(byName['Marta Opiekuńcza'].gender, 'K')
@@ -356,7 +355,8 @@ test('G-40 start_list: gender and the kids-group label; no birth, @, phone, bib,
   assert.equal(oErr, null)
   const jan = (await anon.rpc('start_list', { p_event_id: f.event.eventId })).data.entries.find((e) => e.name === 'Jan Dodany')
   assert.equal(jan.gender, 'M')
-  assert.equal(jan.town, 'Zabrze')
+  assert.equal('town' in jan, false)
+  assert.ok(!JSON.stringify(data).includes('Zabrze'), 'a town leaked')
 
   // The parent deletes their account (what delete-my-account writes): their own entry is
   // anonymised and leaves the list; the child's entry only loses the guardian fields.
@@ -403,7 +403,7 @@ test('G-41 start_list counts after a family with one paid and one pending order:
   assert.deepEqual(data.entries.map((e) => [e.name, e.payment]).sort(), [
     ['Kuba Czekający', 'awaiting'], ['Marta Płacąca', 'paid'], ['Ola Płacąca', 'paid'], ['Tomasz Czekający', 'awaiting'],
   ].sort())
-  assert.equal(data.entries.find((e) => e.name === 'Kuba Czekający').town, null, 'a pending child has no town either')
+  assert.equal('town' in data.entries.find((e) => e.name === 'Kuba Czekający'), false, 'a pending entry has no town either')
 
   // An unpaid entry leaves the list the moment its order lapses.
   await expireNow(pending.orderId)
@@ -471,7 +471,8 @@ test('G-51 an added adult is counted but listed only once they accept online or 
       .eq('order_id', fam.orderId).eq('last_name', 'Dopisany')
     assert.equal(error, null)
     const after = await list()
-    assert.equal(after.entries.find((e) => e.name === 'Piotr Dopisany')?.town, 'Rybnik', state)
+    assert.ok(after.entries.some((e) => e.name === 'Piotr Dopisany'), state)
+    assert.ok(!JSON.stringify(after).includes('Rybnik'), `${state}: no town`)
     assert.equal(after.competitions.find((c) => c.categoryId === f.bieg).paid, 2)
   }
 })
@@ -506,7 +507,7 @@ const namedSquad = (cat) => [
   minor(cat, { firstName: 'Staś', lastName: 'Niesiony', birthDate: '2015-08-09', gender: 'M' }),
 ]
 
-test('T-70 a team entry carries its name, its members\' full names, size, the captain\'s town and payment; no birth date, e-mail, phone, member\'s town, leg or guardian at any depth', async () => {
+test('T-70 a team entry carries its name, its members\' full names, size and payment; no town, birth date, e-mail, phone, leg or guardian at any depth', async () => {
   const event = await paidTeamEvent(owner, { legOrder: true })
   const cat = event.categoryIds[0]
   const members = namedSquad(cat).map((m, i) => ({ ...m, leg: 4 - i }))
@@ -517,7 +518,7 @@ test('T-70 a team entry carries its name, its members\' full names, size, the ca
   const data = await list(event)
   assert.deepEqual(data.competitions, [{ categoryId: cat, name: 'Sztafeta', kind: 'team', capacity: 50, isKids: false, paid: 1, free: 0, awaiting: 0 }])
   assert.deepEqual(data.entries, [{
-    kind: 'team', name: 'Wilcze Stado', members: ['Staś Niesiony', 'Zosia Biegnąca', 'Piotr Sztafetowy', 'Ola Kapitańska'], size: 4, town: 'Gliwice',
+    kind: 'team', name: 'Wilcze Stado', members: ['Staś Niesiony', 'Zosia Biegnąca', 'Piotr Sztafetowy', 'Ola Kapitańska'], size: 4,
     categoryId: cat, competition: 'Sztafeta', payment: 'paid',
   }], 'the legs order the names, and never show themselves')
 
@@ -528,12 +529,12 @@ test('T-70 a team entry carries its name, its members\' full names, size, the ca
   const text = valuesOf(data).join(' ')
   // Members are named in full since 20261110120000_start_list_team_full_names.sql (#373), like a
   // person's entry; a surname appears only inside `members`, never as a key of its own.
-  for (const leak of ['Rybnik', '@', '500222333', '1984', '1983', '2014-', out.orderId, out.teamId]) {
+  for (const leak of ['Rybnik', 'Gliwice', '@', '500222333', '1984', '1983', '2014-', out.orderId, out.teamId]) {
     assert.ok(!text.includes(leak), `${leak} leaked`)
   }
 })
 
-test('T-70 with the legs off the names follow the order the captain gave them (team_position); a captain under the town rule gives no town', async () => {
+test('T-70 with the legs off the names follow the order the captain gave them (team_position)', async () => {
   const event = await freeTeamEvent(owner)
   const cat = event.categoryIds[0]
   const [cap, ...rest] = namedSquad(cat)
@@ -543,11 +544,6 @@ test('T-70 with the legs off the names follow the order the captain gave them (t
   // M-2: one sign-up shares one created_at, so the stored team_position keeps the request's order.
   assert.deepEqual(e.members, ['Ola Kapitańska', 'Piotr Sztafetowy', 'Zosia Biegnąca', 'Staś Niesiony'])
   assert.equal(e.payment, 'free')
-
-  // A pair with no birth date is the town rule's own edge: no proof of age, no town.
-  const { error } = await db().from('registrations').update({ birth_date: null }).eq('id', out.registrations[0].id)
-  assert.equal(error, null)
-  assert.equal((await list(event)).entries[0].town, null)
 })
 
 test('T-71 2 paid teams and 1 pending: paid 2, awaiting 1, paid + free = taken, 3 team entries, the pending one awaiting and outside the limit; members are not entries; after a swap the new member is listed and the old one is not', async () => {
@@ -673,7 +669,7 @@ test('T-74 a swapped-in adult waits too, and is not public until they accept', a
   assert.deepEqual(data.map((p) => p.first_name), ['Ola'])
 })
 
-test('T-74 D5-29: a member who deleted their account leaves the names and the team stays; a deleted captain leaves the town too', async () => {
+test('T-74 D5-29: a member who deleted their account leaves the names and the team stays', async () => {
   const event = await freeTeamEvent(owner)
   const cat = event.categoryIds[0]
   const out = await teamOk(event, { name: 'Po Usunięciu', members: namedSquad(cat) })
@@ -687,14 +683,12 @@ test('T-74 D5-29: a member who deleted their account leaves the names and the te
   let [e] = (await list(event)).entries
   assert.deepEqual([...e.members].sort(), ['Ola Kapitańska', 'Staś Niesiony', 'Zosia Biegnąca'])
   assert.equal(e.size, 4)
-  assert.equal(e.town, 'Gliwice')
 
   await anonymise(out.registrations[0].id)
   const data = await list(event)
   ;[e] = data.entries
   assert.equal(e.name, 'Po Usunięciu')
   assert.deepEqual([...e.members].sort(), ['Staś Niesiony', 'Zosia Biegnąca'])
-  assert.equal(e.town, null)
   assert.equal(data.competitions[0].free, 1)
   assert.ok(!JSON.stringify(data).includes('Usunięte konto'))
 })

@@ -7,9 +7,9 @@
 // The filters live in the page's state, never in the URL: a search names a person,
 // and the address is what analytics sees.
 //
-// Entries awaiting payment are listed by name with the badge „czeka na wpłatę”
-// (user decision 2026-11-22, relaxing ruling P3-R14, which only counted them);
-// a minor's town still never arrives. An entry is 'paid' (money moved), 'free'
+// Entries awaiting payment are listed by name as „czeka na wpłatę” (user decision
+// 2026-11-22, relaxing ruling P3-R14, which only counted them). No town at all
+// (user decision 2026-11-22): the organizer keeps it, the public list never shows it. An entry is 'paid' (money moved), 'free'
 // (nothing to pay: a free event or a 0 zł entry) or 'awaiting'; only 'paid'
 // reads „opłacone”. A free event never mentions payment.
 //
@@ -37,7 +37,7 @@ const unnamedText = (n) => `+${n} ${pluralPl(n, 'czeka', 'czekają', 'czeka')} n
 
 const isTeam = (e) => e.kind === 'team'
 
-/** The entry's badge on a paid event: „opłacone”, „czeka na wpłatę” or none (free). */
+/** The entry's payment label on a paid event: „opłacone”, „czeka na wpłatę” or none (free). */
 const badgeOf = (payment, paidEvent) => {
   if (!paidEvent) return null
   if (payment === 'paid') return 'opłacone'
@@ -86,7 +86,6 @@ function teamEntry(e, paidEvent) {
     unnamedText: unnamed > 0 ? unnamedText(unnamed) : null,
     squad: e.size ?? 0,
     size,
-    town: e.town ?? null,
     club: null,
     categoryId: e.categoryId,
     competition: e.competition,
@@ -115,6 +114,7 @@ export function startListView(snapshot, { paidEvent }) {
     : [people > 0 || teams === 0 ? registeredText(people) : null, teams > 0 ? teamsText(teams) : null].filter(Boolean).join(' · ')
   return {
     header,
+    paidEvent,
     competitions: comps.map((c) => {
       const cPaid = c.paid ?? 0
       const cFree = c.free ?? 0
@@ -140,13 +140,12 @@ export function startListView(snapshot, { paidEvent }) {
       const category = e.kidsGroupLabel ?? e.ageGroupLabel ?? null
       return {
         name: e.name,
-        town: e.town ?? null,
         club: e.club ?? null,
         categoryId: e.categoryId,
         competition: e.competition,
         category,
         gender: e.gender ?? null,
-        where: [e.town, e.club].filter(Boolean).join(' · '),
+        where: e.club ?? '',
         what: [e.competition, category].filter(Boolean).join(' · '),
         badge: badgeOf(e.payment, paidEvent),
         awaiting: paidEvent && e.payment === 'awaiting',
@@ -196,7 +195,7 @@ export function startListFilterOptions(view, { categoryId = '' } = {}) {
 
 /**
  * The entries a viewer's filters keep, in start_list's order. Every empty filter
- * keeps everyone; `club` '__none' keeps those with no club; `q` matches name, town
+ * keeps everyone; `club` '__none' keeps those with no club; `q` matches name
  * and club, ignoring case and Polish diacritics. A team stays only with `category`,
  * `gender` and `club` empty, and `q` matches its name and first names. `total` is the
  * whole list.
@@ -213,7 +212,7 @@ export function filterStartList(view, { categoryId = '', category = '', gender =
       : (!category || e.category === category)
         && (!gender || e.gender === gender)
         && (!club || (club === NO_CLUB ? !e.club : e.club === club)))
-    && (!needle || (isTeam(e) ? [e.name, ...e.members] : [e.name, e.town, e.club]).some((f) => f && foldPl(f).includes(needle))))
+    && (!needle || (isTeam(e) ? [e.name, ...e.members] : [e.name, e.club]).some((f) => f && foldPl(f).includes(needle))))
   return { entries, total: all.length }
 }
 

@@ -68,7 +68,7 @@ async function mailsTo(address, n) {
 
 const zgloszenia = (eventId) => `/klub/zatyrani-test/wydarzenia/${eventId}/zgloszenia`
 
-test('G-58 a family across every audience: one payment for three people, one consent e-mail, the public list without the child\'s town, the organizer\'s count, Piotr accepts by the link, the host pulls all three', async ({ actors }) => {
+test('G-58 a family across every audience: one payment for three people, one consent e-mail, the public list without any town, the organizer\'s count, Piotr accepts by the link, the host pulls all three', async ({ actors }) => {
   const name = `Rodzinny Bieg ${rand()}`
   const event = { name, ...(await createPublishedPaidEvent(owner, {
     name, competitions: [NW, BIEG, KIDS], prices: { 'NW 9 km': 6000, 'Bieg 9 km': 6000, 'Bieg dzieci 1 km': 2000 },
@@ -124,12 +124,13 @@ test('G-58 a family across every audience: one payment for three people, one con
   expect((await captureRequests()).map((r) => r.subject).sort())
     .toEqual([`Opłacone — ${name}`, `Zapisano Cię na ${name} — zaakceptuj regulamin`])
 
-  // viewer: the payer and the child, the child with no town; Piotr not by name until he accepts (T7-F2).
+  // viewer: the payer and the child, no town for anybody (2026-11-22); Piotr not by name until he accepts (T7-F2).
   const viewer = await offline(await actors.viewer.newPage())
   await viewer.goto(`/events/${event.slug}/lista`)
   const entries = viewer.getByTestId('start-list-entry')
   await expect(entries).toHaveCount(2)
-  await expect(entries.filter({ hasText: 'Ola Leśna' })).toContainText('Leszno')
+  await expect(entries.filter({ hasText: 'Ola Leśna' })).toHaveCount(1)
+  await expect(viewer.getByTestId('start-list')).not.toContainText('Leszno')
   await expect(entries.filter({ hasText: 'Zosia Leśna' })).toHaveCount(1)
   await expect(viewer.getByTestId('start-list')).not.toContainText('Gierałtowice')
   await expect(viewer.getByTestId('start-list')).not.toContainText('Borowy')

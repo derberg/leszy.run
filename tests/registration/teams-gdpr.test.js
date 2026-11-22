@@ -115,7 +115,7 @@ test('T-82 the captain deletes their account → the team stays listed under a n
   assert.equal(entry.name, team.name)
   assert.equal(entry.size, 4)
   assert.ok(!entry.members.includes('Ola'), 'the deleted captain is not named')
-  assert.equal(entry.town, null)
+  assert.equal('town' in entry, false)
   assert.ok(!JSON.stringify(after).includes(t.name))
   assert.equal(after.competitions[0].free + after.competitions[0].paid, before.competitions[0].free + before.competitions[0].paid)
 

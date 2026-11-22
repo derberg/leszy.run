@@ -89,7 +89,7 @@ for (const width of WIDTHS) {
     const entries = viewer.getByTestId('start-list-entry')
     await expect(entries).toHaveCount(1)
     await expect(entries.first()).toContainText('Wilcze Stado')
-    // Members are named in full since #373 (Drużyny list: Drużyna · Skład · Miejscowość · Konkurencja · Liczba osób).
+    // Members are named in full since #373 (Drużyny list: Drużyna · Skład · Konkurencja · Liczba osób · Wpłata; no town since 2026-11-22).
     for (const name of ['Ola Leśna', 'Piotr Leśny', 'Ewa Leśny', 'Jan Leśny']) await expect(entries.first()).toContainText(name)
     await expect(viewer.getByTestId('list-competition')).toContainText('Sztafeta · drużyny')
     await expect(viewer.getByTestId('list-competition')).toContainText('1 / 20 miejsc')
@@ -97,9 +97,10 @@ for (const width of WIDTHS) {
       await expect(entries.first()).toContainText(/sztafeta · 4 osoby/i)
     } else {
       const cells = entries.first().locator('td')
-      await expect(cells.nth(2)).toHaveText('Gliwice')
-      await expect(cells.nth(3)).toHaveText('Sztafeta')
-      await expect(cells.nth(4)).toHaveText('4')
+      await expect(cells.nth(2)).toHaveText('Sztafeta')
+      await expect(cells.nth(3)).toHaveText('4')
+      await expect(cells.nth(4)).toHaveText(/opłacone/i)
+      await expect(viewer.getByTestId('start-list')).not.toContainText('Gliwice')
     }
     await noOverflow(viewer)
 

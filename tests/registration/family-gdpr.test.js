@@ -161,7 +161,7 @@ test('G-60 the payer deletes the account: the child and Piotr stay, every pointe
   assert.deepEqual(after.entries.map((e) => e.name).sort(), ['Piotr Borowy', 'Zosia Leśna'])
   assert.deepEqual(after.competitions, before.competitions, 'the counts are unchanged: the slot stays')
   const zosia = after.entries.find((e) => e.name === 'Zosia Leśna')
-  assert.equal(zosia.town ?? null, null, 'no town under 18')
+  assert.equal('town' in zosia, false, 'no town on the start list')
 
   const list = await callFn('list-event-registrations', owner, { eventId: f.event.eventId })
   assert.equal(list.status, 200, JSON.stringify(list.body))

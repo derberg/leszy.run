@@ -44,9 +44,12 @@ describe('runnerDataInfo start list (P3-R14, relaxed 2026-11-22)', () => {
     assert.equal(t.includes('tylko jako liczbę'), false)
   })
 
-  it('every event: no town for a runner under 18', () => {
+  it('every event: nobody\'s town is published (2026-11-22)', () => {
     for (const paid of [false, true]) {
-      assert.ok(text(runnerDataInfo({ ...base, paid })).includes('Miejscowości osób niepełnoletnich nie publikujemy.'))
+      const t = text(runnerDataInfo({ ...base, paid }))
+      assert.ok(t.includes('Miejscowości nie publikujemy: widzi ją tylko Organizator.'))
+      assert.ok(t.includes('Na publicznej liście startowej: imię, nazwisko, płeć, klub,'))
+      assert.equal(t.includes('miejscowość kapitana'), false)
     }
   })
 
@@ -58,7 +61,7 @@ describe('runnerDataInfo start list (P3-R14, relaxed 2026-11-22)', () => {
 
 describe('runnerDataInfo teams (Plan 5, T-84)', () => {
   const lines = [
-    'Drużyna ma na liście startowej jeden wiersz: nazwę drużyny, imiona członków bez nazwisk, liczbę osób i miejscowość kapitana.',
+    'Drużyna ma na liście startowej jeden wiersz: nazwę drużyny, imiona i nazwiska członków i liczbę osób.',
     'Nazwa drużyny: 30 dni po dniu zawodów.',
     'W drużynie dane pozostałych członków podaje kapitan (art. 14 ust. 2 lit. f RODO).',
     'Zapisując drużynę, kapitan musi podać o dorosłym członku tylko imię, nazwisko, datę urodzenia, płeć i adres e-mail; pola zgłoszenia, których kapitan nie wypełni',
@@ -199,7 +202,7 @@ describe('runnerDataInfo transfers (Plan 7, task 10)', () => {
     const t = JSON.stringify(section())
     assert.ok(t.includes('Osoba zaproszona dostaje wtedy e-mail, że zaproszenie cofnięto, bez Twojego imienia.'))
     const { RUNNER_DATA_INFO_VERSION } = await import('../../src/legal/runnerDataInfo.js')
-    assert.ok(['2026-11-v11', '2026-11-v12', '2026-11-v13'].includes(RUNNER_DATA_INFO_VERSION))
+    assert.ok(['2026-11-v11', '2026-11-v12', '2026-11-v13', '2026-11-v14'].includes(RUNNER_DATA_INFO_VERSION))
   })
 
   it('never mentions a partner or a discount code', () => {
@@ -223,6 +226,6 @@ describe('TP-44 a team child\'s parent named by the captain', () => {
     assert.ok(t.includes('Imię, nazwisko i adres e-mail opiekuna usuwamy 30 dni po dniu zawodów.'))
     assert.equal(JSON.stringify(runnerDataInfo(base)).includes('rodzica lub opiekuna; źródłem'), false, 'teams only')
     const { RUNNER_DATA_INFO_VERSION } = await import('../../src/legal/runnerDataInfo.js')
-    assert.ok(['2026-11-v12', '2026-11-v13'].includes(RUNNER_DATA_INFO_VERSION))
+    assert.ok(['2026-11-v12', '2026-11-v13', '2026-11-v14'].includes(RUNNER_DATA_INFO_VERSION))
   })
 })
