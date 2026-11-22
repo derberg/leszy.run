@@ -36,28 +36,30 @@ test('no detector: nothing reloaded, no query', async () => {
   assert.equal(queried, false)
 })
 
-test('a baton relay category reloads with its lap source and the event\'s tagged batons', async () => {
+test('a relay in any order reloads with the event\'s tagged batons, whatever team_lap_source holds', async () => {
   const event = { id: 'e1' }
-  const run = { id: 'r1', status: 'active', category: { event, teamMode: 'relay_free', teamLapCount: null, teamTimeLimitSeconds: null, teamLapSource: 'baton', participants: [] } }
-  const batons = [{ teamId: 'T', epc: 'B1' }]
-  let selected = 0
-  const db = {
-    query: { raceRuns: { findMany: async () => [run] } },
-    select: () => ({ from: () => ({ where: async () => { selected++; return batons } }) }),
+  for (const teamLapSource of ['baton', 'runner']) {
+    const run = { id: 'r1', status: 'active', category: { event, teamMode: 'relay_free', teamLapCount: null, teamTimeLimitSeconds: null, teamLapSource, participants: [] } }
+    const batons = [{ teamId: 'T', epc: 'B1' }]
+    let selected = 0
+    const db = {
+      query: { raceRuns: { findMany: async () => [run] } },
+      select: () => ({ from: () => ({ where: async () => { selected++; return batons } }) }),
+    }
+    const calls = []
+    await reloadActiveRaces(db, { startRace: async (...args) => { calls.push(args) } })
+    assert.equal(selected, 1)
+    assert.equal('teamLapSource' in calls[0][1], false, 'the deprecated column is not passed on')
+    assert.deepEqual(calls[0][1].batons, batons)
   }
-  const calls = []
-  await reloadActiveRaces(db, { startRace: async (...args) => { calls.push(args) } })
-  assert.equal(selected, 1)
-  assert.equal(calls[0][1].teamLapSource, 'baton')
-  assert.deepEqual(calls[0][1].batons, batons)
 })
 
-test('a relay category counting runner tags never reads team_batons', async () => {
+test('a fixed-order relay never reads team_batons', async () => {
   const event = { id: 'e1' }
-  const run = { id: 'r1', status: 'active', category: { event, teamMode: 'relay_free', teamLapSource: 'runner', participants: [] } }
+  const run = { id: 'r1', status: 'active', category: { event, teamMode: 'relay', participants: [] } }
   const db = { query: { raceRuns: { findMany: async () => [run] } }, select: () => { throw new Error('no team_batons read') } }
   const calls = []
   await reloadActiveRaces(db, { startRace: async (...args) => { calls.push(args) } })
-  assert.equal(calls[0][1].teamLapSource, 'runner')
+  assert.equal(calls[0][1].teamMode, 'relay')
   assert.equal(calls[0][1].batons, undefined)
 })

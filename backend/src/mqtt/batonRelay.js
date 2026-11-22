@@ -1,5 +1,5 @@
 /**
- * Relay in any order with a baton (categories.team_lap_source = 'baton'). Pure helpers, no DB.
+ * Relay in any order (categories.team_mode = 'relay_free'), timed by each team's baton. Pure helpers, no DB.
  *
  * The team's laps come from its baton tag only (crossingDetector.js). The runners' own tags
  * feed two things: who ran the lap (attribution) and laps that came in without the baton
