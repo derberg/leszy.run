@@ -338,6 +338,27 @@ is no ambiguity between departure and return.
 - Event on `rfid_topic_main` (start topic) → `start_time`
 - Event on `rfid_topic_finish` → `finish_time`
 
+### Relay categories (`categories.team_mode`)
+
+A team is never timed by a result of its own; its standing is derived from its members' rows
+by `computeTeamResults()` in `@leszyrun/ui`.
+
+- **`relay`** (fixed order): leg k starts at leg k-1's confirmed finish (`startTimeSource =
+  'handover'`); until then its reads are audited and ignored.
+- **`relay_free`** (any order, a member may run several laps): each lap is a `team_laps` row,
+  pushed and pulled like `results`. A pass closes a lap only for a tag silent for
+  `lap_arrival_silence_seconds` before it, and at least `min_finish_seconds` after the team's
+  previous lap. What may close it depends on `categories.team_lap_source`:
+  - `runner`: any member's bib tag;
+  - `baton`: only the team's baton tag (`team_batons`, one tag per team). Runner tags then only
+    credit the lap to the member who came in from the course with the baton, or raise a
+    `candidate` lap that never counts until an operator approves it.
+
+The baton exists because an antenna on the exchange line cannot tell an arriving runner from a
+waiting one, and an antenna elsewhere on the track makes every individual lap time wrong. Rules,
+known limits, the operator panel and the race-day checklist:
+[docs/relay-timing.md](docs/relay-timing.md).
+
 ---
 
 ## RFID Assignment Dialog
