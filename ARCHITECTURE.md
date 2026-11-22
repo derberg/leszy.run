@@ -340,8 +340,9 @@ is no ambiguity between departure and return.
 
 ### Relay categories (`categories.team_mode`)
 
-A team is never timed by a result of its own; its standing is derived from its members' rows
-by `computeTeamResults()` in `@leszyrun/ui`.
+A team is never timed by a result of its own; its standing is derived by `computeTeamResults()`
+in `@leszyrun/ui`: from the members' result rows in a fixed-order relay, from the `team_laps` rows
+in a relay in any order.
 
 - **`relay`** (fixed order): leg k starts at leg k-1's confirmed finish (`startTimeSource =
   'handover'`); until then its reads are audited and ignored.
