@@ -332,7 +332,8 @@ export default function Podstawy({ event, queue, saveState, readOnly, reload, re
             <div>
               <label htmlFor="ev-goal" className={fieldLabel}>Cel</label>
               <input id="ev-goal" className={fieldInput} value={form.charityGoal} onChange={set('charityGoal')} />
-              <FieldError message={errors.charityGoal} />
+              <FieldError message={errors.charityGoal
+                ?? (form.charityUrl.trim() && !form.charityGoal.trim() ? 'Podaj nazwę celu: na stronie zapisów to ona prowadzi do strony celu.' : null)} />
             </div>
             <div>
               <label htmlFor="ev-goal-percent" className={fieldLabel}>Jaki procent dochodu trafia na cel?</label>

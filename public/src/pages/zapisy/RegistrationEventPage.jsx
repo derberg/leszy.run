@@ -286,6 +286,14 @@ export function EventFrame({ raw, now, preview = false, tab = 'event', links, ch
   )
 }
 
+/** The cause's name, linked to its page when the organizer gave one. */
+function CharityGoal({ m }) {
+  if (!m.charityUrl) return m.charityGoal
+  return (
+    <a href={m.charityUrl} target="_blank" rel="noopener noreferrer" className={linkCls} data-testid="charity-link">{m.charityGoal}{'\u00a0'}↗</a>
+  )
+}
+
 /** The organizer: the logo whole on a white tile, the legal name, the club's own website. */
 function Organizer({ o }) {
   return (
@@ -346,10 +354,10 @@ function EventContent({ raw, m, course }) {
           {m.charityPercent != null ? (
             <p className="flex items-center gap-4 text-lg text-apex-text-bright break-words" data-testid="charity-percent">
               <span className="font-display font-extrabold text-6xl text-apex-rose leading-none shrink-0">{m.charityPercent}%</span>
-              <span>{' '}dochodu trafia {m.charityGoal ? <>na: {m.charityGoal}</> : 'na cel charytatywny'}</span>
+              <span>{' '}dochodu trafia {m.charityGoal ? <>na: <CharityGoal m={m} /></> : 'na cel charytatywny'}</span>
             </p>
-          ) : m.charityGoal && <p className="text-lg text-apex-text-bright break-words">{m.charityGoal}</p>}
-          {m.charityUrl && (
+          ) : m.charityGoal && <p className="text-lg text-apex-text-bright break-words"><CharityGoal m={m} /></p>}
+          {m.charityUrl && !m.charityGoal && (
             <a href={m.charityUrl} target="_blank" rel="noopener noreferrer" className={`self-start whitespace-nowrap text-[15px] ${linkCls}`}
               data-testid="charity-link">Strona celu ↗</a>
           )}

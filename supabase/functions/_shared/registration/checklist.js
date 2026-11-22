@@ -141,6 +141,10 @@ export function publishChecklist(event) {
 
   if (!regulaminGiven(s)) block('regulamin', 'Regulamin (PDF albo link)')
   if (blank(s.contactEmail)) block('contact_email', 'Adres kontaktowy organizatora')
+  // The public page links the cause's name to its page, so a link needs a name to hang on.
+  if (s.isCharity === true && !blank(s.charityUrl) && blank(s.charityGoal)) {
+    block('charity_goal', 'Cel charytatywny: podaj nazwę celu, do którego prowadzi link')
+  }
   if (!event?.hasAgreement) block('agreement', 'Akceptacja umowy organizatora')
   datedItems(event, s, block)
   const reason = moneyReason(event)

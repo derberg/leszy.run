@@ -270,3 +270,11 @@ test('M-4 tiers are checked against the window as it is: a tier ending on or aft
   assert.deepEqual(publishChecklist({ ...complete({ settings: { pricingMode: 'fixed' } }), tiers: [{ endsOn: '2030-01-01' }] })
     .blocking.filter((b) => b.key === 'tiers'), [], 'only tiered pricing has tiers to check')
 })
+
+test('W-13 a charity link without the cause name blocks publish', () => {
+  const r = publishChecklist(complete({ settings: { isCharity: true, charityGoal: '  ', charityUrl: 'https://example.org/cel' } }))
+  assert.deepEqual(r.blocking, [{ key: 'charity_goal', label: 'Cel charytatywny: podaj nazwę celu, do którego prowadzi link' }])
+  assert.deepEqual(publishChecklist(complete({ settings: { isCharity: true, charityGoal: 'Schronisko', charityUrl: 'https://example.org/cel' } })).blocking, [])
+  // Not a charity event: the stored link is never shown, so it holds nothing up.
+  assert.deepEqual(publishChecklist(complete({ settings: { isCharity: false, charityGoal: null, charityUrl: 'https://example.org/cel' } })).blocking, [])
+})
