@@ -1,4 +1,3 @@
-import { chromium } from 'playwright'
 import * as cheerio from 'cheerio'
 
 const BASE_URL = 'https://maratonypolskie.pl'
@@ -17,6 +16,17 @@ const MAX_RETRIES = 3
 // run series (one entry per Tuesday) — repeatedly rejected spam, also blocked at
 // merge level.
 const IGNORED_NAMES = ['ITMBWieczorem', 'WtorkiBiegowe']
+
+// Discipline icons (the cell before the date) of rows that are not running.
+// ik_19.gif is the icon the detail page labels "Biegi narciarskie": the running
+// search lists cross-country ski races too, and their names often carry no ski
+// word (XI Memoriał Stanisława Michonia, code 91455, the 15 km of Bieg Piastów).
+const NON_RUNNING_ICONS = new Set(['ik_19.gif'])
+
+function disciplineIcon($, cell) {
+  const src = $(cell).find('img').attr('src') || ''
+  return src.split('/').pop()
+}
 
 function parseSearchResults(html, today) {
   const $ = cheerio.load(html)
@@ -45,6 +55,7 @@ function parseSearchResults(html, today) {
 
     const date = `${dateMatch[3]}-${dateMatch[2].padStart(2, '0')}-${dateMatch[1].padStart(2, '0')}`
     if (date < today) continue
+    if (i > 0 && NON_RUNNING_ICONS.has(disciplineIcon($, allCells[i - 1]))) continue
 
     i++
     if (i >= allCells.length) break
@@ -112,6 +123,7 @@ async function scrape({ knownIds = new Set() } = {}) {
   for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
     let browser
     try {
+      const { chromium } = await import('playwright')
       browser = await chromium.launch({ headless: true })
       const page = await browser.newPage()
       page.setDefaultTimeout(15000)
@@ -177,4 +189,4 @@ async function scrape({ knownIds = new Set() } = {}) {
   return allEvents
 }
 
-export { scrape }
+export { scrape, parseSearchResults }
