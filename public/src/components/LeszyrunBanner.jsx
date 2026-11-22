@@ -6,6 +6,10 @@ import { calendarRowsByLeszyrunId } from '../lib/calendarQueries.js'
 // Events with less than this many days left are considered registration-closed
 const REG_CLOSED_DAYS = 5
 
+// With two or more promoted events the banner shows one at a time and moves on
+// every ROTATE_MS. Hovering or focusing it stops the rotation, as does a hidden tab.
+const ROTATE_MS = 3000
+
 // Per-event highlight chips, keyed by event slug. Surfaces distances and
 // disciplines that the event NAME hides — e.g. "Wilczy Półmaraton" reads like a
 // single 21 km road race, so Nordic Walking (11 km), Canicross (21 km) and the
@@ -31,6 +35,8 @@ const EVENT_HIGHLIGHTS = {
 export default function LeszyrunBanner({ className = 'max-w-[1200px] mx-auto px-6 mb-4' }) {
   const [events, setEvents] = useState([])
   const [countdowns, setCountdowns] = useState({})
+  const [active, setActive] = useState(0)
+  const [paused, setPaused] = useState(false)
 
   useEffect(() => {
     const cutoff = new Date()
@@ -75,11 +81,33 @@ export default function LeszyrunBanner({ className = 'max-w-[1200px] mx-auto px-
     return () => clearInterval(id)
   }, [events])
 
-  if (!events.length) return null
+  const count = events.length
+  useEffect(() => {
+    if (count < 2 || paused) return
+    const id = setInterval(() => {
+      if (document.visibilityState === 'visible') setActive(i => (i + 1) % count)
+    }, ROTATE_MS)
+    return () => clearInterval(id)
+  }, [count, paused, active])
+
+  if (!count) return null
+  const carousel = count > 1
 
   return (
-    <div className={`${className} flex flex-col gap-2`}>
-      {events.map(event => {
+    <div className={className}
+      {...(carousel && {
+        role: 'region',
+        'aria-roledescription': 'karuzela',
+        'aria-label': 'Polecane wydarzenia',
+        onMouseEnter: () => setPaused(true),
+        onMouseLeave: () => setPaused(false),
+        onFocus: () => setPaused(true),
+        onBlur: e => { if (!e.currentTarget.contains(e.relatedTarget)) setPaused(false) },
+      })}>
+      {/* Every slide sits in the same grid cell, so the banner keeps the height of the tallest one. */}
+      <div className="grid">
+      {events.map((event, index) => {
+        const current = !carousel || index === active
         const dateFormatted = new Date(event.date).toLocaleDateString('pl-PL', { day: 'numeric', month: 'long', year: 'numeric' })
         const countdown = countdowns[event.slug]
         const highlights = EVENT_HIGHLIGHTS[event.slug]
@@ -91,7 +119,8 @@ export default function LeszyrunBanner({ className = 'max-w-[1200px] mx-auto px-
 
         return (
           <a key={event.slug} href={event.event_url || `/events/${event.slug}`} target={event.event_url ? '_blank' : undefined} rel={event.event_url ? 'noopener' : undefined}
-            className={`block border-l-[6px] border ${accent} px-5 py-5 md:px-6 md:py-6 transition-all no-underline text-inherit group relative overflow-hidden`}>
+            aria-hidden={current ? undefined : true} tabIndex={current ? undefined : -1}
+            className={`[grid-area:1/1] block border-l-[6px] border ${accent} px-5 py-5 md:px-6 md:py-6 transition-all duration-500 motion-reduce:transition-none no-underline text-inherit group relative overflow-hidden ${current ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
             {/* Diagonal accent stripe */}
             <div className={`absolute top-0 right-0 w-40 h-full ${event.charity ? 'bg-apex-rose/[0.06]' : 'bg-apex-yellow/[0.06]'} -skew-x-12 translate-x-8`} />
 
@@ -139,6 +168,18 @@ export default function LeszyrunBanner({ className = 'max-w-[1200px] mx-auto px-
           </a>
         )
       })}
+      </div>
+      {carousel && (
+        <div className="flex justify-center gap-1 mt-2">
+          {events.map((event, index) => (
+            <button key={event.slug} type="button" onClick={() => setActive(index)}
+              aria-label={`Pokaż: ${event.name}`} aria-current={index === active ? 'true' : undefined}
+              className="p-2 group/dot cursor-pointer">
+              <span className={`block h-1.5 transition-all ${index === active ? 'w-6 bg-apex-yellow' : 'w-3 bg-apex-border-bright group-hover/dot:bg-apex-muted'}`} />
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   )
 }
