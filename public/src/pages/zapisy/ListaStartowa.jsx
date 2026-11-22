@@ -11,9 +11,10 @@ import { EventFrame, startListPath } from './RegistrationEventPage.jsx'
 // RA8 (mobile cards) and RA8d (desktop table): everyone on the list of a published
 // event, in the event page's frame (EventFrame: header, tabs, sign-up panel).
 // event, with filters. People and teams are two lists; a team shows its whole named squad. An entry
-// awaiting payment is listed with a muted „czeka na wpłatę” badge (user decision 2026-11-22, relaxing
-// P3-R14) and holds no place; there is no „Wpłata” filter or column (D4-19), and a minor's town is
-// never shown; „opłacone” marks an entry that was paid (never a free event or a 0 zł entry). The event id comes from the
+// awaiting payment is listed with a muted „czeka na wpłatę” (user decision 2026-11-22, relaxing
+// P3-R14) and holds no place. On a paid event the desktop table has a last column „Wpłata” and the
+// mobile card a badge; there is no „Wpłata” filter (D4-19). No town, for anybody (user decision
+// 2026-11-22: the organizer has it, the public does not need it); „opłacone” marks an entry that was paid (never a free event or a 0 zł entry). The event id comes from the
 // /api/event snapshot, the list from /api/startlist: both CDN-cached, never a
 // per-viewer Supabase query. No birth date, contact, bib or price: start_list()
 // does not return them. The filters live in component state, never in the URL: a
@@ -93,7 +94,7 @@ function Filters({ options, filters, setFilters, desktop }) {
       <label htmlFor="sl-q" className="flex flex-col gap-1.5">
         <span className={labelCls}>Szukaj</span>
         <input id="sl-q" type="search" data-testid="filter-q" className={inputCls} value={filters.q}
-          placeholder="Imię, nazwisko, miejscowość, klub" autoComplete="off" onChange={(e) => set('q')(e.target.value)} />
+          placeholder="Imię, nazwisko, klub" autoComplete="off" onChange={(e) => set('q')(e.target.value)} />
       </label>
       <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5">
         <Select id="sl-comp" testId="filter-competition" label="Konkurencja" all="Wszystkie" value={filters.categoryId}
@@ -144,7 +145,6 @@ function TeamCards({ entries }) {
           <div className="flex justify-between items-start gap-2.5">
             <span className="min-w-0">
               <span className="block text-[17px] font-bold text-apex-text-bright break-words">{e.name}</span>
-              {e.town && <span className="block text-sm text-apex-muted break-words">{e.town}</span>}
             </span>
             {e.badge && <Badge text={e.badge} muted={e.awaiting} />}
           </div>
@@ -178,23 +178,23 @@ function EntryCards({ entries }) {
 const thCls = 'font-mono text-xs font-medium text-apex-muted text-left uppercase px-3 py-2.5 border-b border-apex-border-mid whitespace-nowrap'
 const tdCls = 'px-3 py-2.5 border-b border-apex-border text-base text-apex-text align-top'
 
-function EntryTable({ entries }) {
+const payCell = (e) => (e.badge ? <Badge text={e.badge} muted={e.awaiting} /> : <span className="text-apex-muted">—</span>)
+
+function EntryTable({ entries, paidEvent }) {
   return (
     <div className="border border-apex-border overflow-x-auto">
       <table className="w-full border-collapse" data-testid="start-list-entries">
         <thead>
-          <tr><th className={thCls}>Zawodnik</th><th className={thCls}>Miejscowość</th><th className={thCls}>Klub</th><th className={thCls}>Konkurencja</th><th className={thCls}>Kategoria</th></tr>
+          <tr><th className={thCls}>Zawodnik</th><th className={thCls}>Klub</th><th className={thCls}>Konkurencja</th><th className={thCls}>Kategoria</th>{paidEvent && <th className={thCls}>Wpłata</th>}</tr>
         </thead>
         <tbody>
           {entries.map((e, i) => (
             <tr key={`${e.name}-${i}`} data-testid="start-list-entry">
-              <td className={`${tdCls} text-apex-text-bright font-bold`}>
-                <span className="inline-flex items-center gap-2.5 flex-wrap">{e.name}{e.badge && <Badge text={e.badge} muted={e.awaiting} />}</span>
-              </td>
-              <td className={tdCls}>{e.town ?? '—'}</td>
+              <td className={`${tdCls} text-apex-text-bright font-bold`}>{e.name}</td>
               <td className={tdCls}>{e.club ?? '—'}</td>
               <td className={tdCls}>{e.competition}</td>
               <td className={`${tdCls} font-mono text-sm`}>{e.category ?? '—'}</td>
+              {paidEvent && <td className={tdCls} data-testid="payment-cell">{payCell(e)}</td>}
             </tr>
           ))}
         </tbody>
@@ -203,23 +203,21 @@ function EntryTable({ entries }) {
   )
 }
 
-function TeamTable({ entries }) {
+function TeamTable({ entries, paidEvent }) {
   return (
     <div className="border border-apex-border overflow-x-auto">
       <table className="w-full border-collapse" data-testid="start-list-teams">
         <thead>
-          <tr><th className={thCls}>Drużyna</th><th className={thCls}>Skład</th><th className={thCls}>Miejscowość</th><th className={thCls}>Konkurencja</th><th className={thCls}>Liczba osób</th></tr>
+          <tr><th className={thCls}>Drużyna</th><th className={thCls}>Skład</th><th className={thCls}>Konkurencja</th><th className={thCls}>Liczba osób</th>{paidEvent && <th className={thCls}>Wpłata</th>}</tr>
         </thead>
         <tbody>
           {entries.map((e, i) => (
             <tr key={`${e.name}-${i}`} data-testid="start-list-entry">
-              <td className={`${tdCls} text-apex-text-bright font-bold`}>
-                <span className="inline-flex items-center gap-2.5 flex-wrap">{e.name}{e.badge && <Badge text={e.badge} muted={e.awaiting} />}</span>
-              </td>
+              <td className={`${tdCls} text-apex-text-bright font-bold`}>{e.name}</td>
               <td className={tdCls}><Members e={e} /></td>
-              <td className={tdCls}>{e.town ?? '—'}</td>
               <td className={tdCls}>{e.competition}</td>
               <td className={`${tdCls} font-mono text-sm`}>{e.squad}</td>
+              {paidEvent && <td className={tdCls} data-testid="payment-cell">{payCell(e)}</td>}
             </tr>
           ))}
         </tbody>
@@ -282,17 +280,17 @@ function StartList({ raw }) {
                 </span>
                 {shown.entries.length === 0 && <p className="text-lg text-apex-text-bright" data-testid="start-list-no-match">Brak osób dla wybranych filtrów.</p>}
                 {all.teams.length === 0
-                  ? parts.people.length > 0 && (desktop ? <EntryTable entries={parts.people} /> : <EntryCards entries={parts.people} />)
+                  ? parts.people.length > 0 && (desktop ? <EntryTable entries={parts.people} paidEvent={view.paidEvent} /> : <EntryCards entries={parts.people} />)
                   : (
                     <>
                       {parts.people.length > 0 && (
                         <Section title="Zawodnicy" count={parts.people.length}>
-                          {desktop ? <EntryTable entries={parts.people} /> : <EntryCards entries={parts.people} />}
+                          {desktop ? <EntryTable entries={parts.people} paidEvent={view.paidEvent} /> : <EntryCards entries={parts.people} />}
                         </Section>
                       )}
                       {parts.teams.length > 0 && (
                         <Section title="Drużyny" count={parts.teams.length}>
-                          {desktop ? <TeamTable entries={parts.teams} /> : <TeamCards entries={parts.teams} />}
+                          {desktop ? <TeamTable entries={parts.teams} paidEvent={view.paidEvent} /> : <TeamCards entries={parts.teams} />}
                         </Section>
                       )}
                     </>

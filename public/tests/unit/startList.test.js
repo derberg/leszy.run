@@ -12,15 +12,15 @@ const SNAP = {
     { categoryId: 'c3', name: 'Dzieci 1 km', capacity: 20, paid: 0, free: 5, awaiting: 0 },
   ],
   entries: [
-    { name: 'Agnieszka Mazur', town: 'Zabrze', club: 'ZATYRANI', categoryId: 'c1', competition: 'Bieg 9 km', ageGroupLabel: 'K40–49', payment: 'paid' },
-    { name: 'Paweł Zieliński', town: null, club: 'KB Sośnica', categoryId: 'c2', competition: 'Bieg 3 km', ageGroupLabel: null, payment: 'paid' },
-    { name: 'Zosia Mała', town: null, club: null, categoryId: 'c3', competition: 'Dzieci 1 km', ageGroupLabel: 'Dzieci I', payment: 'free' },
+    { name: 'Agnieszka Mazur', club: 'ZATYRANI', categoryId: 'c1', competition: 'Bieg 9 km', ageGroupLabel: 'K40–49', payment: 'paid' },
+    { name: 'Paweł Zieliński', club: 'KB Sośnica', categoryId: 'c2', competition: 'Bieg 3 km', ageGroupLabel: null, payment: 'paid' },
+    { name: 'Zosia Mała', club: null, categoryId: 'c3', competition: 'Dzieci 1 km', ageGroupLabel: 'Dzieci I', payment: 'free' },
   ],
 }
 
 const FREE_EVENT = {
   competitions: [{ categoryId: 'f1', name: 'Bieg 5 km', capacity: 50, paid: 0, free: 3, awaiting: 0 }],
-  entries: [{ name: 'Ola Leśna', town: 'Gliwice', club: null, categoryId: 'f1', competition: 'Bieg 5 km', ageGroupLabel: 'K open', payment: 'free' }],
+  entries: [{ name: 'Ola Leśna', club: null, categoryId: 'f1', competition: 'Bieg 5 km', ageGroupLabel: 'K open', payment: 'free' }],
 }
 
 describe('startListView (RA8 columns, ruling P3-R14)', () => {
@@ -66,11 +66,11 @@ describe('startListView (RA8 columns, ruling P3-R14)', () => {
     assert.ok(!JSON.stringify(v).includes('opłac'))
   })
 
-  it('each entry: name, town · club, competition · category; „opłacone” only for a paid entry', () => {
+  it('each entry: name, club, competition · category, no town; „opłacone” only for a paid entry', () => {
     const [a, b, c] = startListView(SNAP, { paidEvent: true }).entries
     assert.deepEqual(a, {
-      name: 'Agnieszka Mazur', town: 'Zabrze', club: 'ZATYRANI', categoryId: 'c1', competition: 'Bieg 9 km',
-      category: 'K40–49', gender: null, where: 'Zabrze · ZATYRANI', what: 'Bieg 9 km · K40–49', badge: 'opłacone',
+      name: 'Agnieszka Mazur', club: 'ZATYRANI', categoryId: 'c1', competition: 'Bieg 9 km',
+      category: 'K40–49', gender: null, where: 'ZATYRANI', what: 'Bieg 9 km · K40–49', badge: 'opłacone',
       awaiting: false,
     })
     assert.equal(b.where, 'KB Sośnica')
@@ -92,8 +92,8 @@ describe('startListView (RA8 columns, ruling P3-R14)', () => {
         { categoryId: 't', name: 'Sztafeta', kind: 'team', capacity: 10, paid: 0, free: 0, awaiting: 1 },
       ],
       entries: [
-        { name: 'Bartek Czekaj', town: 'Zabrze', club: null, categoryId: 'c', competition: 'Bieg', payment: 'awaiting' },
-        { kind: 'team', name: 'Wilki', members: ['Ola Nowak'], size: 1, town: null, categoryId: 't', competition: 'Sztafeta', payment: 'awaiting' },
+        { name: 'Bartek Czekaj', club: null, categoryId: 'c', competition: 'Bieg', payment: 'awaiting' },
+        { kind: 'team', name: 'Wilki', members: ['Ola Nowak'], size: 1, categoryId: 't', competition: 'Sztafeta', payment: 'awaiting' },
       ],
     }
     const v = startListView(snap, { paidEvent: true })
@@ -121,11 +121,11 @@ const FULL = {
     { categoryId: 'c3', name: 'Bieg dzieci', capacity: 20, isKids: true, paid: 0, free: 1, awaiting: 0 },
   ],
   entries: [
-    { name: 'Agnieszka Mazur', town: 'Zabrze', club: 'ZATYRANI', categoryId: 'c1', competition: 'Bieg 9 km', ageGroupLabel: 'K40–49', kidsGroupLabel: null, gender: 'K', payment: 'paid' },
-    { name: 'Tomasz Łoś', town: 'Gliwice', club: null, categoryId: 'c1', competition: 'Bieg 9 km', ageGroupLabel: 'M30–39', kidsGroupLabel: null, gender: 'M', payment: 'paid' },
-    { name: 'Paweł Zieliński', town: 'Bytom', club: 'KB Sośnica', categoryId: 'c1', competition: 'Bieg 9 km', ageGroupLabel: 'M30–39', kidsGroupLabel: null, gender: 'M', payment: 'paid' },
-    { name: 'Grażyna Wiśniewska', town: 'Pyskowice', club: 'Kijki Pyskowice', categoryId: 'c2', competition: 'NW 9 km', ageGroupLabel: 'K50–59', kidsGroupLabel: null, gender: 'K', payment: 'paid' },
-    { name: 'Zosia Wiśniewska', town: null, club: null, categoryId: 'c3', competition: 'Bieg dzieci', ageGroupLabel: 'K dzieci', kidsGroupLabel: 'Dzieci I', gender: 'K', payment: 'free' },
+    { name: 'Agnieszka Mazur', club: 'ZATYRANI', categoryId: 'c1', competition: 'Bieg 9 km', ageGroupLabel: 'K40–49', kidsGroupLabel: null, gender: 'K', payment: 'paid' },
+    { name: 'Tomasz Łoś', club: null, categoryId: 'c1', competition: 'Bieg 9 km', ageGroupLabel: 'M30–39', kidsGroupLabel: null, gender: 'M', payment: 'paid' },
+    { name: 'Paweł Zieliński', club: 'KB Sośnica', categoryId: 'c1', competition: 'Bieg 9 km', ageGroupLabel: 'M30–39', kidsGroupLabel: null, gender: 'M', payment: 'paid' },
+    { name: 'Grażyna Wiśniewska', club: 'Kijki Pyskowice', categoryId: 'c2', competition: 'NW 9 km', ageGroupLabel: 'K50–59', kidsGroupLabel: null, gender: 'K', payment: 'paid' },
+    { name: 'Zosia Wiśniewska', club: null, categoryId: 'c3', competition: 'Bieg dzieci', ageGroupLabel: 'K dzieci', kidsGroupLabel: 'Dzieci I', gender: 'K', payment: 'free' },
   ],
 }
 const ALL = { categoryId: '', category: '', gender: '', club: '', q: '' }
@@ -159,10 +159,10 @@ describe('G-42 filterStartList (RA8/RA8d filters)', () => {
     assert.equal(filterStartList(v, { ...ALL, gender: 'M' }).total, 5)
   })
 
-  it('search: name, town and club, case- and diacritic-insensitive', () => {
+  it('search: name and club, case- and diacritic-insensitive; never a town', () => {
     assert.deepEqual(names(filterStartList(v, { ...ALL, q: 'wisniewska' })), ['Grażyna Wiśniewska', 'Zosia Wiśniewska'])
     assert.deepEqual(names(filterStartList(v, { ...ALL, q: 'LOS' })), ['Tomasz Łoś'])
-    assert.deepEqual(names(filterStartList(v, { ...ALL, q: 'gliwice' })), ['Tomasz Łoś'])
+    assert.deepEqual(names(filterStartList(startListView({ ...FULL, entries: [{ ...FULL.entries[1], town: 'Gliwice' }] }, { paidEvent: true }), { ...ALL, q: 'gliwice' })), [])
     assert.deepEqual(names(filterStartList(v, { ...ALL, q: 'sosnica' })), ['Paweł Zieliński'])
     assert.deepEqual(names(filterStartList(v, { ...ALL, q: '  kijki  ' })), ['Grażyna Wiśniewska'])
     assert.deepEqual(names(filterStartList(v, { ...ALL, q: '1985' })), [])
@@ -195,8 +195,8 @@ describe('G-43 a free event never mentions payment', () => {
     const snap = {
       competitions: [{ categoryId: 'f1', name: 'Bieg 5 km', capacity: 50, paid: 0, free: 2, awaiting: 0 }],
       entries: [
-        { name: 'Ola Leśna', town: 'Gliwice', club: null, categoryId: 'f1', competition: 'Bieg 5 km', ageGroupLabel: 'K open', kidsGroupLabel: null, gender: 'K', payment: 'free' },
-        { name: 'Jan Bór', town: null, club: 'ZATYRANI', categoryId: 'f1', competition: 'Bieg 5 km', ageGroupLabel: 'M open', kidsGroupLabel: null, gender: 'M', payment: 'free' },
+        { name: 'Ola Leśna', club: null, categoryId: 'f1', competition: 'Bieg 5 km', ageGroupLabel: 'K open', kidsGroupLabel: null, gender: 'K', payment: 'free' },
+        { name: 'Jan Bór', club: 'ZATYRANI', categoryId: 'f1', competition: 'Bieg 5 km', ageGroupLabel: 'M open', kidsGroupLabel: null, gender: 'M', payment: 'free' },
       ],
     }
     const v = startListView(snap, { paidEvent: false })
@@ -230,10 +230,10 @@ const TEAMS = {
     { categoryId: 't1', name: 'Sztafeta', kind: 'team', capacity: 20, paid: 2, free: 1, awaiting: 1 },
   ],
   entries: [
-    { name: 'Anna Mazur', town: 'Zabrze', club: 'ZATYRANI', categoryId: 'c1', competition: 'Bieg 9 km', ageGroupLabel: 'K40', kidsGroupLabel: null, gender: 'K', payment: 'paid' },
-    { name: 'Tomasz Łoś', town: 'Gliwice', club: null, categoryId: 'c1', competition: 'Bieg 9 km', ageGroupLabel: 'M30', kidsGroupLabel: null, gender: 'M', payment: 'paid' },
-    { kind: 'team', name: 'Wilcze Stado', members: ['Ola', 'Piotr', 'Zosia', 'Staś'], size: 4, town: 'Gliwice', categoryId: 't1', competition: 'Sztafeta', payment: 'paid' },
-    { kind: 'team', name: 'Żubry', members: ['Ewa', 'Jan'], size: 5, town: null, categoryId: 't1', competition: 'Sztafeta', payment: 'free' },
+    { name: 'Anna Mazur', club: 'ZATYRANI', categoryId: 'c1', competition: 'Bieg 9 km', ageGroupLabel: 'K40', kidsGroupLabel: null, gender: 'K', payment: 'paid' },
+    { name: 'Tomasz Łoś', club: null, categoryId: 'c1', competition: 'Bieg 9 km', ageGroupLabel: 'M30', kidsGroupLabel: null, gender: 'M', payment: 'paid' },
+    { kind: 'team', name: 'Wilcze Stado', members: ['Ola', 'Piotr', 'Zosia', 'Staś'], size: 4, categoryId: 't1', competition: 'Sztafeta', payment: 'paid' },
+    { kind: 'team', name: 'Żubry', members: ['Ewa', 'Jan'], size: 5, categoryId: 't1', competition: 'Sztafeta', payment: 'free' },
   ],
 }
 
@@ -253,7 +253,7 @@ describe('T-72 teams on the start list', () => {
   it('a team row: its name, the first names, „SZTAFETA · 4 OSOBY”, and one place for the size on desktop', () => {
     assert.deepEqual(team, {
       kind: 'team', name: 'Wilcze Stado', membersText: 'Ola, Piotr, Zosia, Staś', members: ['Ola', 'Piotr', 'Zosia', 'Staś'],
-      town: 'Gliwice', club: null, categoryId: 't1', competition: 'Sztafeta', category: null, gender: null,
+      club: null, categoryId: 't1', competition: 'Sztafeta', category: null, gender: null,
       unnamedText: null, squad: 4,
       size: '4 osoby', where: 'Ola, Piotr, Zosia, Staś', what: 'Sztafeta · 4 osoby', badge: 'opłacone',
       awaiting: false,
@@ -286,8 +286,8 @@ describe('T-72 teams on the start list', () => {
     assert.deepEqual(names(filterStartList(view, { q: 'zubry' })), ['Żubry'])
   })
 
-  it('a team has no town to search and no club to offer: „Bez klubu” comes from people only', () => {
-    assert.deepEqual(names(filterStartList(view, { q: 'gliwice' })), ['Tomasz Łoś'])
+  it('nobody has a town to search, and a team no club to offer: „Bez klubu” comes from people only', () => {
+    assert.deepEqual(names(filterStartList(view, { q: 'gliwice' })), [])
     const onlyTeams = startListView({ competitions: TEAMS.competitions, entries: TEAMS.entries.slice(2) }, { paidEvent: true })
     assert.deepEqual(startListFilterOptions(onlyTeams).clubs, [])
     assert.deepEqual(startListFilterOptions(onlyTeams).genders, [])

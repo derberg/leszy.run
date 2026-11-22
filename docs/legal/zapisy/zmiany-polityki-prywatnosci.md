@@ -38,7 +38,7 @@ Obecny akapit pogrubiony („LESZY.RUN jest administratorem danych osobowych prz
 >
 > **Organizatorzy.** Dane osoby akceptującej umowę organizatora i dane do wypłat przetwarzamy w celu zawarcia i wykonania umowy z Organizatorem (art. 6 ust. 1 lit. b RODO), a rejestr działań w panelu i historię zmian rachunku — w prawnie uzasadnionym interesie (art. 6 ust. 1 lit. f RODO): ochrona środków Organizatorów przed przejęciem konta i rozliczalność.
 >
-> **Lista startowa.** Publiczna lista startowa pokazuje imię, nazwisko, miejscowość, klub, konkurencję, kategorię wiekową, nazwę drużyny i oznaczenie, czy zgłoszenie jest opłacone, czy czeka na wpłatę. Zgłoszenie nieopłacone w terminie znika z listy, a miejscowości osób niepełnoletnich nie publikujemy. Nigdy nie pokazuje daty urodzenia, numeru startowego, e-maila ani telefonu.
+> **Lista startowa.** Publiczna lista startowa pokazuje imię, nazwisko, klub, konkurencję, kategorię wiekową, nazwę drużyny i oznaczenie, czy zgłoszenie jest opłacone, czy czeka na wpłatę. Zgłoszenie nieopłacone w terminie znika z listy. Miejscowości nie publikujemy. Nigdy nie pokazuje daty urodzenia, numeru startowego, e-maila ani telefonu.
 
 ## Sekcja 4. Okres przechowywania danych — dodać
 
