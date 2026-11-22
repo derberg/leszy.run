@@ -2,8 +2,8 @@ import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
 import { NO_CLUB, activeFilterCount, filterStartList, splitStartList, startListCountText, startListFilterOptions, startListView } from '../../src/lib/startList.js'
 
-// The snapshot start_list() returns. Entries awaiting payment are never in it
-// (ruling P3-R14): only the per-competition `awaiting` count.
+// The snapshot start_list() returns. Entries awaiting payment are listed by name
+// with payment 'awaiting' (2026-11-22) and counted per competition as `awaiting`.
 const SNAP = {
   version: 'v1',
   competitions: [
@@ -71,6 +71,7 @@ describe('startListView (RA8 columns, ruling P3-R14)', () => {
     assert.deepEqual(a, {
       name: 'Agnieszka Mazur', town: 'Zabrze', club: 'ZATYRANI', categoryId: 'c1', competition: 'Bieg 9 km',
       category: 'K40–49', gender: null, where: 'Zabrze · ZATYRANI', what: 'Bieg 9 km · K40–49', badge: 'opłacone',
+      awaiting: false,
     })
     assert.equal(b.where, 'KB Sośnica')
     assert.equal(b.what, 'Bieg 3 km')
@@ -82,6 +83,23 @@ describe('startListView (RA8 columns, ruling P3-R14)', () => {
     const v = startListView({ competitions: [{ categoryId: 'x', name: 'X', capacity: 10, paid: 9, free: 2, awaiting: 1 }], entries: [] }, { paidEvent: true })
     const c = v.competitions[0]
     assert.ok(c.paidPct + c.freePct <= 100)
+  })
+
+  it('an entry awaiting payment is listed with „czeka na wpłatę”, a person and a team; a free event shows no badge', () => {
+    const snap = {
+      competitions: [
+        { categoryId: 'c', name: 'Bieg', kind: 'individual', capacity: 10, paid: 0, free: 0, awaiting: 1 },
+        { categoryId: 't', name: 'Sztafeta', kind: 'team', capacity: 10, paid: 0, free: 0, awaiting: 1 },
+      ],
+      entries: [
+        { name: 'Bartek Czekaj', town: 'Zabrze', club: null, categoryId: 'c', competition: 'Bieg', payment: 'awaiting' },
+        { kind: 'team', name: 'Wilki', members: ['Ola Nowak'], size: 1, town: null, categoryId: 't', competition: 'Sztafeta', payment: 'awaiting' },
+      ],
+    }
+    const v = startListView(snap, { paidEvent: true })
+    assert.deepEqual(v.entries.map((e) => [e.badge, e.awaiting]), [['czeka na wpłatę', true], ['czeka na wpłatę', true]])
+    assert.equal(v.competitions[0].taken, 0, 'still holds no place')
+    assert.ok(startListView(snap, { paidEvent: false }).entries.every((e) => e.badge === null && e.awaiting === false))
   })
 
   it('P3-R15 entries awaiting payment hold no place: „N / limit” and the bar leave them out', () => {
@@ -238,6 +256,7 @@ describe('T-72 teams on the start list', () => {
       town: 'Gliwice', club: null, categoryId: 't1', competition: 'Sztafeta', category: null, gender: null,
       unnamedText: null, squad: 4,
       size: '4 osoby', where: 'Ola, Piotr, Zosia, Staś', what: 'Sztafeta · 4 osoby', badge: 'opłacone',
+      awaiting: false,
     })
   })
 

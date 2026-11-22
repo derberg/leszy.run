@@ -10,10 +10,10 @@ import { EventFrame, startListPath } from './RegistrationEventPage.jsx'
 
 // RA8 (mobile cards) and RA8d (desktop table): everyone on the list of a published
 // event, in the event page's frame (EventFrame: header, tabs, sign-up panel).
-// event, with filters. People and teams are two lists; a team shows its whole named squad. Ruling P3-R14: an entry awaiting payment is only counted
-// („+N czeka na wpłatę”), never listed by name, so there is no „Wpłata” filter or
-// column (D4-19), and a minor's town is never shown; „opłacone” marks an entry that
-// was paid (never a free event or a 0 zł entry). The event id comes from the
+// event, with filters. People and teams are two lists; a team shows its whole named squad. An entry
+// awaiting payment is listed with a muted „czeka na wpłatę” badge (user decision 2026-11-22, relaxing
+// P3-R14) and holds no place; there is no „Wpłata” filter or column (D4-19), and a minor's town is
+// never shown; „opłacone” marks an entry that was paid (never a free event or a 0 zł entry). The event id comes from the
 // /api/event snapshot, the list from /api/startlist: both CDN-cached, never a
 // per-viewer Supabase query. No birth date, contact, bib or price: start_list()
 // does not return them. The filters live in component state, never in the URL: a
@@ -44,9 +44,10 @@ async function loadStartList(eventId) {
   return res.json()
 }
 
-function Badge({ text }) {
+function Badge({ text, muted = false }) {
+  const tone = muted ? 'border-apex-border-bright text-apex-muted' : 'border-apex-yellow text-apex-yellow'
   return (
-    <span className="font-mono text-[11px] px-[7px] py-[3px] border uppercase whitespace-nowrap shrink-0 border-apex-yellow text-apex-yellow"
+    <span className={`font-mono text-[11px] px-[7px] py-[3px] border uppercase whitespace-nowrap shrink-0 ${tone}`}
       data-testid="payment-badge">
       {text}
     </span>
@@ -145,7 +146,7 @@ function TeamCards({ entries }) {
               <span className="block text-[17px] font-bold text-apex-text-bright break-words">{e.name}</span>
               {e.town && <span className="block text-sm text-apex-muted break-words">{e.town}</span>}
             </span>
-            {e.badge && <Badge text={e.badge} />}
+            {e.badge && <Badge text={e.badge} muted={e.awaiting} />}
           </div>
           <Members e={e} />
           <span className="font-mono text-xs text-apex-muted uppercase">{e.what}</span>
@@ -165,7 +166,7 @@ function EntryCards({ entries }) {
               <span className="block text-[17px] font-bold text-apex-text-bright break-words">{e.name}</span>
               {e.where && <span className="block text-sm text-apex-muted break-words">{e.where}</span>}
             </span>
-            {e.badge && <Badge text={e.badge} />}
+            {e.badge && <Badge text={e.badge} muted={e.awaiting} />}
           </div>
           <span className="font-mono text-xs text-apex-muted uppercase">{e.what}</span>
         </li>
@@ -188,7 +189,7 @@ function EntryTable({ entries }) {
           {entries.map((e, i) => (
             <tr key={`${e.name}-${i}`} data-testid="start-list-entry">
               <td className={`${tdCls} text-apex-text-bright font-bold`}>
-                <span className="inline-flex items-center gap-2.5 flex-wrap">{e.name}{e.badge && <Badge text={e.badge} />}</span>
+                <span className="inline-flex items-center gap-2.5 flex-wrap">{e.name}{e.badge && <Badge text={e.badge} muted={e.awaiting} />}</span>
               </td>
               <td className={tdCls}>{e.town ?? '—'}</td>
               <td className={tdCls}>{e.club ?? '—'}</td>
@@ -213,7 +214,7 @@ function TeamTable({ entries }) {
           {entries.map((e, i) => (
             <tr key={`${e.name}-${i}`} data-testid="start-list-entry">
               <td className={`${tdCls} text-apex-text-bright font-bold`}>
-                <span className="inline-flex items-center gap-2.5 flex-wrap">{e.name}{e.badge && <Badge text={e.badge} />}</span>
+                <span className="inline-flex items-center gap-2.5 flex-wrap">{e.name}{e.badge && <Badge text={e.badge} muted={e.awaiting} />}</span>
               </td>
               <td className={tdCls}><Members e={e} /></td>
               <td className={tdCls}>{e.town ?? '—'}</td>

@@ -150,12 +150,13 @@ test('T-73 an expanded team keeps Plan 4\'s reminder and office mark in each mem
   expect(await scope.evaluate((e) => e.scrollWidth <= e.clientWidth), 'a member\'s ⋯ stays in view').toBe(true)
 })
 
-test('T-73 a pending team reads CZEKA NA WPŁATĘ with its fee in Zgłoszenia, and only as a count on the list', async ({ actors }) => {
+test('T-73 a pending team reads CZEKA NA WPŁATĘ with its fee in Zgłoszenia, and is listed as awaiting on the list', async ({ actors }) => {
   const event = await createPublishedPaidEvent(owner, { competitions: [STAFETA], prices: { Sztafeta: 24000 } })
   await team(event, 'Na Później', { displayedTotal: 24000 })
   const viewer = await open(actors.viewer, 390, `/events/${event.slug}/lista`)
   await expect(viewer.getByTestId('list-competition')).toContainText('+1 czeka na wpłatę')
-  await expect(viewer.getByTestId('start-list')).not.toContainText('Na Później')
+  await expect(viewer.getByTestId('start-list')).toContainText('Na Później')
+  await expect(viewer.getByTestId('payment-badge')).toHaveText(/czeka na wpłatę/i)
   const org = await open(actors.owner, 390, zgloszenia(event.eventId))
   const row = org.getByTestId('registrations-cards').getByTestId('team-row')
   await expect(row).toContainText('CZEKA NA WPŁATĘ')

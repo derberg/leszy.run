@@ -7,10 +7,11 @@
 // The filters live in the page's state, never in the URL: a search names a person,
 // and the address is what analytics sees.
 //
-// Ruling P3-R14: entries awaiting payment are never listed by person, only
-// counted („+N czeka na wpłatę”), and a minor's town never arrives. An entry
-// is 'paid' (money moved) or 'free' (nothing to pay: a free event or a 0 zł
-// entry); only 'paid' reads „opłacone”. A free event never mentions payment.
+// Entries awaiting payment are listed by name with the badge „czeka na wpłatę”
+// (user decision 2026-11-22, relaxing ruling P3-R14, which only counted them);
+// a minor's town still never arrives. An entry is 'paid' (money moved), 'free'
+// (nothing to pay: a free event or a 0 zł entry) or 'awaiting'; only 'paid'
+// reads „opłacone”. A free event never mentions payment.
 //
 // Ruling P3-R15: the limit counts paid entries only, so „N / limit” and the bar
 // are paid + free; an entry awaiting payment holds no place and is only named
@@ -35,6 +36,14 @@ const sizeText = (n) => countPl(n, ['osoba', 'osoby', 'osób'])
 const unnamedText = (n) => `+${n} ${pluralPl(n, 'czeka', 'czekają', 'czeka')} na potwierdzenie`
 
 const isTeam = (e) => e.kind === 'team'
+
+/** The entry's badge on a paid event: „opłacone”, „czeka na wpłatę” or none (free). */
+const badgeOf = (payment, paidEvent) => {
+  if (!paidEvent) return null
+  if (payment === 'paid') return 'opłacone'
+  if (payment === 'awaiting') return 'czeka na wpłatę'
+  return null
+}
 const sum = (rows, k) => rows.reduce((n, c) => n + (c[k] ?? 0), 0)
 
 // A paid event's header for a team competition: the unit is in every phrase, so it never reads as
@@ -85,7 +94,8 @@ function teamEntry(e, paidEvent) {
     gender: null,
     where: membersText,
     what: `${e.competition} · ${size}`,
-    badge: paidEvent && e.payment === 'paid' ? 'opłacone' : null,
+    badge: badgeOf(e.payment, paidEvent),
+    awaiting: paidEvent && e.payment === 'awaiting',
   }
 }
 
@@ -138,7 +148,8 @@ export function startListView(snapshot, { paidEvent }) {
         gender: e.gender ?? null,
         where: [e.town, e.club].filter(Boolean).join(' · '),
         what: [e.competition, category].filter(Boolean).join(' · '),
-        badge: paidEvent && e.payment === 'paid' ? 'opłacone' : null,
+        badge: badgeOf(e.payment, paidEvent),
+        awaiting: paidEvent && e.payment === 'awaiting',
       }
     }),
   }

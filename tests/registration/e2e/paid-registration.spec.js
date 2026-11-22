@@ -138,7 +138,7 @@ test.describe.serial('a runner pays for „Bieg 9 km” while the organizer and 
     expect(order.total).toBe(6000)
   })
 
-  test('P-47 the runner leaves unpaid: only a count on the public list (P3-R14), „czeka na wpłatę” for the owner; a resubmit goes to the order', async ({ actors }) => {
+  test('P-47 the runner leaves unpaid: listed as „czeka na wpłatę” on the public list, outside the limit, and for the owner; a resubmit goes to the order', async ({ actors }) => {
     const page = await asBuyer(actors)
     await page.goto(`/zamowienie/${orderId}`)
     await expect(page.getByTestId('order-pending')).toBeVisible()
@@ -150,11 +150,12 @@ test.describe.serial('a runner pays for „Bieg 9 km” while the organizer and 
     await viewer.goto(`/events/${event.slug}/lista`)
     await expect(listHeader(viewer)).toHaveText('0 opłaconych · +1 czeka na wpłatę')
     await expect(viewer.getByTestId('list-competition')).toContainText('+1 czeka na wpłatę')
-    // Ruling P3-R14: an unpaid entry is never listed by person.
-    await expect(viewer.getByTestId('start-list-entry')).toHaveCount(0)
+    // 2026-11-22 (relaxing P3-R14): an unpaid entry is listed by name, marked „czeka na wpłatę”.
+    await expect(viewer.getByTestId('start-list-entry')).toHaveCount(1)
+    await expect(viewer.getByTestId('start-list-entry')).toContainText('Ola Płacąca')
+    await expect(viewer.getByTestId('payment-badge')).toHaveText(/czeka na wpłatę/i)
     // Nothing personal and no bib on the public list.
     const text = await viewer.getByTestId('start-list').innerText()
-    expect(text).not.toContain('Płacąca')
     expect(text).not.toContain(runner.email)
     expect(text).not.toContain('1990')
     expect(text).not.toMatch(/numer startowy|nr startowy|bib/i)
