@@ -22,6 +22,7 @@ import { participantsRoutes } from './routes/participants.js'
 import { racesRoutes } from './routes/races.js'
 import { resultsRoutes } from './routes/results.js'
 import { teamLapsRoutes } from './routes/teamLaps.js'
+import { teamBatonsRoutes } from './routes/teamBatons.js'
 import { rfidRoutes } from './routes/rfid.js'
 import { readerRoutes } from './routes/reader.js'
 import { checkpointsRoutes } from './routes/checkpoints.js'
@@ -59,6 +60,7 @@ await fastify.register(async (api) => {
   await api.register(racesRoutes)
   await api.register(resultsRoutes)
   await api.register(teamLapsRoutes)
+  await api.register(teamBatonsRoutes)
   await api.register(rfidRoutes)
   await api.register(readerRoutes)
   await api.register(checkpointsRoutes)

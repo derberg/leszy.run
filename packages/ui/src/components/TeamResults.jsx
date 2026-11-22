@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { anonymizedName } from '../lib/anonymizedName.js'
-import { teamRunners } from '../lib/teamResults.js'
+import { teamRunners, lapRunnerCells } from '../lib/teamResults.js'
 
 // Team result views. Every one takes the output of computeTeamResults() and renders it;
 // none computes a time itself. Three layouts are here for comparison (EXPLORATION):
@@ -97,13 +97,15 @@ export function TeamStandings({ teams, mode, formatDuration, defaultOpen = false
               <div className="bg-apex-surface-2 px-3 py-2">
                 <table className="w-full text-xs">
                   <tbody className="divide-y divide-apex-border">
-                    {t.members.map(m => (
+                    {t.members.map(m => {
+                      const cells = lapRunnerCells(m, memberName)
+                      return (
                       <tr key={m.id}>
                         <td className="py-1.5 pr-2 w-16 text-apex-muted uppercase tracking-wider font-bold whitespace-nowrap">
                           {mode === 'relay' ? `Zm. ${m.leg}` : `Okr. ${m.leg}`}
                         </td>
-                        <td className="py-1.5 pr-2 w-12 font-mono">#{m.participant?.bibNumber}</td>
-                        <td className="py-1.5 pr-2 truncate">{memberName(m)}</td>
+                        <td className="py-1.5 pr-2 w-12 font-mono">{cells.bib}</td>
+                        <td className={`py-1.5 pr-2 truncate${cells.missing ? ' text-apex-muted italic' : ''}`}>{cells.name}</td>
                         <td className="py-1.5 pr-2 text-right font-mono whitespace-nowrap">
                           {m.legMs != null ? formatDuration(m.legMs) : '—'}<LegRank rank={m.legRank} />
                         </td>
@@ -111,7 +113,8 @@ export function TeamStandings({ teams, mode, formatDuration, defaultOpen = false
                           {m.cumulativeMs != null ? formatDuration(m.cumulativeMs) : (STATUS_LABEL[m.status] ?? '—')}
                         </td>
                       </tr>
-                    ))}
+                      )
+                    })}
                   </tbody>
                 </table>
               </div>

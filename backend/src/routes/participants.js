@@ -1,5 +1,5 @@
 import { eq, and, isNull, isNotNull, sql, max, ne } from 'drizzle-orm'
-import { participants, categories, results, raceRuns, checkins, events, hostTeams } from '../db/schema.js'
+import { participants, categories, results, raceRuns, checkins, events, hostTeams, teamBatons } from '../db/schema.js'
 import { setScanMode } from '../mqtt/client.js'
 import Papa from 'papaparse'
 import { pickEmoji } from '../lib/emoji.js'
@@ -12,6 +12,7 @@ import { fetchTeamNames, fetchRegistrationTeamIds } from '../lib/teamNames.js'
 import { teamEditRefusal } from '../lib/teamEdit.js'
 import { hostTeamNameRefusal, mergeTeamNames } from '../lib/hostTeams.js'
 import { localTeamNameInputs } from '../lib/hostTeamNames.js'
+import { runnerTagRefusal } from '../lib/teamBatons.js'
 
 function getSupabase() {
   const url = process.env.SUPABASE_URL
@@ -113,6 +114,15 @@ export async function participantsRoutes(fastify) {
     if (updates.teamId !== undefined || updates.teamLeg !== undefined) {
       const refusal = teamEditRefusal(updates, await liveResultCount(db, req.params.id))
       if (refusal) return reply.code(refusal.status).send({ error: refusal.error })
+    }
+    if (updates.rfidEpc) {
+      const owner = await db.query.participants.findFirst({ where: eq(participants.id, req.params.id), columns: { eventId: true } })
+      if (owner) {
+        const batons = await db.select({ epc: teamBatons.epc }).from(teamBatons)
+          .where(and(eq(teamBatons.eventId, owner.eventId), isNotNull(teamBatons.epc)))
+        const refusal = runnerTagRefusal(updates.rfidEpc, batons.map(b => b.epc))
+        if (refusal) return reply.code(refusal.status).send({ error: refusal.error })
+      }
     }
     updates.updatedAt = new Date()
     if (Object.keys(updates).length === 0) return reply.code(400).send({ error: 'No fields to update' })

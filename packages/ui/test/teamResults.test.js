@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { computeTeamResults, teamRunners, formatTeamMs } from '../src/lib/teamResults.js'
+import { computeTeamResults, teamRunners, formatTeamMs, lapRunnerCells } from '../src/lib/teamResults.js'
 
 const MIN = 60_000
 let n = 0
@@ -155,4 +155,39 @@ test('teamRunners in a fixed-order relay: every timed leg, fastest first', () =>
     results: [row('A', 1, { gun: 10 * MIN, lastName: 'Nowak' }), row('A', 2, { gun: 19 * MIN, lastName: 'Lis' }), row('A', 3, { lastName: 'Wrona' })],
   })
   assert.deepEqual(teamRunners(teams).map(r => [r.participant.lastName, r.bestLapMs / MIN, r.rank]), [['Lis', 9, 1], ['Nowak', 10, 2]])
+})
+
+test('relay_free: a candidate lap is not counted, a counted lap with no runner is, and neither is a runner lap', () => {
+  const a = row('A', null), b = row('A', null)
+  const laps = lapsOf('A', [[a.participantId, 10], [b.participantId, 1], [null, 10]])
+  laps[1].status = 'candidate'
+  laps[0].status = 'counted'
+  const [t] = computeTeamResults({ mode: 'relay_free', results: [{ ...a, status: 'started' }, { ...b, status: 'started' }], laps, gunStartedAt: GUN })
+  assert.equal(t.completed, 2)
+  assert.equal(t.runners.length, 2)
+  assert.deepEqual(t.runners.map(r => [r.participantId, r.laps]).sort(), [[a.participantId, 1], [b.participantId, 0]].sort())
+  assert.equal(t.runners.some(r => r.participantId == null), false)
+  assert.equal(t.members[1].participantId, null)
+  assert.deepEqual(t.members[1].participant, {})
+})
+
+test('relay_free: laps with no status count as before', () => {
+  const a = row('A', null)
+  const [t] = computeTeamResults({ mode: 'relay_free', results: [{ ...a, status: 'started' }], laps: lapsOf('A', [[a.participantId, 10], [a.participantId, 10]]), gunStartedAt: GUN })
+  assert.equal(t.completed, 2)
+})
+
+test('relay_free: the lap after a candidate is timed from the last counted lap', () => {
+  const a = row('A', null)
+  const laps = lapsOf('A', [[a.participantId, 10], [a.participantId, 3], [a.participantId, 8]])
+  laps[1].status = 'candidate'
+  const [t] = computeTeamResults({ mode: 'relay_free', results: [{ ...a, status: 'started' }], laps, gunStartedAt: GUN })
+  assert.deepEqual(t.members.map(m => m.legMs / MIN), [10, 11])
+})
+
+test('relay_free: a lap with no runner is shown as „bez biegacza”, never as „#” and a blank name', () => {
+  const a = row('A', null, { lastName: 'Nowak' })
+  const [t] = computeTeamResults({ mode: 'relay_free', results: [{ ...a, status: 'started' }], laps: lapsOf('A', [[a.participantId, 10], [null, 10]]), gunStartedAt: GUN })
+  assert.deepEqual(lapRunnerCells(t.members[1], () => 'X'), { bib: '', name: 'bez biegacza', missing: true })
+  assert.deepEqual(lapRunnerCells(t.members[0], (m) => m.participant.lastName), { bib: `#${a.participant.bibNumber}`, name: 'Nowak', missing: false })
 })

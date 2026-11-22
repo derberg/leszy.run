@@ -42,3 +42,42 @@ test('remove and restore', () => {
   assert.deepEqual(lapEdit({ run, participant: null, lap, body: { deleted: true }, now: NOW }).values, { deletedAt: NOW })
   assert.deepEqual(lapEdit({ run, participant: null, lap, body: { deleted: false }, now: NOW }).values, { deletedAt: null })
 })
+
+test('a candidate lap is approved with status counted; a counted one is 409', () => {
+  assert.deepEqual(lapEdit({ run, participant: null, lap: { ...lap, status: 'candidate' }, body: { status: 'counted' }, now: NOW }).values, { status: 'counted' })
+  const out = lapEdit({ run, participant: null, lap: { ...lap, status: 'counted' }, body: { status: 'counted' }, now: NOW })
+  assert.equal(out.status, 409)
+  assert.equal(out.error, 'To okrążenie jest już liczone.')
+})
+
+test('reviewed sets or clears reviewedAt', () => {
+  assert.deepEqual(lapEdit({ run, participant: null, lap, body: { reviewed: true }, now: NOW }).values, { reviewedAt: NOW })
+  assert.deepEqual(lapEdit({ run, participant: null, lap, body: { reviewed: false }, now: NOW }).values, { reviewedAt: null })
+})
+
+test('participantId null clears the runner and keeps the team in a baton relay', () => {
+  const batonRun = { ...run, category: { ...run.category, teamLapSource: 'baton' } }
+  assert.deepEqual(lapEdit({ run: batonRun, participant: null, lap, body: { participantId: null }, now: NOW }).values, { participantId: null })
+})
+
+test('participantId null is refused where the runner tag counts the lap', () => {
+  for (const category of [run.category, { ...run.category, teamLapSource: 'runner' }]) {
+    const out = lapEdit({ run: { ...run, category }, participant: null, lap, body: { participantId: null }, now: NOW })
+    assert.equal(out.status, 409)
+    assert.equal(out.error, 'W tym biegu okrążenie musi mieć zawodnika.')
+  }
+})
+
+test('reviewed must be a boolean', () => {
+  for (const reviewed of ['yes', 1, null, {}]) {
+    const out = lapEdit({ run, participant: null, lap, body: { reviewed }, now: NOW })
+    assert.equal(out.status, 400, JSON.stringify(reviewed))
+    assert.equal(out.error, 'Nieprawidłowa wartość zatwierdzenia.')
+  }
+})
+
+test('an unknown status is refused in operator Polish', () => {
+  const out = lapEdit({ run, participant: null, lap: { ...lap, status: 'candidate' }, body: { status: 'maybe' }, now: NOW })
+  assert.equal(out.status, 400)
+  assert.equal(out.error, 'Nieprawidłowy status okrążenia.')
+})

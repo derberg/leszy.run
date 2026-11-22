@@ -1,6 +1,7 @@
 import { eq } from 'drizzle-orm'
 import { raceRuns } from '../db/schema.js'
 import { startListFor } from './registrationGuards.js'
+import { batonsForCategory } from './batonConfig.js'
 
 // After a host restart mid-race, feed every active run back to the crossing
 // detector. The start list is the same one race start uses (`startListFor`):
@@ -21,8 +22,10 @@ export async function reloadActiveRaces(db, detector) {
   })
   for (const run of activeRuns) {
     // A team category's mode rides on the config, as at race start (routes/races.js).
-    const { event, teamMode, teamLapCount, teamTimeLimitSeconds } = run.category
-    await detector.startRace(run, teamMode ? { ...event, teamMode, teamLapCount, teamTimeLimitSeconds } : event, startListFor(run.category.participants))
+    const { event, teamMode, teamLapCount, teamTimeLimitSeconds, teamLapSource } = run.category
+    const batons = await batonsForCategory(db, run.category, event.id)
+    const config = teamMode ? { ...event, teamMode, teamLapCount, teamTimeLimitSeconds, teamLapSource, batons } : event
+    await detector.startRace(run, config, startListFor(run.category.participants))
   }
   return activeRuns.length
 }

@@ -90,6 +90,7 @@ than no reset, because it looks finished.
 | `gate_events` | host-local only (never synced) | raw pings; only reads **above** `rssi_threshold` are here |
 | `gate_crossings` | host-local **+ pushed to Supabase** | confirmed crossings |
 | `results` | host-local + Supabase | start/finish times, positions, statuses |
+| `team_laps` | host-local + Supabase | relay laps; cascade from `race_runs`, delete explicitly before it like `results` |
 | `checkpoint_imports` → `checkpoint_readings` | host-local | cascade from `race_runs` |
 | `race_runs` | host-local + Supabase | delete last |
 
@@ -124,7 +125,7 @@ rewrite the file mid-delete, then start it again. Verify with `GET /api/state`:
 **KEEP unless the user explicitly says otherwise:**
 `checkins`, `checkin_documents` (else 20 people re-scan), `participants`
 (including `rfid_epc` tag assignments), `categories`, `events` (including the
-`rssi_threshold` they just tuned), `checkpoints`, `settings` (device-local
+`rssi_threshold` they just tuned), `checkpoints`, `team_batons` (relay baton tags, event config), `settings` (device-local
 reader/MQTT config). Say in your summary that you kept these.
 
 ## Step 3 — FK order (the orphan trap)
@@ -152,6 +153,7 @@ SELECT count(*) AS runs_to_delete FROM rr_del;
 DELETE FROM gate_events    WHERE race_run_id IN (SELECT id FROM rr_del);  -- MUST be first
 DELETE FROM gate_crossings WHERE race_run_id IN (SELECT id FROM rr_del);
 DELETE FROM results        WHERE race_run_id IN (SELECT id FROM rr_del);
+DELETE FROM team_laps      WHERE race_run_id IN (SELECT id FROM rr_del);
 DELETE FROM race_runs      WHERE id IN (SELECT id FROM rr_del);
 COMMIT;
 ```
@@ -173,7 +175,7 @@ above. `Prefer: return=representation` makes the deleted-row count visible:
 set -a; . ./.env; set +a
 AUTH=(-H "apikey: $SUPABASE_SERVICE_ROLE_KEY" -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY")
 R=<RACE_RUN_ID>
-for t in gate_crossings results; do
+for t in gate_crossings results team_laps; do
   curl -s -X DELETE "$SUPABASE_URL/rest/v1/$t?race_run_id=eq.$R" "${AUTH[@]}" \
     -H "Prefer: return=representation" | python3 -c "import sys,json;print('$t:',len(json.load(sys.stdin)))"
 done

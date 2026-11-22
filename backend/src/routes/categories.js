@@ -1,5 +1,5 @@
 import { eq, and, sql } from 'drizzle-orm'
-import { categories, events } from '../db/schema.js'
+import { categories, events, raceRuns } from '../db/schema.js'
 import { syncDelete } from '../sync/supabase.js'
 import { isRegistrationEvent, REGISTRATION_DELETE_REFUSAL } from '../lib/registrationGuards.js'
 import Papa from 'papaparse'
@@ -42,13 +42,32 @@ export async function categoriesRoutes(fastify) {
 
   // Update category
   fastify.patch('/categories/:id', async (req, reply) => {
-    const allowed = ['name', 'slug', 'untimed', 'teamMode', 'teamLapCount', 'teamTimeLimitSeconds']
+    const allowed = ['name', 'slug', 'untimed', 'teamMode', 'teamLapCount', 'teamTimeLimitSeconds', 'teamLapSource']
     const updates = {}
     for (const key of allowed) {
       if (req.body[key] !== undefined) updates[key] = req.body[key]
     }
     const teamError = teamFieldsError(updates)
     if (teamError) return reply.code(400).send({ error: teamError })
+
+    if (updates.teamLapSource !== undefined) {
+      const current = await db.query.categories.findFirst({
+        where: eq(categories.id, req.params.id), columns: { id: true, teamMode: true, teamLapSource: true },
+      })
+      if (!current) return reply.code(404).send({ error: 'Category not found' })
+      const teamMode = updates.teamMode !== undefined ? updates.teamMode : current.teamMode
+      if (teamMode !== 'relay_free') {
+        return reply.code(422).send({ error: 'Sposób liczenia okrążeń dotyczy tylko sztafety w dowolnej kolejności.' })
+      }
+      // A running race keeps the source it started with, but a host restarted mid-race would
+      // reload the new one (reloadActiveRaces): refuse the change while a run is active.
+      if (updates.teamLapSource !== (current.teamLapSource ?? 'runner')) {
+        const active = await db.query.raceRuns.findFirst({
+          where: and(eq(raceRuns.categoryId, req.params.id), eq(raceRuns.status, 'active')), columns: { id: true },
+        })
+        if (active) return reply.code(409).send({ error: 'Nie można zmienić sposobu liczenia w trakcie biegu.' })
+      }
+    }
 
     const [row] = await db.update(categories).set(updates).where(eq(categories.id, req.params.id)).returning()
     if (!row) return reply.code(404).send({ error: 'Category not found' })
@@ -116,7 +135,8 @@ export async function categoriesRoutes(fastify) {
 
 const positiveIntOrNull = (v) => v == null || (Number.isInteger(v) && v >= 1)
 
-function teamFieldsError({ teamMode, teamLapCount, teamTimeLimitSeconds }) {
+function teamFieldsError({ teamMode, teamLapCount, teamTimeLimitSeconds, teamLapSource }) {
+  if (teamLapSource !== undefined && !['runner', 'baton'].includes(teamLapSource)) return 'Nieprawidłowy sposób liczenia okrążeń.'
   if (teamMode !== undefined && ![null, 'relay', 'relay_free'].includes(teamMode)) return "teamMode must be 'relay_free', 'relay' or null"
   if (!positiveIntOrNull(teamLapCount)) return 'teamLapCount must be a positive integer or null'
   if (!positiveIntOrNull(teamTimeLimitSeconds)) return 'teamTimeLimitSeconds must be a positive integer or null'

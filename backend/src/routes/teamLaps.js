@@ -40,7 +40,7 @@ export async function teamLapsRoutes(fastify) {
     if (!lap) return reply.code(404).send({ error: 'Lap not found' })
     const run = await loadRun(lap.raceRunId)
     const body = req.body ?? {}
-    const out = lapEdit({ run, participant: await loadParticipant(body.participantId), lap, body })
+    const out = lapEdit({ run, participant: typeof body.participantId === 'string' ? await loadParticipant(body.participantId) : null, lap, body })
     if (out.error) return reply.code(out.status).send({ error: out.error })
     if (!Object.keys(out.values).length) return reply.code(400).send({ error: 'No fields to update' })
     const [row] = await db.update(teamLaps).set(out.values).where(eq(teamLaps.id, lap.id)).returning()
