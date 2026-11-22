@@ -10,7 +10,10 @@ import { createFakeDb, createFakeBroadcast, wait } from './helpers/fakeDb.js'
 // is kept about every 200 ms; the burst gap (400 ms) is above that.
 const QUIET = 40
 const ARRIVAL = 500
-const WINDOWS = { burstGapMs: 400, attributionBeforeMs: 600, attributionAfterMs: 200, candidateWindowMs: 300 }
+const WINDOWS = { burstGapMs: 400, attributionWindowMs: 450, batonPassMaxMs: 1000, candidateWindowMs: 300 }
+// A baton pass closes once the baton has been silent for the gone window (40 ms here), and never
+// before the attribution window after its first read has passed.
+const CLOSE = WINDOWS.attributionWindowMs + 60
 // A runner burst is decided once it has ended (burst gap) and the candidate window after it passed.
 const CANDIDATE_CHECK = WINDOWS.burstGapMs + WINDOWS.candidateWindowMs + 60
 
@@ -59,7 +62,7 @@ test('(a) a baton pass closes a lap credited to the runner who came in with it',
   await wait(5)
   detector.processEvent(read('B1', -3500))
   detector.processEvent(read('E1', -3600))
-  await wait(QUIET + 60)
+  await wait(CLOSE)
   assert.deepEqual(rows(db).map(l => [l.participantId, l.source, l.status, l.peakRssiCdbm]), [['p1', 'baton', 'counted', -3500]])
   const sent = broadcast.sent.filter(s => s.event === 'team:lap').map(s => s.payload)
   assert.equal(sent.length, 1)
@@ -76,7 +79,7 @@ test('(b) a teammate waiting at the antenna while the baton comes and goes is ne
   await hold(detector, ['E2', 'E1', 'B1'], 300)            // p1 arrives with the baton, hands over
   await hold(detector, ['E1'], 1500)                       // p2 runs off with it; p1 stays at the line
   await hold(detector, ['E1', 'E2', 'B1'], 300)            // p2 back with the baton
-  await wait(QUIET + CANDIDATE_CHECK + 100)
+  await wait(CLOSE + CANDIDATE_CHECK + 100)
   assert.deepEqual(counted(db).map(l => [l.participantId, l.source]), [['p1', 'baton'], ['p2', 'baton']])
   assert.equal(candidates(db).length, 0)
 })
@@ -84,7 +87,7 @@ test('(b) a teammate waiting at the antenna while the baton comes and goes is ne
 test('(c) a baton left next to the antenna makes one lap, never more', async (t) => {
   const { detector, db } = await makeRace(t)
   await hold(detector, ['B1'], 1500)
-  await wait(QUIET + 60)
+  await wait(CLOSE)
   assert.equal(counted(db).length, 1)
   assert.equal(counted(db)[0].participantId, null, 'no runner came in: the lap has none')
   assert.equal(teamState(detector).laps, 1)
@@ -105,7 +108,7 @@ test('(d) a runner from the course without the baton raises one candidate, which
   assert.equal(broadcast.sent.filter(s => s.event === 'team:lap')[0].payload.status, 'candidate')
   // The team's first counted lap is still lap 1.
   detector.processEvent(read('B1'))
-  await wait(QUIET + 60)
+  await wait(CLOSE)
   assert.equal(counted(db).length, 1)
   assert.equal(broadcast.sent.filter(s => s.event === 'team:lap').at(-1).payload.lapNumber, 1)
 })
@@ -114,7 +117,7 @@ test('(e) runner tags alone never close a lap', async (t) => {
   const { detector, db } = await makeRace(t)
   for (let i = 0; i < 3; i++) {
     detector.processEvent(read(i % 2 ? 'E2' : 'E1', -3500))
-    await wait(QUIET + 60)
+    await wait(CLOSE)
     await wait(ARRIVAL + 20)
   }
   await wait(CANDIDATE_CHECK)
@@ -129,14 +132,14 @@ test('(f) a category with the old team_lap_source = \'runner\' stored is still b
   assert.equal(detector.activeRaces.get('rr1').freeRelay.batonTeamOf.get('B1'), 'T')
   for (let i = 0; i < 3; i++) {
     detector.processEvent(read(i % 2 ? 'E2' : 'E1', -3500))
-    await wait(QUIET + 60)
+    await wait(CLOSE)
     await wait(ARRIVAL + 20)
   }
   await wait(CANDIDATE_CHECK)
   assert.equal(counted(db).length, 0, 'runner passes closed no lap')
   assert.ok(candidates(db).length >= 1, 'they are candidates')
   detector.processEvent(read('B1', -3500))
-  await wait(QUIET + 60)
+  await wait(CLOSE)
   assert.deepEqual(counted(db).map(l => l.source), ['baton'])
 })
 
@@ -150,7 +153,7 @@ test('(g) slow approach: a weak first baton read, then stronger ones; the lap is
   detector.processEvent(peak)
   await wait(10)
   detector.processEvent(read('B1', -5000))
-  await wait(QUIET + 60)
+  await wait(CLOSE)
   assert.equal(counted(db).length, 1)
   assert.equal(counted(db)[0].peakRssiCdbm, -3450)
   assert.equal(counted(db)[0].closedAt.getTime(), new Date(peak.receivedAt).getTime())
@@ -159,7 +162,7 @@ test('(g) slow approach: a weak first baton read, then stronger ones; the lap is
 test('min lap from the gun: batons standing at the start line make no lap', async (t) => {
   const { detector, db } = await makeRace(t, { cfg: config({ minFinishSeconds: 30 }), gunAgoMs: 100 })
   await hold(detector, ['B1', 'E1'], 500)
-  await wait(QUIET + CANDIDATE_CHECK + 60)
+  await wait(CLOSE + CANDIDATE_CHECK + 60)
   assert.equal(rows(db).length, 0)
 })
 
@@ -169,11 +172,11 @@ test('reloadBatons: a baton changed mid-race takes effect for the event\'s races
   assert.equal(detector.activeRaces.get('rr1').freeRelay.batonTeamOf.get('B1'), 'T', 'another event: untouched')
   detector.reloadBatons('e1', [{ teamId: 'T', epc: 'B2' }])
   detector.processEvent(read('B1'))
-  await wait(QUIET + 60)
+  await wait(CLOSE)
   assert.equal(counted(db).length, 0, 'the old tag is no baton any more')
   await wait(ARRIVAL + 20)
   detector.processEvent(read('B2'))
-  await wait(QUIET + 60)
+  await wait(CLOSE)
   assert.equal(counted(db).length, 1)
 })
 
@@ -182,11 +185,11 @@ test('reloadBatons: a baton scanned at the gate to assign it mid-race makes no l
   detector.reloadBatons('e1', [{ teamId: 'T', epc: 'B1' }, { teamId: 'T', epc: 'B2' }])
   // The operator holds the new tag at the antenna right after assigning it.
   await hold(detector, ['B2'], 300)
-  await wait(QUIET + 60)
+  await wait(CLOSE)
   assert.equal(counted(db).length, 0, 'the assignment scan is no lap')
   // The already mapped baton is not reseeded: it still closes a lap on its first read.
   detector.processEvent(read('B1'))
-  await wait(QUIET + 60)
+  await wait(CLOSE)
   assert.equal(counted(db).length, 1, 'an already mapped tag keeps its state')
 })
 
@@ -194,18 +197,18 @@ test('reloadBatons: a newly mapped baton closes a lap once it has been silent fo
   const { detector, db } = await makeRace(t)
   detector.reloadBatons('e1', [{ teamId: 'T', epc: 'B2' }])
   detector.processEvent(read('B2'))
-  await wait(QUIET + 60)
+  await wait(CLOSE)
   assert.equal(counted(db).length, 0)
   await wait(ARRIVAL + 20)
   detector.processEvent(read('B2'))
-  await wait(QUIET + 60)
+  await wait(CLOSE)
   assert.equal(counted(db).length, 1)
 })
 
 test('a team without a baton gets only candidates', async (t) => {
   const { detector, db } = await makeRace(t, { cfg: config({ batons: [] }) })
   detector.processEvent(read('E1', -3500))
-  await wait(QUIET + CANDIDATE_CHECK + 60)
+  await wait(CLOSE + CANDIDATE_CHECK + 60)
   assert.equal(counted(db).length, 0)
   assert.equal(candidates(db).length, 1)
 })
@@ -226,7 +229,7 @@ test('after a restart, recorded baton laps keep a returning runner from becoming
   const lapRows = [{ teamId: 'T', closedAt: new Date(Date.now() - 100), source: 'baton', status: 'counted', participantId: 'p1' }]
   const { detector, db } = await makeRace(t, { lapRows })
   detector.processEvent(read('E1', -3500))
-  await wait(QUIET + CANDIDATE_CHECK + 60)
+  await wait(CLOSE + CANDIDATE_CHECK + 60)
   assert.equal(candidates(db).length, 0)
   assert.equal(teamState(detector).laps, 1)
 })
@@ -239,7 +242,7 @@ test('a teammate who walks up mid-lap, waits longer than the window, and leaves 
   await hold(detector, ['E1'], 1200)                    // p1 walks up (min lap + δ) and waits
   await hold(detector, ['E1', 'E2', 'B1'], 300)         // p2 brings the baton, p1 takes it
   await hold(detector, ['E2'], 300)                     // p1 gone with the baton, p2 stays a moment
-  await wait(QUIET + CANDIDATE_CHECK + 100)
+  await wait(CLOSE + CANDIDATE_CHECK + 100)
   assert.deepEqual(counted(db).map(l => [l.participantId, l.source]), [['p1', 'baton'], ['p2', 'baton']])
   assert.equal(candidates(db).length, 0)
 })
@@ -263,7 +266,7 @@ test('a waiter who arrived just before the baton and its runner leaves the lap w
   const { detector, db } = await makeRace(t)
   await hold(detector, ['E2'], 300)                     // p2 walks up 0.3 s before (window 0.6 s)
   await hold(detector, ['E2', 'E1', 'B1'], 300)         // p1 arrives with the baton
-  await wait(QUIET + CANDIDATE_CHECK + 100)
+  await wait(CLOSE + CANDIDATE_CHECK + 100)
   assert.equal(counted(db).length, 1)
   assert.equal(counted(db)[0].participantId, null, 'two arrivals: the operator picks the runner')
   assert.equal(candidates(db).length, 0)
@@ -294,9 +297,55 @@ test('stopping the race decides a runner burst in progress: a baton lap inside t
   const { detector, db } = await makeRace(t)
   detector.processEvent(read('E1', -3600))
   detector.processEvent(read('B1', -3500))
-  await wait(QUIET + 60)                                // the baton lap has closed
+  await wait(CLOSE)                                // the baton lap has closed
   assert.equal(counted(db).length, 1)
   await detector.stopRace('rr1')
   await wait(CANDIDATE_CHECK + 60)
   assert.equal(candidates(db).length, 0)
+})
+
+test('attribution counts from the baton\'s first read: a runner heard just after it is credited, however late the peak', async (t) => {
+  // Gone window 0.3 s (above the 200 ms read dedup), so the pass stays open while the baton is heard.
+  const { detector, db } = await makeRace(t, { cfg: config({ goneWindowSeconds: 0.3 }) })
+  await hold(detector, ['E2'], 1500)                    // p2 waits at the line
+  detector.processEvent(read('B1', -7700))              // the baton's first, far read
+  await wait(100)
+  detector.processEvent(read('E1', -7000))              // p1, who carries it, heard 0.1 s later
+  await hold(detector, ['B1', 'E1', 'E2'], 600, { rssi: -6500 })
+  detector.processEvent(read('B1', -4000))              // the peak, 0.7 s after the first read (past the window)
+  await wait(300 + CANDIDATE_CHECK)
+  assert.deepEqual(counted(db).map(l => [l.participantId, l.peakRssiCdbm]), [['p1', -4000]])
+  assert.equal(candidates(db).length, 0)
+})
+
+test('a baton heard once waits for the attribution window: a runner heard after it is still credited', async (t) => {
+  const { detector, db } = await makeRace(t)
+  detector.processEvent(read('B1', -5000))
+  await wait(300)                                       // past the 40 ms gone window, inside the 450 ms attribution window
+  detector.processEvent(read('E1', -5000))
+  await wait(CLOSE)
+  assert.deepEqual(counted(db).map(l => l.participantId), ['p1'])
+})
+
+test('a baton heard at the gun makes no lap, even with no min lap', async (t) => {
+  const { detector, db } = await makeRace(t, { cfg: config({ minFinishSeconds: 0 }), gunAgoMs: 0 })
+  await hold(detector, ['B1'], 300)                     // at the start line; arrival silence 0.5 s
+  await wait(CLOSE)
+  assert.equal(counted(db).length, 0)
+  await wait(ARRIVAL)
+  detector.processEvent(read('B1'))                     // back from the course
+  await wait(CLOSE)
+  assert.equal(counted(db).length, 1)
+})
+
+test('a lap the operator added keeps the runner who brought it from becoming a candidate', async (t) => {
+  // The baton was not read; the operator added the lap by hand („+ Okrążenie”) 0.1 s ago.
+  const lapRows = []
+  const { detector, db } = await makeRace(t, { lapRows })
+  lapRows.push({ teamId: 'T', closedAt: new Date(Date.now() - 100), source: 'manual', status: 'counted', participantId: 'p1' })
+  await detector.reloadTeamLaps('rr1')
+  detector.processEvent(read('E1', -3500))
+  await wait(CANDIDATE_CHECK + 100)
+  assert.equal(candidates(db).length, 0)
+  assert.equal(teamState(detector).laps, 1)
 })
