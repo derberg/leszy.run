@@ -138,9 +138,9 @@ const DEFAULT_MIN_FINISH_SECONDS = 300
 const FINISH_QUIET_MS = 2000
 // ...and never later than this after its first read.
 const FINISH_MAX_PASS_MS = 6000
-// Relay in any order: a pass closes a team lap only when its tag had been silent this long
-// before it (the runner came in from the course). A teammate waiting at the gate is read
-// continuously and so never closes a lap. Per event: `lap_arrival_silence_seconds`; this is the
+// Relay in any order: a baton pass closes a team lap, and a runner's burst counts as coming in
+// from the course, only when the tag had been silent this long before it. A baton or a teammate
+// waiting at the gate is read continuously and so never does. Per event: `lap_arrival_silence_seconds`; this is the
 // fallback for a config without it. It was a fixed 60 s, which a 400 m loop beats.
 const LAP_ARRIVAL_SILENCE_MS = 15_000
 
@@ -247,22 +247,20 @@ export class CrossingDetector {
       })
       this.activeRaces.get(raceRun.id).freeRelay = freeRelay
       console.log(`[Detector] Relay (any order) race ${raceRun.id}: ${freeRelay.teams.size} team(s), ${laps.length} lap(s) already recorded`)
-      // Baton mode: laps come from each team's baton tag; runner tags never close a lap.
-      if (eventConfig.teamLapSource === 'baton') {
-        freeRelay.batonTeamOf = batonTeamMap(eventConfig.batons, freeRelay.teams)
-        freeRelay.membersOf = new Map()
-        for (const [pid, teamId] of freeRelay.teamOf) {
-          if (!freeRelay.membersOf.has(teamId)) freeRelay.membersOf.set(teamId, [])
-          freeRelay.membersOf.get(teamId).push(pid)
-        }
-        freeRelay.bursts = new Map()
-        // burst -> { timer, participantId, teamId }: the timer that decides that burst once it ends.
-        // Keyed by burst, so a runner's new burst never cancels the decision of the previous one.
-        freeRelay.candidateTimers = new Map()
-        const withBaton = new Set(freeRelay.batonTeamOf.values())
-        const without = [...freeRelay.teams.keys()].filter(id => !withBaton.has(id))
-        console.log(`[Detector] Baton relay race ${raceRun.id}: ${withBaton.size} team(s) with a baton${without.length ? `, without: ${without.join(', ')} (candidates only)` : ''}`)
+      // Laps come from each team's baton tag only; runner tags attribute laps and raise candidates.
+      freeRelay.batonTeamOf = batonTeamMap(eventConfig.batons, freeRelay.teams)
+      freeRelay.membersOf = new Map()
+      for (const [pid, teamId] of freeRelay.teamOf) {
+        if (!freeRelay.membersOf.has(teamId)) freeRelay.membersOf.set(teamId, [])
+        freeRelay.membersOf.get(teamId).push(pid)
       }
+      freeRelay.bursts = new Map()
+      // burst -> { timer, participantId, teamId }: the timer that decides that burst once it ends.
+      // Keyed by burst, so a runner's new burst never cancels the decision of the previous one.
+      freeRelay.candidateTimers = new Map()
+      const withBaton = new Set(freeRelay.batonTeamOf.values())
+      const without = [...freeRelay.teams.keys()].filter(id => !withBaton.has(id))
+      console.log(`[Detector] Baton relay race ${raceRun.id}: ${withBaton.size} team(s) with a baton${without.length ? `, without: ${without.join(', ')} (candidates only)` : ''}`)
     }
     console.log(`[Detector] Started race ${raceRun.id} with ${epcMap.size} tagged participants (${startedParticipants.size} already started, ${finishedParticipants.size} already finished)`)
 
@@ -487,11 +485,11 @@ export class CrossingDetector {
       // A relay leg still waiting for its handover: audited above, nothing more.
       if (race.awaitingHandover.has(participantId)) continue
 
-      // Relay in any order: every member's reads count toward the team's laps only.
+      // Relay in any order: a member's reads never close a lap; they attribute the baton's laps
+      // and raise candidates.
       const freeTeamId = race.freeRelay?.teamOf.get(participantId)
       if (freeTeamId) {
-        if (race.freeRelay.batonTeamOf) this.#trackRunnerInBatonRace({ event, raceRunId, participantId, teamId: freeTeamId, race })
-        else this.#trackLap({ event, now, raceRunId, participantId, teamId: freeTeamId, race, confirmRssi })
+        this.#trackRunnerInBatonRace({ event, raceRunId, participantId, teamId: freeTeamId, race })
         continue
       }
 
@@ -800,48 +798,18 @@ export class CrossingDetector {
     }).catch(err => console.error('[Detector] Failed to persist gate event:', err))
   }
 
-  // Relay in any order. A pass opens only for a tag that comes in after the event's arrival silence
-  // of silence (from the course, not standing at the gate) and at least min_finish_seconds
-  // after the team's previous lap. It is timed at its peak like a finish pass, and closes one
-  // lap of the team, credited to this runner. Whoever runs next, and how often, does not matter.
-  #trackLap({ event, now, raceRunId, participantId, teamId, race, confirmRssi }) {
-    this.#trackTeamPass({
-      event, now, raceRunId, teamId, race, confirmRssi,
-      key: `${event.epc}:${raceRunId}:lap`,
-      seenKey: participantId,
-      credit: () => ({ participantId, source: 'chip' }),
-    })
-  }
-
-  // Baton relay: the same pass rules applied to the team's baton tag. The closed lap is credited
-  // to the member who came in from the course with it (attributeLap), or to nobody.
+  // Relay in any order: a team lap is a pass of the team's baton tag. A pass opens only when the
+  // baton comes in after the event's arrival silence (from the course, not lying at the gate) and
+  // at least min_finish_seconds after the team's previous counted lap. It is timed at its peak like
+  // a finish pass, closed after the quiet time or the cap, and credited to the member who came in
+  // from the course with it (attributeLap), or to nobody.
   #trackBatonLap({ event, now, raceRunId, teamId, race, confirmRssi }) {
     const fr = race.freeRelay
-    this.#trackTeamPass({
-      event, now, raceRunId, teamId, race, confirmRssi,
-      key: `${event.epc}:${raceRunId}:baton`,
-      seenKey: event.epc,
-      credit: (pass) => {
-        const at = pass.peakTime.getTime()
-        fr.teams.get(teamId).batonLapTimes.push(at)
-        const participantId = attributeLap(fr.bursts, fr.membersOf.get(teamId) ?? [], at, {
-          beforeMs: this.batonWindows.attributionBeforeMs,
-          afterMs: this.batonWindows.attributionAfterMs,
-        })
-        return { participantId, source: 'baton' }
-      },
-    })
-  }
-
-  // One lap pass of a team: opens on a tag that arrived (after the arrival silence) at least
-  // min lap after the team's previous counted lap, timed at its peak, closed after the quiet
-  // time or the cap. `seenKey` keys the tag's last read, `credit` names the lap's runner.
-  #trackTeamPass({ event, now, raceRunId, teamId, race, confirmRssi, key, seenKey, credit }) {
-    const fr = race.freeRelay
     const team = fr.teams.get(teamId)
+    const key = `${event.epc}:${raceRunId}:baton`
     const at = new Date(event.receivedAt)
-    const prevSeen = fr.lastSeen.get(seenKey)
-    fr.lastSeen.set(seenKey, at.getTime())
+    const prevSeen = fr.lastSeen.get(event.epc)
+    fr.lastSeen.set(event.epc, at.getTime())
     if (team.done) return
 
     const close = () => {
@@ -861,8 +829,13 @@ export class CrossingDetector {
       team.laps += 1
       team.lastBoundary = pass.peakTime
       if (team.laps >= team.target) team.done = true
-      const { participantId, source } = credit(pass)
-      return this.#recordLap({ raceRunId, teamId, lapNumber: team.laps, participantId, closedAt: pass.peakTime, lapMs, peakRssi: pass.peakRssi, source })
+      const closedMs = pass.peakTime.getTime()
+      team.batonLapTimes.push(closedMs)
+      const participantId = attributeLap(fr.bursts, fr.membersOf.get(teamId) ?? [], closedMs, {
+        beforeMs: this.batonWindows.attributionBeforeMs,
+        afterMs: this.batonWindows.attributionAfterMs,
+      })
+      return this.#recordLap({ raceRunId, teamId, lapNumber: team.laps, participantId, closedAt: pass.peakTime, lapMs, peakRssi: pass.peakRssi, source: 'baton' })
     }
 
     let pass = this.inRange.get(key)
@@ -932,7 +905,7 @@ export class CrossingDetector {
     })
   }
 
-  async #recordLap({ raceRunId, teamId, lapNumber, participantId, closedAt, lapMs, peakRssi, source = 'chip', status = 'counted' }) {
+  async #recordLap({ raceRunId, teamId, lapNumber, participantId, closedAt, lapMs, peakRssi, source, status = 'counted' }) {
     try {
       const row = { raceRunId, teamId, participantId, closedAt, peakRssiCdbm: peakRssi, source, status }
       await this.db.insert(teamLaps).values(row)
@@ -945,13 +918,13 @@ export class CrossingDetector {
   }
 
   /**
-   * A baton was assigned, changed or removed: replace the baton map of every active baton race
-   * of the event. `batons` is the event's full list ([{ teamId, epc }], epc null = no baton).
+   * A baton was assigned, changed or removed: replace the baton map of every active relay-in-any-
+   * order race of the event. `batons` is the event's full list ([{ teamId, epc }], epc null = no baton).
    */
   reloadBatons(eventId, batons) {
     for (const [raceRunId, race] of this.activeRaces) {
       const fr = race.freeRelay
-      if (!fr?.batonTeamOf || race.eventId !== eventId) continue
+      if (!fr || race.eventId !== eventId) continue
       const next = batonTeamMap(batons, fr.teams)
       // A tag assigned mid-race is usually scanned at the gate antenna to assign it. Treat it as
       // seen now, so it must be silent for the arrival silence (out on the course) before its

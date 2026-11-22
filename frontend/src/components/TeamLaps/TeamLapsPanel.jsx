@@ -105,11 +105,9 @@ export default function TeamLapsPanel({ category, run }) {
   const runnerOf = (lap) => results.find(r => r.participantId === lap.participantId)?.participant
   const lapLine = (lap) => `${clock(lap.closedAt)} · ${lap.participantId ? fullName(runnerOf(lap)) : 'bez biegacza'}`
   const sameLap = (lap) => lap.status === 'candidate' && !lap.deletedAt && sameLapNeighbours(lap, laps, sameLapMs).length > 0
-  // Baton relay: a counted lap far longer than the team's usual one may hide a lap whose baton
-  // read was missed. It waits in „Do decyzji” until approved or split with „+ Okrążenie”.
-  const missed = category.teamLapSource === 'baton'
-    ? possiblyMissedLaps(laps.map(l => ({ ...l, legMs: legOf.get(l.id)?.legMs })))
-    : new Set()
+  // A counted lap far longer than the team's usual one may hide a lap whose baton read was
+  // missed. It waits in „Do decyzji” until approved or split with „+ Okrążenie”.
+  const missed = possiblyMissedLaps(laps.map(l => ({ ...l, legMs: legOf.get(l.id)?.legMs })))
   const maybeMissed = (lap) => missed.has(lap.id) && !lap.reviewedAt
   const pending = laps.filter(l => needsDecision(l, missed))
     .sort((a, b) => new Date(a.closedAt) - new Date(b.closedAt))

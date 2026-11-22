@@ -53,9 +53,10 @@ export const categories = pgTable('categories', {
   // 'relay_free' only: laps closed later than this after the gun do not count. NULL: no limit
   // (the operator stops the race).
   teamTimeLimitSeconds: integer('team_time_limit_seconds'),
-  // 'relay_free' only: what closes a lap. 'runner': the runner's own tag at the gate.
-  // 'baton': a tag carried by the team (team_batons) read at the gate; the runner is not read.
-  teamLapSource: text('team_lap_source').notNull().default('runner'),   // 'runner' | 'baton'
+  // Deprecated, unused: a relay in any order always counts laps from the team's baton, whatever
+  // this holds. Kept mapped because hosts on older code push categories with it and Supabase has
+  // the column; do not drop it, and do not read it.
+  teamLapSource: text('team_lap_source').notNull().default('runner'),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
   syncedAt: timestamp('synced_at', { withTimezone: true }),
 }, (t) => [
@@ -153,7 +154,7 @@ export const hostTeams = pgTable('host_teams', {
   syncedAt: timestamp('synced_at', { withTimezone: true }),
 })
 
-// The tag a relay team carries as its baton (categories.team_lap_source = 'baton'). One per
+// The tag a relay-in-any-order team carries as its baton (its laps come only from it). One per
 // team; an EPC belongs to one team per event. epc NULL: the team has no baton assigned yet.
 // id is the team id (like host_teams), so every host writes the same row for a team.
 export const teamBatons = pgTable('team_batons', {

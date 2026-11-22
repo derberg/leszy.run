@@ -32,13 +32,6 @@ export default function TeamsTab({ eventId, categories }) {
     enabled: relayCats.length > 0,
   })
 
-  const { data: races = [] } = useQuery({
-    queryKey: ['races', eventId],
-    queryFn: () => api.races.list(eventId),
-    enabled: relayCats.length > 0,
-  })
-  const activeCats = new Set(races.filter(r => r.status === 'active').map(r => r.categoryId))
-
   const refresh = () => qc.invalidateQueries({ queryKey: ['team-batons', eventId] })
 
   const setBaton = useMutation({
@@ -51,11 +44,6 @@ export default function TeamsTab({ eventId, categories }) {
   const assignBaton = useMutation({
     mutationFn: ({ teamId, epc }) => api.teamBatons.put(eventId, teamId, epc),
     onSuccess: () => { setError(null); refresh(); setTarget(null) },
-  })
-  const setSource = useMutation({
-    mutationFn: ({ id, teamLapSource }) => api.categories.update(id, { teamLapSource }),
-    onSuccess: () => { setError(null); qc.invalidateQueries({ queryKey: ['categories', eventId] }) },
-    onError: (err) => setError(err.message),
   })
 
   const labels = teamLabels(participants, teamNames)
@@ -72,8 +60,6 @@ export default function TeamsTab({ eventId, categories }) {
         <p className="text-xs text-terrain-burgundy border border-red-200 bg-red-50 px-3 py-2">{error}</p>
       )}
       {relayCats.map(cat => {
-        const isBaton = cat.teamLapSource === 'baton'
-        const running = activeCats.has(cat.id)
         const teams = [...new Set(participants.filter(p => p.teamId && p.categoryId === cat.id).map(p => p.teamId))]
           .map(teamId => ({ teamId, text: teamLabelText(labels.get(teamId)), bibs: participants.filter(p => p.teamId === teamId && p.bibNumber != null).map(p => p.bibNumber).sort((a, b) => a - b) }))
           .sort((a, b) => (a.text || '').localeCompare(b.text || '', 'pl', { sensitivity: 'base' }))
@@ -81,26 +67,6 @@ export default function TeamsTab({ eventId, categories }) {
           <section key={cat.id} className="border border-apex-border bg-apex-surface">
             <div className="flex flex-wrap items-center justify-between gap-2 border-b border-apex-border px-4 py-3">
               <h2 className="font-display text-xl uppercase tracking-wider text-apex-text-bright">{cat.name}</h2>
-              <div className="flex items-center gap-2 flex-wrap">
-                {running && (
-                  <span className="text-xs text-apex-yellow whitespace-nowrap">Nie można zmienić sposobu liczenia w trakcie biegu.</span>
-                )}
-                <span className="text-xs uppercase tracking-widest text-apex-muted whitespace-nowrap">Liczenie okrążeń</span>
-                <div className="flex">
-                  {[['baton', 'pałka'], ['runner', 'zawodnicy']].map(([v, l]) => (
-                    <Button
-                      key={v}
-                      size="sm"
-                      variant={(cat.teamLapSource || 'runner') === v ? 'default' : 'outline'}
-                      className="whitespace-nowrap"
-                      disabled={setSource.isPending || running}
-                      onClick={() => (cat.teamLapSource || 'runner') !== v && setSource.mutate({ id: cat.id, teamLapSource: v })}
-                    >
-                      {l}
-                    </Button>
-                  ))}
-                </div>
-              </div>
             </div>
             <ul className="divide-y divide-apex-border">
               {teams.map(t => {
@@ -115,10 +81,8 @@ export default function TeamsTab({ eventId, categories }) {
                     <div className="whitespace-nowrap text-xs font-mono">
                       {epc ? (
                         <span className="flex items-center gap-1 text-apex-yellow" title={epc}><Wifi size={11} />{shortEpc(epc)}</span>
-                      ) : isBaton ? (
-                        <span className="text-apex-red">brak pałki</span>
                       ) : (
-                        <span className="text-apex-muted">—</span>
+                        <span className="text-apex-red">brak pałki</span>
                       )}
                     </div>
                     <div className="flex gap-2">

@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { CrossingDetector } from '../src/mqtt/crossingDetector.js'
 import { createFakeDb, createFakeBroadcast, wait } from './helpers/fakeDb.js'
 
-// Relay in any order with a baton (team_lap_source = 'baton'): the team's laps come from its
+// Relay in any order: the team's laps come only from its
 // baton tag; runner tags only say who ran (attribution) or raise a candidate.
 // All windows are scaled down so the tests run in real time. Reads of one EPC within 200 ms
 // are dropped unless stronger (the detector's dedup window), so a tag "read continuously"
@@ -18,7 +18,7 @@ const config = (over = {}) => ({
   id: 'e1',
   rssiThreshold: -9000, goneWindowSeconds: 0.04, minFinishSeconds: 0, gunBackfillEnabled: false,
   rfidMode: 'single', rfidTopicMain: 'leszyrun', rfidTopicFinish: 'leszyrun/finish',
-  teamMode: 'relay_free', teamLapCount: null, teamLapSource: 'baton',
+  teamMode: 'relay_free', teamLapCount: null,
   batons: [{ teamId: 'T', epc: 'B1' }],
   ...over,
 })
@@ -123,18 +123,21 @@ test('(e) runner tags alone never close a lap', async (t) => {
   assert.ok(candidates(db).length >= 1, 'they are candidates for the operator')
 })
 
-test('(f) a category counting runner tags ignores batons entirely', async (t) => {
+test('(f) a category with the old team_lap_source = \'runner\' stored is still baton-only', async (t) => {
+  // The column is kept for sync only; nothing reads it. Runner passes never close a lap there.
   const { detector, db } = await makeRace(t, { cfg: config({ teamLapSource: 'runner', teamLapCount: 3 }) })
-  assert.equal(detector.activeRaces.get('rr1').freeRelay.batonTeamOf, undefined)
-  detector.processEvent(read('B1', -3000))
-  await wait(QUIET + 60)
-  assert.equal(rows(db).length, 0, 'the baton tag is nobody here')
-  assert.equal((db._inserts().gate_events ?? []).length, 0)
-  detector.processEvent(read('E1', -3500))
-  await wait(QUIET + 60)
-  assert.deepEqual(rows(db).map(l => [l.participantId, l.source]), [['p1', 'chip']])
+  assert.equal(detector.activeRaces.get('rr1').freeRelay.batonTeamOf.get('B1'), 'T')
+  for (let i = 0; i < 3; i++) {
+    detector.processEvent(read(i % 2 ? 'E2' : 'E1', -3500))
+    await wait(QUIET + 60)
+    await wait(ARRIVAL + 20)
+  }
   await wait(CANDIDATE_CHECK)
-  assert.equal(rows(db).length, 1)
+  assert.equal(counted(db).length, 0, 'runner passes closed no lap')
+  assert.ok(candidates(db).length >= 1, 'they are candidates')
+  detector.processEvent(read('B1', -3500))
+  await wait(QUIET + 60)
+  assert.deepEqual(counted(db).map(l => l.source), ['baton'])
 })
 
 test('(g) slow approach: a weak first baton read, then stronger ones; the lap is timed at the peak', async (t) => {
@@ -199,7 +202,7 @@ test('reloadBatons: a newly mapped baton closes a lap once it has been silent fo
   assert.equal(counted(db).length, 1)
 })
 
-test('a baton-mode team without a baton gets only candidates', async (t) => {
+test('a team without a baton gets only candidates', async (t) => {
   const { detector, db } = await makeRace(t, { cfg: config({ batons: [] }) })
   detector.processEvent(read('E1', -3500))
   await wait(QUIET + CANDIDATE_CHECK + 60)

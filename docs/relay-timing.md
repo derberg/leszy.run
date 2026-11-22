@@ -9,17 +9,12 @@ The team is never timed by a result row of its own. Every lap is one `team_laps`
 standings, lap numbers and lap times are derived from those rows by `computeTeamResults()` in
 `@leszyrun/ui`, the same code for the admin panel and the public results page.
 
-## Two ways to count laps
+## Laps come only from the baton
 
-Each `relay_free` category has a lap source (`categories.team_lap_source`), set in the event's
-**Zespoły** tab („Liczenie okrążeń”: „pałka” / „zawodnicy”):
-
-| Source | What closes a team lap | Use it when |
-|---|---|---|
-| `runner` (default) | the pass of any team member's own bib tag | nobody stands near the antenna except runners passing it |
-| `baton` | the pass of the team's baton tag only | the antenna is on the exchange line (the normal stadium setup) |
-
-The source cannot be changed while the category has an active race run.
+A `relay_free` category counts team laps **only from each team's baton tag**. There is no other
+mode: a runner's own bib tag never closes a lap, it only says who ran the lap or raises a
+candidate (below). `categories.team_lap_source` still exists in both databases, only so hosts on
+older code keep syncing categories; nothing reads it.
 
 ### Why the baton exists (desk test, 2026-11-21)
 
@@ -40,7 +35,7 @@ half of the next one's. The baton on the exchange line is the only setup that gi
 results and correct individual lap times: the baton crosses the line at the start and the end of
 every lap, and is always with whoever is running.
 
-## Baton mode — the rules
+## The rules
 
 **One baton, one team, one tag.** A team has at most one baton with one tag (`team_batons`, the
 row id is the team id). A baton's tag may not also be a runner's tag, and no two teams share a
@@ -56,7 +51,8 @@ and the team gets no baton laps.
 - it is timed at the peak (strongest read) of the pass, closing 2 s after the last stronger read
   and never later than 6 s after the first read;
 - `confirm_rssi_cdbm`, when set, must be reached by the peak;
-- `team_lap_count` and `team_time_limit_seconds` work as in runner mode.
+- `team_lap_count` ends the team's laps at that count, and `team_time_limit_seconds` stops
+  counting laps that long after the gun.
 
 **Runner tags never close a lap.** Their reads are grouped into bursts (a new burst after 5 s
 without a read). A burst "came from the course" when that tag had been silent for the arrival
@@ -101,7 +97,8 @@ approves. The Zespoły tab shows „brak pałki” for it, and Sterowanie „Bra
 | A teammate steps into range less than 10 s before the baton arrives | two members qualify, the lap has no runner | pick the runner in „Do decyzji” |
 | A family team with very different paces | a child's lap can trip the 1.7× flag | „Zatwierdź” |
 | The host restarts mid-race | burst history is lost: runners at the line count as just arrived (laps with no runner, extra candidates), bursts that ended in the 15 s before the restart are never decided, and a baton lying at the antenna can count one extra lap | check „Do decyzji” and remove extras |
-| A host still on code from before baton mode | it ignores the lap source, counts candidates as laps and cannot pull laps with no runner | update every host that holds the event before the race |
+| A host still on code from before baton mode | it counts every runner pass as a lap, counts candidates as laps and cannot pull laps with no runner | update every host that holds the event before the race |
+| A host on code with the old lap-source switch | a category still holding `team_lap_source = 'runner'` counts runner passes as laps there | update every host that holds the event before the race |
 
 ## Operator panel (Wyniki → „okrążenia drużyn”)
 
@@ -119,49 +116,47 @@ approves. The Zespoły tab shows „brak pałki” for it, and Sterowanie „Bra
 Individual results (laps per runner, fastest lap) leave out candidates and laps with no runner, so
 assigning runners in „Do decyzji” is what completes them.
 
-## Race-day checklist (baton mode)
+## Race-day checklist
 
 Before the day:
 
-1. Every backend host that holds the event (checkpoint1, the Mac) runs code from `main` after the
-   baton-mode merge (`~/leszyrun/scripts/update-pi.sh` on a Pi), and the Supabase migration
+1. Every backend host that holds the event (checkpoint1, the Mac) runs code from `main` after
+   baton-only lap counting was merged (`~/leszyrun/scripts/update-pi.sh` on a Pi), and the Supabase migration
    `20261121150000_relay_baton` has been released.
 2. Event settings: „Ignorowanie mety po starcie (sekundy)” (`min_finish_seconds`, default **300**:
    no lap faster than 5 min counts until you lower it) below the fastest possible lap (about 45 s
    for 400 m); „Cisza przed okrążeniem (sekundy)” (`lap_arrival_silence_seconds`, default 15)
    below the time a runner spends out of range on one lap.
-3. Category: lap source „pałka” (Zespoły tab).
-4. One tag per baton, fixed at the top end of the baton (a hand around the tag absorbs the
+3. One tag per baton, fixed at the top end of the baton (a hand around the tag absorbs the
    signal). Assign each in the Zespoły tab; check that no team shows „brak pałki” or a tag clash.
    Every runner keeps their own bib tag, assigned and in their team: without it their laps come
    out „bez biegacza”.
-5. Test at real pace: at least 50 baton passes; every pass must produce a lap. Note how often
+4. Test at real pace: at least 50 baton passes; every pass must produce a lap. Note how often
    laps come out „bez biegacza” and whether the 1.7× flag fires on real laps.
 
 At the venue:
 
-6. The antenna on the start/exchange line; the gun is fired on that line.
-7. Only the waiting runner and the arriving runner stand at the line. The next runner is at the
+5. The antenna on the start/exchange line; the gun is fired on that line.
+6. Only the waiting runner and the arriving runner stand at the line. The next runner is at the
    line at least 10 s before the baton arrives. The arriving runner may stay in the exchange zone
    to wait for a later turn, or leaves when another teammate comes to wait. Spare batons and spare
    tags stay well out of range (more than about 6 m).
 
 During the race:
 
-8. Keep „Do decyzji” short: assign runners, decide candidates, check flagged laps.
-9. Do not change the lap source; it is refused while the run is active.
+7. Keep „Do decyzji” short: assign runners, decide candidates, check flagged laps.
 
 After the race:
 
-10. Clear „Do decyzji” after the race: decide every candidate (Zalicz or Odrzuć) and give every
-    lap a runner where you can. The public page is live and shows a lap with no runner as
-    „bez biegacza”; candidates never appear there.
+8. Clear „Do decyzji” after the race: decide every candidate (Zalicz or Odrzuć) and give every
+   lap a runner where you can. The public page is live and shows a lap with no runner as
+   „bez biegacza”; candidates never appear there.
 
 ## Where the code is
 
 | Part | File |
 |---|---|
-| Pass rules, baton and runner paths | `backend/src/mqtt/crossingDetector.js` |
+| Baton pass rules, runner reads | `backend/src/mqtt/crossingDetector.js` |
 | Bursts, attribution, candidates | `backend/src/mqtt/batonRelay.js` |
 | Batons per race, reload after restart | `backend/src/lib/batonConfig.js`, `backend/src/lib/reloadActiveRaces.js` |
 | Baton sync and reload on pull | `backend/src/sync/configSync.js`, `backend/src/sync/supabase.js` |

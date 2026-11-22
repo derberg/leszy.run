@@ -43,7 +43,7 @@ export default function RaceControl() {
     queryFn: () => api.participants.list(id),
   })
 
-  const batonCats = categories.filter(c => c.teamMode === 'relay_free' && c.teamLapSource === 'baton')
+  const batonCats = categories.filter(c => c.teamMode === 'relay_free')
   const { data: batons = [] } = useQuery({
     queryKey: ['team-batons', id],
     queryFn: () => api.teamBatons.list(id).then(r => r.data ?? r),
@@ -353,12 +353,12 @@ export default function RaceControl() {
         <div className="space-y-3">
           {categories.map(cat => (
             <div key={cat.id} className="space-y-1">
-              {cat.teamMode === 'relay_free' && cat.teamLapSource === 'baton' && missingBatons(cat.id).length > 0 && (
+              {cat.teamMode === 'relay_free' && missingBatons(cat.id).length > 0 && (
                 <p className="text-xs text-apex-red border border-apex-red/40 px-3 py-1.5">
                   Brak pałki: {missingBatons(cat.id).join(', ')}
                 </p>
               )}
-              {cat.teamMode === 'relay_free' && cat.teamLapSource === 'baton' && clashingBatons(cat.id).length > 0 && (
+              {cat.teamMode === 'relay_free' && clashingBatons(cat.id).length > 0 && (
                 <p className="text-xs text-apex-red border border-apex-red/40 px-3 py-1.5">
                   Tag pałki jest też tagiem zawodnika: {clashingBatons(cat.id).join(', ')}
                 </p>
