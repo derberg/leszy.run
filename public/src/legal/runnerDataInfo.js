@@ -6,8 +6,8 @@
 // address and NIP/KRS are not in the snapshot and are left out. Ruling
 // P2-R21: lines about payment (dpay, paid status, payment records, unpaid
 // entries) appear only for a paid event, the team name only with team
-// competitions. Ruling P3-R14: an unpaid entry is only a number on the public
-// start list, and a minor's town is never published. Ruling P2-R31: nationality is named only when the event's
+// competitions. The public start list names an unpaid entry as awaiting payment (user decision
+// 2026-11-22, relaxing ruling P3-R14), and a minor's town is never published. Ruling P2-R31: nationality is named only when the event's
 // form asks for it. Ruling P2-R33 and review U2 I1: the name and result in the
 // results lists rest on Art. 6(1)(b); photo and video reports on Art. 6(1)(f),
 // with the right to object; disseminating the image rests on the permission
@@ -27,7 +27,7 @@
 //
 // Keep in step with the source document when it changes.
 
-export const RUNNER_DATA_INFO_VERSION = '2026-11-v12'
+export const RUNNER_DATA_INFO_VERSION = '2026-11-v13'
 
 /**
  * @param {{ eventName: string, organizerName: string|null, contactEmail: string|null, paid?: boolean, teams?: boolean, nationality?: boolean }} p
@@ -36,7 +36,7 @@ export const RUNNER_DATA_INFO_VERSION = '2026-11-v12'
 export function runnerDataInfo({ eventName, organizerName, contactEmail, paid = false, teams = false, nationality = false }) {
   const listed = ['imię', 'nazwisko', 'płeć', 'miejscowość', 'klub', 'konkurencja', 'kategoria wiekowa', ...(teams ? ['nazwa drużyny'] : [])]
   const listedText = paid
-    ? `${listed.join(', ')}, a przy opłaconym zgłoszeniu informacja, że jest opłacone. Zgłoszenia czekające na wpłatę pokazujemy tylko jako liczbę, bez imienia i nazwiska`
+    ? `${listed.join(', ')}, a przy zgłoszeniu informacja, czy jest opłacone, czy czeka na wpłatę. Zgłoszenie, które nie zostanie opłacone w terminie, znika z listy`
     : `${listed.slice(0, -1).join(', ')} i ${listed.at(-1)}`
   const only = (cond, x) => (cond ? [x] : [])
   const unpublished = ['Data urodzenia', 'adres e-mail', 'numer telefonu', ...only(nationality, 'narodowość')]
