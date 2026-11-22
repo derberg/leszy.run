@@ -403,6 +403,12 @@ test('G-41 start_list counts after a family with one paid and one pending order:
   assert.deepEqual(data.entries.map((e) => [e.name, e.payment]).sort(), [
     ['Kuba Czekający', 'awaiting'], ['Marta Płacąca', 'paid'], ['Ola Płacąca', 'paid'], ['Tomasz Czekający', 'awaiting'],
   ].sort())
+  assert.equal(data.entries.find((e) => e.name === 'Kuba Czekający').town, null, 'a pending child has no town either')
+
+  // An unpaid entry leaves the list the moment its order lapses.
+  await expireNow(pending.orderId)
+  const lapsed = (await anon.rpc('start_list', { p_event_id: f.event.eventId })).data
+  assert.ok(!JSON.stringify(lapsed.entries).includes('Czekający'), 'an expired order is still listed')
 })
 
 // ---------------------------------------------------------------- Task 7 review fix round 1 (G-50, G-51)
