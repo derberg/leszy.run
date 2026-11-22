@@ -96,3 +96,28 @@ def test_pasted_link_loses_trailing_punctuation():
     from enricher.steps.discover import parse_page
     _, links = parse_page('<a href="http://www.citytrail.pl/zapisy;">zapisy</a>', "https://citytrail.pl/")
     assert links[0][0] == "http://www.citytrail.pl/zapisy"
+
+
+def test_year_before_the_name_is_not_another_edition():
+    # XXI Bieg Mikołajów i Mikołajek (maratonypolskie 91269): the regulamin PDF's
+    # filename carries the year right before "Bieg", read as edition "2026".
+    ev = {"name": "XXI Bieg Mikołajów i Mikołajek", "date": "2026-12-05", "location": "Siemianowice Śląskie"}
+    pdf = "https://mosir.siemianowice.pl/wp-content/uploads/2026/11/Zgloszenie_REGULAMIN_2026_Bieg_Mikolajow.pdf"
+    assert is_regulamin_link(pdf, "REGULAMIN – KARTA ZGŁOSZENIA >>>DO POBRANIA<<<", ev)
+    assert not is_regulamin_link("https://x.pl/regulamin-20-bieg-mikolajow.pdf", "Regulamin", ev)
+
+
+def test_platform_link_under_the_organizer_slug_is_the_signup():
+    # XI Memoriał Stanisława Michonia (maratonypolskie 91455): bieg-piastow.pl
+    # links datasport under its own slug, the race name nowhere in the link.
+    ev = {"name": "XI Memoriał Stanisława Michonia", "date": "2027-02-14", "location": "Szklarska Poręba"}
+    page = "https://bieg-piastow.pl/15-km"
+    reg = "https://online.datasport.pl/v2/biegpiastow/"
+    pages = {page: (
+        "<h1>XI Memoriał Stanisława Michonia</h1><p>14.02.2027, Szklarska Poręba</p>"
+        f'<a href="{reg}" target="_blank"><h1>Zapisz się</h1></a>'
+    )}
+    out = discover_from_pages(ev, [page], fetch=lambda u: (u, pages[u]) if u in pages else None)
+    assert out["registration_url"] == reg
+    assert not is_registration_link("https://online.datasport.pl/v2/innybieg/", "Zapisz się", ev, page)
+    assert not is_registration_link(reg, "Wyniki", ev, page)
