@@ -347,13 +347,12 @@ in a relay in any order.
 - **`relay`** (fixed order): leg k starts at leg k-1's confirmed finish (`startTimeSource =
   'handover'`); until then its reads are audited and ignored.
 - **`relay_free`** (any order, a member may run several laps): each lap is a `team_laps` row,
-  pushed and pulled like `results`. A pass closes a lap only for a tag silent for
-  `lap_arrival_silence_seconds` before it, and at least `min_finish_seconds` after the team's
-  previous lap. What may close it depends on `categories.team_lap_source`:
-  - `runner`: any member's bib tag;
-  - `baton`: only the team's baton tag (`team_batons`, one tag per team). Runner tags then only
-    credit the lap to the member who came in from the course with the baton, or raise a
-    `candidate` lap that never counts until an operator approves it.
+  pushed and pulled like `results`. Only the team's baton tag (`team_batons`, one tag per team)
+  closes a lap, only when it was silent for `lap_arrival_silence_seconds` before it and at least
+  `min_finish_seconds` after the team's previous lap. Runner tags never close a lap: they credit it to the member who came in from the
+  course with the baton, or raise a `candidate` lap that never counts until an operator approves
+  it. A team without a baton gets only candidates. `categories.team_lap_source` is kept in both
+  databases for sync compatibility and is never read.
 
 The baton exists because an antenna on the exchange line cannot tell an arriving runner from a
 waiting one, and an antenna elsewhere on the track makes every individual lap time wrong. Rules,
