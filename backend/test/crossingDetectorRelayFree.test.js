@@ -8,10 +8,10 @@ import { createFakeDb, createFakeBroadcast, wait } from './helpers/fakeDb.js'
 // min lap, lap count, time limit, restart, stop) all apply to the baton.
 const QUIET = 40
 const ARRIVAL = 500 // stands in for the event's arrival silence; above the 200 ms read dedup window
-const WINDOWS = { burstGapMs: 400, attributionWindowMs: 450, batonPassMaxMs: 1000, candidateWindowMs: 300 }
+const WINDOWS = { burstGapMs: 400, attributionBeforeMs: 450, attributionAfterMs: 450, batonPassMaxMs: 1000, batonGoneMinMs: 0, candidateWindowMs: 300 }
 // A baton pass closes once the baton has been silent for the gone window (40 ms here), and never
 // before the attribution window after its first read has passed.
-const CLOSE = WINDOWS.attributionWindowMs + 60
+const CLOSE = WINDOWS.attributionAfterMs + 60
 
 const config = (over = {}) => ({
   rssiThreshold: -9000, goneWindowSeconds: 0.04, minFinishSeconds: 0, gunBackfillEnabled: false,

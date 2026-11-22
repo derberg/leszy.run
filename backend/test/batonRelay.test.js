@@ -1,15 +1,17 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import {
-  BURST_GAP_MS, ATTRIBUTION_WINDOW_MS, BATON_PASS_MAX_MS, CANDIDATE_WINDOW_MS,
-  noteRead, attributeLap, isCandidate, batonTeamMap,
+  BURST_GAP_MS, ATTRIBUTION_BEFORE_MS, ATTRIBUTION_AFTER_MS, BATON_GONE_MIN_MS, BATON_PASS_MAX_MS, CANDIDATE_WINDOW_MS,
+  BURST_HISTORY_MS, noteRead, rememberBurst, attributeLap, isCandidate, batonTeamMap,
 } from '../src/mqtt/batonRelay.js'
 
 const ARRIVAL = 15_000
 
 test('the window values are the ones checked against the 2026-11-22 desk test', () => {
   assert.equal(BURST_GAP_MS, 5000)
-  assert.equal(ATTRIBUTION_WINDOW_MS, 5000)
+  assert.equal(ATTRIBUTION_BEFORE_MS, 7000)
+  assert.equal(ATTRIBUTION_AFTER_MS, 5000)
+  assert.equal(BATON_GONE_MIN_MS, 5000)
   assert.equal(BATON_PASS_MAX_MS, 30_000)
   assert.equal(CANDIDATE_WINDOW_MS, 10_000)
 })
@@ -73,14 +75,14 @@ test('attributeLap: nobody arrived (or only a burst that did not come from the c
   assert.equal(attributeLap(bursts, ['p1', 'p2'], T), null)
 })
 
-test('attributeLap: the window is symmetric around the baton\'s first read and its edges are inclusive', () => {
+test('attributeLap: the window is 7 s before to 5 s after the baton\'s first read, edges inclusive', () => {
   const T = 600_000
   const at = (start) => new Map([['p1', { start, lastSeen: start, peakRssi: -4000, peakAt: start, fromCourse: true, candidateDone: false }]])
-  assert.equal(attributeLap(at(T - ATTRIBUTION_WINDOW_MS), ['p1'], T), 'p1')
-  assert.equal(attributeLap(at(T + ATTRIBUTION_WINDOW_MS), ['p1'], T), 'p1')
-  assert.equal(attributeLap(at(T - ATTRIBUTION_WINDOW_MS - 1), ['p1'], T), null)
-  assert.equal(attributeLap(at(T + ATTRIBUTION_WINDOW_MS + 1), ['p1'], T), null)
-  assert.equal(attributeLap(at(T - 1000), ['p1'], T, { windowMs: 500 }), null, 'the window can be passed in')
+  assert.equal(attributeLap(at(T - ATTRIBUTION_BEFORE_MS), ['p1'], T), 'p1')
+  assert.equal(attributeLap(at(T + ATTRIBUTION_AFTER_MS), ['p1'], T), 'p1')
+  assert.equal(attributeLap(at(T - ATTRIBUTION_BEFORE_MS - 1), ['p1'], T), null)
+  assert.equal(attributeLap(at(T + ATTRIBUTION_AFTER_MS + 1), ['p1'], T), null)
+  assert.equal(attributeLap(at(T - 1000), ['p1'], T, { beforeMs: 500, afterMs: 500 }), null, 'the window can be passed in')
 })
 
 test('attributeLap 2026-11-22, Renifery lap 1: the runner heard 3.2 s before the baton, not the teammate waiting 16 s', () => {
@@ -132,4 +134,23 @@ test('batonTeamMap: only batons with a tag, of teams in this race', () => {
   const m = batonTeamMap([{ teamId: 'T', epc: 'B1' }, { teamId: 'U', epc: null }, { teamId: 'X', epc: 'B9' }], teams)
   assert.deepEqual([...m], [['B1', 'T']])
   assert.equal(batonTeamMap(undefined, teams).size, 0)
+})
+
+test('attributeLap: every recent burst counts, so a carrier heard again since is still credited', () => {
+  const T = 600_000
+  const arrived = { start: T - 1000, lastSeen: T + 1000, peakRssi: -4000, peakAt: T, fromCourse: true, candidateDone: false }
+  const again = { start: T + 8000, lastSeen: T + 8000, peakRssi: -6000, peakAt: T + 8000, fromCourse: false, candidateDone: false }
+  assert.equal(attributeLap(new Map([['p1', again]]), ['p1'], T), null, 'the latest burst alone says nothing')
+  assert.equal(attributeLap(new Map([['p1', [arrived, again]]]), ['p1'], T), 'p1')
+})
+
+test('rememberBurst: keeps each burst once, drops bursts unheard for longer than the history', () => {
+  const history = new Map()
+  const old = { start: 0, lastSeen: 1000 }
+  const cur = { start: 200_000, lastSeen: 200_000 }
+  rememberBurst(history, 'p1', old, 1000)
+  rememberBurst(history, 'p1', old, 1000)
+  assert.deepEqual(history.get('p1'), [old])
+  rememberBurst(history, 'p1', cur, 1000 + BURST_HISTORY_MS + 1)
+  assert.deepEqual(history.get('p1'), [cur])
 })

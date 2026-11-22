@@ -17,18 +17,26 @@
 
 // A read this long after the previous one of the same tag starts a new burst.
 export const BURST_GAP_MS = 5000
-// A baton pass is credited to the member whose from-the-course burst STARTED within this long of
-// the pass's FIRST read, before or after: the runner who brings the baton enters the antenna's
-// range together with it, while a teammate waiting at the line was heard long before. Which of
-// the two tags is heard first depends on where each is carried, so the window is symmetric. On
-// 2026-11-22 the carrier's burst began 4.8 s before to 2.6 s after the baton's first read, and the
-// nearest waiting teammate's 9.6 s before it.
-export const ATTRIBUTION_WINDOW_MS = 5000
+// A baton pass is credited to the member whose from-the-course burst STARTED in
+// [first read - ATTRIBUTION_BEFORE_MS, first read + ATTRIBUTION_AFTER_MS], the first read being the
+// baton pass's: the runner who brings the baton enters the antenna's range together with it, while
+// a teammate waiting at the line was heard long before. Which of the two tags is heard first
+// depends on where each is carried. On 2026-11-22 the carrier's burst began 4.83 s before to 2.60 s
+// after the baton's first read, and the nearest waiting teammate's 9.61 s before it.
+export const ATTRIBUTION_BEFORE_MS = 7000
+export const ATTRIBUTION_AFTER_MS = 5000
+// A baton pass closes once the baton has been unheard for the event's gone window, but never less
+// than this: on 2026-11-22 a baton inside one pass went up to 2.4 s unheard, and a runner's burst
+// splits at the same 5 s (BURST_GAP_MS).
+export const BATON_GONE_MIN_MS = 5000
 // A baton pass closes this long after its first read even if the baton is still heard (a baton
 // left lying at the antenna). The longest pass on 2026-11-22 lasted 12.3 s (a runner walking in
 // slowly, then handing over). Later reads of the same presence never open a new lap: a pass opens
 // only after the arrival silence.
 export const BATON_PASS_MAX_MS = 30_000
+// Runner bursts are kept this long after their last read, so a pass can be attributed to the burst
+// that began around its first read even when the runner was heard again since.
+export const BURST_HISTORY_MS = 120_000
 // A runner burst is a candidate only with no counted lap of the team from this long before it
 // started to this long after its last read.
 export const CANDIDATE_WINDOW_MS = 10_000
@@ -65,17 +73,30 @@ export function noteRead(bursts, participantId, atMs, rssi, arrivalSilenceMs, ga
 }
 
 /**
- * The runner of a baton pass whose first read was at `batonFirstReadMs`: the one team member whose
- * current burst came from the course and started within `windowMs` of that read, before or after
- * (inclusive). None or several → null (the lap counts for the team, the operator picks the runner).
+ * Keeps `burst` in the runner's recent bursts (`history`: participantId -> Burst[]) and drops the
+ * ones unheard for longer than `keepMs`.
+ */
+export function rememberBurst(history, participantId, burst, atMs, keepMs = BURST_HISTORY_MS) {
+  const list = (history.get(participantId) ?? []).filter(b => b !== burst && atMs - b.lastSeen <= keepMs)
+  list.push(burst)
+  history.set(participantId, list)
+}
+
+/**
+ * The runner of a baton pass whose first read was at `batonFirstReadMs`: the one team member with
+ * a burst that came from the course and started in [batonFirstReadMs - beforeMs, batonFirstReadMs
+ * + afterMs] (inclusive). Every recent burst of a member is judged, not only the latest, so a
+ * carrier heard again since still counts. None or several members → null (the lap counts for the
+ * team, the operator picks the runner).
+ * @param {Map<string, Burst|Burst[]>} bursts participantId -> recent bursts (or the current one)
  * @returns {string|null}
  */
-export function attributeLap(bursts, memberIds, batonFirstReadMs, { windowMs = ATTRIBUTION_WINDOW_MS } = {}) {
+export function attributeLap(bursts, memberIds, batonFirstReadMs, { beforeMs = ATTRIBUTION_BEFORE_MS, afterMs = ATTRIBUTION_AFTER_MS } = {}) {
   const found = []
   for (const id of memberIds) {
-    const b = bursts.get(id)
-    if (!b || !b.fromCourse) continue
-    if (Math.abs(b.start - batonFirstReadMs) <= windowMs) found.push(id)
+    const list = [].concat(bursts.get(id) ?? [])
+    const arrived = list.some(b => b.fromCourse && b.start >= batonFirstReadMs - beforeMs && b.start <= batonFirstReadMs + afterMs)
+    if (arrived) found.push(id)
   }
   return found.length === 1 ? found[0] : null
 }

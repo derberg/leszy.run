@@ -51,11 +51,12 @@ wrote down who carried each baton. The replay of every read of that test is
   Anchoring the same window on the peak would have lost Renifery's lap 1 instead (#15 began
   10.08 s before the peak). In all 13 laps the carrier's burst began between 4.8 s before and
   2.6 s after the baton's first read, and the nearest teammate who was waiting began 9.6 s before
-  it, so the window is ±5 s around the baton's first read.
+  it, so the window runs from 7 s before to 5 s after the baton's first read.
 
 With both changes the replay credits all 13 laps to the runner the operator recorded, raises no
 candidate, and times every lap at its baton's peak. The longest pass lasted 12.3 s and the
-longest gap between two reads of a baton inside a pass was 2.4 s, under the 3 s gone window.
+longest gap between two reads of a baton inside a pass was 2.4 s; a baton pass waits at least
+5 s of silence (the runner burst gap) whatever the event's gone window.
 
 ## The rules
 
@@ -70,8 +71,8 @@ and the team gets no baton laps.
 - opens on a read of a baton that was silent for at least `lap_arrival_silence_seconds` (event
   setting „Cisza przed okrążeniem”, default 15 s) — a baton held at the line does not lap. The
   gun counts as every baton's last sighting, so the batons at the start line open no lap;
-- closes when the baton has been silent for the event's `gone_window_seconds` (default 3 s), that
-  is when it has left the antenna's range, like a start pass; never later than 30 s after its
+- closes when the baton has been silent for the event's `gone_window_seconds` (default 3 s) but
+  at least 5 s, that is when it has left the antenna's range; never later than 30 s after its
   first read (a baton left lying at the antenna), and never before 5 s after its first read (the
   attribution window below must be complete);
 - is timed at its peak (strongest read): `team_laps.closed_at` is that read's time and
@@ -82,18 +83,21 @@ and the team gets no baton laps.
 - stops at `team_lap_count`, and does not count when its peak is more than
   `team_time_limit_seconds` after the gun.
 
-Stopping the race closes a pass still open as a lap, timed and attributed by the same rules.
+Stopping the race closes a pass still open as a lap, timed and attributed by the same rules. A
+race stopped less than 5 s after a baton's first read may miss its carrier: a runner first heard
+after the stop is never seen, so that lap can come out with no runner.
 
 **Runner tags never close a lap.** Their reads are grouped into bursts (a new burst after 5 s
 without a read). A burst "came from the course" when that tag had been silent for the arrival
 silence before it. Runner bursts do two things:
 
 1. **Attribution — who ran the lap.** The runner carrying the baton enters the antenna's range
-   together with it, so the team members whose from-the-course burst started within 5 s of the
-   baton pass's **first** read, before or after it, qualify. Exactly one → the lap is credited to
+   together with it, so the team members with a from-the-course burst that started between 7 s
+   before and 5 s after the baton pass's **first** read qualify. Every recent burst of a member
+   counts, so a carrier who stepped out and was heard again before the pass closed still does. Exactly one → the lap is credited to
    them. None, or two or more → the lap counts for the team with **no runner** („bez biegacza”)
    and the operator picks one. A teammate who walked up to wait qualifies only if they arrived
-   less than 5 s before the baton was first heard; one already standing at the line was read
+   less than 7 s before the baton was first heard; one already standing at the line was read
    continuously and never qualifies. The window is anchored on the first read, not the peak,
    because a slow approach can peak 10 s after the baton is first heard, while the runner's own
    tag is first heard within a few seconds of the baton's.
@@ -102,16 +106,18 @@ silence before it. Runner bursts do two things:
    a lap added by hand, an approved candidate) falls between
    10 s before the burst started and 10 s after its last read, and at least `min_finish_seconds`
    have passed since the team's last counted lap. It is decided 15 s after the runner's last read
-   (5 s burst gap + 10 s window), timed at the runner's strongest read, and at race stop for
+   (5 s burst gap + 10 s window), or, when a baton pass of the team is still open then (a baton
+   dropped by the antenna is read long after its carrier left), when that pass closes, against
+   the lap it made. It is timed at the runner's strongest read, and decided at race stop for
    bursts not yet decided. **A candidate never
    counts** — not in standings, lap numbers or public results — until the operator presses
    „Zalicz”.
 
-The window values live in `backend/src/mqtt/batonRelay.js` (burst gap 5 s, attribution ±5 s,
-pass cap 30 s, candidate window 10 s); the pass closing on the gone window and the attribution
+The window values live in `backend/src/mqtt/batonRelay.js` (burst gap 5 s, attribution 7 s
+before to 5 s after, baton gone window at least 5 s, pass cap 30 s, candidate window 10 s); the pass closing on the gone window and the attribution
 window were set from the desk test below. Runner reads ignore `confirm_rssi_cdbm` (only the
 tracking floor applies), so a far read can start a burst early: a runner first heard more than
-5 s before the baton gets no credit. After `team_time_limit_seconds` a candidate can still
+7 s before the baton gets no credit. After `team_time_limit_seconds` a candidate can still
 be raised until the team's first baton pass after the limit; do not „Zalicz” one that falls
 after the limit.
 
@@ -129,8 +135,8 @@ approves. The Zespoły tab shows „brak pałki” for it, and Sterowanie „Bra
 |---|---|---|
 | The baton's read is missed and the runner leaves the zone | the runner's burst becomes a candidate; often the teammate who walked up also does, so one lap raises two candidates marked „to samo okrążenie?” | „Zalicz” one; the panel offers to reject the other |
 | The baton's read is missed and the runner who brought it **stays in the exchange zone while a teammate runs the next lap** | no candidate (their reads run into the next baton lap); the missed lap is folded into the next one, which is about twice as long | the lap is marked „możliwe pominięte okrążenie” (longer than 1.7× the team's median, from 3 counted laps); add the missing lap with „+ Okrążenie” |
-| A teammate steps into range less than 5 s before the baton is first heard | two members qualify, the lap has no runner | pick the runner in „Do decyzji” |
-| The carrier's tag is first heard more than 5 s before or after the baton (a tag shielded by the body, a baton carried low) | nobody qualifies, the lap has no runner | pick the runner in „Do decyzji” |
+| A teammate steps into range less than 7 s before the baton is first heard | two members qualify, the lap has no runner | pick the runner in „Do decyzji” |
+| The carrier's tag is first heard more than 7 s before or 5 s after the baton (a tag shielded by the body, a baton carried low) | nobody qualifies, the lap has no runner | pick the runner in „Do decyzji” |
 | A family team with very different paces | a child's lap can trip the 1.7× flag | „Zatwierdź” |
 | The host restarts mid-race | burst history is lost: runners at the line count as just arrived (laps with no runner, extra candidates), bursts that ended in the 15 s before the restart are never decided, and a baton lying at the antenna can count one extra lap | check „Do decyzji” and remove extras |
 | A host still on code from before baton mode | it counts every runner pass as a lap, counts candidates as laps and cannot pull laps with no runner | update every host that holds the event before the race |

@@ -10,10 +10,10 @@ import { createFakeDb, createFakeBroadcast, wait } from './helpers/fakeDb.js'
 // is kept about every 200 ms; the burst gap (400 ms) is above that.
 const QUIET = 40
 const ARRIVAL = 500
-const WINDOWS = { burstGapMs: 400, attributionWindowMs: 450, batonPassMaxMs: 1000, candidateWindowMs: 300 }
+const WINDOWS = { burstGapMs: 400, attributionBeforeMs: 450, attributionAfterMs: 450, batonPassMaxMs: 1000, batonGoneMinMs: 0, candidateWindowMs: 300 }
 // A baton pass closes once the baton has been silent for the gone window (40 ms here), and never
 // before the attribution window after its first read has passed.
-const CLOSE = WINDOWS.attributionWindowMs + 60
+const CLOSE = WINDOWS.attributionAfterMs + 60
 // A runner burst is decided once it has ended (burst gap) and the candidate window after it passed.
 const CANDIDATE_CHECK = WINDOWS.burstGapMs + WINDOWS.candidateWindowMs + 60
 
@@ -321,7 +321,7 @@ test('attribution counts from the baton\'s first read: a runner heard just after
 test('a baton heard once waits for the attribution window: a runner heard after it is still credited', async (t) => {
   const { detector, db } = await makeRace(t)
   detector.processEvent(read('B1', -5000))
-  await wait(300)                                       // past the 40 ms gone window, inside the 450 ms attribution window
+  await wait(300)                                       // past the 40 ms gone window, inside the 450 ms attribution window after the first read
   detector.processEvent(read('E1', -5000))
   await wait(CLOSE)
   assert.deepEqual(counted(db).map(l => l.participantId), ['p1'])
@@ -348,4 +348,43 @@ test('a lap the operator added keeps the runner who brought it from becoming a c
   await wait(CANDIDATE_CHECK + 100)
   assert.equal(candidates(db).length, 0)
   assert.equal(teamState(detector).laps, 1)
+})
+
+test('a baton dropped by the antenna after its carrier left: one counted lap, no candidate', async (t) => {
+  // Gone window 0.3 s (above the 200 ms read dedup). p1 brings the baton, drops it by the antenna
+  // and leaves after 0.15 s; the baton is read until the 1 s cap. p1's burst is decided 0.7 s after
+  // its last read, while the baton pass is still open.
+  const { detector, db } = await makeRace(t, { cfg: config({ goneWindowSeconds: 0.3 }) })
+  await hold(detector, ['E1', 'B1'], 150)
+  await hold(detector, ['B1'], 1200)
+  await wait(CLOSE + CANDIDATE_CHECK)
+  assert.deepEqual(rows(db).map(l => [l.status, l.participantId]), [['counted', 'p1']])
+})
+
+test('a carrier who steps out and is heard again before the pass closes is still credited', async (t) => {
+  // p1 arrives with the baton, is unheard for 0.45 s (a new burst: over the 0.4 s burst gap, under
+  // the 0.5 s arrival silence, so not from the course) and is heard again while the baton is still read.
+  const { detector, db } = await makeRace(t, { cfg: config({ goneWindowSeconds: 0.3 }) })
+  detector.processEvent(read('E1', -5000))
+  detector.processEvent(read('B1', -5000))
+  await hold(detector, ['B1'], 400)
+  await wait(50)
+  detector.processEvent(read('E1', -6000))
+  const r = detector.activeRaces.get('rr1').freeRelay.bursts.get('p1')
+  assert.equal(r.fromCourse, false, 'the setup: p1\'s latest burst is not from the course')
+  await hold(detector, ['B1'], 300)
+  await wait(CLOSE)
+  assert.deepEqual(counted(db).map(l => l.participantId), ['p1'])
+})
+
+test('the pass cap: a baton read longer than the cap is timed at its strongest read within the cap, and makes one lap', async (t) => {
+  const { detector, db } = await makeRace(t, { cfg: config({ goneWindowSeconds: 0.3 }) })
+  await hold(detector, ['B1'], 300, { rssi: -6000 })
+  const inCap = read('B1', -4500)
+  detector.processEvent(inCap)
+  await hold(detector, ['B1'], 900, { rssi: -6000 })     // past the 1 s cap
+  detector.processEvent(read('B1', -3000))              // stronger, but after the cap
+  await hold(detector, ['B1'], 600, { rssi: -6000 })     // still lying there
+  await wait(CLOSE)
+  assert.deepEqual(counted(db).map(l => [l.peakRssiCdbm, l.closedAt.getTime()]), [[-4500, new Date(inCap.receivedAt).getTime()]])
 })
