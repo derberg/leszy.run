@@ -72,7 +72,7 @@ test('W-72 W-73 the public event page shows the description as text with its lin
 
   await expect(page.getByTestId('charity-goal')).toContainText('Rehabilitacja Zosi')
   const cause = page.getByTestId('charity-link')
-  await expect(cause).toHaveText('Strona celu ↗')
+  await expect(cause).toHaveText('Rehabilitacja Zosi\u00a0↗')
   await expect(cause).toHaveAttribute('href', 'https://example.org/zosia')
   await expect(cause).toHaveAttribute('target', '_blank')
   await expect(cause).toHaveAttribute('rel', /noopener/)

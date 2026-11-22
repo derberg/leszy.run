@@ -40,6 +40,7 @@ const BLOCKING_STEP = {
   place: 'podstawy',
   regulamin: 'podstawy',
   contact_email: 'podstawy',
+  charity_goal: 'podstawy',
   competitions: 'konkurencje',
   tiers: 'konkurencje',
   transfer_until: 'platnosci',
