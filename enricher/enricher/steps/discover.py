@@ -187,19 +187,31 @@ def _edition(event: dict) -> tuple[Optional[str], Optional[str]]:
 def is_other_edition(event: dict, href: str, label: str) -> bool:
     """The link names another edition of the race: "xviii-jelczansko" for XIX
     Jelczańsko-Oławski, "zapisy-na-i-biegowe" for VI Biegowe Grand Prix
-    (2026-11-10). Read as the numeral right before the name's first word."""
+    (2026-11-10). Read as the numeral right before the name's first word. A
+    year is not an edition: "REGULAMIN_2026_Bieg_Mikolajow" (2026-11-22)."""
     numeral, first = _edition(event)
     if not numeral:
         return False
     words = [w for w in re.split(r"[^a-z0-9]+", _fold(f"{label} {urlparse(href).path}")) if w]
     for i, w in enumerate(words[1:], start=1):
         prev = words[i - 1]
-        if w.startswith(first[:6]) and (_ROMAN.match(prev) or prev.isdigit()) and prev != numeral:
+        edition = _ROMAN.match(prev) or (prev.isdigit() and len(prev) <= 3)
+        if w.startswith(first[:6]) and edition and prev != numeral:
             return True
     return False
 
 
-def is_registration_link(href: str, label: str, event: dict) -> bool:
+def _organizer_slug(href: str, page_url: Optional[str]) -> bool:
+    """The platform link sits under the organizer's own name: bieg-piastow.pl
+    linking online.datasport.pl/v2/biegpiastow/ (2026-11-22)."""
+    if not page_url:
+        return False
+    site = re.sub(r"[^a-z0-9]", "", _host(page_url).split(".")[0])
+    segments = {re.sub(r"[^a-z0-9]", "", _fold(s)) for s in urlparse(href).path.split("/")}
+    return len(site) >= 4 and site in segments
+
+
+def is_registration_link(href: str, label: str, event: dict, page_url: Optional[str] = None) -> bool:
     if _DOC_EXT.search(href) or _SITE_WIDE.search(_fold(f"{href} {label}")):
         return False
     if is_other_edition(event, href, label):
@@ -212,7 +224,10 @@ def is_registration_link(href: str, label: str, event: dict) -> bool:
         bare = (label or "").strip().rstrip("/") == href.rstrip("/")
         return bare or _names_event_any(event, href, label) or bool(_REG_WORDS.search(label or ""))
     if _host_in(href, PLATFORM_HOSTS):
-        return bool(urlparse(href).path.strip("/")) and _names_event_any(event, href, label)
+        return bool(urlparse(href).path.strip("/")) and (
+            _names_event_any(event, href, label)
+            or (bool(_REG_WORDS.search(label or "")) and _organizer_slug(href, page_url))
+        )
     return (
         bool(_REG_WORDS.search(label or "")) and bool(_REG_PATH.search(href))
         and _names_event_any(event, href, label)
@@ -290,7 +305,7 @@ def discover_from_pages(event: dict, seeds: list[str], fetch=None, timeout: int 
         about = page_is_about_event(event, text)
 
         if about:
-            page_reg = next((h for h, l in links if is_registration_link(h, l, event)), None)
+            page_reg = next((h for h, l in links if is_registration_link(h, l, event, final)), None)
             page_regs = [h for h, l in links if is_regulamin_link(h, l, event)]
             page_regulamin = next((h for h in page_regs if _DOC_EXT.search(h)), page_regs[0] if page_regs else None)
             organizer_page = bool(
