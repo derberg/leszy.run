@@ -2,8 +2,8 @@ import { eq, and, isNotNull, sql, inArray } from 'drizzle-orm'
 import { checkins, gateCrossings, gateEvents, results, teamLaps } from '../db/schema.js'
 import { recalcPositions } from '../lib/positions.js'
 import {
-  BURST_GAP_MS, ATTRIBUTION_BEFORE_MS, ATTRIBUTION_AFTER_MS, CANDIDATE_WINDOW_MS,
-  noteRead, attributeLap, isCandidate, batonTeamMap,
+  BURST_GAP_MS, ATTRIBUTION_BEFORE_MS, ATTRIBUTION_AFTER_MS, BATON_GONE_MIN_MS, BATON_PASS_MAX_MS,
+  CANDIDATE_WINDOW_MS, noteRead, rememberBurst, attributeLap, isCandidate, batonTeamMap,
 } from './batonRelay.js'
 
 /**
@@ -157,6 +157,8 @@ export class CrossingDetector {
       burstGapMs: BURST_GAP_MS,
       attributionBeforeMs: ATTRIBUTION_BEFORE_MS,
       attributionAfterMs: ATTRIBUTION_AFTER_MS,
+      batonGoneMinMs: BATON_GONE_MIN_MS,
+      batonPassMaxMs: BATON_PASS_MAX_MS,
       candidateWindowMs: CANDIDATE_WINDOW_MS,
       ...batonWindows,
     }
@@ -249,12 +251,20 @@ export class CrossingDetector {
       console.log(`[Detector] Relay (any order) race ${raceRun.id}: ${freeRelay.teams.size} team(s), ${laps.length} lap(s) already recorded`)
       // Laps come from each team's baton tag only; runner tags attribute laps and raise candidates.
       freeRelay.batonTeamOf = batonTeamMap(eventConfig.batons, freeRelay.teams)
+      // Every baton is at the start line at the gun: count the gun as its last sighting, so a baton
+      // read there opens no lap until it has been away for the arrival silence. After a restart
+      // the gun is long past and this changes nothing.
+      for (const epc of freeRelay.batonTeamOf.keys()) freeRelay.lastSeen.set(epc, gunStartTime.getTime())
       freeRelay.membersOf = new Map()
       for (const [pid, teamId] of freeRelay.teamOf) {
         if (!freeRelay.membersOf.has(teamId)) freeRelay.membersOf.set(teamId, [])
         freeRelay.membersOf.get(teamId).push(pid)
       }
       freeRelay.bursts = new Map()
+      // participantId -> recent bursts, for attribution (rememberBurst).
+      freeRelay.burstHistory = new Map()
+      // teamId -> bursts whose candidate decision waits for the team's open baton pass to close.
+      freeRelay.deferredBursts = new Map()
       // burst -> { timer, participantId, teamId }: the timer that decides that burst once it ends.
       // Keyed by burst, so a runner's new burst never cancels the decision of the previous one.
       freeRelay.candidateTimers = new Map()
@@ -799,10 +809,18 @@ export class CrossingDetector {
   }
 
   // Relay in any order: a team lap is a pass of the team's baton tag. A pass opens only when the
-  // baton comes in after the event's arrival silence (from the course, not lying at the gate) and
-  // at least min_finish_seconds after the team's previous counted lap. It is timed at its peak like
-  // a finish pass, closed after the quiet time or the cap, and credited to the member who came in
-  // from the course with it (attributeLap), or to nobody.
+  // baton comes in after the event's arrival silence (from the course, not lying at the gate). It
+  // closes when the baton has been silent for the event's gone window (it has left the antenna's
+  // range, like a start pass; at least batonGoneMinMs), never later than batonPassMaxMs after its
+  // first read, and never before attributionAfterMs after its first read (the attribution window
+  // must be complete). The lap is timed at the pass's strongest read; min lap, time limit and lap
+  // count are decided on that time. It is credited to the member with a from-the-course burst that
+  // started in the attribution window around the pass's first read (attributeLap), or to nobody.
+  // Runner bursts whose candidate decision came due while the pass was open are decided when it
+  // closes, against the lap it made.
+  //
+  // It used to close like a finish pass, 2 s after its last new peak: on 2026-11-22 a baton
+  // carried in slowly was first heard at -7700 and its pass closed 10 s before its -4700 peak.
   #trackBatonLap({ event, now, raceRunId, teamId, race, confirmRssi }) {
     const fr = race.freeRelay
     const team = fr.teams.get(teamId)
@@ -811,12 +829,23 @@ export class CrossingDetector {
     const prevSeen = fr.lastSeen.get(event.epc)
     fr.lastSeen.set(event.epc, at.getTime())
     if (team.done) return
+    const { attributionBeforeMs, attributionAfterMs, batonGoneMinMs, batonPassMaxMs } = this.batonWindows
+    const goneWindowMs = Math.max((race.config.goneWindowSeconds ?? 3) * 1000, batonGoneMinMs)
 
     const close = () => {
       const pass = this.inRange.get(key)
       if (!pass) return
       clearTimeout(pass.goneTimer)
       this.inRange.delete(key)
+      const lap = closeLap(pass)
+      const deferred = this.#hasOpenBatonPass(raceRunId, teamId) ? [] : (fr.deferredBursts.get(teamId) ?? [])
+      if (!deferred.length) return lap
+      fr.deferredBursts.delete(teamId)
+      const writes = deferred.map(({ participantId, burst }) => this.#decideBurst({ raceRunId, race, participantId, teamId, burst }))
+      return Promise.all([lap, ...writes])
+    }
+
+    const closeLap = (pass) => {
       if (confirmRssi !== null && pass.peakRssi < confirmRssi) return
       if (team.done || pass.peakTime - team.lastBoundary < fr.minLapMs) return
       // A lap closed after the time limit does not count (the race is over for this team).
@@ -829,24 +858,24 @@ export class CrossingDetector {
       team.laps += 1
       team.lastBoundary = pass.peakTime
       if (team.laps >= team.target) team.done = true
-      const closedMs = pass.peakTime.getTime()
-      team.batonLapTimes.push(closedMs)
-      const participantId = attributeLap(fr.bursts, fr.membersOf.get(teamId) ?? [], closedMs, {
-        beforeMs: this.batonWindows.attributionBeforeMs,
-        afterMs: this.batonWindows.attributionAfterMs,
-      })
+      team.lapTimes.push(pass.peakTime.getTime())
+      const participantId = attributeLap(fr.burstHistory, fr.membersOf.get(teamId) ?? [], pass.firstReadMs, { beforeMs: attributionBeforeMs, afterMs: attributionAfterMs })
       return this.#recordLap({ raceRunId, teamId, lapNumber: team.laps, participantId, closedAt: pass.peakTime, lapMs, peakRssi: pass.peakRssi, source: 'baton' })
     }
 
     let pass = this.inRange.get(key)
-    if (pass && (now - pass.firstAt >= this.finishMaxPassMs || now - pass.peakAt >= this.finishQuietMs)) {
+    // The timer is due but has not run yet: the pass is over. This read may open the next one.
+    if (pass && now >= pass.dueAt) {
       close()
-      return
+      pass = null
     }
     if (!pass) {
       const arrived = prevSeen === undefined || at.getTime() - prevSeen >= fr.arrivalSilenceMs
-      if (!arrived || at - team.lastBoundary < fr.minLapMs) return
-      pass = { epc: event.epc, raceRunId, firstAt: now, peakAt: now, peakRssi: -Infinity, peakTime: null, antennaPort: null, topic: null, goneTimer: null, closeLap: close }
+      if (!arrived) return
+      pass = {
+        epc: event.epc, raceRunId, batonTeamId: teamId, firstAt: now, firstReadMs: at.getTime(), dueAt: now,
+        peakRssi: -Infinity, peakTime: null, antennaPort: null, topic: null, goneTimer: null, closeLap: close,
+      }
       this.inRange.set(key, pass)
     }
     if (event.rssiCdbm > pass.peakRssi) {
@@ -854,11 +883,10 @@ export class CrossingDetector {
       pass.peakTime = at
       pass.antennaPort = event.antennaPort
       pass.topic = event.topic
-      pass.peakAt = now
-      clearTimeout(pass.goneTimer)
-      const untilCap = this.finishMaxPassMs - (now - pass.firstAt)
-      pass.goneTimer = setTimeout(close, Math.min(this.finishQuietMs, untilCap))
     }
+    pass.dueAt = Math.min(pass.firstAt + batonPassMaxMs, Math.max(now + goneWindowMs, pass.firstAt + attributionAfterMs))
+    clearTimeout(pass.goneTimer)
+    pass.goneTimer = setTimeout(close, Math.max(0, pass.dueAt - now))
   }
 
   // Baton relay: a runner's read never closes a lap. It extends the runner's burst (used to
@@ -871,6 +899,7 @@ export class CrossingDetector {
     const fr = race.freeRelay
     const atMs = new Date(event.receivedAt).getTime()
     const burst = noteRead(fr.bursts, participantId, atMs, event.rssiCdbm, fr.arrivalSilenceMs, this.batonWindows.burstGapMs)
+    rememberBurst(fr.burstHistory, participantId, burst, atMs)
     clearTimeout(fr.candidateTimers.get(burst)?.timer)
     fr.candidateTimers.delete(burst)
     if (!burst.fromCourse || burst.candidateDone) return
@@ -883,16 +912,31 @@ export class CrossingDetector {
     fr.candidateTimers.set(burst, { timer, participantId, teamId })
   }
 
-  // Decides one runner burst: a candidate lap when no baton lap of the team is near it.
-  // Returns the write's promise, or undefined when nothing is written.
+  // Whether a baton pass of the team is open in this race.
+  #hasOpenBatonPass(raceRunId, teamId) {
+    for (const p of this.inRange.values()) {
+      if (p.raceRunId === raceRunId && p.batonTeamId === teamId) return true
+    }
+    return false
+  }
+
+  // Decides one runner burst: a candidate lap when no counted lap of the team is near it.
+  // While a baton pass of the team is open, the lap it will make is not known yet (a baton dropped
+  // by the antenna is read until the cap, long after its carrier left), so the decision waits for
+  // that pass to close. Returns the write's promise, or undefined when nothing is written.
   #decideBurst({ raceRunId, race, participantId, teamId, burst }) {
     const fr = race.freeRelay
     const team = fr.teams.get(teamId)
     if (!team || team.done || burst.candidateDone) return
+    if (this.#hasOpenBatonPass(raceRunId, teamId)) {
+      if (!fr.deferredBursts.has(teamId)) fr.deferredBursts.set(teamId, [])
+      fr.deferredBursts.get(teamId).push({ participantId, burst })
+      return
+    }
     const candidate = isCandidate(burst, {
       teamLastCountedMs: team.lastBoundary.getTime(),
       minLapMs: fr.minLapMs,
-      batonLapTimesMs: team.batonLapTimes,
+      lapTimesMs: team.lapTimes,
       windowMs: this.batonWindows.candidateWindowMs,
     })
     // Decided either way: a later read of this burst (none is expected) never re-raises it.
@@ -1057,10 +1101,10 @@ export function buildFreeRelay(participantList, laps, { gunStartTime, lapCount, 
   return { teamOf, teams, lastSeen: new Map(), minLapMs, timeLimitMs, gunStartTime, arrivalSilenceMs }
 }
 
-// Each team's lap count, last lap and baton lap times from its counted laps (not deleted, not a
-// baton candidate).
+// Each team's lap count, last lap and lap times from its counted laps (not deleted, not a
+// candidate waiting for the operator).
 function applyLaps(teams, laps, gunStartTime) {
-  for (const t of teams.values()) { t.laps = 0; t.lastBoundary = gunStartTime; t.batonLapTimes = [] }
+  for (const t of teams.values()) { t.laps = 0; t.lastBoundary = gunStartTime; t.lapTimes = [] }
   for (const lap of laps) {
     if (lap.deletedAt || lap.status === 'candidate') continue
     const t = teams.get(lap.teamId)
@@ -1068,8 +1112,9 @@ function applyLaps(teams, laps, gunStartTime) {
     t.laps += 1
     const at = new Date(lap.closedAt)
     if (at > t.lastBoundary) t.lastBoundary = at
-    // Baton relay: a runner burst near a baton lap is no candidate (isCandidate).
-    if (lap.source === 'baton') t.batonLapTimes.push(at.getTime())
+    // Baton relay: a runner burst near any counted lap (baton, added by hand, an approved
+    // candidate) is no candidate (isCandidate).
+    t.lapTimes.push(at.getTime())
   }
   for (const t of teams.values()) t.done = t.laps >= t.target
 }
