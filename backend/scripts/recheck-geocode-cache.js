@@ -14,6 +14,7 @@
 //   node --env-file=../.env scripts/recheck-geocode-cache.js --apply    # delete flagged cache rows
 //   --limit <n>      check only the first n cache rows
 //   --name <query>   check one location_query
+//   --from-log <f>   check only the names flagged in an earlier run's log
 //
 // Nominatim allows one request a second, so the full cache takes about half an
 // hour. Statuses:
@@ -27,20 +28,26 @@
 // does not touch scraper_all or calendar_events: the report lists the future
 // rows that carry a flagged name with the cached voivodeship, for a person to
 // review, because a scraper may have published that voivodeship itself.
+// Each listed row says what the geocoder answers today (`proposed`): a
+// voivodeship and coordinates, or null when the name is ambiguous and only a
+// person can tell which village the race is in. A row whose raw scraper table
+// carries the same voivodeship got it from its source, not from the cache, and
+// is marked `fromSource`.
 
 import { fileURLToPath } from 'node:url'
-import { writeFileSync, mkdirSync } from 'node:fs'
+import { writeFileSync, mkdirSync, readFileSync } from 'node:fs'
 import { nominatimAnswer, parseCacheKey, searchNominatim, capitalizeVoivodeship } from '../src/scrapers/geocoder.js'
 
 export function classifyCacheRow(row, nominatimHits) {
   const answer = nominatimAnswer(nominatimHits, row.location_query)
   const cachedVoiv = capitalizeVoivodeship(row.voivodeship) || null
-  if (answer.ambiguous) return { status: 'ambiguous', cached: cachedVoiv, now: answer.states }
+  if (answer.ambiguous) return { status: 'ambiguous', cached: cachedVoiv, now: answer.states, proposed: null }
   const state = answer.chosen?.address?.state || answer.chosen?.address?.province
   const nowVoiv = capitalizeVoivodeship(state) || null
-  if (!answer.chosen || !nowVoiv) return { status: 'unresolved', cached: cachedVoiv, now: [] }
-  if (cachedVoiv && nowVoiv !== cachedVoiv) return { status: 'moved', cached: cachedVoiv, now: [nowVoiv] }
-  return { status: 'ok', cached: cachedVoiv, now: [nowVoiv] }
+  if (!answer.chosen || !nowVoiv) return { status: 'unresolved', cached: cachedVoiv, now: [], proposed: null }
+  const proposed = { voivodeship: nowVoiv, lat: parseFloat(answer.chosen.lat), lng: parseFloat(answer.chosen.lon) }
+  if (cachedVoiv && nowVoiv !== cachedVoiv) return { status: 'moved', cached: cachedVoiv, now: [nowVoiv], proposed }
+  return { status: 'ok', cached: cachedVoiv, now: [nowVoiv], proposed }
 }
 
 async function fetchAll(supabase, table, columns, build = q => q) {
@@ -60,9 +67,14 @@ async function main() {
   const apply = args.includes('--apply')
   const limit = args.includes('--limit') ? parseInt(args[args.indexOf('--limit') + 1], 10) : null
   const name = args.includes('--name') ? args[args.indexOf('--name') + 1] : null
+  const fromLog = args.includes('--from-log') ? args[args.indexOf('--from-log') + 1] : null
+  const onlyNames = fromLog
+    ? new Set(JSON.parse(readFileSync(fromLog, 'utf8')).flagged.map(f => f.location_query))
+    : null
 
   let cache = await fetchAll(supabase, 'geocode_cache', 'id, location_query, voivodeship, lat, lng, created_at',
     q => (name ? q.eq('location_query', name) : q).order('created_at'))
+  if (onlyNames) cache = cache.filter(r => onlyNames.has(r.location_query))
   if (limit) cache = cache.slice(0, limit)
   console.log(`${apply ? 'APPLY' : 'DRY RUN'}: checking ${cache.length} cached names (~${Math.ceil(cache.length * 1.1 / 60)} min)`)
 
@@ -93,13 +105,24 @@ async function main() {
       q => q.gte('date', today))
     for (const r of rows) {
       const f = byName.get(String(r.location || '').trim().toLowerCase())
-      if (f && capitalizeVoivodeship(r.voivodeship) === f.cached) affected.push({ table, ...r, flag: f.status })
+      if (f && capitalizeVoivodeship(r.voivodeship) === f.cached) affected.push({ table, ...r, flag: f.status, proposed: f.proposed })
     }
   }
+  const rawVoiv = new Map()
+  for (const src of new Set(affected.map(a => a.source))) {
+    const ids = [...new Set(affected.filter(a => a.source === src).map(a => a.source_id))]
+    const { data, error } = await supabase.from(`scraper_${src}`).select('source_id, voivodeship').in('source_id', ids)
+    if (error) continue
+    for (const d of data) if (d.voivodeship) rawVoiv.set(`${src}:${d.source_id}`, capitalizeVoivodeship(d.voivodeship))
+  }
+  for (const a of affected) a.fromSource = rawVoiv.get(`${a.source}:${a.source_id}`) === capitalizeVoivodeship(a.voivodeship)
 
   console.log(`\nok ${counts.ok}, ambiguous ${counts.ambiguous}, moved ${counts.moved}, unresolved ${counts.unresolved}, failed ${counts.failed}`)
   console.log(`future rows carrying a flagged name with its cached voivodeship: ${affected.length}`)
-  for (const a of affected) console.log(`  ${a.table} ${a.date} ${a.name} — ${a.location}, ${a.voivodeship} (${a.flag}) [${a.source}:${a.source_id}]`)
+  for (const a of affected) {
+    const to = a.proposed ? `→ ${a.proposed.voivodeship}` : '→ ?'
+    console.log(`  ${a.table} ${a.date} ${a.name} — ${a.location}, ${a.voivodeship} ${to}${a.fromSource ? ' (from source)' : ''} [${a.source}:${a.source_id}]`)
+  }
 
   mkdirSync('logs', { recursive: true })
   const logPath = `logs/geocode-recheck-${new Date().toISOString().replace(/[:.]/g, '-')}.json`

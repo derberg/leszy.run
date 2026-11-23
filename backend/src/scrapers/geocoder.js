@@ -130,20 +130,43 @@ export async function searchNominatim(locationQuery, { postcode = null, city = n
 }
 
 // What a forward search answers. Keep only settlements, then decide whether
-// they agree. A name that names villages in two voivodeships (Podegrodzie,
-// Tuczno, Przystań, Chwałowice) has no answer from the name alone, so it is
-// ambiguous and nothing is chosen. A settlement is always preferred; only when
-// there is none does a venue the organizer named by name answer for the region.
+// they agree on a voivodeship. When they do not, the one Nominatim ranks far
+// above the rest still answers: "Szczecin" also names a village in Łódzkie and
+// "Rybnik" hamlets in three voivodeships, and nobody means those. Far above is
+// IMPORTANCE_MARGIN of Nominatim's `importance` over the best hit in every
+// other voivodeship (Szczecin 0.70 against 0.32, Czarna Woda 0.39 against
+// 0.27). Villages of one name rank within a few hundredths of each other, so
+// "Chwałowice", "Lusowo" or "Burzyn" stay ambiguous and get no answer, and
+// that is the point: Burzyn's best-ranked hit is the Podlaskie village while
+// the race is in the Małopolskie one. The type Nominatim gives is no guide:
+// it calls a hamlet of Łącko in Warmińsko-Mazurskie a "city", which would beat
+// the Małopolskie Łącko of Wyspowy Ultra Świr.
+const IMPORTANCE_MARGIN = 0.1
+
 export function nominatimAnswer(all, locationQuery) {
   const results = Array.isArray(all)
     ? all.filter(r => SETTLEMENT_TYPES.has(r.addresstype) || SETTLEMENT_TYPES.has(r.type))
     : []
-  const states = new Set(
-    results.map(r => capitalizeVoivodeship(r.address?.state || r.address?.province)).filter(Boolean)
-  )
-  if (states.size > 1) return { ambiguous: true, chosen: null, states: [...states] }
+  const stateOf = r => capitalizeVoivodeship(r.address?.state || r.address?.province) || null
+  const states = [...new Set(results.map(stateOf).filter(Boolean))]
+  if (states.length > 1) {
+    const best = new Map()
+    for (const r of results) {
+      const st = stateOf(r)
+      if (!st) continue
+      const imp = Number(r.importance) || 0
+      if (!best.has(st) || imp > best.get(st)) best.set(st, imp)
+    }
+    const ranked = [...best.entries()].sort((a, b) => b[1] - a[1])
+    if (ranked[0][1] - ranked[1][1] < IMPORTANCE_MARGIN) {
+      return { ambiguous: true, chosen: null, states }
+    }
+    const winner = ranked[0][0]
+    const chosen = results.find(r => stateOf(r) === winner)
+    return { ambiguous: false, chosen, states }
+  }
   const chosen = results.length > 0 ? results[0] : pickVenueFallback(all, locationQuery)
-  return { ambiguous: false, chosen: chosen || null, states: [...states] }
+  return { ambiguous: false, chosen: chosen || null, states }
 }
 
 // The postcode-structured query is cached under "<postcode> <city>"
