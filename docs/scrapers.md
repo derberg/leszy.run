@@ -330,7 +330,7 @@ After this, review `scraper_all` in Supabase to verify data quality before proce
 
 ### Step 3: Fill missing voivodeships
 
-Geocodes rows in `scraper_all` that have no `voivodeship`. Tries fast city→voivodeship map first, falls back to Nominatim (rate-limited ~1 req/s, results cached in `geocode_cache`). Also fills `lat`/`lng` if missing. A cached answer is returned before the ambiguity check (a name naming settlements in several voivodeships gets no answer), so entries cached before that check can be wrong: `scripts/recheck-geocode-cache.js` re-asks Nominatim for every cached name and reports them (dry run by default, `--apply` deletes the flagged cache rows only).
+Geocodes rows in `scraper_all` that have no `voivodeship`. Tries fast city→voivodeship map first, falls back to Nominatim (rate-limited ~1 req/s, results cached in `geocode_cache`). Also fills `lat`/`lng` if missing. A name naming settlements in several voivodeships gets no answer unless Nominatim ranks one far above the rest (`importance` margin 0.1: Szczecin answers, Chwałowice does not). A cached answer is returned before that check, so entries cached before it can be wrong: `scripts/recheck-geocode-cache.js` re-asks Nominatim for every cached name and lists the ambiguous and moved ones with the future rows that carry them (dry run by default; `--apply` deletes only the moved cache rows, an ambiguous one is deleted by hand once proven wrong).
 
 ```bash
 cd backend && node --env-file=../.env scripts/run-geocode.js

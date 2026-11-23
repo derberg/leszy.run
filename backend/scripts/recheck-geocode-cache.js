@@ -11,7 +11,7 @@
 //
 // Usage (from backend/):
 //   node --env-file=../.env scripts/recheck-geocode-cache.js            # dry run, report only
-//   node --env-file=../.env scripts/recheck-geocode-cache.js --apply    # delete flagged cache rows
+//   node --env-file=../.env scripts/recheck-geocode-cache.js --apply    # delete `moved` cache rows
 //   --limit <n>      check only the first n cache rows
 //   --name <query>   check one location_query
 //   --from-log <f>   check only the names flagged in an earlier run's log
@@ -23,8 +23,11 @@
 //   unresolved  no answer today (kept: a flaky search is no evidence)
 //   ok          the cached voivodeship is still the answer
 //
-// --apply deletes only `ambiguous` and `moved` rows from geocode_cache. The
-// next run-geocode refuses an ambiguous name and re-caches a moved one. It
+// --apply deletes only `moved` rows from geocode_cache; the next run-geocode
+// re-caches them. `ambiguous` rows are listed, never deleted: on 2026-11-23
+// most of the 313 still held the right answer (Siedlce, Sobótka, Bolesławiec),
+// and a deleted one leaves every later race there without a voivodeship. Delete
+// one a person has proven wrong by hand. It
 // does not touch scraper_all or calendar_events: the report lists the future
 // rows that carry a flagged name with the cached voivodeship, for a person to
 // review, because a scraper may have published that voivodeship itself.
@@ -129,8 +132,9 @@ async function main() {
   writeFileSync(logPath, JSON.stringify({ apply, counts, flagged, affected }, null, 2))
   console.log(`log: ${logPath}`)
 
-  if (apply && flagged.length) {
-    const ids = flagged.map(f => f.id)
+  const moved = flagged.filter(f => f.status === 'moved')
+  if (apply && moved.length) {
+    const ids = moved.map(f => f.id)
     for (let i = 0; i < ids.length; i += 200) {
       const { error } = await supabase.from('geocode_cache').delete().in('id', ids.slice(i, i + 200))
       if (error) { console.error(`delete failed: ${error.message}`); process.exit(1) }
