@@ -103,6 +103,61 @@ export async function reverseGeocode(lat, lng) {
   }
 }
 
+// One rate-limited forward search, returning Nominatim's raw hits.
+// `postcode` switches Nominatim to its structured endpoint (see geocode()).
+export async function searchNominatim(locationQuery, { postcode = null, city = null } = {}) {
+  const wait = RATE_LIMIT_MS - (Date.now() - lastRequestAt)
+  if (wait > 0) await new Promise(r => setTimeout(r, wait))
+  lastRequestAt = Date.now()
+
+  const params = new URLSearchParams({
+    format: 'json',
+    limit: '10',
+    countrycodes: 'pl',
+    addressdetails: '1',
+  })
+  if (postcode && city) {
+    params.set('city', city)
+    params.set('postalcode', postcode)
+    params.set('country', 'Polska')
+  } else {
+    params.set('q', `${locationQuery}, Polska`)
+  }
+  const res = await fetch(`${NOMINATIM_URL}?${params}`, {
+    headers: { 'User-Agent': USER_AGENT },
+  })
+  return res.json()
+}
+
+// What a forward search answers. Keep only settlements, then decide whether
+// they agree. A name that names villages in two voivodeships (Podegrodzie,
+// Tuczno, Przystań, Chwałowice) has no answer from the name alone, so it is
+// ambiguous and nothing is chosen. A settlement is always preferred; only when
+// there is none does a venue the organizer named by name answer for the region.
+export function nominatimAnswer(all, locationQuery) {
+  const results = Array.isArray(all)
+    ? all.filter(r => SETTLEMENT_TYPES.has(r.addresstype) || SETTLEMENT_TYPES.has(r.type))
+    : []
+  const states = new Set(
+    results.map(r => capitalizeVoivodeship(r.address?.state || r.address?.province)).filter(Boolean)
+  )
+  if (states.size > 1) return { ambiguous: true, chosen: null, states: [...states] }
+  const chosen = results.length > 0 ? results[0] : pickVenueFallback(all, locationQuery)
+  return { ambiguous: false, chosen: chosen || null, states: [...states] }
+}
+
+// The postcode-structured query is cached under "<postcode> <city>"
+// (run-geocode.js), so the key alone says how to ask again.
+export function parseCacheKey(locationQuery) {
+  const m = String(locationQuery || '').match(/^(\d{2}-\d{3})\s+(.+)$/)
+  return m ? { postcode: m[1], city: m[2].trim() } : { postcode: null, city: null }
+}
+
+// A cached answer is returned before any of the checks above run, so an entry
+// written before the ambiguity check existed keeps answering for every village
+// of that name: "Chwałowice" (7 villages in 6 voivodeships) was cached on
+// 2026-03-23 as the Świętokrzyskie one, and every Chwałowice race got it.
+// scripts/recheck-geocode-cache.js re-asks Nominatim for every cached name.
 // `postcode` switches Nominatim to its structured endpoint. A postcode inside
 // the free-text `q` is simply ignored. "33-386 Podegrodzie" still returns both
 // the Małopolskie and the Zachodniopomorskie village. The structured city= +
@@ -127,49 +182,12 @@ async function geocode(locationQuery, { postcode = null, city = null } = {}) {
     }
   }
 
-  const now = Date.now()
-  const wait = RATE_LIMIT_MS - (now - lastRequestAt)
-  if (wait > 0) await new Promise(r => setTimeout(r, wait))
-  lastRequestAt = Date.now()
-
   try {
-    const params = new URLSearchParams({
-      format: 'json',
-      limit: '10',
-      countrycodes: 'pl',
-      addressdetails: '1',
-    })
-    if (postcode && city) {
-      params.set('city', city)
-      params.set('postalcode', postcode)
-      params.set('country', 'Polska')
-    } else {
-      params.set('q', `${locationQuery}, Polska`)
-    }
-
-    const res = await fetch(`${NOMINATIM_URL}?${params}`, {
-      headers: { 'User-Agent': USER_AGENT },
-    })
-
-    const all = await res.json()
-
-    // Keep only settlements, then decide whether they agree. A name that names
-    // two villages in two voivodeships (Podegrodzie, Tuczno, Przystań) has no
-    // answer from the name alone: report the ambiguity and let the caller keep
-    // whatever it already had rather than pick one at random.
-    const results = Array.isArray(all)
-      ? all.filter(r => SETTLEMENT_TYPES.has(r.addresstype) || SETTLEMENT_TYPES.has(r.type))
-      : []
-    const states = new Set(
-      results.map(r => capitalizeVoivodeship(r.address?.state || r.address?.province)).filter(Boolean)
-    )
-    if (states.size > 1) {
+    const all = await searchNominatim(locationQuery, { postcode, city })
+    const { ambiguous, chosen } = nominatimAnswer(all, locationQuery)
+    if (ambiguous) {
       return { lat: null, lng: null, voivodeship: null, ambiguous: true }
     }
-
-    // A settlement is always preferred. Only when there is none does a venue the
-    // organizer named by name get to answer for the region.
-    const chosen = results.length > 0 ? results[0] : pickVenueFallback(all, locationQuery)
 
     if (chosen) {
       const { lat, lon, address } = chosen
@@ -204,4 +222,4 @@ async function geocode(locationQuery, { postcode = null, city = null } = {}) {
   return { lat: null, lng: null, voivodeship: null, ambiguous: false }
 }
 
-export { geocode }
+export { geocode, capitalizeVoivodeship }
