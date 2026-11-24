@@ -644,6 +644,8 @@ test('O-30 M6 a list row carries exactly the D6-11 key set, so a field added lat
     'missingFields',
     // „Opłacone poza systemem” (OP-9): the mark, the club's note and the order's total for the dialog
     'paidOffline', 'offlineNote', 'orderTotal',
+    // Competition change: the entry's refunded money (registrations.refunded) and an open surcharge
+    'entryRefunded', 'surcharge',
   ].sort())
 })
 

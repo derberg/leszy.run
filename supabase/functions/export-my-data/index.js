@@ -52,7 +52,7 @@ const GUARDIAN_COLUMNS = 'id, event_id, status, first_name, last_name, guardian_
 // included too: they are about this person's payment, even if they are an internal note.
 // payment_events (the raw dpay log) is not: it holds the same transaction ids and amounts, and
 // the payer address only as a SHA-256.
-const ORDER_COLUMNS = 'id, status, buyer_email, buyer_name, entry_total, extras_total, donation, '
+const ORDER_COLUMNS = 'id, kind, surcharge_registration_id, surcharge_from_category_id, surcharge_to_category_id, status, buyer_email, buyer_name, entry_total, extras_total, donation, '
   + 'total, created_at, expires_at, paid_at, paid_transaction_id, paid_offline_at, cancelled_at, cancelled_reason, '
   + 'registration_settings(name, event_date), '
   + 'order_lines(kind, registration_id, qty, amount, refunded, tier_label, tier_ends_on), '
@@ -60,9 +60,19 @@ const ORDER_COLUMNS = 'id, status, buyer_email, buyer_name, entry_total, extras_
   + 'refunds(id, payment_attempt_id, amount, kind, reason, dpay_status, created_at), '
   + 'operator_alerts(kind, payload, created_at)'
 
-function orderView(o) {
+// A competition change paid online is an order of its own (kind 'surcharge'): exported with the
+// person's other orders, naming the entry it moved and the competitions from and to.
+function orderView(o, competitionName = new Map()) {
   return {
     id: o.id,
+    kind: o.kind ?? 'registration',
+    surcharge: o.kind === 'surcharge'
+      ? {
+        registration_id: o.surcharge_registration_id,
+        from_competition: competitionName.get(o.surcharge_from_category_id) ?? null,
+        to_competition: competitionName.get(o.surcharge_to_category_id) ?? null,
+      }
+      : null,
     event_name: o.registration_settings?.name ?? null,
     event_date: o.registration_settings?.event_date ?? null,
     status: o.status,
@@ -219,9 +229,16 @@ Deno.serve(async (req) => {
       .eq('changed_by', userId).order('changed_at').order('id'), 'event_payout_history'),
   ])
 
-  const orders = [...new Map([...ordersByProfile, ...ordersByEmail].map((o) => [o.id, o])).values()]
+  const orderRows = [...new Map([...ordersByProfile, ...ordersByEmail].map((o) => [o.id, o])).values()]
     .sort((a, b) => String(a.created_at).localeCompare(String(b.created_at)))
-    .map(orderView)
+  const surchargeCategories = [...new Set(orderRows.filter((o) => o.kind === 'surcharge')
+    .flatMap((o) => [o.surcharge_from_category_id, o.surcharge_to_category_id]))]
+  const competitionName = new Map(surchargeCategories.length > 0
+    ? (await fetchAll(() => supabaseAdmin.from('competitions').select('category_id, name')
+      .in('category_id', surchargeCategories).order('category_id'), 'surcharge competitions'))
+      .map((c) => [c.category_id, c.name])
+    : [])
+  const orders = orderRows.map((o) => orderView(o, competitionName))
 
   const registrationsAsGuardian = [...new Map([...guardianByProfile, ...guardianByEmail].map((r) => [r.id, r])).values()]
     .sort((a, b) => String(a.created_at).localeCompare(String(b.created_at)))

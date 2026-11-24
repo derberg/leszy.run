@@ -14,7 +14,10 @@ import EntryDialog, { FieldMessage, dialogInput } from './EntryDialog.jsx'
 // payment and on each refund call is LESZY.RUN's cost, invoiced to the organizer (agreement §8),
 // so the dialog only shows it, and leaves the invoice unsaid on a charity event.
 
-const LINE_NAME = { entry: 'Opłata startowa', extra: 'Dodatek', donation: 'Darowizna' }
+// A competition change's surcharge is a line of its own order (paid separately), refunded against
+// that payment like any other line.
+const LINE_NAME = { entry: 'Opłata startowa', surcharge: 'Dopłata za zmianę konkurencji', extra: 'Dodatek', donation: 'Darowizna' }
+const ENTRY_MONEY = new Set(['entry', 'surcharge'])
 // dpay's final refusals: the refund row under that key is settled for good, so a retry needs a new
 // key (a replay would answer the same refusal forever). Any other failure keeps the key: the
 // request may have gone through, and the same key replays it.
@@ -56,9 +59,13 @@ export default function RefundDialog({ row, team, charity = false, onClose, onDo
   const parsed = Object.fromEntries(lines.map((l) => [l.id, amountOf(amounts[l.id] ?? '', remainingOf(l))]))
   const invalid = Object.values(parsed).some((p) => p.error)
   const total = Object.values(parsed).reduce((n, p) => n + (p.grosze ?? 0), 0)
-  // The entry line refunded to its last grosz cancels the entry (finish_organizer_refund), counted
-  // on accepted refunds only: while one is unconfirmed, the last grosz cancels nothing yet.
-  const cancels = !(row.refundUnconfirmed > 0) && lines.some((l) => l.kind === 'entry' && remainingOf(l) > 0 && parsed[l.id].grosze === remainingOf(l))
+  // All of the entry's money back (registrations.refunded >= price: its entry line and any paid
+  // surcharge lines) cancels the entry (finish_organizer_refund), counted on accepted refunds only:
+  // while one is unconfirmed, the last grosz cancels nothing yet.
+  const entryLines = lines.filter((l) => ENTRY_MONEY.has(l.kind))
+  const entryLeft = entryLines.reduce((n, l) => n + remainingOf(l), 0)
+  const entryTyped = entryLines.reduce((n, l) => n + (parsed[l.id].grosze ?? 0), 0)
+  const cancels = !(row.refundUnconfirmed > 0) && entryLeft > 0 && entryTyped > 0 && entryTyped === entryLeft
   const label = `Zwróć ${formatPln(total)}${cancels ? (team ? ` i anuluj drużynę (${team.size} os.)` : ' i anuluj zgłoszenie') : ''}`
 
   async function refund() {

@@ -26,7 +26,8 @@ const REG_COLUMNS = 'id, event_id, category_id, order_id, status, first_name, la
 
 // POST {} → 200 { data: [{ eventId, slug, eventName, eventDate, firstStartTime,
 //   orders: [{ id, status, total, refunded, cancelled, expiresAt, paidAt, createdAt }],
-//   people: [{ id, firstName, lastName, competition, status, mine }] }] }
+//   people: [{ id, firstName, lastName, competition, status, mine,
+//     surcharge: { orderId, toCompetition, grosze, expiresAt } | null }] }] }
 // „Moje zapisy”: every published (or closed) registration event where the session bought an order
 // (pending or paid) or is on a live entry (confirmed or awaiting payment) as the runner, as the
 // person who registered it, or as a child's guardian. The people of the session's own orders are
@@ -47,15 +48,18 @@ Deno.serve(async (req) => {
   try {
     const me = session.userId
     const orders = await allRows(() => admin.from('orders')
-      .select('id, event_id, buyer_profile_id, status, total, expires_at, paid_at, created_at')
+      .select('id, event_id, buyer_profile_id, status, total, expires_at, paid_at, created_at, kind, surcharge_registration_id, surcharge_to_category_id')
       .eq('buyer_profile_id', me).in('status', LISTED_ORDER_STATUSES).order('id'))
 
     const own = await allRows(() => admin.from('registrations').select(REG_COLUMNS)
       .in('status', LISTED_REGISTRATION_STATUSES)
       .or(`profile_id.eq.${me},registered_by_profile_id.eq.${me},guardian_profile_id.eq.${me}`)
       .order('id'))
+    // A competition change's surcharge owns no registration (shapeMyRegistrations shows an open one
+    // on its entry): only registration orders hold entries and refunds of their own here.
+    const entryOrders = orders.filter((o) => o.kind !== 'surcharge')
     const inOrders = []
-    for (const ids of chunks(orders.map((o) => o.id))) {
+    for (const ids of chunks(entryOrders.map((o) => o.id))) {
       inOrders.push(...await allRows(() => admin.from('registrations').select(REG_COLUMNS)
         .in('status', LISTED_REGISTRATION_STATUSES).in('order_id', ids).order('id')))
     }
@@ -63,6 +67,13 @@ Deno.serve(async (req) => {
     // Before the N-1 filter: a package the organizer moved on still holds its order's place.
     const liveOrderIds = new Set(inOrders.map((r) => r.order_id))
     const refunded = await acceptedRefundTotals(admin, orders.map((o) => o.id))
+    // A paid surcharge's refund is money given back of the entry: counted on the entry's own order.
+    const orderOfReg = new Map(candidates.map((r) => [r.id, r.order_id]))
+    for (const o of orders.filter((x) => x.kind === 'surcharge')) {
+      const into = orderOfReg.get(o.surcharge_registration_id)
+      const back = refunded.get(o.id) ?? 0
+      if (into && back) refunded.set(into, (refunded.get(into) ?? 0) + back)
+    }
 
     const others = candidates.filter((r) => r.profile_id !== me).map((r) => r.id)
     const byOrganizer = new Set()
@@ -79,7 +90,10 @@ Deno.serve(async (req) => {
       settings.push(...await allRows(() => admin.from('registration_settings')
         .select('event_id, slug, name, state, event_date, first_start_time').in('event_id', ids).order('event_id')))
     }
-    const categoryIds = [...new Set(registrations.map((r) => r.category_id).filter(Boolean))]
+    const categoryIds = [...new Set([
+      ...registrations.map((r) => r.category_id),
+      ...orders.map((o) => o.surcharge_to_category_id),
+    ].filter(Boolean))]
     const competitions = []
     for (const ids of chunks(categoryIds)) {
       competitions.push(...await allRows(() => admin.from('competitions')

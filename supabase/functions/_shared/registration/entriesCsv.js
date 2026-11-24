@@ -76,6 +76,10 @@ const COLUMNS = [
   // „Opłacone poza systemem”: the club's own note on the order (the Status column says POZA SYSTEMEM).
   // Defused like every cell: the club's staff type it.
   ['Notatka o wpłacie', (r) => r.offlineNote],
+  // A competition change waiting for its surcharge: the entry still runs in „Konkurencja” until
+  // the payer pays (organizerEntries.js `surcharge`).
+  ['Dopłata czeka (zł)', (r) => zloty(r.surcharge?.grosze ?? null)],
+  ['Zmiana konkurencji na', (r) => r.surcharge?.toCompetition],
 ]
 
 function toCsv(columns, rows) {

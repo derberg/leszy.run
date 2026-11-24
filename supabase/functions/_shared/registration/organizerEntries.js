@@ -6,7 +6,7 @@ import { refundsInFlight } from './refundInFlight.js'
 import { allRows } from './allRows.js'
 import { dpayCommission } from './money.js'
 import { paymentStatusOf, registrationRole } from './group.js'
-import { entryStatusKey, unconfirmedRefundGrosze } from './entries.js'
+import { entryMoney, entryStatusKey, pendingSurcharge, unconfirmedRefundGrosze } from './entries.js'
 import { entryOwedDetails } from './memberDetails.js'
 
 const LIVE = new Set(['confirmed', 'pending_payment'])
@@ -18,7 +18,7 @@ const fullName = (r) => (r.first_name === DELETED ? null : `${r.first_name ?? ''
 const roleOf = registrationRole
 
 const REG_COLUMNS = 'id, category_id, order_id, first_name, last_name, birth_date, gender, phone, city, club, nationality, ' +
-  'ice_name, ice_phone, email, age_group_label, status, created_at, price, list_price, partner_id, voucher_id, participant_id, profile_id, ' +
+  'ice_name, ice_phone, email, age_group_label, status, created_at, price, list_price, refunded, partner_id, voucher_id, participant_id, profile_id, ' +
   'registered_by_profile_id, consent_state, guardian_profile_id, guardian_name, guardian_removed_at, guardian_named, team_id'
 
 // Who registered each added adult and child, by the rule consentRequests.js names the buyer
@@ -78,12 +78,18 @@ const groupBy = (items, key) => {
  *   icePhone, email     the person, for „Edytuj dane” and the CSV (a deleted account: names null)
  *   bib                 participants.bib_number, null when none
  *   orderId, price      the entry's order and price
- *   lines               [{ id, kind, amount, refunded }]: the order lines of this registration
- *   paidAmount          the lines' total when the order is paid, else 0
+ *   lines               [{ id, kind, amount, refunded }]: the order lines of this registration,
+ *                       a competition change's surcharge line only once its own order is paid
+ *                       (entries.js entryMoney); the refund dialog refunds each against its order
+ *   paidAmount          the total of the lines whose own order is paid
+ *   entryRefunded       registrations.refunded: everything given back of the entry and its
+ *                       surcharges, a difference refunded outside the system included
+ *   surcharge           { orderId, toCompetition, grosze, expiresAt } while a dearer competition
+ *                       change waits for its payment, else null
  *   paidOffline         the order was marked „opłacone poza systemem” (statusKey 'paid_offline')
  *   offlineNote         the club's note on that order, null otherwise (organizer only)
  *   orderTotal          the order's frozen total, null without an order
- *   refunded            the lines' refunded total, reservations included
+ *   refunded            the extras' refunds plus entryRefunded, reservations included
  *   refundUnconfirmed   grosze of organizer refunds dpay has not confirmed (in `refunded` too)
  *   statusKey           entryStatusKey, from this row's own refunds and participant
  *   autoRefundReason    'full' when the order was refunded automatically for a full competition
@@ -112,7 +118,7 @@ export async function loadEntries(admin, settings, { guardianEmail = false, now 
     // In the event's own order (the wizard's), which the panel's chips follow.
     allRows(() => admin.from('competitions').select('category_id, name, capacity, taken, hidden_at, kind, sort_order')
       .eq('event_id', eventId).order('sort_order').order('category_id')),
-    allRows(() => admin.from('orders').select('id, total, status, expires_at, buyer_name, tier_id, paid_offline_at, offline_note')
+    allRows(() => admin.from('orders').select('id, kind, total, status, expires_at, buyer_name, tier_id, paid_offline_at, offline_note, surcharge_registration_id, surcharge_to_category_id')
       .eq('event_id', eventId).order('id')),
     allRows(() => admin.from('teams').select('id, name, category_id, captain_registration_id, released_at').eq('event_id', eventId).order('id')),
     allRows(() => admin.from('order_lines').select('id, order_id, kind, registration_id, amount, refunded, orders!inner(event_id)')
@@ -197,7 +203,6 @@ export async function loadEntries(admin, settings, { guardianEmail = false, now 
     offlineOrders: offline.length,
   }
   const registeredBy = await registeredByNames(admin, regs, orderOf, eventId)
-  const sum = (list, key) => list.reduce((n, x) => n + (x[key] ?? 0), 0)
 
   const rows = regs.map((r) => {
     const order = orderOfReg(r)
@@ -207,7 +212,8 @@ export async function loadEntries(admin, settings, { guardianEmail = false, now 
     const role = roleOf(r)
     const guardianRemoved = role === 'minor' && r.guardian_removed_at != null
     if (r.status === 'confirmed' && r.consent_state === 'awaiting') counts.awaitingConsent += 1
-    const lines = (linesOf.get(r.id) ?? []).map((l) => ({ id: l.id, kind: l.kind, amount: l.amount, refunded: l.refunded }))
+    const money = entryMoney(r, { lines: linesOf.get(r.id) ?? [], orderOf })
+    const { lines } = money
     // Only refunds of this row's own lines: an order-level automatic refund belongs to no one row.
     const refunds = lines.flatMap((l) => refundsOfLine.get(l.id) ?? [])
     const participant = participantOf.get(r.id) ?? null
@@ -245,13 +251,15 @@ export async function loadEntries(admin, settings, { guardianEmail = false, now 
       orderId: r.order_id,
       price: r.price,
       lines,
-      paidAmount: order?.status === 'paid' ? sum(lines, 'amount') : 0,
+      paidAmount: money.paidAmount,
+      entryRefunded: money.entryRefunded,
+      surcharge: pendingSurcharge(r.id, orders, nameOf, now),
       // Paid outside the system (B3 „POZA SYSTEMEM”): no refund through dpay, not in the online
       // income. The note is the club's, for the organizer only.
       paidOffline: order?.status === 'paid' && order.paid_offline_at != null,
       offlineNote: order?.status === 'paid' && order.paid_offline_at != null ? (order.offline_note ?? null) : null,
       orderTotal: order?.total ?? null,
-      refunded: sum(lines, 'refunded'),
+      refunded: money.refunded,
       refundUnconfirmed: unconfirmedRefundGrosze({ refunds }),
       autoRefundReason: order && fullRefundOrders.has(order.id) ? 'full' : null,
       partnerId: r.partner_id ?? null,

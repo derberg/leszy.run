@@ -56,9 +56,9 @@ test('W-87 orders and people per event, upcoming soonest first then past latest 
     { id: 'o2', status: 'pending', total: 3000, refunded: 0, cancelled: false, expiresAt: '2026-11-05T10:00:00Z', paidAt: null, createdAt: '2026-10-02T10:00:00Z' },
   ])
   assert.deepEqual(future.people, [
-    { id: 'r-me', firstName: 'Ola', lastName: 'Leśna', competition: 'Bieg 10 km', status: 'confirmed', mine: true },
-    { id: 'r-kid', firstName: 'Kuba', lastName: 'Leśna', competition: 'Bieg dzieci', status: 'confirmed', mine: false },
-    { id: 'r-pend', firstName: 'Ala', lastName: 'Leśna', competition: 'Bieg 10 km', status: 'pending_payment', mine: false },
+    { id: 'r-me', firstName: 'Ola', lastName: 'Leśna', competition: 'Bieg 10 km', status: 'confirmed', mine: true, surcharge: null },
+    { id: 'r-kid', firstName: 'Kuba', lastName: 'Leśna', competition: 'Bieg dzieci', status: 'confirmed', mine: false, surcharge: null },
+    { id: 'r-pend', firstName: 'Ala', lastName: 'Leśna', competition: 'Bieg 10 km', status: 'pending_payment', mine: false, surcharge: null },
   ])
   assert.deepEqual(data[2].orders, [], 'another buyer’s order is never listed')
   assert.equal(data[0].firstStartTime, null)
@@ -103,4 +103,43 @@ test('W-87 compareEvents: race day is upcoming, an undated event ends the upcomi
   const ev = (eventId, eventDate) => ({ eventId, eventDate, eventName: eventId })
   const list = [ev('past1', '2026-10-01'), ev('none', null), ev('today', '2026-11-02'), ev('later', '2027-01-01'), ev('past2', '2026-10-30')]
   assert.deepEqual(list.sort((a, b) => compareEvents(a, b, today)).map((e) => e.eventId), ['today', 'later', 'none', 'past2', 'past1'])
+})
+
+// Competition change (CC readers): a surcharge order owns no registration. A paid one is never a
+// separate (let alone cancelled) order; a pending one the session pays is shown on its entry.
+test('CC a surcharge order is never listed as an order; a pending one the session pays sits on its entry', () => {
+  const surcharge = (over) => order({
+    kind: 'surcharge', event_id: 'e-future', total: 2000, surcharge_registration_id: 'r-me',
+    surcharge_to_category_id: 'c2', created_at: '2026-10-03T10:00:00Z', ...over,
+  })
+  const data = shapeMyRegistrations({
+    userId: ME, settings, competitions, now: NOW,
+    orders: [
+      order({ id: 'o1', event_id: 'e-future', kind: 'registration' }),
+      surcharge({ id: 's-paid', status: 'paid' }),
+      surcharge({ id: 's-open', status: 'pending', paid_at: null, expires_at: '2026-11-05T10:00:00Z' }),
+      surcharge({ id: 's-other', status: 'pending', paid_at: null, expires_at: '2026-11-05T10:00:00Z', surcharge_registration_id: 'r-kid', buyer_profile_id: 'someone-else' }),
+      surcharge({ id: 's-due', status: 'pending', paid_at: null, expires_at: '2026-11-01T10:00:00Z', surcharge_registration_id: 'r-kid' }),
+    ],
+    registrations: [
+      reg({ id: 'r-me', event_id: 'e-future', profile_id: ME }),
+      reg({ id: 'r-kid', event_id: 'e-future', created_at: '2026-10-01T10:00:01Z' }),
+    ],
+    // The paid surcharge holds no registration: it must not read as an order whose entries went.
+    liveOrderIds: new Set(['o1']),
+  })
+  assert.equal(data.length, 1)
+  assert.deepEqual(data[0].orders.map((o) => [o.id, o.cancelled]), [['o1', false]])
+  const byId = new Map(data[0].people.map((p) => [p.id, p]))
+  assert.deepEqual(byId.get('r-me').surcharge, { orderId: 's-open', toCompetition: 'Bieg dzieci', grosze: 2000, expiresAt: '2026-11-05T10:00:00Z' })
+  assert.equal(byId.get('r-kid').surcharge, null, 'another payer’s surcharge and one past its window are not offered')
+})
+
+test('CC an event reached only through a surcharge order is not listed', () => {
+  const data = shapeMyRegistrations({
+    userId: ME, settings, competitions, now: NOW,
+    orders: [order({ id: 's1', kind: 'surcharge', event_id: 'e-future', surcharge_registration_id: 'r-x', surcharge_to_category_id: 'c1' })],
+    registrations: [],
+  })
+  assert.deepEqual(data, [])
 })

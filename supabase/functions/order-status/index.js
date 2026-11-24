@@ -93,13 +93,15 @@ async function ownTransferViews(admin, view, userId) {
   return transferViews(admin, regs ?? [], settings, userId)
 }
 
-// POST { orderId } → 200 { data: { status, expiresAt, lines: [{ registrationId, name, firstName,
+// POST { orderId } → 200 { data: { kind: 'registration' | 'surcharge', status, expiresAt, lines: [{ registrationId, name, firstName,
 //   role: self|adult|minor, consentState: accepted|awaiting|office, competition, ageGroupLabel,
 //   kidsGroupLabel (a child's kids' group, else null), mine (the line is the buyer's own entry),
 //   startTime, amount, teamId, teamName, isCaptain, transferred (Plan 7: the package was handed on;
 //   then role, consentState and ageGroupLabel are null and mine false), transfer (Plan 7, RA5: the
 //   my-event-registrations block { allowed, until, pending } on the buyer's own line of a paid order,
 //   null on every other line) }], paidOffline (paid at the organizer, never the note), amounts (+ refunded: grosze dpay paid back), event: { slug, name }, closesAt, full, cancelledReason } }
+// A surcharge (a competition change paid online) adds fromCompetition, toCompetition, name (the
+// entry's runner), startTime and total, and has lines: [].
 // The order page's state, for the buyer only (401 without a session, 404 otherwise). While the
 // order is pending and dpay may have taken the money without an IPN reaching us, it asks dpay
 // (see poll) before answering.
@@ -154,8 +156,21 @@ Deno.serve(async (req) => {
       console.error('order-status: transfer views failed:', err?.message)
     }
     const refunded = (await acceptedRefundTotals(admin, [orderId])).get(orderId) ?? 0
+    // A competition change's surcharge (kind 'surcharge'): the move it pays for, no entry lines and
+    // so no consent or transfer block on the page.
+    const surcharge = view.kind === 'surcharge'
+      ? {
+        fromCompetition: view.surcharge.fromCompetition,
+        toCompetition: view.surcharge.toCompetition,
+        name: [view.surcharge.firstName, view.surcharge.lastName].filter(Boolean).join(' ') || null,
+        startTime: view.surcharge.startTime,
+        total: view.order.total,
+      }
+      : {}
     return json({
       data: {
+        kind: view.kind,
+        ...surcharge,
         status: view.order.status,
         // „Opłacone u organizatora”: the organizer marked it paid outside the system. The club's
         // note on it never leaves the organizer panel.
