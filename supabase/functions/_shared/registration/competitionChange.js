@@ -40,6 +40,22 @@ const REFUSALS = {
   offline_paid: [409, 'To zgłoszenie opłacono poza systemem — zmiana konkurencji jest niemożliwa.'],
   not_live: [409, 'To zgłoszenie nie jest aktywne.'],
   not_allowed: [403, 'Zmiana konkurencji nie jest włączona dla tego wydarzenia.'],
+  // change_competition's own, and what it passes on from reserve_organizer_refund (task 7).
+  paying_closed: [409, 'Płatność online jest już zamknięta: kończy się godzinę przed zamknięciem zapisów. Dopłaty nie można już utworzyć.'],
+  request_key_mismatch: [409, 'To żądanie dotyczy innej zmiany. Otwórz okno zmiany konkurencji jeszcze raz.'],
+  refund_in_progress: [409, 'Trwa inny zwrot z tej wpłaty. Spróbuj ponownie za kilka minut.'],
+  exceeds: [409, 'Różnica przekracza kwotę możliwą do zwrotu.'],
+  invalid_kind: [400, 'Nieprawidłowe żądanie.'],
+  invalid_request_key: [400, 'Nieprawidłowe żądanie.'],
+  invalid_amount: [409, 'Nieprawidłowa kwota zwrotu.'],
+  not_paid: [409, 'To zgłoszenie nie jest opłacone.'],
+  entry_changed: [409, 'Zgłoszenie zmieniło się — odśwież listę.'],
+  not_found: [404, 'Nie znaleźliśmy tego zgłoszenia albo konkurencji.'],
+  change_retry: [409, 'Zgłoszenie zmieniło się w trakcie — spróbuj ponownie.'],
+  // organizer_mark_paid_offline on a surcharge order, cancel_surcharge on any other order.
+  surcharge: [409, 'To dopłata za zmianę konkurencji: płaci się ją online, nie można jej oznaczyć jako opłaconej poza systemem.'],
+  not_surcharge: [409, 'To zamówienie nie jest dopłatą za zmianę konkurencji.'],
+  dpay_not_configured: [503, 'Płatności online są chwilowo niedostępne.'],
 }
 
 /** @returns {{ status: number, error: string, code: string }} */

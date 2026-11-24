@@ -32,16 +32,24 @@ test('equal is same', () => {
   assert.equal(changeKind(changeQuote({ held: 3000, listPriceTarget: 3000 }).difference), 'same')
 })
 
-const CODES = ['edits_closed', 'team_competition', 'refund_pending', 'surcharge_open', 'transfer_open', 'unavailable', 'full', 'ineligible', 'role_change', 'no_price', 'no_payer', 'same_competition', 'price_changed', 'race_day', 'offline_paid', 'not_live', 'not_allowed']
+const CODES = ['edits_closed', 'team_competition', 'refund_pending', 'surcharge_open', 'transfer_open', 'unavailable', 'full', 'ineligible', 'role_change', 'no_price', 'no_payer', 'same_competition', 'price_changed', 'race_day', 'offline_paid', 'not_live', 'not_allowed',
+  // Raised by change_competition / reserve_organizer_refund / organizer_mark_paid_offline (task 7).
+  'paying_closed', 'request_key_mismatch', 'refund_in_progress', 'exceeds', 'invalid_kind', 'not_found',
+  'change_retry', 'surcharge', 'not_paid', 'invalid_amount', 'invalid_request_key', 'entry_changed',
+  'not_surcharge', 'dpay_not_configured']
 
 test('every refusal has status, Polish error and code', () => {
   for (const c of CODES) {
     const r = changeRefusal(c)
     assert.equal(r.code, c)
-    assert.ok([403, 409, 422].includes(r.status))
+    assert.ok([400, 403, 404, 409, 422, 503].includes(r.status), `${c}: ${r.status}`)
+    assert.match(r.error, /[ąćęłńóśźż]|[a-z]/i)
     assert.ok(r.error.length > 5)
   }
   assert.equal(changeRefusal('not_allowed').status, 403)
+  assert.equal(changeRefusal('not_found').status, 404)
+  assert.equal(changeRefusal('dpay_not_configured').status, 503)
+  assert.equal(changeRefusal('change_retry').status, 409)
 })
 
 test('unknown refusal throws', () => {
