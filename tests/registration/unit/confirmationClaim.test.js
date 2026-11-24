@@ -4,7 +4,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { SENDGRID_TIMEOUT_MS, postToSendGrid } from '../../../supabase/functions/_shared/email.js'
-import { sendOrderConfirmation } from '../../../supabase/functions/_shared/registration/orderFlow.js'
+import { CONFIRMATION_RETRY_HOURS, sendOrderConfirmation } from '../../../supabase/functions/_shared/registration/orderFlow.js'
 import { groupRefusal } from '../../../supabase/functions/_shared/registration/registrationRequest.js'
 
 const stalled = (_url, { signal }) => new Promise((_, reject) => {
@@ -40,14 +40,21 @@ test('I-4 any network failure is „maybe delivered” too: the provider may hav
 })
 
 /** An admin client with one order: records every orders update and every alert. */
-function fakeAdmin({ stamped = null } = {}) {
+function fakeAdmin({ stamped = null, paidAt = new Date().toISOString() } = {}) {
   const state = { stamped, updates: [], alerts: [] }
   const ordersUpdate = (values) => {
     const q = {
       filters: {},
       eq(k, v) { q.filters[k] = v; return q },
       is(k, v) { q.filters[`is:${k}`] = v; return q },
+      gte(k, v) { q.filters[`gte:${k}`] = v; return q },
       select() {
+        if (q.filters['gte:paid_at'] !== undefined) {
+          if (paidAt < q.filters['gte:paid_at']) return Promise.resolve({ data: [], error: null })
+          state.stamped = values.confirmation_sent_at
+          state.updates.push(values)
+          return Promise.resolve({ data: [{ id: q.filters.id }], error: null })
+        }
         if (state.stamped !== null) return Promise.resolve({ data: [], error: null })
         state.stamped = values.confirmation_sent_at
         state.updates.push(values)
@@ -89,8 +96,27 @@ test('I-4 a send that timed out keeps the claim and alerts the operator: SendGri
   assert.deepEqual(admin.state.alerts.map((a) => [a.kind, a.order_id]), [['confirmation_email_unknown', 'o1']])
 })
 
-test('I-4 the job\'s own resend (claimed) alerts on either failure and never releases', async () => {
-  for (const err of [new Error('e-mail not accepted (500)'), unknown()]) {
+const refused = (status) => Object.assign(new Error(`e-mail not accepted (${status})`), { status })
+const hoursAgo = (h) => new Date(Date.now() - h * 3_600_000).toISOString()
+
+test('the job\'s resend refused for now (503, 500, 429) gives the claim back with no alert, so the next run retries', async () => {
+  for (const status of [503, 500, 429]) {
+    const admin = fakeAdmin({ stamped: '2026-11-23T18:45:00Z', paidAt: hoursAgo(1) })
+    assert.equal(await sendOrderConfirmation(admin, 'o1', { claimed: true, deliver: async () => { throw refused(status) } }), false)
+    assert.equal(admin.state.stamped, null, 'released')
+    assert.deepEqual(admin.state.alerts, [])
+  }
+})
+
+test(`the job stops retrying ${CONFIRMATION_RETRY_HOURS} h after payment: the claim stays and the operator is alerted`, async () => {
+  const admin = fakeAdmin({ stamped: '2026-11-23T18:45:00Z', paidAt: hoursAgo(CONFIRMATION_RETRY_HOURS + 1) })
+  assert.equal(await sendOrderConfirmation(admin, 'o1', { claimed: true, deliver: async () => { throw refused(503) } }), false)
+  assert.notEqual(admin.state.stamped, null)
+  assert.deepEqual(admin.state.alerts.map((a) => [a.kind, a.order_id]), [['confirmation_email_failed', 'o1']])
+})
+
+test('I-4 the job\'s own resend alerts and never releases on a lasting refusal (4xx), a gateway\'s 502/504 (maybe delivered) or an unknown fate', async () => {
+  for (const err of [refused(400), refused(502), refused(504), new Error('no buyer view'), unknown()]) {
     const admin = fakeAdmin({ stamped: '2026-11-01T10:00:00Z' })
     assert.equal(await sendOrderConfirmation(admin, 'o1', { claimed: true, deliver: async () => { throw err } }), false)
     assert.equal(admin.state.updates.length, 0)

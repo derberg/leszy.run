@@ -386,9 +386,20 @@ async function deliverConfirmation(admin, orderId) {
   const view = await loadOrderView(admin, orderId)
   if (!view?.order.buyer_email) return false
   const res = await sendEmail({ to: view.order.buyer_email, ...await confirmationMail(admin, view), noTracking: true })
-  if (res && res.ok === false) throw new Error(`e-mail not accepted (${res.status})`)
+  if (res && res.ok === false) throw Object.assign(new Error(`e-mail not accepted (${res.status})`), { status: res.status })
   return true
 }
+
+/** How long after payment the job keeps retrying a confirmation SendGrid refused for now. */
+export const CONFIRMATION_RETRY_HOURS = 6
+
+/**
+ * SendGrid's „not now”: 429, 500 or 503, answered by SendGrid itself, which took nothing, so a later
+ * send cannot be a second one. Never 502 or 504: a gateway answers those, possibly after SendGrid
+ * accepted the mail, so a retry every 15 minutes could deliver it again and again.
+ */
+const RETRY_STATUSES = new Set([429, 500, 503])
+const refusedForNow = (err) => !err?.deliveryUnknown && RETRY_STATUSES.has(err?.status)
 
 /**
  * The payment confirmation to the buyer, at most once (P3-R10). Best effort: never throws.
@@ -401,7 +412,11 @@ async function deliverConfirmation(admin, orderId) {
  * late, it has no idempotency key, and a second confirmation of a payment is worse than one the
  * operator resends by hand (final review I-4). If this function dies between the claim and the
  * send, nothing is resent either (at most once beats twice). `claimed: true` is the job, which
- * claimed already: a failure there is alerted, never resent. `deliver` is for the unit tests.
+ * claimed already: a refusal for now (429, 500, 503) within CONFIRMATION_RETRY_HOURS of payment gives
+ * the claim back with no alert, so the next run tries again (on 2026-11-23 a SendGrid 503 on both
+ * the first send and the job's resend left a paid runner without a confirmation, and the operator
+ * had to clear the stamp by hand); any other failure, or a refusal after that, is alerted and never
+ * resent. `deliver` is for the unit tests.
  */
 export async function sendOrderConfirmation(admin, orderId, { claimed = false, deliver = deliverConfirmation } = {}) {
   let mine = claimed
@@ -416,6 +431,7 @@ export async function sendOrderConfirmation(admin, orderId, { claimed = false, d
     return await deliver(admin, orderId)
   } catch (err) {
     console.error('order confirmation email failed:', err?.message)
+    if (claimed && refusedForNow(err) && await releaseForRetry(admin, orderId)) return false
     if (claimed) {
       await raiseAlert(admin, 'confirmation_email_failed', orderId, { error: String(err?.message ?? err) })
     } else if (mine && err?.deliveryUnknown) {
@@ -426,6 +442,15 @@ export async function sendOrderConfirmation(admin, orderId, { claimed = false, d
     }
     return false
   }
+}
+
+/** Gives the job's claim back while the order was paid less than CONFIRMATION_RETRY_HOURS ago. */
+async function releaseForRetry(admin, orderId) {
+  const since = new Date(Date.now() - CONFIRMATION_RETRY_HOURS * 3_600_000).toISOString()
+  const { data, error } = await admin.from('orders').update({ confirmation_sent_at: null })
+    .eq('id', orderId).gte('paid_at', since).select('id')
+  if (error) { console.error('confirmation claim not released:', error.message); return false }
+  return Boolean(data?.length)
 }
 
 async function sendRefundNotice(admin, orderId, grosze, reason) {
