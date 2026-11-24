@@ -100,6 +100,7 @@ test('anon and authenticated cannot select the new order columns', async () => {
 })
 
 test('refunds.reason accepts competition_change', async () => {
-  const [r] = await db()`select count(*)::int n from pg_constraint where conrelid = 'public.refunds'::regclass and pg_get_constraintdef(oid) ilike '%reason%'`
+  // Task 3's refunds_change_to_category_check names the reason only to tie change_to_category_id to it.
+  const [r] = await db()`select count(*)::int n from pg_constraint where conrelid = 'public.refunds'::regclass and pg_get_constraintdef(oid) ilike '%reason%' and conname <> 'refunds_change_to_category_check'`
   assert.equal(r.n, 0)
 })

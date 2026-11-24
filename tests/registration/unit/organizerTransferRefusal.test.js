@@ -29,5 +29,11 @@ describe('organizerTransferRefusal', () => {
     const { TRANSFER_REFUSALS } = await import('../../../supabase/functions/_shared/registration/transfers.js')
     assert.deepEqual(TRANSFER_REFUSALS.refund_pending, [409, 'Trwa zwrot wpłaty za ten pakiet — przekazanie jest niemożliwe.'])
   })
+  it('surcharge_open (competition change) → 409 for the organizer and the runner', async () => {
+    assert.equal(organizerTransferRefusal('surcharge_open').status, 409)
+    assert.match(organizerTransferRefusal('surcharge_open').body.error, /dopłat/)
+    const { TRANSFER_REFUSALS } = await import('../../../supabase/functions/_shared/registration/transfers.js')
+    assert.equal(TRANSFER_REFUSALS.surcharge_open[0], 409)
+  })
   it('an unknown code → null (the caller throws, a 500)', () => assert.equal(organizerTransferRefusal('nope'), null))
 })

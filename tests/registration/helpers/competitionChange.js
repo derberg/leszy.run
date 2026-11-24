@@ -21,3 +21,10 @@ export async function changeOk(registrationId, to, expected, opts) {
 
 export const cancelSurcharge = (orderId, reason = 'organizer_cancelled') =>
   rpc('cancel_surcharge', { p_order_id: orderId, p_reason: reason })
+
+/** change_competition that must create a surcharge → { orderId, grosze, expiresAt }. */
+export async function surchargeOk(registrationId, to, expected, opts) {
+  const out = await changeOk(registrationId, to, expected, opts)
+  if (out.outcome !== 'surcharge') throw new Error(`surchargeOk: ${out.outcome}`)
+  return out
+}
