@@ -174,9 +174,8 @@ export async function ownPendingOrder(admin, eventId, people, profileId) {
  *     lastName, competition, ageGroupLabel, startTime, amount }] }, the live lines first, then the
  *     cancelled ones.
  * A competition change's surcharge (orders.kind = 'surcharge') owns no entry: → { kind: 'surcharge',
- *   order, settings, club, lines: [], surcharge: { registrationId, firstName, lastName,
- *   fromCompetition, toCompetition, startTime } }, with no consent or transfer block (the entry
- *   already went through both). Only the payer reads it: the entry's own payer, or its runner.
+ *   order, settings, club, lines: [], surcharge: { registrationId, fromCompetition, toCompetition,
+ *   startTime } }, with no consent or transfer block (the entry already went through both).
  */
 export async function loadOrderView(admin, orderId) {
   const { data: order, error } = await admin.from('orders').select('*').eq('id', orderId).maybeSingle()
@@ -271,18 +270,17 @@ export async function loadOrderView(admin, orderId) {
   return { kind: 'registration', order, settings, club, lines }
 }
 
-// loadOrderView of a surcharge: the move it pays for, from → to, and the entry's runner by name
-// (the payer registered or is that runner; ruling N-1 does not apply: no package changed hands).
+// loadOrderView of a surcharge: the move it pays for, from → to. It names nobody: the order page
+// says „Dopłata: zmiana z <A> na <B>”, and a person's name here could reach a payer who no longer
+// holds the entry (ruling N-1; registration_surcharge_buyer bills the holder after any transfer).
 async function surchargeView(admin, order, settings) {
   const catIds = [order.surcharge_from_category_id, order.surcharge_to_category_id]
-  const [regRow, comps, clubRow] = await Promise.all([
-    admin.from('registrations').select('id, first_name, last_name').eq('id', order.surcharge_registration_id).maybeSingle(),
+  const [comps, clubRow] = await Promise.all([
     rows(admin.from('competitions').select('category_id, name, start_time').in('category_id', catIds)),
     settings?.club_id
       ? admin.from('clubs').select('name').eq('id', settings.club_id).maybeSingle()
       : { data: null },
   ])
-  if (regRow.error) throw regRow.error
   const compOf = new Map(comps.map((c) => [c.category_id, c]))
   const to = compOf.get(order.surcharge_to_category_id) ?? {}
   return {
@@ -293,8 +291,6 @@ async function surchargeView(admin, order, settings) {
     lines: [],
     surcharge: {
       registrationId: order.surcharge_registration_id,
-      firstName: regRow.data?.first_name ?? null,
-      lastName: regRow.data?.last_name ?? null,
       fromCompetition: compOf.get(order.surcharge_from_category_id)?.name ?? null,
       toCompetition: to.name ?? null,
       startTime: (to.start_time ?? settings?.first_start_time)?.slice(0, 5) ?? null,

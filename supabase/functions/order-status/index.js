@@ -100,8 +100,8 @@ async function ownTransferViews(admin, view, userId) {
 //   then role, consentState and ageGroupLabel are null and mine false), transfer (Plan 7, RA5: the
 //   my-event-registrations block { allowed, until, pending } on the buyer's own line of a paid order,
 //   null on every other line) }], paidOffline (paid at the organizer, never the note), amounts (+ refunded: grosze dpay paid back), event: { slug, name }, closesAt, full, cancelledReason } }
-// A surcharge (a competition change paid online) adds fromCompetition, toCompetition, name (the
-// entry's runner), startTime and total, and has lines: [].
+// A surcharge (a competition change paid online) adds fromCompetition, toCompetition, startTime
+// and total (no person's name), and has lines: [].
 // The order page's state, for the buyer only (401 without a session, 404 otherwise). While the
 // order is pending and dpay may have taken the money without an IPN reaching us, it asks dpay
 // (see poll) before answering.
@@ -162,7 +162,6 @@ Deno.serve(async (req) => {
       ? {
         fromCompetition: view.surcharge.fromCompetition,
         toCompetition: view.surcharge.toCompetition,
-        name: [view.surcharge.firstName, view.surcharge.lastName].filter(Boolean).join(' ') || null,
         startTime: view.surcharge.startTime,
         total: view.order.total,
       }
