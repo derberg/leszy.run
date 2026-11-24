@@ -7,7 +7,7 @@ import crypto from 'node:crypto'
 import { localEnv, resetThrottle, sessionFor } from './helpers/stack.js'
 import { acceptAgreement, createPublishedFreeEvent, createPublishedPaidEvent } from './helpers/registrationFixtures.js'
 import { attemptFor, competitionOf, confirmOk, db, one, orderOf, profileFor, rows, rpc, runnerEmail, setSettings } from './helpers/orders.js'
-import { BIEG, adult, orderGroupOk } from './helpers/groups.js'
+import { BIEG, DZIECI, adult, minor, orderGroupOk } from './helpers/groups.js'
 import { STAFETA, captain, teamOk } from './helpers/teams.js'
 import { makeVoucher, vouchersMade } from './helpers/cart.js'
 import { freeEntry, inviteOk, paidEntry, enableTransfers } from './helpers/transfers.js'
@@ -345,14 +345,14 @@ test('CC-08 after closes_at: edits_closed', async () => {
   refused(await changeCompetition(a.reg.id, c5, -2000), 'edits_closed')
 })
 
-test('CC-09 a team entry, or an individual entry into a team competition: team_competition', async () => {
+test('CC-09 a team entry: team_competition; an individual entry into a team competition: unavailable', async () => {
   const event = seen(await createPublishedFreeEvent(owner, { competitions: [BIEG(), STAFETA()] }))
   const [c9, cTeam] = event.categoryIds
   await teamOk(event, { categoryId: cTeam, members: [captain(), adult(cTeam, 'adult')] })
   const member = (await rows('registrations', { event_id: event.eventId })).find((x) => x.team_id)
   refused(await changeCompetition(member.id, c9, 0), 'team_competition')
   const a = await freeEntry(event, { categoryId: c9 })
-  refused(await changeCompetition(a.reg.id, cTeam, 0), 'team_competition')
+  refused(await changeCompetition(a.reg.id, cTeam, 0), 'unavailable')
 })
 
 test('CC-10 a runner too young for the target: ineligible, nothing changes', async () => {
@@ -462,6 +462,11 @@ test('CC-13 a replayed request key returns the first refund, nothing is reserved
   const r = await reg(a.reg.id)
   assert.equal(r.refunded, 2000)
 
+  // The same key for another target is a mismatch, not the first answer.
+  const [, , c21] = event.categoryIds
+  refused(await changeCompetition(a.reg.id, c21, 0, { key }), 'request_key_mismatch')
+  assert.equal((await one('refunds', { id: first.refundId })).change_to_category_id, c5)
+
   // The same key for another entry is a mismatch.
   const b = await paidEntry(event)
   refused(await changeCompetition(b.reg.id, c5, -2000, { key }), 'request_key_mismatch')
@@ -543,4 +548,74 @@ test('CC-02 a cheaper move after a paid surcharge refunds the surcharge first an
   assert.equal(again.refundId, out.refundId)
   assert.equal(again.grosze, 4000)
   assert.equal(again.refunds.length, 2)
+})
+
+// ---------------------------------------------------------------- children
+
+const DZIECI_2 = (capacity = 50) =>
+  ({ name: 'Bieg dzieci 2 km', discipline: 'run', distanceLabel: '2 km', startTime: '09:30', capacity })
+
+/** A paid group order: the buyer runs 9 km, their child the kids' 1 km. → { orderId, child, buyerEmail } */
+async function childEntry(event) {
+  const [c9, cKids] = event.categoryIds
+  const buyerEmail = runnerEmail('parent')
+  const out = await orderGroupOk(event, [adult(c9, 'self', buyerEmail), minor(cKids)])
+  const att = await attemptFor(out.orderId, out.total)
+  await confirmOk(out.orderId, att.txn, out.total)
+  const child = (await rows('registrations', { order_id: out.orderId })).find((x) => x.email === null)
+  assert.ok(child)
+  return { orderId: out.orderId, child, buyerEmail }
+}
+
+async function kidsEvent() {
+  return paidEvent({
+    competitions: [BIEG(), DZIECI(), DZIECI_2()],
+    prices: { 'Bieg dzieci 1 km': 2000, 'Bieg dzieci 2 km': 3000 },
+  })
+}
+
+test('CC-10 a child entry into an adults-only competition: ineligible (an age rule; the role never changes, the birth date does not)', async () => {
+  const event = await paidEvent({
+    competitions: [BIEG(), DZIECI(), BIEG_5()],
+    prices: { 'Bieg dzieci 1 km': 2000, 'Bieg 5 km': 2000 },
+  })
+  const [, cKids, c5] = event.categoryIds
+  await update('competitions', { min_age: 18 }, { category_id: c5 })
+  const { child } = await childEntry(event)
+  refused(await changeCompetition(child.id, c5, 0), 'ineligible')
+  assert.equal((await reg(child.id)).category_id, cKids)
+})
+
+test('CC-01 into a kids competition: the kids group is re-derived from the target', async () => {
+  const event = await kidsEvent()
+  const [, cKids, cKids2] = event.categoryIds
+  await update('competitions', { is_kids: true }, { category_id: cKids2 })
+  const { data: group, error } = await db().from('kids_groups')
+    .insert({ category_id: cKids2, label: 'Dzieci 2014-2017', birth_year_from: 2014, birth_year_to: 2017 }).select().single()
+  if (error) throw error
+  await update('competition_prices', { amount: 2000 }, { category_id: cKids2 })
+  const { child } = await childEntry(event)
+  assert.equal(child.kids_group_id, null)
+  assert.deepEqual(await changeOk(child.id, cKids2, 0), { outcome: 'moved', grosze: 0 })
+  const r = await reg(child.id)
+  assert.equal(r.category_id, cKids2)
+  assert.equal(r.kids_group_id, group.id)
+  assert.equal(r.age_group_label, 'K open')
+  assert.deepEqual([await taken(cKids), await taken(cKids2)], [0, 1])
+})
+
+test('CC-05 a child entry\'s surcharge with the payer gone is paid by the guardian\'s account', async () => {
+  const event = await kidsEvent()
+  const [, , cKids2] = event.categoryIds
+  const { orderId, child } = await childEntry(event)
+  const guardianEmail = runnerEmail('guardian')
+  const guardian = await profileFor(guardianEmail)
+  await update('orders', { buyer_profile_id: null }, { id: orderId })
+  await update('registrations', { guardian_profile_id: guardian, guardian_name: 'Anna Opiekun' }, { id: child.id })
+  const out = await changeOk(child.id, cKids2, 1000)
+  assert.equal(out.outcome, 'surcharge')
+  const o = await orderOf(out.orderId)
+  assert.equal(o.buyer_profile_id, guardian)
+  assert.equal(o.buyer_email, guardianEmail)
+  assert.equal(o.buyer_name, 'Anna Opiekun')
 })

@@ -25,6 +25,15 @@
 --   * reserve_organizer_refund, from 20261113100000_refund_one_at_a_time.sql, changed only where
 --     marked: a 'surcharge' line's reservation adds to registrations.refunded like an entry line's.
 
+-- ---------------------------------------------------------------- refunds.change_to_category_id
+
+-- The target competition of the change a 'competition_change' refund paid for, so a replay of its
+-- request key with another target is a mismatch, not the first call's answer. NULL on every other
+-- refund. Service-role only like the rest of the table (no new grant).
+ALTER TABLE public.refunds ADD COLUMN change_to_category_id uuid REFERENCES public.competitions(category_id) ON DELETE RESTRICT;
+ALTER TABLE public.refunds ADD CONSTRAINT refunds_change_to_category_check
+  CHECK (change_to_category_id IS NULL OR reason = 'competition_change');
+
 -- ---------------------------------------------------------------- registration_competition_placement
 
 -- Where a person fits in a competition: refuses an age outside min_age / max_age (ineligible) and a
@@ -483,7 +492,8 @@ BEGIN
   IF v_key IS NOT NULL AND EXISTS (SELECT 1 FROM public.refunds f WHERE f.request_key = v_key) THEN
     IF EXISTS (SELECT 1 FROM public.refunds f JOIN public.order_lines ol ON ol.id = f.order_line_id
                 WHERE (f.request_key = v_key OR f.request_key LIKE v_key || ':%')
-                  AND (ol.registration_id IS DISTINCT FROM r.id OR f.reason <> 'competition_change')) THEN
+                  AND (ol.registration_id IS DISTINCT FROM r.id OR f.reason <> 'competition_change'
+                       OR f.change_to_category_id IS DISTINCT FROM p_to)) THEN
       RAISE EXCEPTION 'request_key_mismatch';
     END IF;
     SELECT jsonb_agg(jsonb_build_object(
@@ -527,7 +537,7 @@ BEGIN
   IF r.status <> 'confirmed' THEN
     RAISE EXCEPTION 'not_live';
   END IF;
-  IF r.team_id IS NOT NULL OR v_to.kind <> 'individual' THEN
+  IF r.team_id IS NOT NULL THEN
     RAISE EXCEPTION 'team_competition';
   END IF;
   IF v_rs.state <> 'published' OR v_rs.closes_at IS NULL OR clock_timestamp() >= v_rs.closes_at THEN
@@ -536,7 +546,7 @@ BEGIN
   IF p_to = r.category_id THEN
     RAISE EXCEPTION 'same_competition';
   END IF;
-  IF v_to.hidden_at IS NOT NULL THEN
+  IF v_to.hidden_at IS NOT NULL OR v_to.kind <> 'individual' THEN
     RAISE EXCEPTION 'unavailable';
   END IF;
   IF public.registration_refund_in_flight(r.id) THEN
@@ -625,7 +635,8 @@ BEGIN
       CONTINUE WHEN v_part <= 0;
       v_res := public.reserve_organizer_refund(l.id, v_part, p_actor,
                  CASE WHEN v_key IS NULL THEN NULL WHEN v_n = 0 THEN v_key ELSE v_key || ':' || (v_n + 1) END, r.id);
-      UPDATE public.refunds SET reason = 'competition_change' WHERE id = (v_res->>'refundId')::uuid;
+      UPDATE public.refunds SET reason = 'competition_change', change_to_category_id = p_to
+       WHERE id = (v_res->>'refundId')::uuid;
       v_first := coalesce(v_first, (v_res->>'refundId')::uuid);
       v_refunds := v_refunds || jsonb_build_object(
         'refundId', v_res->'refundId', 'messageId', v_res->'messageId', 'grosze', v_part, 'status', 'pending',
