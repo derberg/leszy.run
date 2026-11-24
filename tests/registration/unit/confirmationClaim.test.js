@@ -99,8 +99,8 @@ test('I-4 a send that timed out keeps the claim and alerts the operator: SendGri
 const refused = (status) => Object.assign(new Error(`e-mail not accepted (${status})`), { status })
 const hoursAgo = (h) => new Date(Date.now() - h * 3_600_000).toISOString()
 
-test('the job\'s resend refused for now (503, 429) gives the claim back with no alert, so the next run retries', async () => {
-  for (const status of [503, 429]) {
+test('the job\'s resend refused for now (503, 500, 429) gives the claim back with no alert, so the next run retries', async () => {
+  for (const status of [503, 500, 429]) {
     const admin = fakeAdmin({ stamped: '2026-11-23T18:45:00Z', paidAt: hoursAgo(1) })
     assert.equal(await sendOrderConfirmation(admin, 'o1', { claimed: true, deliver: async () => { throw refused(status) } }), false)
     assert.equal(admin.state.stamped, null, 'released')
@@ -115,8 +115,8 @@ test(`the job stops retrying ${CONFIRMATION_RETRY_HOURS} h after payment: the cl
   assert.deepEqual(admin.state.alerts.map((a) => [a.kind, a.order_id]), [['confirmation_email_failed', 'o1']])
 })
 
-test('I-4 the job\'s own resend alerts and never releases on a lasting refusal (4xx) or an unknown fate', async () => {
-  for (const err of [refused(400), new Error('no buyer view'), unknown()]) {
+test('I-4 the job\'s own resend alerts and never releases on a lasting refusal (4xx), a gateway\'s 502/504 (maybe delivered) or an unknown fate', async () => {
+  for (const err of [refused(400), refused(502), refused(504), new Error('no buyer view'), unknown()]) {
     const admin = fakeAdmin({ stamped: '2026-11-01T10:00:00Z' })
     assert.equal(await sendOrderConfirmation(admin, 'o1', { claimed: true, deliver: async () => { throw err } }), false)
     assert.equal(admin.state.updates.length, 0)
