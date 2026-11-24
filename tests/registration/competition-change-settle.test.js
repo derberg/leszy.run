@@ -10,14 +10,14 @@ import { createClient } from '@supabase/supabase-js'
 import { authenticatedClient, localEnv, resetThrottle, sessionFor } from './helpers/stack.js'
 import { acceptAgreement, createPublishedPaidEvent } from './helpers/registrationFixtures.js'
 import {
-  attemptFor, competitionOf, confirmOk, db, minutesFromNow, one, orderOf, overdue, profileFor, rows, rpc,
+  ageRefund, attemptFor, competitionOf, confirmOk, db, minutesFromNow, one, orderOf, overdue, profileFor, rows, rpc,
   setSettings,
 } from './helpers/orders.js'
 import { BIEG, adult, orderGroupOk } from './helpers/groups.js'
-import { paidEntry, organizerTransfer } from './helpers/transfers.js'
+import { enableTransfers, invite, paidEntry, organizerTransfer } from './helpers/transfers.js'
 import { assertVoucherInvariant } from './helpers/voucherInvariant.js'
 import { assertSlotInvariant } from './helpers/slotInvariant.js'
-import { vouchersMade } from './helpers/cart.js'
+import { makeExtra, vouchersMade } from './helpers/cart.js'
 import { changeCompetition, changeOk, surchargeOk } from './helpers/competitionChange.js'
 
 const BIEG_5 = (capacity = 50) =>
@@ -170,6 +170,19 @@ test('CC-20 a pending surcharge past its window does not block a new change (exp
   assert.equal((await orderOf(s2.orderId)).status, 'pending')
 })
 
+test('CC-20 a replayed IPN of a paid surcharge: already_confirmed, the entry moved once, taken unchanged', async () => {
+  const { a, s, c9, c21 } = await withSurcharge()
+  const att = await attemptFor(s.orderId, 2000)
+  assert.equal((await confirmOk(s.orderId, att.txn, 2000)).outcome, 'surcharge_moved')
+  const after = await reg(a.reg.id)
+  const counts = [await taken(c9), await taken(c21)]
+  assert.deepEqual(counts, [0, 1])
+  assert.equal((await confirmOk(s.orderId, att.txn, 2000)).outcome, 'already_confirmed')
+  assert.deepEqual(await reg(a.reg.id), after)
+  assert.deepEqual([await taken(c9), await taken(c21)], counts)
+  assert.equal((await rows('refunds', { order_id: s.orderId })).length, 0)
+})
+
 // ---------------------------------------------------------------- CC-21 full
 
 test('CC-21 paid into a full target: late_refund full in full, the entry stays, the surcharge is cancelled', async () => {
@@ -210,16 +223,19 @@ test('CC-21 a hidden target or an unpublished event: late_refund unavailable', a
 
 // ---------------------------------------------------------------- CC-22 entry gone
 
-test('CC-22 paid after the entry was cancelled: late_refund entry_changed, nothing moves', async () => {
+test('CC-22 an expired surcharge paid after the entry was cancelled: late_refund entry_changed, nothing moves', async () => {
   const { a, s, c9, c21 } = await withSurcharge()
   const att = await attemptFor(s.orderId, 2000)
+  await overdue(s.orderId)
+  ok(await rpc('expire_orders', {}))
   ok(await rpc('cancel_registration', { p_registration_id: a.reg.id, p_reason: 'organizer', p_actor: ownerId }))
+  assert.equal((await orderOf(s.orderId)).status, 'expired', 'an expired surcharge is not cancelled with the entry')
   lateRefundOf(await confirmOk(s.orderId, att.txn, 2000), 'entry_changed')
   const r = await reg(a.reg.id)
   assert.equal(r.status, 'cancelled')
   assert.equal(r.category_id, c9)
   assert.deepEqual([await taken(c9), await taken(c21)], [0, 0])
-  assert.equal((await orderOf(s.orderId)).status, 'cancelled')
+  assert.equal((await orderOf(s.orderId)).status, 'expired')
 })
 
 test('CC-22 a cancelled surcharge paid late: late_refund cancelled', async () => {
@@ -400,6 +416,68 @@ test('CC-26 an entry that never moved: a full refund of its line still cancels i
   }))
   assert.equal(ok(await rpc('finish_organizer_refund', { p_refund_id: rest.refundId, p_outcome: 'accepted' })).cancelled.length, 1)
   assert.equal((await reg(a.reg.id)).status, 'cancelled')
+})
+
+test('CC-26 an extra line\'s refund still in flight does not stop a full entry refund from cancelling the entry', async () => {
+  const event = await paidEvent()
+  const { variants: { M } } = await makeExtra(event, { variants: [['M', 10]] })
+  const a = await paidEntry(event, { variant: M, displayed: 6000 + 4500 })
+  const lines = await rows('order_lines', { order_id: a.orderId })
+  const entryLine = lines.find((l) => l.kind === 'entry')
+  const extraLine = lines.find((l) => l.kind === 'extra')
+  const extra = ok(await rpc('reserve_organizer_refund', {
+    p_line_id: extraLine.id, p_grosze: 4500, p_actor: ownerId, p_request_key: crypto.randomUUID(),
+  }))
+  await ageRefund(extra.refundId)
+  const full = ok(await rpc('reserve_organizer_refund', {
+    p_line_id: entryLine.id, p_grosze: 6000, p_actor: ownerId, p_request_key: crypto.randomUUID(),
+  }))
+  const fin = ok(await rpc('finish_organizer_refund', { p_refund_id: full.refundId, p_outcome: 'accepted' }))
+  assert.equal(fin.cancelled.length, 1)
+  assert.equal((await reg(a.reg.id)).status, 'cancelled')
+  assert.equal((await one('refunds', { id: extra.refundId })).dpay_status, 'unknown')
+})
+
+test('CC-32 cancelling an entry cancels its pending surcharge (cancel_registration)', async () => {
+  const { a, s, c9 } = await withSurcharge()
+  const att = await attemptFor(s.orderId, 2000)
+  ok(await rpc('cancel_registration', { p_registration_id: a.reg.id, p_reason: 'organizer', p_actor: ownerId }))
+  const o = await orderOf(s.orderId)
+  assert.equal(o.status, 'cancelled')
+  assert.equal(o.cancelled_reason, 'entry_cancelled')
+  assert.equal(await taken(c9), 0)
+  // A payment in flight lands on the cancelled surcharge and is refunded in full.
+  lateRefundOf(await confirmOk(s.orderId, att.txn, 2000), 'cancelled')
+})
+
+test('CC-32 a refund that cancels the entry cancels its pending surcharge (finish_organizer_refund, record_external_refund)', async () => {
+  for (const via of ['dpay', 'external']) {
+    const { a, s } = await withSurcharge()
+    const [line] = await rows('order_lines', { order_id: a.orderId })
+    let out
+    if (via === 'dpay') {
+      const res = ok(await rpc('reserve_organizer_refund', {
+        p_line_id: line.id, p_grosze: 6000, p_actor: ownerId, p_request_key: crypto.randomUUID(),
+      }))
+      out = ok(await rpc('finish_organizer_refund', { p_refund_id: res.refundId, p_outcome: 'accepted' }))
+    } else {
+      out = ok(await rpc('record_external_refund', { p_line_id: line.id, p_grosze: 6000, p_note: 'LG test: panel dpay 60 zł' }))
+    }
+    assert.equal(out.cancelled.length, 1, via)
+    assert.equal((await reg(a.reg.id)).status, 'cancelled', via)
+    const o = await orderOf(s.orderId)
+    assert.equal(o.status, 'cancelled', via)
+    assert.equal(o.cancelled_reason, 'entry_cancelled', via)
+  }
+})
+
+test('CC-33 create_transfer refuses surcharge_open while a surcharge in its window is pending; past it, the invite goes', async () => {
+  const { event, a, s } = await withSurcharge()
+  await enableTransfers(event)
+  refused((await invite(a.reg.id, a.profileId)).result, 'surcharge_open')
+  await overdue(s.orderId)
+  const { result } = await invite(a.reg.id, a.profileId)
+  assert.equal(result.error, null, result.error?.message)
 })
 
 test('CC-27 an accepted competition_change refund down to 0 zł leaves the entry confirmed', async () => {

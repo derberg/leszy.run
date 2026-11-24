@@ -19,8 +19,15 @@
 -- * finish_organizer_refund: on rejected / insufficient_balance the reservation is given back on the
 --   line and, for an entry or a surcharge line, on the registration. On accepted the entry is
 --   cancelled only when all of its money is back (registrations.refunded >= price, with no other
---   refund of it still in flight) and never for a 'competition_change' refund. For an entry that
+--   refund of its entry or surcharge lines still in flight) and never for a 'competition_change' refund. For an entry that
 --   never moved this is the old rule (its price is its entry line's amount).
+-- * cancel_registration (and so a refund that cancels the entry, through finish_organizer_refund and
+--   record_external_refund): a pending surcharge of the cancelled entry is cancelled in the same
+--   transaction (reason 'entry_cancelled'), locked in the orders step (registration_lock_entry_orders).
+--   organizer_cancel_order is not changed: it cancels pending_payment entries only, and an entry with
+--   a surcharge is always confirmed (change_competition refuses anything else, and an entry never goes
+--   back from confirmed to pending_payment).
+-- * create_transfer: refuses surcharge_open while a surcharge in its window is pending.
 -- * apply_transfer: refuses surcharge_open while a surcharge is pending, and moves the entry's paid
 --   surcharge lines to the new registration with the entry and extra lines.
 -- * record_external_refund: a surcharge line's refund adds to registrations.refunded.
@@ -45,6 +52,7 @@
 --   apply_transfer ← 20261109200000_event_partners_unified.sql
 --   record_external_refund ← 20261110400000_external_refunds.sql
 --   finish_organizer_refund ← 20261102102000_organizer_panel_concurrency.sql
+--   cancel_registration, create_transfer ← 20261103150000_registration_transfers.sql
 --   release_orphan_orders ← 20261103130000_registration_cart_release.sql
 --   create_order, create_team_registration ← 20261103120000_registration_cart_rpcs.sql
 --   registration_order_fits ← 20261030160000_registration_capacity_paid_only.sql
@@ -74,6 +82,24 @@ AS $$
      AND status = 'pending' AND expires_at <= now();
 $$;
 REVOKE EXECUTE ON FUNCTION public.registration_expire_due_surcharges(uuid) FROM public, anon, authenticated, service_role;
+
+-- ---------------------------------------------------------------- registration_lock_entry_orders
+
+-- Internal: locks, in id order, p_order_id, the entry's own order and its pending surcharges: the
+-- orders step of every path that may cancel an entry (cancel_registration and its refund callers).
+CREATE FUNCTION public.registration_lock_entry_orders(p_registration_id uuid, p_order_id uuid) RETURNS void
+  LANGUAGE plpgsql
+  SET search_path = ''
+AS $$
+BEGIN
+  PERFORM 1 FROM public.orders o
+   WHERE o.id = p_order_id
+      OR o.id = (SELECT r.order_id FROM public.registrations r WHERE r.id = p_registration_id)
+      OR (o.kind = 'surcharge' AND o.surcharge_registration_id = p_registration_id AND o.status = 'pending')
+   ORDER BY o.id
+     FOR UPDATE;
+END $$;
+REVOKE EXECUTE ON FUNCTION public.registration_lock_entry_orders(uuid, uuid) FROM public, anon, authenticated, service_role;
 
 -- ---------------------------------------------------------------- registration_confirm_surcharge
 
@@ -835,9 +861,17 @@ BEGIN
     RAISE EXCEPTION 'not_organizer';
   END IF;
 
-  PERFORM 1 FROM public.orders WHERE id = f.order_id FOR UPDATE;
+  -- Changed here: a plain read of the line, then the refund's order with the entry's own order and
+  -- its pending surcharges, by id: an accepted refund may cancel the entry, and cancel_registration
+  -- locks those (and cancels the surcharges). A transfer that moved the line between the read and the
+  -- lock is followed once more (a rare out-of-order lock, held briefly).
+  SELECT * INTO l FROM public.order_lines WHERE id = f.order_line_id;
+  PERFORM public.registration_lock_entry_orders(l.registration_id, f.order_id);
   SELECT * INTO a FROM public.payment_attempts WHERE id = f.payment_attempt_id FOR UPDATE;
   SELECT * INTO l FROM public.order_lines WHERE id = f.order_line_id FOR UPDATE;
+  IF l.registration_id IS NOT NULL THEN
+    PERFORM public.registration_lock_entry_orders(l.registration_id, NULL);
+  END IF;
 
   UPDATE public.refunds
      SET dpay_status = p_outcome, responded_at = now(), next_retry_at = NULL
@@ -862,13 +896,16 @@ BEGIN
              WHERE x.payment_attempt_id = a.id AND x.dpay_status = 'accepted') >= a.grosze;
     -- Changed here: money that left for ALL of the entry ends it (registrations.price is everything
     -- paid for it, its entry line and any paid surcharge; refunded everything given back), once no
-    -- other refund of it is still in flight: a reservation alone never does. A refund of the price
+    -- other refund of its entry or surcharge lines is still in flight: a reservation alone never does
+    -- (an extra line's refund never counts: its money is in neither price nor refunded). A refund of the price
     -- difference of a competition change never ends the entry: it moved and stays.
     IF l.kind IN ('entry', 'surcharge')
        AND f.reason IS DISTINCT FROM 'competition_change'
        AND EXISTS (SELECT 1 FROM public.registrations x
                     WHERE x.id = l.registration_id AND x.status = 'confirmed' AND x.refunded >= x.price)
-       AND NOT public.registration_refund_in_flight(l.registration_id) THEN
+       AND NOT EXISTS (SELECT 1 FROM public.refunds x JOIN public.order_lines ol ON ol.id = x.order_line_id
+                        WHERE ol.registration_id = l.registration_id AND ol.kind IN ('entry', 'surcharge')
+                          AND x.dpay_status IN ('pending', 'unknown')) THEN
       -- Review fix 2: dpay has moved the money, so the acceptance is stored whatever happens to the
       -- cancellation. A cancel that fails rolls back alone (a subtransaction), is alerted and leaves
       -- the entry for the operator.
@@ -888,6 +925,253 @@ BEGIN
   END IF;
 
   RETURN jsonb_build_object('status', p_outcome, 'settled', 'settled', 'cancelled', v_cancel, 'hostWithdraw', v_host);
+END $$;
+
+-- ---------------------------------------------------------------- cancel_registration (from 20261103150000)
+
+CREATE OR REPLACE FUNCTION public.cancel_registration(p_registration_id uuid, p_reason text, p_actor uuid) RETURNS jsonb
+  LANGUAGE plpgsql
+  SECURITY DEFINER
+  SET search_path = ''
+AS $$
+DECLARE
+  c_live    constant text[] := ARRAY['pending_payment', 'confirmed'];
+  r         public.registrations%ROWTYPE;
+  v_comp    public.competitions%ROWTYPE;
+  v_rs      public.registration_settings%ROWTYPE;
+  v_team    public.teams%ROWTYPE;
+  v_text    text;
+  v_targets uuid[];
+  v_done    uuid[];
+  v_whole   boolean;
+  v_live    integer;
+  v_bibs    jsonb;
+BEGIN
+  SELECT * INTO r FROM public.registrations WHERE id = p_registration_id;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'not_found';
+  END IF;
+
+  -- Unpaid: the whole order goes (ruling 6). It held no slot (P3-R15); cancel_order gives its
+  -- voucher uses and stock back (D7-18).
+  IF r.status = 'pending_payment' THEN
+    IF r.order_id IS NULL THEN
+      RAISE EXCEPTION 'not_found';
+    END IF;
+    v_text := public.organizer_cancel_order(r.order_id, p_actor);
+    IF v_text <> 'cancelled' THEN
+      RAISE EXCEPTION '%', CASE WHEN v_text = 'cancelled_already' THEN 'already_cancelled' ELSE v_text END;
+    END IF;
+    SELECT coalesce(array_agg(x.id ORDER BY x.id), '{}') INTO v_done FROM public.registrations x
+     WHERE x.order_id = r.order_id AND x.status = 'cancelled' AND x.cancelled_at = now()
+       AND x.cancelled_by IS NOT DISTINCT FROM p_actor;
+    RETURN jsonb_build_object('cancelled', to_jsonb(v_done), 'hostWithdraw', false);
+  END IF;
+  IF r.status <> 'confirmed' THEN
+    RAISE EXCEPTION '%', CASE WHEN r.status = 'cancelled' THEN 'already_cancelled'
+                              WHEN r.status = 'transferred_out' THEN 'transferred' ELSE 'not_live' END;
+  END IF;
+
+  -- Confirmed: the locks in the Global Constraints order. Plan 2's free path has no order.
+  -- Changed here: the entry's pending surcharges with its own order, by id (they die with it below).
+  PERFORM public.registration_lock_entry_orders(r.id, NULL);
+  SELECT * INTO v_comp FROM public.competitions WHERE category_id = r.category_id FOR UPDATE;
+  SELECT * INTO v_rs FROM public.registration_settings WHERE event_id = r.event_id FOR SHARE;
+  IF r.team_id IS NOT NULL THEN
+    SELECT * INTO v_team FROM public.teams WHERE id = r.team_id FOR UPDATE;
+  END IF;
+  -- Plan 7: the vouchers this cancel may give a use back to, before the registrations (id order).
+  PERFORM 1 FROM public.vouchers v
+   WHERE v.id IN (SELECT x.voucher_id FROM public.registrations x
+                   WHERE CASE WHEN r.team_id IS NOT NULL THEN x.team_id = r.team_id AND x.status = ANY (c_live)
+                              ELSE x.id = r.id END)
+   ORDER BY v.id
+     FOR UPDATE;
+  IF r.team_id IS NOT NULL THEN
+    PERFORM 1 FROM public.registrations WHERE team_id = r.team_id AND status = ANY (c_live) ORDER BY id FOR UPDATE;
+  ELSE
+    PERFORM 1 FROM public.registrations WHERE id = r.id FOR UPDATE;
+  END IF;
+  SELECT * INTO r FROM public.registrations WHERE id = p_registration_id;
+  IF r.status <> 'confirmed' THEN
+    -- A transfer that won the lock answers the same as one seen by the plain read (m-5).
+    RAISE EXCEPTION '%', CASE WHEN r.status = 'transferred_out' THEN 'transferred' ELSE 'already_cancelled' END;
+  END IF;
+
+  IF r.team_id IS NULL THEN
+    v_targets := ARRAY[r.id];
+    v_whole := true;
+  ELSIF r.id = v_team.captain_registration_id THEN
+    -- The captain takes the team (ruling 6, §12.7).
+    SELECT array_agg(x.id ORDER BY x.id) INTO v_targets FROM public.registrations x
+     WHERE x.team_id = r.team_id AND x.status = 'confirmed';
+    v_whole := true;
+  ELSE
+    -- One member, no refund (members carry 0, §14.14), never below the squad minimum.
+    SELECT count(*) INTO v_live FROM public.registrations x WHERE x.team_id = r.team_id AND x.status = ANY (c_live);
+    IF v_live - 1 < v_comp.team_min THEN
+      RAISE EXCEPTION 'below_team_min';
+    END IF;
+    v_targets := ARRAY[r.id];
+    v_whole := false;
+  END IF;
+
+  -- The slot first (D6-26), then the voucher uses (Plan 7; the extras stay sold, §14.11), then the
+  -- flip; a flip that finds nothing rolls both releases back.
+  IF v_whole THEN
+    UPDATE public.competitions SET taken = taken - 1 WHERE category_id = r.category_id;
+  END IF;
+  PERFORM public.release_registration_vouchers(ARRAY(
+    SELECT x.id FROM public.registrations x WHERE x.id = ANY (v_targets) AND x.status = 'confirmed'));
+  WITH flipped AS (
+    UPDATE public.registrations
+       SET status = 'cancelled', cancelled_at = now(), cancelled_by = p_actor
+     WHERE id = ANY (v_targets) AND status = 'confirmed'
+    RETURNING id
+  )
+  SELECT array_agg(id ORDER BY id) INTO v_done FROM flipped;
+  IF v_done IS NULL THEN
+    RAISE EXCEPTION 'already_cancelled';
+  END IF;
+  -- Changed here (competition change): a pending surcharge dies with its entry (cancel_surcharge's
+  -- effect; it holds no registration, slot, voucher use or stock). A payment still in flight lands
+  -- on a cancelled order and is refunded in full by confirm_order.
+  UPDATE public.orders SET status = 'cancelled', cancelled_reason = 'entry_cancelled', cancelled_at = now()
+   WHERE kind = 'surcharge' AND surcharge_registration_id = ANY (v_done) AND status = 'pending';
+  IF v_whole AND r.team_id IS NOT NULL THEN
+    UPDATE public.teams SET released_at = coalesce(released_at, now()) WHERE id = r.team_id;
+  END IF;
+
+  -- §14.3: before close the participant leaves through removed_at; from close on the timing
+  -- host owns the row, so the operator crew is told instead.
+  IF v_rs.closes_at IS NOT NULL AND clock_timestamp() < v_rs.closes_at THEN
+    UPDATE public.participants p SET removed_at = now(), updated_at = now()
+      FROM public.registrations x
+     WHERE x.id = ANY (v_done) AND p.id = x.participant_id AND p.removed_at IS NULL;
+    -- Plan 7 task 6: an invite of a cancelled entry dies with it (transfers last in the lock order).
+    UPDATE public.transfers SET status = 'cancelled', cancelled_at = now()
+     WHERE registration_id = ANY (v_done) AND status = 'pending';
+    RETURN jsonb_build_object('cancelled', to_jsonb(v_done), 'hostWithdraw', false);
+  END IF;
+
+  -- Plan 7 task 6: an invite of a cancelled entry dies with it (transfers last in the lock order).
+  UPDATE public.transfers SET status = 'cancelled', cancelled_at = now()
+   WHERE registration_id = ANY (v_done) AND status = 'pending';
+
+  SELECT jsonb_agg(p.bib_number ORDER BY x.id) INTO v_bibs
+    FROM public.registrations x JOIN public.participants p ON p.id = x.participant_id
+   WHERE x.id = ANY (v_done);
+  IF v_bibs IS NULL THEN
+    RETURN jsonb_build_object('cancelled', to_jsonb(v_done), 'hostWithdraw', false);
+  END IF;
+  INSERT INTO public.operator_alerts (kind, order_id, payload, dedupe_key)
+  VALUES ('host_withdraw', r.order_id, jsonb_build_object(
+    'registrationIds', to_jsonb(v_done), 'eventId', r.event_id, 'bibs', v_bibs, -- Review fix 6: a code, never the caller's text (this payload skips redactDpay, D6-29).
+    'reason', CASE WHEN p_reason IN ('refund', 'organizer') THEN p_reason ELSE 'other' END),
+    'host_withdraw:' || r.id)
+  ON CONFLICT ON CONSTRAINT operator_alerts_dedupe_key_key DO NOTHING;
+  RETURN jsonb_build_object('cancelled', to_jsonb(v_done), 'hostWithdraw', true);
+END $$;
+
+-- ---------------------------------------------------------------- create_transfer (from 20261103150000)
+
+CREATE OR REPLACE FUNCTION public.create_transfer(p_registration_id uuid, p_actor uuid, p_to_email text, p_token_hash text,
+                                       p_now timestamptz DEFAULT now())
+  RETURNS jsonb
+  LANGUAGE plpgsql
+  SECURITY DEFINER
+  SET search_path = ''
+AS $$
+DECLARE
+  r       public.registrations%ROWTYPE;
+  v_rs    public.registration_settings%ROWTYPE;
+  v_team  public.teams%ROWTYPE;
+  v_email text := lower(btrim(p_to_email));
+  v_mine  boolean;
+  v_id    uuid;
+  v_exp   timestamptz;
+BEGIN
+  -- Final review M-3: the transfers row's foreign key to registration_settings takes KEY SHARE on
+  -- the settings row, which sits before registrations in the lock order. Take it first, from a plain
+  -- read of the event, so the insert below never reaches back to an earlier lock.
+  SELECT x.event_id INTO v_id FROM public.registrations x WHERE x.id = p_registration_id;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'not_found';
+  END IF;
+  SELECT * INTO v_rs FROM public.registration_settings WHERE event_id = v_id FOR KEY SHARE;
+  v_id := NULL;
+  SELECT * INTO r FROM public.registrations WHERE id = p_registration_id FOR UPDATE;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'not_found';
+  END IF;
+  IF r.team_id IS NOT NULL THEN
+    SELECT * INTO v_team FROM public.teams WHERE id = r.team_id;
+  END IF;
+
+  -- Ruling 3: the holder's own adult entry, or a team captain's. A guardian or a captain asking for
+  -- a child's or a member's entry is told it cannot be transferred; anybody else is not the owner.
+  v_mine := r.profile_id IS NOT NULL AND r.profile_id = p_actor;
+  IF NOT v_mine
+     AND (r.guardian_profile_id IS NULL OR r.guardian_profile_id IS DISTINCT FROM p_actor)
+     AND (r.team_id IS NULL OR NOT EXISTS (
+            SELECT 1 FROM public.registrations c
+             WHERE c.id = v_team.captain_registration_id AND c.profile_id = p_actor)) THEN
+    RAISE EXCEPTION 'not_owner';
+  END IF;
+  IF NOT v_mine
+     OR r.status <> 'confirmed'
+     OR r.email IS NULL OR r.guardian_profile_id IS NOT NULL
+     OR r.birth_date IS NULL OR r.birth_date > (v_rs.event_date - interval '18 years')::date
+     OR (r.team_id IS NOT NULL AND v_team.captain_registration_id IS DISTINCT FROM r.id) THEN
+    RAISE EXCEPTION 'not_transferable';
+  END IF;
+
+  IF NOT v_rs.transfer_enabled OR v_rs.transfer_until IS NULL
+     OR (p_now AT TIME ZONE 'Europe/Warsaw')::date > v_rs.transfer_until THEN
+    RAISE EXCEPTION 'transfer_off';
+  END IF;
+  IF public.registration_refund_in_flight(r.id) THEN
+    RAISE EXCEPTION 'refund_pending';
+  END IF;
+  -- Changed here (competition change): the accept would refuse it (apply_transfer), so the invite is
+  -- refused first. A surcharge past its window does not count (change_competition and apply_transfer
+  -- expire it). A plain read: change_competition refuses transfer_open the other way round.
+  IF EXISTS (SELECT 1 FROM public.orders x
+              WHERE x.kind = 'surcharge' AND x.surcharge_registration_id = r.id
+                AND x.status = 'pending' AND x.expires_at > p_now) THEN
+    RAISE EXCEPTION 'surcharge_open';
+  END IF;
+  IF v_email IS NULL OR v_email = '' THEN
+    RAISE EXCEPTION 'invalid_email';
+  END IF;
+  IF v_email = lower(btrim(r.email)) THEN
+    RAISE EXCEPTION 'same_person';
+  END IF;
+  IF p_token_hash IS NULL OR p_token_hash !~ '^[0-9a-f]{64}$' THEN
+    RAISE EXCEPTION 'invalid_token';
+  END IF;
+
+  -- An invite whose link died is no longer pending (m-2): it would otherwise block a new one with
+  -- pending_exists after the organizer moved transfer_until later. Under the registration lock.
+  UPDATE public.transfers SET status = 'expired'
+   WHERE registration_id = r.id AND status = 'pending' AND expires_at <= p_now;
+
+  -- Ruling 4: valid through 23:59:59.999 Warsaw on transfer_until.
+  v_exp := ((v_rs.transfer_until + 1)::timestamp AT TIME ZONE 'Europe/Warsaw');
+  BEGIN
+    INSERT INTO public.transfers (event_id, registration_id, kind, from_profile_id, to_email, token_hash, expires_at)
+    VALUES (r.event_id, r.id, 'runner', p_actor, v_email, p_token_hash, v_exp)
+    RETURNING id INTO v_id;
+  EXCEPTION
+    WHEN unique_violation THEN
+      IF SQLERRM LIKE '%transfers_registration_pending_key%' THEN
+        RAISE EXCEPTION 'pending_exists';
+      END IF;
+      RAISE EXCEPTION 'invalid_token';
+    WHEN check_violation THEN
+      RAISE EXCEPTION 'invalid_email';
+  END;
+  RETURN jsonb_build_object('transferId', v_id, 'expiresAt', v_exp);
 END $$;
 
 -- ---------------------------------------------------------------- record_external_refund (from 20261110400000)
@@ -926,7 +1210,10 @@ BEGIN
   END IF;
   v_key := 'external:' || md5(p_line_id::text || ':' || p_grosze::text || ':' || v_note);
 
-  SELECT * INTO o FROM public.orders WHERE id = l.order_id FOR UPDATE;
+  -- Changed here: the line's order with the entry's own order and pending surcharges, by id, before
+  -- anything else: finish_organizer_refund may cancel the entry, which cancels those surcharges.
+  PERFORM public.registration_lock_entry_orders(l.registration_id, l.order_id);
+  SELECT * INTO o FROM public.orders WHERE id = l.order_id;
   -- Under the order lock, so an identical run at the same time sees the committed row.
   SELECT * INTO f FROM public.refunds WHERE request_key = v_key;
   IF FOUND THEN
