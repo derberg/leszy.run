@@ -16,6 +16,7 @@ import { issueOrderConsentRequests, publicSite } from './consentRequests.js'
 import { transferredRegistrationIds } from './transfers.js'
 import { registrationRole } from './group.js'
 import { kidsGroupLabels } from './kidsGroupLabels.js'
+import { deliverSurchargeChange, sendSurchargeRefunded } from './competitionChangeMail.js'
 
 /**
  * Inserts an operator_alerts row → true when it is stored (or already was, by its key).
@@ -309,7 +310,7 @@ export function orderAmountsOf(order) {
 }
 
 // The order page dpay returns the runner to (the same URL the dpay client builds).
-function orderPageUrl(orderId) {
+export function orderPageUrl(orderId) {
   const base = (globalThis.Deno?.env.get('PUBLIC_SITE_URL') ?? '').replace(/\/+$/, '')
   return base ? `${base}/zamowienie/${encodeURIComponent(orderId)}` : null
 }
@@ -418,6 +419,8 @@ async function confirmationMail(admin, view) {
 /** The order's confirmation, built and sent. → false with no buyer address; throws when not sent. */
 async function deliverConfirmation(admin, orderId) {
   const view = await loadOrderView(admin, orderId)
+  // A surcharge's confirmation is the change notice (the first send and the job's resend alike).
+  if (view?.kind === 'surcharge') return deliverSurchargeChange(admin, orderId)
   if (!view?.order.buyer_email) return false
   const res = await sendEmail({ to: view.order.buyer_email, ...await confirmationMail(admin, view), noTracking: true })
   if (res && res.ok === false) throw Object.assign(new Error(`e-mail not accepted (${res.status})`), { status: res.status })
@@ -490,6 +493,12 @@ async function releaseForRetry(admin, orderId) {
 async function sendRefundNotice(admin, orderId, grosze, reason) {
   try {
     const view = await loadOrderView(admin, orderId)
+    if (view?.kind === 'surcharge') {
+      // Its own wording: the surcharge, never „zgłoszenie”; a failure is alerted like any refund mail.
+      const sent = await sendSurchargeRefunded(admin, orderId, reason)
+      if (sent.error) throw new Error(sent.error)
+      return
+    }
     if (!view?.order.buyer_email) return
     const args = orderEmailArgs(view)
     const build = (r) => paymentRefundedEmail({ event: args.event, order: args.order, amount: grosze, reason: r })
@@ -585,8 +594,12 @@ export async function settleConfirmOutcome(admin, cfg, outcome) {
   const { orderId, txn, refund } = outcome ?? {}
   const kind = outcome?.outcome
   // A competition change's surcharge was paid and the entry moved: no order confirmation and no
-  // consent requests (the entry had both when it was registered). The change notice goes here.
-  if (kind === 'surcharge_moved') return {}
+  // consent requests (the entry had both when it was registered). The change notice goes here, claimed
+  // on the surcharge order's confirmation_sent_at like a confirmation (the job resends a lost one).
+  if (kind === 'surcharge_moved') {
+    await sendOrderConfirmation(admin, orderId)
+    return { emailed: true }
+  }
   if (kind === 'confirmed' || kind === 'late_confirmed') {
     await sendOrderConfirmation(admin, orderId)
     // Plan 4 ruling 4: the added adults of a paid group are asked now that it is paid, never

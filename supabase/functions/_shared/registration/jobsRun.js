@@ -10,6 +10,7 @@ import {
 import { issueConsentRequestsReport, rotateAndSend } from './consentRequests.js'
 import { notifyRefundRunner, refundNoticeArgs } from './refundNotice.js'
 import { resendTransferEmails } from './transfers.js'
+import { sendSurchargeEmail, sendSurchargeExpired } from './competitionChangeMail.js'
 
 // The payment window jobs (plan 3, task 7). pg_cron POSTs here every 15 minutes through pg_net
 // (job `registration-jobs`) with the header x-jobs-secret = REGISTRATION_JOBS_SECRET; anything
@@ -26,6 +27,9 @@ import { resendTransferEmails } from './transfers.js'
 //      organizer refund is then the operator's: backend/scripts/resolve-registration-refund.js
 //   3. refund retries: insufficient_balance (406) only, an hour apart, 24 at most
 //   4. reminders: a pending order with a window over 24 h, 3 days before expiry (at its half when shorter)
+//      Surcharges of a competition change (claim_surcharge_reminders, claim_surcharge_expired_notices,
+//      claim_surcharge_confirmations) ride the same steps (4, 6, 7) with their own wording; the three
+//      order claims skip them.
 //   5. dpay check (Task 5 review M6, review I2): an order about to expire, or expired less than
 //      2 h ago and not told yet, that holds an unpaid dpay transaction is checked at dpay. A
 //      payment whose IPN never reached us is confirmed through confirm_order (late if the order
@@ -181,6 +185,13 @@ async function mailClaimed(admin, orderId, kind, build) {
   }
 }
 
+// One surcharge e-mail for a claimed order (the helper never throws and reports { sent, error }). A
+// failure is alerted, never resent; an order with no address to send to is not a failure.
+async function mailSurcharge(admin, orderId, template, send) {
+  const { error } = await send()
+  if (error) await raiseAlert(admin, 'email_failed', orderId, { template, error })
+}
+
 // One consent link for a claimed request (rotateAndSend). A request accepted or signed in the
 // office meanwhile gets nothing; a failure is alerted, never resent by this claim.
 async function consentMail(admin, registrationId, { reminder, site, template }) {
@@ -327,6 +338,7 @@ export async function runJobs(admin, cfg, { site, alertTo, budgetMs }) {
   const time = clock(budgetMs)
   const counts = {
     checked: 0, confirmed: 0, reminders: 0, expiredNotices: 0, confirmationsResent: 0, refundEmails: 0,
+    surchargeReminders: 0, surchargeExpiredNotices: 0, surchargeConfirmationsResent: 0,
     refundRetries: 0, stalledRefunds: 0, consentRequestsIssued: 0, consentEmailsResent: 0, consentReminders: 0,
     transferEmailsResent: 0, externalRefundsChecked: 0, externalRefundAlerts: 0, externalRefundErrors: 0,
     alertsEmailed: 0, deferred: [], skipped: {},
@@ -379,6 +391,10 @@ export async function runJobs(admin, cfg, { site, alertTo, budgetMs }) {
       await eachLimited(ids, (id) => mailClaimed(admin, id, 'reminder',
         (a) => paymentReminderEmail({ event: a.event, order: a.order, payUrl: `${site}/zamowienie/${encodeURIComponent(id)}` })))
       counts.reminders = ids.length
+      // A competition change's surcharge: its own wording („Przypomnienie: dopłata …”).
+      const due = await rpcRows(admin, 'claim_surcharge_reminders', { p_limit: LIMIT.reminders })
+      await eachLimited(due, (id) => mailSurcharge(admin, id, 'surcharge_reminder', () => sendSurchargeEmail(admin, id, { reminder: true, site })))
+      counts.surchargeReminders = due.length
     }],
     ['dpay_check', DPAY_CALL_MS + 2_000, async () => {
       try {
@@ -400,11 +416,19 @@ export async function runJobs(admin, cfg, { site, alertTo, budgetMs }) {
           eventUrl: a.event.slug ? `${site}/events/${encodeURIComponent(a.event.slug)}` : site,
         })))
       counts.expiredNotices = ids.length
+      const lapsed = await rpcRows(admin, 'claim_surcharge_expired_notices', { p_limit: LIMIT.notices })
+      await eachLimited(lapsed, (id) => mailSurcharge(admin, id, 'surcharge_expired', () => sendSurchargeExpired(admin, id)))
+      counts.surchargeExpiredNotices = lapsed.length
     }],
     ['confirmations', 2_000, async () => {
       const ids = await rpcRows(admin, 'claim_confirmation_resends', { p_limit: LIMIT.confirmations })
       await eachLimited(ids, (id) => sendOrderConfirmation(admin, id, { claimed: true }))
       counts.confirmationsResent = ids.length
+      // A lost „Zmieniono konkurencję”: the same claim-and-send as a confirmation, so a refusal for
+      // now is retried within the hours after payment and anything else is alerted, never resent.
+      const changes = await rpcRows(admin, 'claim_surcharge_confirmations', { p_limit: LIMIT.confirmations })
+      await eachLimited(changes, (id) => sendOrderConfirmation(admin, id, { claimed: true }))
+      counts.surchargeConfirmationsResent = changes.length
     }],
     ['refund_emails', 2_000, async () => {
       const { data: due, error } = await admin.from('refunds').select('id, order_id, order_line_id, amount')

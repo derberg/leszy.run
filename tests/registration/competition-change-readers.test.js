@@ -161,9 +161,18 @@ test('CC-44 export-my-data: the surcharge is among the payer\'s orders, with its
   assert.equal(own.surcharge, null)
 })
 
-test('CC-45 settleConfirmOutcome on surcharge_moved sends no order confirmation and no consent request', async () => {
-  const untouchable = new Proxy({}, { get(_, key) { throw new Error(`admin.${String(key)} used`) } })
-  assert.deepEqual(await settleConfirmOutcome(untouchable, {}, { outcome: 'surcharge_moved', orderId: 'o', registrationId: 'r' }), {})
+test('CC-45 settleConfirmOutcome on surcharge_moved claims the change notice only: no consent request, no registrations read', async () => {
+  // Task 6: the change notice is claimed on the surcharge order's confirmation_sent_at (already
+  // stamped here, so nothing is sent); the consent requests of a registration order are never issued.
+  const touched = []
+  const chain = (table) => {
+    const q = { update: () => q, eq: () => q, is: () => q, select: async () => ({ data: [], error: null }) }
+    touched.push(table)
+    return q
+  }
+  const fake = { from: chain, rpc: () => { throw new Error('rpc used') } }
+  assert.deepEqual(await settleConfirmOutcome(fake, {}, { outcome: 'surcharge_moved', orderId: 'o', registrationId: 'r' }), { emailed: true })
+  assert.deepEqual(touched, ['orders'])
 })
 
 // Review fix (ruling N-1): an entry that came by a transfer keeps the original order, but its
