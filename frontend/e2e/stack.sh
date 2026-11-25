@@ -69,9 +69,10 @@ up() {
 
 down() {
   for p in $UI_PORT $API_PORT $MQTT_PORT; do
-    pid="$(port_pid $p)"; [ -n "$pid" ] && kill "$pid" && echo "  stopped :$p"
+    pid="$(port_pid $p)"
+    if [ -n "$pid" ]; then kill "$pid" && echo "  stopped :$p"; fi
   done
-  docker rm -f "$PG_NAME" >/dev/null 2>&1 && echo "  removed $PG_NAME" || true
+  if docker rm -f "$PG_NAME" >/dev/null 2>&1; then echo "  removed $PG_NAME"; fi
 }
 
 case "${1:-}" in
