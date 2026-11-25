@@ -44,7 +44,7 @@ export function extrasList(rows, { extraId } = {}) {
   const totals = new Map()
   let seen = 0
   for (const row of rows) {
-    const waiting = row.status === AWAITING && row.statusKey !== 'expired'
+    const waiting = row.status === AWAITING && row.statusKey !== 'expired' && !row.withdrawn
     const give = row.status === 'confirmed' && row.withdrawn === false
     if (!waiting && !give) continue
     for (const e of row.extras ?? []) {

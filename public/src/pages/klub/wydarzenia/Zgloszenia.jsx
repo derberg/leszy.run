@@ -564,7 +564,8 @@ export default function Zgloszenia({
         try {
           const { downloadExtrasPdf } = await import('../../../lib/extrasPdf.js')
           await downloadExtrasPdf(r.data, filterText())
-        } catch {
+        } catch (err) {
+          console.error('extras PDF failed:', err)
           setNotice({ text: 'Nie udało się utworzyć pliku PDF.', error: true })
         }
       } else {

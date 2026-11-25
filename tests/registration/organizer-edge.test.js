@@ -700,7 +700,13 @@ test('O-65 extras export: lists, totals, filter, audit', async () => {
     return o
   }
   const paid = await pay('eks', [{ variantId: medal.variants['Złoty'].id, qty: 1 }, { variantId: shirt.variants.L.id, qty: 2 }], PRICE + 9000 + 2000)
-  assert.equal((await confirmOk(paid.orderId, (await attemptFor(paid.orderId, PRICE + 11000)).txn, PRICE + 11000)).outcome, 'confirmed')
+  // The mock must hold the payment as paid, so a refund of it can be accepted below.
+  const { transactionId } = await registerTransaction(nodeDpay(), { orderId: paid.orderId, grosze: PRICE + 11000 })
+  await attemptFor(paid.orderId, PRICE + 11000, transactionId)
+  await dpayMode({ dropIpn: true })
+  await payMock(transactionId, 'paid')
+  await dpayMode({ dropIpn: false })
+  assert.equal((await confirmOk(paid.orderId, transactionId, PRICE + 11000)).outcome, 'confirmed')
   const gone = await pay('eks-nie', [{ variantId: medal.variants['Złoty'].id, qty: 1 }], PRICE + 2000)
   assert.equal((await confirmOk(gone.orderId, (await attemptFor(gone.orderId, PRICE + 2000)).txn, PRICE + 2000)).outcome, 'confirmed')
   const [goneReg] = await rows('registrations', { order_id: gone.orderId })
@@ -731,6 +737,14 @@ test('O-65 extras export: lists, totals, filter, audit', async () => {
 
   assert.equal((await call({ format: 'doc' })).status, 400)
   assert.equal((await callFn('export-event-registrations', member, { eventId: event.eventId, kind: 'extras', format: 'csv' })).status, 404)
+
+  // A refund of one shirt unit (4500 of the 9000 line) drops the L total by one.
+  const lines = await rows('order_lines', { order_id: paid.orderId })
+  const shirtLine = lines.find((l) => l.extra_variant_id === shirt.variants.L.id)
+  const refund = await callFn('organizer-refund', owner, { lineId: shirtLine.id, grosze: 4500, requestKey: key() })
+  assert.equal(refund.status, 200, JSON.stringify(refund.body))
+  const after = await call({ format: 'csv' })
+  assert.deepEqual(after.body.data.list.totals.map((t) => [t.extra, t.variant, t.count]), [['Koszulka', 'L', 1], ['Medal', 'Złoty', 1]])
 
   const before = (await actions(event.eventId, 'extras_exported')).length
   const refused = await whileRefusing('organizer_actions', 'INSERT',

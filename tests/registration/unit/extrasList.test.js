@@ -39,6 +39,15 @@ describe('extrasList', () => {
     assert.equal(handout[0].qty, 2)
     assert.equal(totals[0].count, 2)
   })
+  it('a partial refund shows units and the kept money', () => {
+    const { handout } = extrasList([row({ extras: [line({ qty: 2, amount: 10000, refunded: 5000 })] })])
+    assert.equal(handout[0].qty, 1)
+    assert.equal(handout[0].paid, 5000)
+  })
+  it('a withdrawn awaiting entry is left out of awaiting too', () => {
+    const l = extrasList([row({ status: 'pending_payment', statusKey: 'awaiting', withdrawn: true })])
+    assert.deepEqual(l.awaiting, [])
+  })
   it('a fully refunded line and a 0 zł line', () => {
     const { handout } = extrasList([row({ extras: [line({ lineId: 'a', amount: 5000, refunded: 5000 }), line({ lineId: 'b', name: 'Medal', extraId: 'e2', amount: 0 })] })])
     assert.deepEqual(handout.map((i) => i.extra), ['Medal'])
@@ -113,6 +122,16 @@ describe('extrasToCsv', () => {
     assert.equal(lines[3], '')
     assert.deepEqual(cellsOf(lines[4]), ['Dodatek', 'Wariant', 'Do wydania'])
     assert.deepEqual(cellsOf(lines[5]), ['Koszulka', 'L', '2'])
+  })
+  it('awaiting rows have an empty Wpłata', () => {
+    const lines = extrasToCsv(list).slice(1).split('\r\n')
+    assert.equal(cellsOf(lines[1])[8], '100,00')
+    assert.equal(cellsOf(lines[2])[8], '')
+  })
+  it('a deleted account shows its name in Imię and nothing in Nazwisko', () => {
+    const l = extrasList([row({ firstName: null, lastName: null, name: 'Usunięte konto' })])
+    const cells = cellsOf(extrasToCsv(l).slice(1).split('\r\n')[1])
+    assert.deepEqual(cells.slice(1, 3), ['Usunięte konto', ''])
   })
   it('defuses formulas', () => {
     const l = extrasList([row({ extras: [line({ name: '=HYPERLINK()' })] })])

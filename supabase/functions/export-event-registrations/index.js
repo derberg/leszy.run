@@ -72,10 +72,9 @@ Deno.serve(async (req) => {
         payload: { format, rows: list.handout.length + list.awaiting.length, filter: filterSummary(filter) },
       })
       if (!logged) return json({ error: AUDIT_FAILED, code: 'audit_failed' }, 503, req)
-      const { data: ev } = await admin.from('events').select('name').eq('id', settings.event_id).maybeSingle()
       return json({
         data: {
-          filename, list, event: { name: ev?.name ?? null, eventDate: settings.event_date ?? null },
+          filename, list, event: { name: settings.name ?? null, eventDate: settings.event_date ?? null },
           ...(format === 'csv' ? { csv: extrasToCsv(list) } : {}),
         },
       }, 200, req)

@@ -114,14 +114,14 @@ export function vouchersToCsv(vouchers) {
 
 const EXTRAS_COLUMNS = [
   ['Nr', (i) => i.bib],
-  ['Imię', (i) => i.firstName],
+  ['Imię', (i) => (i.firstName || i.lastName ? i.firstName : i.name)],
   ['Nazwisko', (i) => i.lastName],
   ['Konkurencja', (i) => i.competition],
   ['Drużyna', (i) => i.team?.name],
   ['Dodatek', (i) => i.extra],
   ['Wariant', (i) => i.variant],
   ['Ilość', (i) => i.qty],
-  ['Wpłata (zł)', (i) => zloty(i.paid)],
+  ['Wpłata (zł)', (i) => (i.awaiting ? '' : zloty(i.paid))],
   ['E-mail', (i) => i.email],
   ['Telefon', (i) => i.phone, { phone: true }],
   ['Status', (i) => i.status],
@@ -131,7 +131,7 @@ const EXTRAS_COLUMNS = [
 export function extrasToCsv(list) {
   const items = [
     ...list.handout.map((i) => ({ ...i, status: 'do wydania' })),
-    ...list.awaiting.map((i) => ({ ...i, status: 'czeka na wpłatę' })),
+    ...list.awaiting.map((i) => ({ ...i, awaiting: true, status: 'czeka na wpłatę' })),
   ]
   const totals = toCsv([
     ['Dodatek', (t) => t.extra],
