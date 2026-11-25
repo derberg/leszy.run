@@ -147,25 +147,33 @@ test('CC an event reached only through a surcharge order is not listed', () => {
 })
 
 test('RS-15 actions: the runner’s own entry, before close, with the club’s switches; never a team member', () => {
-  const open = { ...settings[0], closes_at: '2026-12-01T22:00:00Z', runner_competition_change: true, runner_data_edit: true }
+  const open = { ...settings[0], club_id: 'club1', closes_at: '2026-12-01T22:00:00Z', runner_competition_change: true, runner_data_edit: true }
+  const enabledClubs = new Set(['club1'])
   const shape = (over, opts = {}) => shapeMyRegistrations({
     userId: ME, email: 'ola@example.com', settings: [{ ...open, ...opts.settings }], competitions, orders: opts.orders ?? [],
     registrations: [reg({ id: 'r1', event_id: 'e-future', ...over })], captains: opts.captains, now: NOW,
-  })[0].people[0].actions
-  assert.deepEqual(shape({ profile_id: ME }), { change: true, edit: true })
-  assert.deepEqual(shape({ email: 'OLA@example.com' }), { change: true, edit: true }, 'an adult entry at the session’s address')
-  assert.deepEqual(shape({ email: null, guardian_profile_id: ME }), { change: true, edit: true }, 'a child’s guardian')
-  assert.deepEqual(shape({ email: 'inna@example.com', registered_by_profile_id: ME }), NONE, 'another adult the session registered')
-  assert.deepEqual(shape({ profile_id: ME, status: 'pending_payment' }), { change: false, edit: true })
-  assert.deepEqual(shape({ profile_id: ME }, { settings: { runner_competition_change: false } }), { change: false, edit: true })
-  assert.deepEqual(shape({ profile_id: ME }, { settings: { runner_data_edit: false } }), { change: true, edit: false })
-  assert.deepEqual(shape({ profile_id: ME }, { settings: { closes_at: '2026-11-02T10:59:59Z' } }), NONE, 'after closes_at')
-  assert.deepEqual(shape({ profile_id: ME, team_id: 't1' }), NONE, 'a team member')
-  assert.deepEqual(shape({ profile_id: ME, team_id: 't1' }, { captains: new Set(['r1']) }), { change: false, edit: true }, 'a captain edits only')
+    enabledClubs: opts.enabledClubs ?? enabledClubs, openSurcharges: opts.openSurcharges ?? [],
+  })[0].people[0]
+  assert.deepEqual(shape({ profile_id: ME }).actions, { change: true, edit: true })
+  assert.deepEqual(shape({ email: 'OLA@example.com' }).actions, { change: true, edit: true }, 'an adult entry at the session’s address')
+  assert.deepEqual(shape({ email: null, guardian_profile_id: ME }).actions, { change: true, edit: true }, 'a child’s guardian')
+  assert.deepEqual(shape({ email: 'inna@example.com', registered_by_profile_id: ME }).actions, NONE, 'another adult the session registered')
+  assert.deepEqual(shape({ profile_id: ME, status: 'pending_payment' }).actions, { change: false, edit: true })
+  assert.deepEqual(shape({ profile_id: ME }, { settings: { runner_competition_change: false } }).actions, { change: false, edit: true })
+  assert.deepEqual(shape({ profile_id: ME }, { settings: { runner_data_edit: false } }).actions, { change: true, edit: false })
+  assert.deepEqual(shape({ profile_id: ME }, { settings: { closes_at: '2026-11-02T10:59:59Z' } }).actions, NONE, 'after closes_at')
+  assert.deepEqual(shape({ profile_id: ME, team_id: 't1' }).actions, NONE, 'a team member')
+  assert.deepEqual(shape({ profile_id: ME, team_id: 't1' }, { captains: new Set(['r1']) }).actions, { change: false, edit: true }, 'a captain edits only')
+  assert.deepEqual(shape({ profile_id: ME }, { enabledClubs: new Set() }).actions, NONE, 'a club with registration switched off')
+  const othersSurcharge = order({ id: 's0', event_id: 'e-future', buyer_profile_id: 'the-buyer', kind: 'surcharge', status: 'pending', total: 2000,
+    surcharge_registration_id: 'r1', surcharge_to_category_id: 'c2', expires_at: '2026-11-03T10:00:00Z' })
+  const waitsForOther = shape({ profile_id: ME }, { openSurcharges: [othersSurcharge] })
+  assert.deepEqual([waitsForOther.actions, waitsForOther.surcharge], [{ change: false, edit: true }, null],
+    'somebody else’s pending surcharge hides the change; only its payer gets „Zapłać”')
   const surcharge = order({ id: 's1', event_id: 'e-future', kind: 'surcharge', status: 'pending', total: 2000, surcharge_registration_id: 'r1', surcharge_to_category_id: 'c2', expires_at: '2026-11-03T10:00:00Z' })
   const people = shapeMyRegistrations({
     userId: ME, settings: [open], competitions, orders: [surcharge],
-    registrations: [reg({ id: 'r1', event_id: 'e-future', profile_id: ME })], now: NOW,
+    registrations: [reg({ id: 'r1', event_id: 'e-future', profile_id: ME })], enabledClubs, now: NOW,
   })[0].people[0]
   assert.deepEqual(people.surcharge, { orderId: 's1', toCompetition: 'Bieg dzieci', grosze: 2000, expiresAt: '2026-11-03T10:00:00Z' })
   assert.deepEqual(people.actions, { change: false, edit: true }, 'a surcharge waiting: Zapłać instead of a second change')

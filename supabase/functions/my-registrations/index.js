@@ -90,7 +90,7 @@ Deno.serve(async (req) => {
     const settings = []
     for (const ids of chunks(eventIds)) {
       settings.push(...await allRows(() => admin.from('registration_settings')
-        .select('event_id, slug, name, state, event_date, first_start_time, closes_at, runner_competition_change, runner_data_edit')
+        .select('event_id, slug, name, state, event_date, first_start_time, closes_at, runner_competition_change, runner_data_edit, club_id')
         .in('event_id', ids).order('event_id')))
     }
     // Which team entries are their team's captain: only a captain edits (selfService.js).
@@ -99,6 +99,19 @@ Deno.serve(async (req) => {
     for (const ids of chunks(teamIds)) {
       const teams = await allRows(() => admin.from('teams').select('id, captain_registration_id').in('id', ids).order('id'))
       for (const t of teams) if (t.captain_registration_id) captains.add(t.captain_registration_id)
+    }
+    // Every pending surcharge of a listed entry, whoever pays it: „Zmień konkurencję” waits for it.
+    const openSurcharges = []
+    for (const ids of chunks(registrations.map((r) => r.id))) {
+      openSurcharges.push(...await allRows(() => admin.from('orders')
+        .select('id, kind, status, total, expires_at, surcharge_registration_id, surcharge_to_category_id')
+        .eq('kind', 'surcharge').eq('status', 'pending').in('surcharge_registration_id', ids).order('id')))
+    }
+    // A club with registration switched off: no self-service (my-entry-action answers 404).
+    const enabledClubs = new Set()
+    for (const ids of chunks([...new Set(settings.map((s) => s.club_id).filter(Boolean))])) {
+      const clubs = await allRows(() => admin.from('clubs').select('id, registration_enabled').in('id', ids).order('id'))
+      for (const c of clubs) if (c.registration_enabled === true) enabledClubs.add(c.id)
     }
     const categoryIds = [...new Set([
       ...registrations.map((r) => r.category_id),
@@ -110,7 +123,7 @@ Deno.serve(async (req) => {
         .select('category_id, name').in('category_id', ids).order('category_id')))
     }
 
-    return json({ data: shapeMyRegistrations({ userId: me, email: session.email, settings, orders, registrations, competitions, refunded, liveOrderIds, captains }) }, 200, req)
+    return json({ data: shapeMyRegistrations({ userId: me, email: session.email, settings, orders, registrations, competitions, refunded, liveOrderIds, captains, openSurcharges, enabledClubs }) }, 200, req)
   } catch (err) {
     console.error('my-registrations error:', err?.message, err?.code)
     return json({ error: 'Internal server error' }, 500, req)

@@ -8,6 +8,7 @@ import { kidsGroupLabels } from '../_shared/registration/kidsGroupLabels.js'
 import { transferViews } from '../_shared/registration/transfers.js'
 import { selfServiceActions } from '../_shared/registration/selfService.js'
 import { pendingSurcharge } from '../_shared/registration/entries.js'
+import { clubRegistrationEnabled } from '../_shared/organizer.js'
 
 function json(body, status, req) {
   return new Response(JSON.stringify(body), {
@@ -49,7 +50,7 @@ Deno.serve(async (req) => {
     const slug = body?.slug
     if (!isValidSlug(slug)) return json({ error: 'Not found' }, 404, req)
     const { data: settings, error } = await admin.from('registration_settings')
-      .select('event_id, state, first_start_time, event_date, transfer_enabled, transfer_until, closes_at, runner_competition_change, runner_data_edit')
+      .select('event_id, state, first_start_time, event_date, transfer_enabled, transfer_until, closes_at, runner_competition_change, runner_data_edit, club_id')
       .eq('slug', slug).maybeSingle()
     if (error) throw error
     if (!settings || settings.state === 'draft') return json({ error: 'Not found' }, 404, req)
@@ -95,6 +96,7 @@ Deno.serve(async (req) => {
       }
     }
     const paysOwn = surchargeOrders.filter((o) => o.buyer_profile_id === session.userId)
+    const clubEnabled = await clubRegistrationEnabled(admin, settings.club_id)
 
     return json({
       data: regs.map((r) => {
@@ -119,7 +121,7 @@ Deno.serve(async (req) => {
           transfer: transfers.get(r.id),
           surcharge: pendingSurcharge(r.id, paysOwn, toNames, now),
           actions: selfServiceActions({
-            reg: r, settings, session, captain: team?.captain_registration_id === r.id,
+            reg: r, settings, session, clubEnabled, captain: team?.captain_registration_id === r.id,
             surchargeOpen: pendingSurcharge(r.id, surchargeOrders, toNames, now) != null, now,
           }),
         }

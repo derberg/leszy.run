@@ -45,12 +45,15 @@ export function compareEvents(a, b, today) {
  *   had every entry cancelled (`cancelled: true`). Omitted, no order is marked.
  * @param {string|null} [p.email] the session's address (an adult entry at it is the session's to change)
  * @param {Set<string>} [p.captains] registration ids that captain their team
+ * @param {object[]} [p.openSurcharges] pending surcharge orders of the listed entries, whoever pays them
+ *   (kind, status, expires_at, surcharge_registration_id): any of them hides „Zmień konkurencję”
+ * @param {Set<string>} [p.enabledClubs] club ids with registration_enabled; settings rows need club_id
  * @param {Date} [p.now]
  * Each person carries `actions: { change, edit }` (selfService.js), registrations rows then also
  * need email, guardian_profile_id, team_id and settings closes_at, runner_competition_change,
  * runner_data_edit; without them both are false.
  */
-export function shapeMyRegistrations({ userId, email = null, settings, orders, registrations, competitions, refunded = new Map(), liveOrderIds = null, captains = new Set(), now = new Date() }) {
+export function shapeMyRegistrations({ userId, email = null, settings, orders, registrations, competitions, refunded = new Map(), liveOrderIds = null, captains = new Set(), openSurcharges = [], enabledClubs = new Set(), now = new Date() }) {
   const settingsOf = new Map(settings.filter((s) => s.state !== 'draft').map((s) => [s.event_id, s]))
   const compName = new Map(competitions.map((c) => [c.category_id, c.name]))
   const events = new Map()
@@ -98,6 +101,8 @@ export function shapeMyRegistrations({ userId, email = null, settings, orders, r
     if (!ev) continue
     seenRegs.add(r.id)
     const surcharge = pendingSurcharge(r.id, surcharges, compName, now)
+    const anySurcharge = surcharge != null || pendingSurcharge(r.id, openSurcharges, compName, now) != null
+    const s = settingsOf.get(r.event_id)
     ev.people.push({
       id: r.id,
       firstName: r.first_name,
@@ -107,8 +112,8 @@ export function shapeMyRegistrations({ userId, email = null, settings, orders, r
       mine: r.profile_id != null && r.profile_id === userId,
       surcharge,
       actions: selfServiceActions({
-        reg: r, settings: settingsOf.get(r.event_id), session: { userId, email },
-        captain: captains.has(r.id), surchargeOpen: surcharge != null, now,
+        reg: r, settings: s, session: { userId, email }, clubEnabled: enabledClubs.has(s.club_id),
+        captain: captains.has(r.id), surchargeOpen: anySurcharge, now,
       }),
     })
   }

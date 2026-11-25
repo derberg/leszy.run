@@ -405,6 +405,20 @@ test('RS-16 details prefills „Popraw dane” (never the e-mail); my-registrati
   assert.deepEqual(await listed(), [{ change: false, edit: true }, { change: false, edit: true }])
   await setSettings(event.eventId, { runner_data_edit: false })
   assert.deepEqual(await listed(), [{ change: false, edit: false }, { change: false, edit: false }])
+  const { error: offErr } = await db().from('clubs').update({ registration_enabled: false }).eq('slug', 'zatyrani-test')
+  if (offErr) throw offErr
+  try {
+    await setSettings(event.eventId, { runner_competition_change: true, runner_data_edit: true })
+    const mine = await callFn('my-registrations', e.session, {})
+    const ev = mine.body.data.find((x) => x.eventId === event.eventId)
+    assert.deepEqual(ev.people.find((p) => p.id === e.registrationId).actions, { change: false, edit: false }, 'club disabled')
+    const onEvent = await callFn('my-event-registrations', e.session, { slug })
+    assert.deepEqual(onEvent.body.data.find((r) => r.id === e.registrationId).actions, { change: false, edit: false }, 'club disabled')
+  } finally {
+    const { error: back } = await db().from('clubs').update({ registration_enabled: true }).eq('slug', 'zatyrani-test')
+    if (back) throw back
+  }
+  assert.deepEqual(await listed(), [{ change: true, edit: true }, { change: true, edit: true }])
   await setSettings(event.eventId, { runner_competition_change: true, runner_data_edit: true, closes_at: new Date(Date.now() - 60_000).toISOString() })
   assert.deepEqual(await listed(), [{ change: false, edit: false }, { change: false, edit: false }], 'after closes_at')
 })

@@ -20,7 +20,7 @@ export function actsOnEntry(reg, session) {
 
 /**
  * Which of „Zmień konkurencję” and „Popraw dane” the lists show for one entry.
- * Both: the club's switch on, before `closes_at`, an entry the session acts on. A team entry never
+ * None for a club with registration switched off (my-entry-action answers it 404). Both: the club's switch on, before `closes_at`, an entry the session acts on. A team entry never
  * changes competition; only its captain edits (their own data). A change needs a confirmed entry
  * with no surcharge waiting (the list links the surcharge instead); an edit also takes an entry
  * awaiting payment, as runner_edit_registration does.
@@ -28,14 +28,15 @@ export function actsOnEntry(reg, session) {
  * @param {object} p.reg registrations row: status, profile_id, email, guardian_profile_id, team_id
  * @param {object} p.settings registration_settings row: runner_competition_change, runner_data_edit, closes_at
  * @param {{ userId: string, email?: string|null }} p.session
+ * @param {boolean} p.clubEnabled clubs.registration_enabled of the event's club
  * @param {boolean} [p.captain] the entry is its team's captain (ignored without team_id)
  * @param {boolean} [p.surchargeOpen]
  * @param {Date} [p.now]
  * @returns {{ change: boolean, edit: boolean }}
  */
-export function selfServiceActions({ reg, settings, session, captain = false, surchargeOpen = false, now = new Date() }) {
+export function selfServiceActions({ reg, settings, session, clubEnabled, captain = false, surchargeOpen = false, now = new Date() }) {
   const none = { change: false, edit: false }
-  if (!reg || !settings || !actsOnEntry(reg, session)) return none
+  if (clubEnabled !== true || !reg || !settings || !actsOnEntry(reg, session)) return none
   const closes = settings.closes_at ? Date.parse(settings.closes_at) : NaN
   if (!Number.isFinite(closes) || now.getTime() >= closes) return none
   const team = reg.team_id != null
