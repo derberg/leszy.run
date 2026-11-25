@@ -10,7 +10,8 @@
 -- "Changed here (task 12)" and the three registration_log_runner_change calls): with
 -- p_actor_kind = 'runner' it is refused not_allowed unless registration_settings.runner_competition_change,
 -- an order paid outside LESZY.RUN is always offline_paid (the club gives that money back by hand, so
--- the club makes that change), and every outcome (moved, refund, surcharge created) writes one
+-- the club makes that change), a surcharge is billed to the acting runner (p_actor's profile),
+-- and every outcome (moved, refund, surcharge created) writes one
 -- registration_changes row with grosze = the signed difference. The organizer's calls are unchanged.
 --
 -- organizer_edit_registration (from 20261124110000_competition_change_rpc.sql) now calls the shared
@@ -120,7 +121,10 @@ BEGIN
   END IF;
   IF p_runner THEN
     -- The club's consent switch (the settings row is held FOR SHARE), and never a team member
-    -- other than the captain: the captain's squad is the captain's to manage.
+    -- other than the captain. Ruling (task 12 review, 2026-11-25): a team CAPTAIN may edit their
+    -- own personal data (it never touches the slot, the team or the fee); a non-captain member is
+    -- refused team_member; a competition change is refused for every team entry
+    -- (change_competition: team_competition).
     IF v_rs.runner_data_edit IS NOT TRUE THEN
       RAISE EXCEPTION 'not_allowed';
     END IF;
@@ -292,6 +296,7 @@ DECLARE
   v_refunds jsonb := '[]'::jsonb;
   v_first   uuid;
   v_buyer   record;
+  v_buyer_name text;
   v_expires timestamptz;
   v_order   uuid;
   l         record;
@@ -505,7 +510,28 @@ BEGIN
   IF v_to.taken + 1 > v_to.capacity THEN
     RAISE EXCEPTION 'full';
   END IF;
-  SELECT * INTO v_buyer FROM public.registration_surcharge_buyer(r.id);
+  IF p_actor_kind = 'runner' THEN
+    -- Changed here (task 12): the runner who asks for the dearer competition pays for it, signed
+    -- in as p_actor (a child's entry: the guardian acting), never the original order's buyer, who
+    -- chose neither this change nor, for an added adult, this person's competition. The name is
+    -- the one the registration knows for the actor (the runner's own, by account or by the entry's
+    -- address, as an added adult has no profile_id on it; or the guardian name), else the profile's
+    -- display name.
+    SELECT p.id AS profile_id, p.email AS email,
+           CASE WHEN p.id = r.profile_id OR (r.email IS NOT NULL AND lower(p.email) = lower(r.email)) THEN nullif(btrim(concat_ws(' ', r.first_name, r.last_name)), '')
+                WHEN p.id = r.guardian_profile_id THEN r.guardian_name END AS name,
+           p.display_name AS display_name
+      INTO v_buyer
+      FROM (SELECT x.id, x.email, x.display_name FROM public.profiles x
+             WHERE x.id = p_actor AND x.deleted_at IS NULL AND x.email IS NOT NULL) p;
+    IF NOT FOUND THEN
+      RAISE EXCEPTION 'no_payer';
+    END IF;
+    v_buyer_name := coalesce(v_buyer.name, nullif(btrim(v_buyer.display_name), ''));
+  ELSE
+    SELECT * INTO v_buyer FROM public.registration_surcharge_buyer(r.id);
+    v_buyer_name := v_buyer.name;
+  END IF;
   IF v_buyer.profile_id IS NULL AND v_buyer.email IS NULL THEN
     RAISE EXCEPTION 'no_payer';
   END IF;
@@ -517,7 +543,7 @@ BEGIN
       tier_id, expires_at, kind, surcharge_registration_id, surcharge_from_category_id, surcharge_to_category_id,
       surcharge_list_price, surcharge_price)
     VALUES (
-      r.event_id, v_buyer.profile_id, v_buyer.email, v_buyer.name, 'pending', v_diff, 0, 0, v_diff,
+      r.event_id, v_buyer.profile_id, v_buyer.email, v_buyer_name, 'pending', v_diff, 0, 0, v_diff,
       o.tier_id, v_expires, 'surcharge', r.id, r.category_id, p_to, v_list, v_price)
     RETURNING id INTO v_order;
   EXCEPTION WHEN unique_violation THEN

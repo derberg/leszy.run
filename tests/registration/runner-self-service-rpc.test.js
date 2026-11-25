@@ -9,7 +9,7 @@ import crypto from 'node:crypto'
 import postgres from 'postgres'
 import { localEnv, resetThrottle, sessionFor } from './helpers/stack.js'
 import { acceptAgreement, callFn, createPublishedPaidEvent } from './helpers/registrationFixtures.js'
-import { competitionOf, db, one, profileFor, rows, rpc, setSettings } from './helpers/orders.js'
+import { attemptFor, competitionOf, confirmOk, db, one, profileFor, rows, rpc, setSettings } from './helpers/orders.js'
 import { BIEG, DZIECI, adult, minor, orderGroupOk } from './helpers/groups.js'
 import { captain, freeTeamEvent, teamOk } from './helpers/teams.js'
 import { paidEntry } from './helpers/transfers.js'
@@ -128,6 +128,41 @@ test('RS-02 a runner change writes registration_changes for each outcome, grosze
   assert.deepEqual([row.from_category_id, row.to_category_id, row.grosze], [c9, c5, 0])
 })
 
+test('RS-02 a surcharge asked for by the runner is billed to the runner, not to the original buyer (an added adult); the organizer\'s still goes to the buyer', async () => {
+  const event = await paidEvent()
+  const [c9, , c21] = event.categoryIds
+  const buyerEmail = `runner-buyer-${crypto.randomBytes(4).toString('hex')}@test.local`
+  const addedEmail = `runner-added-${crypto.randomBytes(4).toString('hex')}@test.local`
+  const out = await orderGroupOk(event, [adult(c9, 'self', buyerEmail), adult(c9, 'adult', addedEmail, { firstName: 'Piotr', lastName: 'Dodany' })])
+  const att = await attemptFor(out.orderId, out.total)
+  assert.equal((await confirmOk(out.orderId, att.txn, out.total)).outcome, 'confirmed')
+  const regs = await rows('registrations', { order_id: out.orderId })
+  const added = regs.find((r) => r.email === addedEmail)
+  const own = regs.find((r) => r.email === buyerEmail)
+  const addedProfile = await profileFor(addedEmail)
+
+  const s = await changeOk(added.id, c21, 2000, { kind: 'runner', actor: addedProfile })
+  assert.equal(s.outcome, 'surcharge')
+  const o = await one('orders', { id: s.orderId })
+  assert.equal(o.buyer_profile_id, addedProfile)
+  assert.equal(o.buyer_email, addedEmail)
+  assert.equal(o.buyer_name, 'Piotr Dodany')
+
+  // The organizer's change of the buyer's own entry is billed by registration_surcharge_buyer.
+  const so = await changeOk(own.id, c21, 2000, { actor: ownerId })
+  const oo = await one('orders', { id: so.orderId })
+  assert.equal(oo.buyer_profile_id, await profileFor(buyerEmail))
+})
+
+test('RS-02 a runner surcharge with no account behind p_actor is no_payer', async () => {
+  const event = await paidEvent()
+  const [, , c21] = event.categoryIds
+  const a = await paidEntry(event)
+  refused(await changeCompetition(a.reg.id, c21, 2000, { kind: 'runner', actor: null }), 'no_payer')
+  refused(await changeCompetition(a.reg.id, c21, 2000, { kind: 'runner', actor: crypto.randomUUID() }), 'no_payer')
+  assert.deepEqual(await changesOf(a.reg.id), [])
+})
+
 test('RS-02 a refused runner change writes nothing; a replay of a refund writes no second row', async () => {
   const event = await paidEvent()
   const [, c5] = event.categoryIds
@@ -229,6 +264,9 @@ test('RS-06 registration_changes holds field names only, never values; an edit t
   assert.doesNotMatch(JSON.stringify(row), /Szubin|Wilki/)
 })
 
+// Ruling (task 12 review, 2026-11-25): a team captain may edit their own personal data (it never
+// touches the slot, the team or the fee); a non-captain member is refused team_member; a competition
+// change is refused for every team entry (RS-03).
 test('RS-07 a team member is refused team_member; the captain edits their own data', async () => {
   const event = seen(await freeTeamEvent(owner))
   const cat = event.categoryIds[0]
@@ -326,8 +364,10 @@ test('RS-09 export-my-data holds the person\'s own changes and their child\'s, n
   assert.equal(changes.length, 2, JSON.stringify(changes))
   assert.deepEqual(changes.map((c) => c.kind).sort(), ['competition', 'data'])
   const comp = changes.find((c) => c.kind === 'competition')
+  const settings = await one('registration_settings', { event_id: event.eventId })
+  assert.ok(settings.name)
   assert.deepEqual(comp, {
-    registration_id: a.reg.id, kind: 'competition', fields: [], from_competition: 'Bieg 9 km', to_competition: 'Bieg 5 km',
+    registration_id: a.reg.id, event_name: settings.name, event_date: settings.event_date, kind: 'competition', fields: [], from_competition: 'Bieg 9 km', to_competition: 'Bieg 5 km',
     grosze: -2000, by_you: true, created_at: comp.created_at,
   })
   const data = changes.find((c) => c.kind === 'data')

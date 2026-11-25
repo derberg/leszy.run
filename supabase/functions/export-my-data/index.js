@@ -45,7 +45,8 @@ const TRANSFER_COLUMNS = 'id, event_id, registration_id, new_registration_id, ki
 
 // Runner self-service (Plan 8): a change's audit row. actor_profile_id is read only to tell the
 // person whether they made it; it is never exported.
-const REGISTRATION_CHANGE_COLUMNS = 'id, registration_id, actor_profile_id, kind, fields, from_category_id, to_category_id, grosze, created_at'
+const REGISTRATION_CHANGE_COLUMNS = 'id, registration_id, actor_profile_id, kind, fields, from_category_id, to_category_id, grosze, created_at, '
+  + 'registrations(registration_settings(name, event_date))'
 
 const GUARDIAN_COLUMNS = 'id, event_id, status, first_name, last_name, guardian_name, guardian_email, guardian_removed_at, created_at, '
   + 'registration_settings(name, event_date), '
@@ -421,6 +422,8 @@ Deno.serve(async (req) => {
     : [])
   const registrationChanges = changeRows.map((c) => ({
     registration_id: changeRegIds.includes(c.registration_id) ? c.registration_id : null,
+    event_name: c.registrations?.registration_settings?.name ?? null,
+    event_date: c.registrations?.registration_settings?.event_date ?? null,
     kind: c.kind,
     fields: c.fields ?? [],
     from_competition: changeCompetitionName.get(c.from_category_id) ?? null,
