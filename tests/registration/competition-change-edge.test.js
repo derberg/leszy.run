@@ -290,6 +290,24 @@ test('CC-64 cheaper, dpay 409: 409 refund_blocked, stored rejected, the entry mo
   assert.equal((await reg(e.registrationId)).category_id, c5)
 })
 
+test('CC-64 cheaper, dpay 406: 409 insufficient_balance, the entry moved, the reservation given back, one alert', async () => {
+  const event = await paidEvent()
+  const [, c5] = event.categoryIds
+  const e = await paidEntry(event)
+  await dpayMode({ refundInsufficient: true })
+  const r = await change(owner, e.registrationId, c5, -2000)
+  assert.equal(r.status, 409, JSON.stringify(r.body))
+  assert.equal(r.body.code, 'insufficient_balance')
+  assert.equal(r.body.data.moved, true)
+  const after = await reg(e.registrationId)
+  assert.deepEqual([after.category_id, after.refunded], [c5, 0])
+  const refund = await one('refunds', { id: r.body.data.refundIds[0] })
+  assert.deepEqual([refund.dpay_status, refund.next_retry_at], ['insufficient_balance', null])
+  const [line] = await rows('order_lines', { order_id: e.orderId })
+  assert.equal(line.refunded, 0)
+  assert.equal((await rows('operator_alerts', { order_id: e.orderId, kind: 'refund_insufficient_balance' })).length, 1)
+})
+
 // ---------------------------------------------------------------- CC-65 offline
 
 test('CC-65 an entry paid outside LESZY.RUN: cheaper without the acknowledgement 409 offline_paid; with it 200 moved_offline_refund, no dpay call', async () => {

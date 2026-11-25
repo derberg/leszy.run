@@ -12,7 +12,7 @@
 import { ageOn } from './ageGroups.js'
 import { currentTier } from './pricing.js'
 import { warsawDayStart, warsawToday } from './dates.js'
-import { changeKind, changeQuote } from './competitionChange.js'
+import { changeKind, changeQuote, PAYING_CLOSES_BEFORE_MS } from './competitionChange.js'
 import { claimRefundRequest, executeRefund, raiseAlert } from './orderFlow.js'
 import { refundsInFlight } from './refundInFlight.js'
 import { sendCompetitionChanged, sendSurchargeEmail } from './competitionChangeMail.js'
@@ -23,8 +23,6 @@ async function single(query) {
   return data
 }
 
-// Online payment stops an hour before closes_at (create_order's and change_competition's rule).
-const PAYING_CLOSES_BEFORE_MS = 3600_000
 const ADULT = 18
 
 const REG_COLUMNS = 'id, event_id, category_id, status, team_id, order_id, price, refunded, list_price, voucher_id, birth_date, gender, email'
@@ -364,7 +362,11 @@ export async function runChange(admin, cfg, args, { log = async () => {} } = {})
         // Nothing went out: the refunds' own e-mail (registration-jobs' refund_emails) tells the payer instead.
         if (claimed.length) {
           const { error } = await admin.from('refunds').update({ runner_notified_at: null }).in('id', claimed)
-          if (error) console.error('competition change: refund mail claim not given back:', error.message)
+          if (error) {
+            console.error('competition change: refund mail claim not given back:', error.message)
+            // Neither mail went out and the claim stays: the operator runbook's refund_email_failed.
+            await raiseAlert(admin, 'refund_email_failed', alertOrder, { refundIds: claimed, step: 'release', error: error.message })
+          }
         }
         if (mail.error) await raiseAlert(admin, 'email_failed', alertOrder, { template: 'competition_changed', registrationId: reg.id, error: mail.error })
       }

@@ -22,6 +22,10 @@ export function changeKind(difference) {
   return 'same'
 }
 
+// Online payment stops an hour before closes_at (spec 14.10; create_order's and change_competition's
+// paying_closed). The one JS copy of that rule.
+export const PAYING_CLOSES_BEFORE_MS = 3600_000
+
 const REFUSALS = {
   edits_closed: [409, 'Zmiana konkurencji jest już niemożliwa.'],
   team_competition: [422, 'Zgłoszenia drużynowego nie można przenieść do innej konkurencji.'],
@@ -47,7 +51,7 @@ const REFUSALS = {
   exceeds: [409, 'Różnica przekracza kwotę możliwą do zwrotu.'],
   invalid_kind: [400, 'Nieprawidłowe żądanie.'],
   invalid_request_key: [400, 'Nieprawidłowe żądanie.'],
-  invalid_amount: [409, 'Nieprawidłowa kwota zwrotu.'],
+  invalid_amount: [422, 'Nieprawidłowa kwota zwrotu.'],
   not_paid: [409, 'To zgłoszenie nie jest opłacone.'],
   entry_changed: [409, 'Zgłoszenie zmieniło się — odśwież listę.'],
   not_found: [404, 'Nie znaleźliśmy tego zgłoszenia albo konkurencji.'],

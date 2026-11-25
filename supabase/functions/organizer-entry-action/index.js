@@ -14,7 +14,7 @@ import { TEAM_NAME_MESSAGE } from '../_shared/registration/team.js'
 import { releaseSlot, sendOnAllowance } from '../_shared/registration/organizerMail.js'
 import { callTransferRpc, organizerTransferRefusal, sendAcceptedTransferEmail } from '../_shared/registration/transfers.js'
 import { dpayConfig, DpayConfigError } from '../_shared/dpay.js'
-import { changeRefusal } from '../_shared/registration/competitionChange.js'
+import { changeRefusal, PAYING_CLOSES_BEFORE_MS } from '../_shared/registration/competitionChange.js'
 import { changePreview, runChange } from '../_shared/registration/changeCompetitionFlow.js'
 import { sendSurchargeEmail } from '../_shared/registration/competitionChangeMail.js'
 
@@ -29,8 +29,6 @@ const NOT_FOUND = { error: 'Not found' }
 const DAY = 86400
 // An organizer bringing a person in (an organizer transfer, like a squad edit in team-squad).
 const ORGANIZER_PEOPLE_PER_DAY = 100
-// Online payment stops an hour before closes_at (spec 14.10, create_order's paying_closed).
-const PAYING_CLOSES_BEFORE_MS = 3600_000
 const FIELD_MESSAGE = 'Sprawdź to pole.'
 const ACTIONS = ['extend', 'remind_payment', 'cancel', 'edit', 'rename_team', 'partner', 'transfer', 'mark_paid_offline', 'offline_note',
   'change_competition_preview', 'change_competition', 'surcharge_cancel', 'surcharge_remind']
@@ -76,9 +74,12 @@ const REFUSALS = {
   stock: [409, 'Dodatku z tego zamówienia nie ma już w magazynie.'],
   not_offline: [409, 'To zamówienie nie jest opłacone poza systemem.'],
   not_found: [404, NOT_FOUND.error],
-  // organizer_mark_paid_offline on a competition change's surcharge order (task 4).
-  surcharge: [409, 'To dopłata za zmianę konkurencji: płaci się ją online, nie można jej oznaczyć jako opłaconej poza systemem.'],
-  not_surcharge: [409, 'To zamówienie nie jest dopłatą za zmianę konkurencji.'],
+  // organizer_mark_paid_offline on a competition change's surcharge order (task 4), cancel_surcharge
+  // on another order: the change's own copy.
+  ...Object.fromEntries(['surcharge', 'not_surcharge'].map((c) => {
+    const r = changeRefusal(c)
+    return [c, [r.status, r.error]]
+  })),
 }
 
 // What the change's difference refund answers when dpay did not take it: the entry has moved
