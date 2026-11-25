@@ -56,6 +56,12 @@ Deno.serve(async (req) => {
     if (!READERS.includes(loaded.role)) return json({ error: 'Not found' }, 404, req)
     const { settings } = loaded
 
+    // Refuse a malformed request before any runner data is read.
+    if (body.kind !== undefined && body.kind !== 'extras') return json({ error: 'Invalid kind' }, 400, req)
+    if (body.kind === 'extras') {
+      if (body.format !== 'csv' && body.format !== 'pdf') return json({ error: 'Invalid format' }, 400, req)
+    } else if (body.format !== undefined) return json({ error: 'Invalid format' }, 400, req)
+
     const filter = cleanFilter(body.filter)
     const { rows } = await loadEntries(admin, settings, { guardianEmail: true })
     const picked = filterEntries(rows, filter)
@@ -63,8 +69,7 @@ Deno.serve(async (req) => {
     // kind 'extras': the ordered extras (dodatki), as a CSV or as the list a PDF is drawn from.
     if (body.kind === 'extras') {
       const format = body.format
-      if (format !== 'csv' && format !== 'pdf') return json({ error: 'Invalid format' }, 400, req)
-      const list = extrasList(picked, { extraId: filter.extraId })
+      const list = extrasList(picked, { extraId: filter.extraId, contacts: format === 'csv' })
       const filename = `dodatki-${settings.slug ?? settings.event_id}-${warsawToday()}.${format}`
       const logged = await logOrganizerAction(admin, req, {
         actorId: session.userId, clubId: settings.club_id, eventId: settings.event_id, action: 'extras_exported',
@@ -73,10 +78,10 @@ Deno.serve(async (req) => {
       })
       if (!logged) return json({ error: AUDIT_FAILED, code: 'audit_failed' }, 503, req)
       return json({
-        data: {
-          filename, list, event: { name: settings.name ?? null, eventDate: settings.event_date ?? null },
-          ...(format === 'csv' ? { csv: extrasToCsv(list) } : {}),
-        },
+        // csv: the file only; pdf: the list (no contacts) and the event, drawn in the browser
+        data: format === 'csv'
+          ? { filename, csv: extrasToCsv(list) }
+          : { filename, list, event: { name: settings.name ?? null, eventDate: settings.event_date ?? null } },
       }, 200, req)
     }
 

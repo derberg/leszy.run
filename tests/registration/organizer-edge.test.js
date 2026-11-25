@@ -718,17 +718,27 @@ test('O-65 extras export: lists, totals, filter, audit', async () => {
   assert.equal(csv.status, 200, JSON.stringify(csv.body))
   const d = csv.body.data
   assert.match(d.filename, /^dodatki-.+-\d{4}-\d\d-\d\d\.csv$/)
-  assert.deepEqual(d.list.totals.map((t) => [t.extra, t.variant, t.count]), [['Koszulka', 'L', 2], ['Medal', 'Złoty', 1]])
-  assert.deepEqual(d.list.awaiting.map((i) => [i.extra, i.variant, i.qty]), [['Koszulka', 'S', 1]])
+  assert.equal(d.list, undefined, 'the csv answer carries no list')
   assert.ok(d.csv.startsWith('\uFEFF'))
-  assert.ok(d.event.name)
+  assert.match(d.csv, /Koszulka;L;2|Koszulka/)
+  const pdf0 = await call({ format: 'pdf' })
+  assert.deepEqual(pdf0.body.data.list.totals.map((t) => [t.extra, t.variant, t.count]), [['Koszulka', 'L', 2], ['Medal', 'Złoty', 1]])
+  assert.deepEqual(pdf0.body.data.list.awaiting.map((i) => [i.extra, i.variant, i.qty, i.paid]), [['Koszulka', 'S', 1, null]])
+  assert.ok(pdf0.body.data.event.name)
+  for (const i of [...pdf0.body.data.list.handout, ...pdf0.body.data.list.awaiting]) {
+    assert.equal('email' in i, false)
+    assert.equal('phone' in i, false)
+  }
   const [logged] = await actions(event.eventId, 'extras_exported')
-  assert.deepEqual(logged.payload, { format: 'csv', rows: d.list.handout.length + d.list.awaiting.length, filter: { keys: [], search: false } })
+  assert.deepEqual(logged.payload, { format: 'csv', rows: pdf0.body.data.list.handout.length + pdf0.body.data.list.awaiting.length, filter: { keys: [], search: false } })
 
   const only = await call({ format: 'csv', filter: { extraId: medal.extra.id } })
   assert.equal(only.status, 200, JSON.stringify(only.body))
-  assert.deepEqual(only.body.data.list.totals.map((t) => [t.extra, t.count]), [['Medal', 1]])
-  assert.equal(only.body.data.list.awaiting.length, 0)
+  assert.ok(only.body.data.csv.includes('Medal'))
+  assert.ok(!only.body.data.csv.includes('Koszulka'))
+  const onlyPdf = await call({ format: 'pdf', filter: { extraId: medal.extra.id } })
+  assert.deepEqual(onlyPdf.body.data.list.totals.map((t) => [t.extra, t.count]), [['Medal', 1]])
+  assert.equal(onlyPdf.body.data.list.awaiting.length, 0)
 
   const pdf = await call({ format: 'pdf' })
   assert.equal(pdf.status, 200, JSON.stringify(pdf.body))
@@ -736,6 +746,17 @@ test('O-65 extras export: lists, totals, filter, audit', async () => {
   assert.match(pdf.body.data.filename, /\.pdf$/)
 
   assert.equal((await call({ format: 'doc' })).status, 400)
+  const badKind = await callFn('export-event-registrations', owner, { eventId: event.eventId, kind: 'other', format: 'csv' })
+  assert.equal(badKind.status, 400)
+  assert.equal(badKind.body.error, 'Invalid kind')
+  const noKind = await callFn('export-event-registrations', owner, { eventId: event.eventId, format: 'csv' })
+  assert.equal(noKind.status, 400)
+  assert.equal(noKind.body.error, 'Invalid format')
+  const badFormat = await call({ format: 'xml' })
+  assert.equal(badFormat.status, 400)
+  assert.equal(badFormat.body.error, 'Invalid format')
+  const outsiderCall = await callFn('export-event-registrations', outsider, { eventId: event.eventId, kind: 'extras', format: 'csv' })
+  assert.equal(outsiderCall.status, 404)
   assert.equal((await callFn('export-event-registrations', member, { eventId: event.eventId, kind: 'extras', format: 'csv' })).status, 404)
 
   // A refund of one shirt unit (4500 of the 9000 line) drops the L total by one.
@@ -743,7 +764,7 @@ test('O-65 extras export: lists, totals, filter, audit', async () => {
   const shirtLine = lines.find((l) => l.extra_variant_id === shirt.variants.L.id)
   const refund = await callFn('organizer-refund', owner, { lineId: shirtLine.id, grosze: 4500, requestKey: key() })
   assert.equal(refund.status, 200, JSON.stringify(refund.body))
-  const after = await call({ format: 'csv' })
+  const after = await call({ format: 'pdf' })
   assert.deepEqual(after.body.data.list.totals.map((t) => [t.extra, t.variant, t.count]), [['Koszulka', 'L', 1], ['Medal', 'Złoty', 1]])
 
   const before = (await actions(event.eventId, 'extras_exported')).length

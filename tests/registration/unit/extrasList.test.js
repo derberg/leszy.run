@@ -65,7 +65,7 @@ describe('extrasList', () => {
     assert.equal(l.handout.length, 0)
     assert.equal(l.awaiting.length, 1)
     assert.equal(l.awaiting[0].qty, 2)
-    assert.equal(l.awaiting[0].paid, 10000)
+    assert.equal(l.awaiting[0].paid, null)
     assert.deepEqual(l.totals, [])
   })
   it('extraId narrows the lines', () => {
@@ -75,7 +75,7 @@ describe('extrasList', () => {
     assert.deepEqual(l.totals.map((t) => t.extra), ['Medal'])
   })
   it('a child shows the guardian e-mail and own phone', () => {
-    const { handout } = extrasList([row({ role: 'minor', email: null, guardianEmail: 'rodzic@example.pl', phone: '600' })])
+    const { handout } = extrasList([row({ role: 'minor', email: null, guardianEmail: 'rodzic@example.pl', phone: '600' })], { contacts: true })
     assert.equal(handout[0].email, 'rodzic@example.pl')
     assert.equal(handout[0].phone, '600')
   })
@@ -105,13 +105,50 @@ describe('extrasText', () => {
     assert.equal(extrasText([{ name: 'Medal', variant: null, qty: 1, amount: 500, refunded: 500 }]), 'Medal (zwrócono)')
     assert.equal(extrasText([]), '')
   })
+  it('a partly refunded line shows the units still to hand out', () => {
+    assert.equal(extrasText([{ name: 'Koszulka', variant: 'L', qty: 2, amount: 10000, refunded: 5000 }]), 'Koszulka L ×1 (zwrócono 1)')
+    assert.equal(extrasText([{ name: 'Koszulka', variant: 'L', qty: 2, amount: 10000, refunded: 10000 }]), 'Koszulka L ×2 (zwrócono)')
+  })
+})
+
+describe('hardening', () => {
+  it('refunded units use integer math (1000 over 3 units)', () => {
+    assert.equal(handoutUnits({ qty: 3, amount: 1000, refunded: 333 }), 3)
+    assert.equal(handoutUnits({ qty: 3, amount: 1000, refunded: 334 }), 2)
+  })
+  it('awaiting items carry no paid amount', () => {
+    const l = extrasList([row({ status: 'pending_payment', statusKey: 'awaiting', extras: [line()] })])
+    assert.equal(l.awaiting[0].paid, null)
+  })
+  it('contacts only on request', () => {
+    const r = row({ email: 'a@b.pl', phone: '+48123', extras: [line()] })
+    const plain = extrasList([r]).handout[0]
+    assert.equal('email' in plain, false)
+    assert.equal('phone' in plain, false)
+    const withContacts = extrasList([r], { contacts: true }).handout[0]
+    assert.equal(withContacts.email, 'a@b.pl')
+    assert.equal(withContacts.phone, '+48123')
+  })
+  it('a row with no withdrawn flag is handed out like awaiting', () => {
+    const r = row({ extras: [line()] })
+    delete r.withdrawn
+    assert.equal(extrasList([r]).handout.length, 1)
+  })
+  it('totals with an order rank before totals without', () => {
+    const l = extrasList([
+      row({ id: 'a', extras: [line({ extraId: 'x', variantId: 'x1', name: 'X' })] }),
+      row({ id: 'b', extras: [line({ extraId: 'y', variantId: 'y1', name: 'Y', extraOrder: 1, variantOrder: 0 })] }),
+      row({ id: 'c', extras: [line({ extraId: 'z', variantId: 'z1', name: 'Z', extraOrder: 0, variantOrder: 0 })] }),
+    ])
+    assert.deepEqual(l.totals.map((t) => t.extra), ['Z', 'Y', 'X'])
+  })
 })
 
 describe('extrasToCsv', () => {
   const list = extrasList([
     row({ bib: 5, extras: [line({ qty: 2, amount: 10000 })] }),
     row({ id: 'p', status: 'pending_payment', statusKey: 'awaiting', lastName: 'Zet', extras: [line()] }),
-  ])
+  ], { contacts: true })
   it('layout', () => {
     const csv = extrasToCsv(list)
     assert.ok(csv.startsWith('﻿'))
