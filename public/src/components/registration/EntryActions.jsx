@@ -20,8 +20,8 @@ import EditMyDataDialog from './EditMyDataDialog.jsx'
 // surcharge opens its order page to pay at once; any other change or edit reads the list again
 // (`onChanged`).
 //
-// `links` (Moje zapisy, a card with one person: „Zamówienie”, „Twój zapis”) close the menu after the
-// actions, behind a divider; with no action the menu holds the links alone.
+// `links` (Moje zapisy: the card's „Zamówienie”, „Twój zapis(y)”, in every person's menu) close the
+// menu after the actions, behind a divider; with no action the menu holds the links alone.
 //
 // The page places the two parts: children({ menu, details }), `menu` on the person's line (null
 // when there is nothing to offer), `details` under it (null when empty).

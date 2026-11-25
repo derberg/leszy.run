@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { cardLinks, linksInPersonMenu } from '../../src/lib/zapisyCard.js'
+import { cardLinks, linksInHeader } from '../../src/lib/zapisyCard.js'
 
 const ev = (over) => ({ slug: 'bieg', orders: [], people: [], ...over })
 
@@ -25,8 +25,8 @@ test('labels carry no arrow', () => {
   for (const l of links) assert.doesNotMatch(l.label, /→/)
 })
 
-test('the links go in the person menu only on a card with exactly one person', () => {
-  assert.equal(linksInPersonMenu(ev({ people: [{}] })), true)
-  assert.equal(linksInPersonMenu(ev({ people: [{}, {}] })), false)
-  assert.equal(linksInPersonMenu(ev({ people: [] })), false)
+test('the links go in a header menu only on a card with no person line', () => {
+  assert.equal(linksInHeader(ev({ people: [] })), true)
+  assert.equal(linksInHeader(ev({ people: [{}] })), false)
+  assert.equal(linksInHeader(ev({ people: [{}, {}] })), false)
 })

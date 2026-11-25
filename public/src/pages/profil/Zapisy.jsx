@@ -5,17 +5,17 @@ import { formatPln } from '@registration/money.js'
 import { sectionTitle } from './fields.jsx'
 import EntryActions from '../../components/registration/EntryActions.jsx'
 import ActionMenu from '../../components/ActionMenu.jsx'
-import { cardLinks, linksInPersonMenu } from '../../lib/zapisyCard.js'
+import { cardLinks, linksInHeader } from '../../lib/zapisyCard.js'
 
 // „Moje zapisy”: the registration events the session bought an order for or is on an entry of,
 // from my-registrations (upcoming first, then past). At the end of each person's line a „⋯” menu of
 // the runner's own actions („Zmień konkurencję”, „Popraw dane”, „Przekaż pakiet”), and under it an
 // open surcharge's „Zapłać” (EntryActions), where the server offers them.
 //
-// The card's links, „Zamówienie” (each order's page) and „Twój zapis” (/zapisano, when an entry is
-// confirmed), sit in a menu too: on a card with one person, in that person's „⋯” after the actions
-// (behind a divider); on a card with several people (or none), in one „⋯” at the end of the card's
-// header line, while each person's „⋯” keeps only their actions.
+// The card's links, „Zamówienie” (each order's page) and „Twój zapis(y)” (/zapisano, when an entry is
+// confirmed), close every person's „⋯”, after that person's actions behind a divider (the links
+// alone for a person with no action), so each person has exactly one „⋯”. Only a card with no person
+// line (an order only) puts them in a „⋯” at the end of the header line.
 
 /** '2026-12-06' → '06.12.2026', no time zone involved. */
 export function dayLabel(isoDate) {
@@ -57,7 +57,7 @@ function Skeleton() {
 function EventCard({ ev, today, onChanged }) {
   const past = ev.eventDate != null && ev.eventDate < today
   const links = cardLinks(ev)
-  const onePerson = linksInPersonMenu(ev)
+  const inHeader = linksInHeader(ev)
   return (
     <article data-testid="zapisy-event" className="border border-apex-border border-l-2 hover:border-l-apex-yellow p-3 transition-colors">
       <div className="flex items-center gap-3 min-w-0">
@@ -67,17 +67,17 @@ function EventCard({ ev, today, onChanged }) {
         <a href={`/events/${ev.slug}`} className="flex-1 min-w-0 truncate font-display font-bold text-sm uppercase text-apex-text-bright no-underline hover:text-apex-yellow">
           {ev.eventName}
         </a>
-        {!onePerson && (
+        {inHeader && links.length > 0 && (
           <ActionMenu label={`Zgłoszenie: ${ev.eventName}`} items={links} size="sm" itemWeight="font-medium" testId="zapisy-card-menu" />
         )}
       </div>
 
       {ev.people.length > 0 && (
-        <ul className={`${onePerson ? 'mt-2' : 'mt-3'} space-y-1`}>
+        <ul className="mt-2 space-y-1">
           {ev.people.map((p) => (
             <li key={p.id} className="text-xs min-w-0" data-testid="zapisy-person">
               <EntryActions entry={{ ...p, name: `${p.firstName} ${p.lastName}` }} slug={ev.slug} onChanged={onChanged}
-                links={onePerson ? links : []}>
+                links={links}>
                 {({ menu, details }) => (<>
                   <div className="flex items-center justify-between gap-2 min-w-0 min-h-7">
                     <div className="flex items-center gap-2 min-w-0">
