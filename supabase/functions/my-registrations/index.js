@@ -7,6 +7,7 @@ import {
 } from '../_shared/registration/myRegistrations.js'
 import { acceptedRefundTotals } from '../_shared/registration/refundedTotals.js'
 import { transferViews } from '../_shared/registration/transfers.js'
+import { clubsOnCurrentAgreement } from '../_shared/organizer.js'
 
 function json(body, status, req) {
   return new Response(JSON.stringify(body), {
@@ -118,6 +119,8 @@ Deno.serve(async (req) => {
       const clubs = await allRows(() => admin.from('clubs').select('id, registration_enabled').in('id', ids).order('id'))
       for (const c of clubs) if (c.registration_enabled === true) enabledClubs.add(c.id)
     }
+    // „Zmień konkurencję” needs the club's acceptance of the current agreement (L-2).
+    const agreementClubs = await clubsOnCurrentAgreement(admin, [...enabledClubs])
     const categoryIds = [...new Set([
       ...registrations.map((r) => r.category_id),
       ...orders.map((o) => o.surcharge_to_category_id),
@@ -128,17 +131,18 @@ Deno.serve(async (req) => {
         .select('category_id, name').in('category_id', ids).order('category_id')))
     }
 
-    // „Przekaż pakiet”: my-event-registrations' block, per event with transfers on and an entry of
-    // the session's own (transferViews answers allowed: false for anybody else's).
+    // „Przekaż pakiet”: my-event-registrations' block, for every published event with an entry of
+    // the session's own, transfers on or off, so a still-open invite reads as on RA5 even after the
+    // club switched transfers off; transferAllowed (inside transferViews) still decides `allowed`.
     const transfers = new Map()
-    for (const s of settings) {
-      if (!s.transfer_enabled || s.state === 'draft') continue
-      const regs = registrations.filter((r) => r.event_id === s.event_id)
-      if (!regs.some((r) => r.profile_id === me)) continue
-      for (const [id, view] of await transferViews(admin, regs, s, me)) transfers.set(id, view)
-    }
+    const views = await Promise.all(settings
+      .filter((s) => s.state !== 'draft')
+      .map((s) => registrations.filter((r) => r.event_id === s.event_id))
+      .filter((regs) => regs.some((r) => r.profile_id === me))
+      .map((regs) => transferViews(admin, regs, settings.find((s) => s.event_id === regs[0].event_id), me)))
+    for (const map of views) for (const [id, view] of map) transfers.set(id, view)
 
-    return json({ data: shapeMyRegistrations({ userId: me, email: session.email, settings, orders, registrations, competitions, refunded, liveOrderIds, captains, openSurcharges, enabledClubs, transfers }) }, 200, req)
+    return json({ data: shapeMyRegistrations({ userId: me, email: session.email, settings, orders, registrations, competitions, refunded, liveOrderIds, captains, openSurcharges, enabledClubs, agreementClubs, transfers }) }, 200, req)
   } catch (err) {
     console.error('my-registrations error:', err?.message, err?.code)
     return json({ error: 'Internal server error' }, 500, req)
