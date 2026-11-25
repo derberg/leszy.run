@@ -22,6 +22,17 @@ function json(body, status, req, headers = {}) {
 }
 
 const NOT_FOUND = { error: 'Not found' }
+
+/** Whether a change_competition call already used this request key (its outcome or a refund of it). */
+async function knownChangeKey(admin, requestKey) {
+  const [req, refund] = await Promise.all([
+    admin.from('competition_change_requests').select('request_key').eq('request_key', requestKey).maybeSingle(),
+    admin.from('refunds').select('id').eq('request_key', requestKey).maybeSingle(),
+  ])
+  if (req.error) throw req.error
+  if (refund.error) throw refund.error
+  return req.data != null || refund.data != null
+}
 const ACTIONS = ['targets', 'change', 'edit', 'details']
 // Changes and edits together, per entry (spec Part 2): claim_throttle_slot, fail closed.
 const CHANGES_PER_DAY = 10
@@ -214,8 +225,12 @@ Deno.serve(async (req) => {
       if (!Number.isInteger(expectedDifference) || !isUuid(requestKey)) {
         return json({ error: 'Nieprawidłowe żądanie.', code: 'invalid_request' }, 400, req)
       }
-      const slot = await claim()
-      if (!slot.allowed) return throttled(req, slot.retryAfterSec)
+      // A retry of a request key already used (a lost answer, a double click) is answered by the RPC
+      // with the first outcome, so it spends no allowance.
+      if (!(await knownChangeKey(admin, requestKey))) {
+        const slot = await claim()
+        if (!slot.allowed) return throttled(req, slot.retryAfterSec)
+      }
       let cfg = null
       try {
         cfg = dpayConfig(Deno.env)
@@ -230,7 +245,7 @@ Deno.serve(async (req) => {
       })
       if (out.refused) return changeAnswer(req, out)
 
-      const replay = out.refund?.replay === true
+      const replay = out.replay === true || out.refund?.replay === true
       if (!replay) {
         const names = await single(admin.from('competitions').select('category_id, name')
           .in('category_id', [out.fromCategoryId, out.toCategoryId]))

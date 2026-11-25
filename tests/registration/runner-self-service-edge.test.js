@@ -376,6 +376,24 @@ test('RS-14 ten changes and edits per entry per 24 h; the 11th is 429', async ()
   assert.equal((await changesOf(e.registrationId)).length, 10)
 })
 
+test('RS-14 a retried change with the same request key spends no allowance and returns the first outcome', async () => {
+  const event = await paidEvent()
+  const e = await ownEntry(event)
+  for (let i = 0; i < 9; i++) {
+    const r = await edit(e.session, e.registrationId, { city: `Miasto ${i}` })
+    assert.equal(r.status, 200, `edit ${i}: ${JSON.stringify(r.body)}`)
+  }
+  const requestKey = key()
+  const tenth = await change(e.session, e.registrationId, event.categoryIds[2], 2000, { requestKey })
+  assert.equal(tenth.status, 200, JSON.stringify(tenth.body))
+  const retry = await change(e.session, e.registrationId, event.categoryIds[2], 2000, { requestKey })
+  assert.equal(retry.status, 200, JSON.stringify(retry.body))
+  assert.deepEqual([retry.body.data.outcome, retry.body.data.orderId], ['surcharge', tenth.body.data.orderId])
+  assert.equal((await changesOf(e.registrationId)).length, 10, 'the replay writes no audit row')
+  const over = await edit(e.session, e.registrationId, { city: 'Jedenaste' })
+  assert.equal(over.status, 429)
+})
+
 // ---------------------------------------------------------------- RS-16 details, list actions
 
 test('RS-16 details prefills „Popraw dane” (never the e-mail); my-registrations and my-event-registrations carry actions', async () => {

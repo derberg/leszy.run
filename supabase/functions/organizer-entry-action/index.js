@@ -73,6 +73,9 @@ const REFUSALS = {
   stock: [409, 'Dodatku z tego zamówienia nie ma już w magazynie.'],
   not_offline: [409, 'To zamówienie nie jest opłacone poza systemem.'],
   not_found: [404, NOT_FOUND.error],
+  // extend / remind_payment on a competition change's surcharge order: it has its own reminder and
+  // a window the change set (final review).
+  surcharge_order: [409, 'To jest dopłata za zmianę konkurencji — użyj „Przypomnij o dopłacie”.'],
   // organizer_mark_paid_offline on a competition change's surcharge order (task 4), cancel_surcharge
   // on another order: the change's own copy.
   ...Object.fromEntries(['surcharge', 'not_surcharge'].map((c) => {
@@ -140,8 +143,8 @@ async function targetOf(admin, action, body) {
       orderId = reg?.order_id
     }
     if (!isUuid(orderId)) return null
-    const order = await single(admin.from('orders').select('id, event_id').eq('id', orderId).maybeSingle())
-    return order && { eventId: order.event_id, orderId: order.id }
+    const order = await single(admin.from('orders').select('id, event_id, kind').eq('id', orderId).maybeSingle())
+    return order && { eventId: order.event_id, orderId: order.id, orderKind: order.kind }
   }
   if (!isUuid(body.registrationId)) return null
   const reg = await single(admin.from('registrations').select('id, event_id').eq('id', body.registrationId).maybeSingle())
@@ -213,7 +216,8 @@ async function remindSurcharge(admin, settings, orderId) {
 // move no money (B3). The event comes from the target row, never from the client.
 //   extend          { orderId | registrationId, until }  → 200 { data: { expiresAt } }
 //                   „Przedłuż termin wpłaty”: up to 14 days and never past closes_at (ruling 2). It
-//                   reserves no place (D6-13). 409 expired, 422 invalid_until.
+//                   reserves no place (D6-13). 409 expired, 422 invalid_until, 409 surcharge_order
+//                   for a competition change's surcharge (extend and remind_payment alike).
 //   remind_payment  { orderId | registrationId }          → 200 { data: { sent: true } }
 //                   409 paid / cancelled / expired, 409 paying_closed (from an hour before
 //                   closes_at), 409 full (D6-27), 409 no_address, 429 a second within 24 h,
@@ -296,6 +300,10 @@ Deno.serve(async (req) => {
     const log = (name, targetId, payload = null) => logOrganizerAction(admin, req, {
       actorId: actor, clubId: settings.club_id, eventId: settings.event_id, action: name, target: targetId, payload,
     })
+
+    if ((action === 'extend' || action === 'remind_payment') && target.orderKind === 'surcharge') {
+      return refuse(req, 'surcharge_order')
+    }
 
     if (action === 'extend') {
       const until = typeof body.until === 'string' ? new Date(body.until) : null

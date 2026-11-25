@@ -6,11 +6,11 @@ import { afterEach, before, test } from 'node:test'
 import assert from 'node:assert/strict'
 import { localEnv, resetThrottle, sessionFor } from './helpers/stack.js'
 import { acceptAgreement, callFn, createPublishedPaidEvent } from './helpers/registrationFixtures.js'
-import { attemptFor, confirmOk, db, one, profileFor, runnerEmail } from './helpers/orders.js'
+import { attemptFor, confirmOk, db, one, profileFor, rows, runnerEmail } from './helpers/orders.js'
 import { BIEG } from './helpers/groups.js'
 import { accept, enableTransfers, inviteOk, organizerTransfer, paidEntry } from './helpers/transfers.js'
 import { assertSlotInvariant } from './helpers/slotInvariant.js'
-import { surchargeOk } from './helpers/competitionChange.js'
+import { cancelSurcharge, surchargeOk } from './helpers/competitionChange.js'
 import { dpayFee } from '../../supabase/functions/_shared/registration/money.js'
 import { settleConfirmOutcome } from '../../supabase/functions/_shared/registration/orderFlow.js'
 
@@ -83,6 +83,20 @@ test('CC-40 order-status: a surcharge reads kind surcharge, from → to, its tot
   assert.equal(own.body.data.kind, 'registration')
   assert.equal(own.body.data.lines.length, 1)
   assert.equal(own.body.data.fromCompetition, undefined)
+})
+
+test('CC-40 order-status: a surcharge paid after it ended says lateRefund (refunded in full); unpaid it does not', async () => {
+  const { s, payer } = await withSurcharge()
+  const att = await attemptFor(s.orderId, 2000)
+  const { error } = await cancelSurcharge(s.orderId)
+  assert.equal(error, null, error?.message)
+  let d = (await callFn('order-status', payer, { orderId: s.orderId })).body.data
+  assert.deepEqual([d.status, d.lateRefund], ['cancelled', false])
+  const out = await confirmOk(s.orderId, att.txn, 2000)
+  assert.equal(out.outcome, 'late_refund')
+  assert.equal((await rows('refunds', { order_id: s.orderId })).length, 1)
+  d = (await callFn('order-status', payer, { orderId: s.orderId })).body.data
+  assert.deepEqual([d.status, d.lateRefund], ['cancelled', true])
 })
 
 test('CC-41 my-registrations: a pending surcharge sits on its entry; once paid it is never an order of its own, nor a cancelled one', async () => {

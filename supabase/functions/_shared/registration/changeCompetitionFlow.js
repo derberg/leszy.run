@@ -280,7 +280,7 @@ async function claimNotified(admin, refundIds) {
  * @param {{ log?: (action, target, payload) => Promise<unknown> }} [opts] the caller's audit
  * @returns {Promise<{ refused: string, difference?: number, remaining?: number }
  *   | { outcome: 'moved'|'moved_offline_refund'|'surcharge'|'refund', fromCategoryId, toCategoryId, grosze,
- *       orderId?, expiresAt?, refund?: { status, refundIds, acceptedGrosze, replay }, emailed }>}
+ *       orderId?, expiresAt?, replay? (a moved / surcharge replay: nothing sent), refund?: { status, refundIds, acceptedGrosze, replay }, emailed }>}
  */
 export async function runChange(admin, cfg, args, { log = async () => {} } = {}) {
   const reg = await single(admin.from('registrations').select('id, category_id, order_id').eq('id', args.registrationId).maybeSingle())
@@ -301,8 +301,16 @@ export async function runChange(admin, cfg, args, { log = async () => {} } = {})
     return { refused: code, ...rest }
   }
   const out = res.data
-  const base = { outcome: out.outcome, fromCategoryId, toCategoryId: args.categoryId, grosze: out.grosze }
   const alertOrder = reg.order_id ?? null
+
+  // A retried request key whose first call moved the entry or created a surcharge: that first
+  // outcome, with nothing logged or sent again (the first call did it). A refund replay goes on
+  // below, where each part's stored state is read and nothing is executed twice.
+  if (out.replay === true && out.outcome !== 'refund') {
+    const replayed = { outcome: out.outcome, fromCategoryId: out.fromCategoryId ?? fromCategoryId, toCategoryId: args.categoryId, grosze: out.grosze, replay: true, emailed: false }
+    return out.outcome === 'surcharge' ? { ...replayed, orderId: out.orderId, expiresAt: out.expiresAt } : replayed
+  }
+  const base = { outcome: out.outcome, fromCategoryId, toCategoryId: args.categoryId, grosze: out.grosze }
 
   // The money state is stored: from here on nothing throws.
   if (out.outcome === 'surcharge') {

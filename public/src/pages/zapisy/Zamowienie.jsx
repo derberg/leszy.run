@@ -6,7 +6,7 @@ import usePublicRegistrationEvent from '../../hooks/usePublicRegistrationEvent.j
 import { callFunction } from '../../lib/auth.js'
 import { eventPageModel } from '../../lib/eventPageModel.js'
 import { pollDelayMs } from '../../lib/orderPolling.js'
-import { paidOrderCancelled, refundState } from '../../lib/orderOutcome.js'
+import { paidOrderCancelled, refundState, surchargeEndedText } from '../../lib/orderOutcome.js'
 import { payLinkOpen } from '../../lib/checkout.js'
 import { captainTeamPath } from '../../lib/teamPage.js'
 import PageTop from '../../components/registration/PageTop.jsx'
@@ -385,17 +385,6 @@ const SURCHARGE_CANCEL_COPY = {
   text: 'Zgłoszenie zostanie w dotychczasowej konkurencji. Nie pobraliśmy żadnej opłaty; jeśli wpłata jest właśnie w drodze, zwrócimy ją w całości.',
 }
 
-// Why a surcharge ended unpaid or could not move the entry (a payment that arrived then is refunded in full).
-const SURCHARGE_ENDED = {
-  organizer_cancelled: 'Organizator anulował tę dopłatę. Zgłoszenie zostaje w dotychczasowej konkurencji.',
-  buyer_cancelled: 'Zrezygnowano ze zmiany. Zgłoszenie zostaje w dotychczasowej konkurencji.',
-  entry_cancelled: 'Zgłoszenie zostało anulowane, więc dopłata nie jest już potrzebna.',
-  full: 'Zanim wpłata dotarła, zabrakło miejsc w nowej konkurencji. Zwracamy całą wpłatę; zgłoszenie zostaje w dotychczasowej konkurencji.',
-  unavailable: 'Nowa konkurencja nie jest już dostępna. Zwracamy całą wpłatę; zgłoszenie zostaje w dotychczasowej konkurencji.',
-  closed: 'Wpłata dotarła po zamknięciu zapisów. Zwracamy całą wpłatę; zgłoszenie zostaje w dotychczasowej konkurencji.',
-  entry_changed: 'Zgłoszenie zmieniło się, zanim wpłata dotarła. Zwracamy całą wpłatę.',
-}
-
 function SurchargeOrder({ orderId, order, raw, polling, onAgain }) {
   const href = raw ? eventPath(raw.slug) : order.event.slug ? eventPath(order.event.slug) : null
   const eventLink = href ? <Link to={href} className={secondaryBtn} data-testid="order-event-link">Strona zawodów</Link> : null
@@ -430,9 +419,7 @@ function SurchargeOrder({ orderId, order, raw, polling, onAgain }) {
           </span>
         </div>
         <p className="text-lg">
-          {expired
-            ? `Nie dostaliśmy dopłaty w terminie. Zgłoszenie zostaje w konkurencji ${order.fromCompetition}.`
-            : SURCHARGE_ENDED[order.cancelledReason] ?? `Ta dopłata nie jest już ważna. Zgłoszenie zostaje w konkurencji ${order.fromCompetition}.`}
+          {surchargeEndedText(order)}
         </p>
         {eventLink}
       </div>

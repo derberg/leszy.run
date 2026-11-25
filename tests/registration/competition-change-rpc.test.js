@@ -472,6 +472,43 @@ test('CC-13 a replayed request key returns the first refund, nothing is reserved
   refused(await changeCompetition(b.reg.id, c5, -2000, { key }), 'request_key_mismatch')
 })
 
+test('CC-13 a replayed key of a same-price move or a surcharge returns the first outcome, not same_competition / surcharge_open', async () => {
+  const event = await paidEvent({ prices: { 'Bieg 5 km': 6000 } })
+  const [c9, c5, c21] = event.categoryIds
+  const a = await paidEntry(event)
+  const key = crypto.randomUUID()
+  assert.deepEqual(await changeOk(a.reg.id, c5, 0, { key, actor: ownerId }), { outcome: 'moved', grosze: 0 })
+  const again = await changeOk(a.reg.id, c5, 0, { key, actor: ownerId })
+  assert.deepEqual(again, { outcome: 'moved', grosze: 0, replay: true, fromCategoryId: c9 })
+  assert.deepEqual([await taken(c9), await taken(c5)], [0, 1])
+  refused(await changeCompetition(a.reg.id, c21, 2000, { key }), 'request_key_mismatch')
+
+  const b = await paidEntry(event)
+  refused(await changeCompetition(b.reg.id, c5, 0, { key }), 'request_key_mismatch')
+  const skey = crypto.randomUUID()
+  const first = await changeOk(b.reg.id, c21, 2000, { key: skey, actor: ownerId })
+  assert.equal(first.outcome, 'surcharge')
+  const second = await changeOk(b.reg.id, c21, 2000, { key: skey, actor: ownerId })
+  assert.equal(second.outcome, 'surcharge')
+  assert.equal(second.orderId, first.orderId)
+  assert.equal(second.replay, true)
+  assert.equal((await rows('orders', { surcharge_registration_id: b.reg.id })).length, 1, 'one surcharge order')
+  // A new key is a new request: the surcharge is still open.
+  refused(await changeCompetition(b.reg.id, c21, 2000), 'surcharge_open')
+})
+
+test('a pending surcharge into a competition makes it in use; cancelled, it does not', async () => {
+  const event = await paidEvent()
+  const [, , c21] = event.categoryIds
+  const a = await paidEntry(event)
+  const inUse = async () => (await rpc('registration_competition_in_use', { p_category_id: c21 })).data
+  assert.equal(await inUse(), false)
+  const s = await changeOk(a.reg.id, c21, 2000, { actor: ownerId })
+  assert.equal(await inUse(), true)
+  ok(await cancelSurcharge(s.orderId))
+  assert.equal(await inUse(), false)
+})
+
 // ---------------------------------------------------------------- the money model across moves
 
 test('CC-02 moves add up: 9 km → 5 km → 9 km → 5 km keeps price − refunded equal to the current price', async () => {

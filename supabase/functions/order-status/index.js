@@ -101,8 +101,8 @@ async function ownTransferViews(admin, view, userId) {
 //   then role, consentState and ageGroupLabel are null and mine false), transfer (Plan 7, RA5: the
 //   my-event-registrations block { allowed, until, pending } on the buyer's own line of a paid order,
 //   null on every other line) }], paidOffline (paid at the organizer, never the note), amounts (+ refunded: grosze dpay paid back), event: { slug, name }, closesAt, full, cancelledReason } }
-// A surcharge (a competition change paid online) adds fromCompetition, toCompetition, startTime
-// and total (no person's name), and has lines: [].
+// A surcharge (a competition change paid online) adds fromCompetition, toCompetition, startTime,
+// total and lateRefund (a late payment refunded in full; no person's name), and has lines: [].
 // The order page's state, for the buyer only (401 without a session, 404 otherwise). While the
 // order is pending and dpay may have taken the money without an IPN reaching us, it asks dpay
 // (see poll) before answering.
@@ -157,14 +157,21 @@ Deno.serve(async (req) => {
     const refunded = (await acceptedRefundTotals(admin, [orderId])).get(orderId) ?? 0
     // A competition change's surcharge (kind 'surcharge'): the move it pays for, no entry lines and
     // so no consent or transfer block on the page.
-    const surcharge = view.kind === 'surcharge'
-      ? {
+    let surcharge = {}
+    if (view.kind === 'surcharge') {
+      // lateRefund: a payment that arrived when the surcharge could no longer move the entry is being
+      // (or was) paid back in full (confirm_order's late_refund, an automatic refund not rejected).
+      const { data: late, error: lateErr } = await admin.from('refunds').select('id')
+        .eq('order_id', orderId).eq('kind', 'automatic').neq('dpay_status', 'rejected').limit(1)
+      if (lateErr) console.error('order-status: late refund read failed:', lateErr.message)
+      surcharge = {
         fromCompetition: view.surcharge.fromCompetition,
         toCompetition: view.surcharge.toCompetition,
         startTime: view.surcharge.startTime,
         total: view.order.total,
+        lateRefund: (late ?? []).length > 0,
       }
-      : {}
+    }
     return json({
       data: {
         kind: view.kind,

@@ -394,6 +394,38 @@ test('CC-66 surcharge_remind with no payer address left → 409 no_address', asy
   assert.deepEqual([no.status, no.body.code], [409, 'no_address'])
 })
 
+test('CC-66 extend and remind_payment on a surcharge order: 409 surcharge_order, nothing changes', async () => {
+  const event = await paidEvent()
+  const e = await paidEntry(event)
+  const r = await change(owner, e.registrationId, event.categoryIds[2], 2000)
+  const { orderId } = r.body.data
+  const before = await one('orders', { id: orderId })
+  const until = new Date(Date.now() + 2 * 86400000).toISOString()
+  const ext = await act(owner, { action: 'extend', orderId, until })
+  assert.deepEqual([ext.status, ext.body.code], [409, 'surcharge_order'])
+  assert.equal(ext.body.error, 'To jest dopłata za zmianę konkurencji — użyj „Przypomnij o dopłacie”.')
+  const rem = await act(owner, { action: 'remind_payment', orderId })
+  assert.deepEqual([rem.status, rem.body.code], [409, 'surcharge_order'])
+  assert.equal((await one('orders', { id: orderId })).expires_at, before.expires_at)
+  assert.equal((await actions(event.eventId, 'window_extended')).length, 0)
+  assert.equal((await actions(event.eventId, 'payment_reminded')).length, 0)
+})
+
+test('CC-66 a retried change with the same request key: the first surcharge again, one order, one e-mail', async () => {
+  const event = await paidEvent()
+  const e = await paidEntry(event)
+  const requestKey = key()
+  const first = await change(owner, e.registrationId, event.categoryIds[2], 2000, { requestKey })
+  assert.equal(first.status, 200, JSON.stringify(first.body))
+  const again = await change(owner, e.registrationId, event.categoryIds[2], 2000, { requestKey })
+  assert.equal(again.status, 200, JSON.stringify(again.body))
+  assert.deepEqual([again.body.data.outcome, again.body.data.orderId], ['surcharge', first.body.data.orderId])
+  await waitForMail(e.email, 1, { subject: 'Dopłata za zmianę konkurencji' })
+  await sleep(500)
+  assert.equal((await waitForMail(e.email, 1, { subject: 'Dopłata za zmianę konkurencji' })).length, 1)
+  assert.equal((await actions(event.eventId, 'surcharge_created')).length, 1)
+})
+
 // ---------------------------------------------------------------- CC-67 refusals
 
 test('CC-67 refusal mapping: price_changed carries the real difference, 422s carry fields.categoryId, unknown target 404', async () => {
