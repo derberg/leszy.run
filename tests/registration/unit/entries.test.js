@@ -1,7 +1,7 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
 import {
-  entryStatusKey, statusLabel, unconfirmedRefundGrosze,
+  entryMoney, entryStatusKey, pendingSurcharge, statusLabel, unconfirmedRefundGrosze,
 } from '../../../supabase/functions/_shared/registration/entries.js'
 
 const NOW = new Date('2026-11-01T12:00:00Z')
@@ -100,4 +100,72 @@ describe('statusLabel (O-02)', () => {
 
 describe('statusLabel of an entry paid outside the system (OP-9)', () => {
   it('reads POZA SYSTEMEM', () => assert.equal(statusLabel('paid_offline', { paidAmount: 6000, refunded: 0 }), 'POZA SYSTEMEM'))
+})
+
+// Competition change (CC readers): the entry's money is its own order's lines plus every PAID
+// surcharge line (each in its own order); registrations.price/refunded hold the whole of it.
+describe('entryMoney (CC readers)', () => {
+  const orders = new Map([
+    ['o1', { id: 'o1', status: 'paid', kind: 'registration' }],
+    ['s-paid', { id: 's-paid', status: 'paid', kind: 'surcharge' }],
+    ['s-open', { id: 's-open', status: 'pending', kind: 'surcharge' }],
+    ['s-gone', { id: 's-gone', status: 'expired', kind: 'surcharge' }],
+  ])
+  const line = (id, order_id, kind, amount, refunded = 0) => ({ id, order_id, kind, amount, refunded })
+
+  it('counts a surcharge line only when its own order is paid', () => {
+    const m = entryMoney({ order_id: 'o1', price: 8000, refunded: 0 }, {
+      orderOf: orders,
+      lines: [line('l1', 'o1', 'entry', 6000), line('l2', 'o1', 'extra', 1500), line('l3', 's-paid', 'surcharge', 2000),
+        line('l4', 's-open', 'surcharge', 1000), line('l5', 's-gone', 'surcharge', 500)],
+    })
+    assert.deepEqual(m.lines, [
+      { id: 'l1', kind: 'entry', amount: 6000, refunded: 0 },
+      { id: 'l2', kind: 'extra', amount: 1500, refunded: 0 },
+      { id: 'l3', kind: 'surcharge', amount: 2000, refunded: 0 },
+    ])
+    assert.equal(m.paidAmount, 9500)
+    assert.equal(m.refunded, 0)
+    assert.equal(m.entryRefunded, 0)
+  })
+
+  it('a pending entry order pays nothing; its lines are listed as before', () => {
+    const m = entryMoney({ order_id: 'o9', price: 6000, refunded: 0 }, {
+      orderOf: new Map([['o9', { id: 'o9', status: 'pending', kind: 'registration' }]]),
+      lines: [line('l1', 'o9', 'entry', 6000)],
+    })
+    assert.equal(m.paidAmount, 0)
+    assert.equal(m.lines.length, 1)
+  })
+
+  it('takes the entry’s refunded money from the registration (an offline difference has no line)', () => {
+    const m = entryMoney({ order_id: 'o1', price: 6000, refunded: 2000 }, {
+      orderOf: orders, lines: [line('l1', 'o1', 'entry', 6000), line('l2', 'o1', 'extra', 1500, 500)],
+    })
+    assert.equal(m.entryRefunded, 2000)
+    assert.equal(m.refunded, 2500, 'the extra’s refund plus the entry’s')
+  })
+
+  it('never reads less than the lines say', () => {
+    const m = entryMoney({ order_id: 'o1', price: 8000, refunded: 0 }, {
+      orderOf: orders, lines: [line('l1', 'o1', 'entry', 6000, 1000), line('l3', 's-paid', 'surcharge', 2000, 2000)],
+    })
+    assert.equal(m.entryRefunded, 3000)
+    assert.equal(m.refunded, 3000)
+  })
+})
+
+describe('pendingSurcharge (CC readers)', () => {
+  const names = new Map([['c2', 'Bieg 10 km']])
+  const s = (over) => ({ id: 's1', kind: 'surcharge', status: 'pending', surcharge_registration_id: 'r1', surcharge_to_category_id: 'c2', total: 2000, expires_at: LATER, ...over })
+  it('the live pending surcharge of the entry', () => {
+    assert.deepEqual(pendingSurcharge('r1', [s({})], names, NOW), { orderId: 's1', toCompetition: 'Bieg 10 km', grosze: 2000, expiresAt: LATER })
+  })
+  it('null for another entry, a paid, expired or due one, or a registration order', () => {
+    assert.equal(pendingSurcharge('r2', [s({})], names, NOW), null)
+    assert.equal(pendingSurcharge('r1', [s({ status: 'paid' })], names, NOW), null)
+    assert.equal(pendingSurcharge('r1', [s({ status: 'expired' })], names, NOW), null)
+    assert.equal(pendingSurcharge('r1', [s({ expires_at: EARLIER })], names, NOW), null)
+    assert.equal(pendingSurcharge('r1', [s({ kind: 'registration' })], names, NOW), null)
+  })
 })

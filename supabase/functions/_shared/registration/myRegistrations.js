@@ -2,6 +2,8 @@
 // an order or as a person on an entry (its own, one it registered, a child it is guardian of).
 // Plain ESM: the edge function `my-registrations` reads the rows, this shapes them.
 import { warsawToday } from './dates.js'
+import { pendingSurcharge } from './entries.js'
+import { selfServiceActions } from './selfService.js'
 
 /** Entry statuses listed: live ones only. */
 export const LISTED_REGISTRATION_STATUSES = Object.freeze(['confirmed', 'pending_payment'])
@@ -31,15 +33,33 @@ export function compareEvents(a, b, today) {
  * @param {object} p
  * @param {string} p.userId the session's profile id
  * @param {object[]} p.settings registration_settings rows: event_id, slug, name, state, event_date, first_start_time
- * @param {object[]} p.orders orders rows: id, event_id, buyer_profile_id, status, total, expires_at, paid_at, created_at
+ * @param {object[]} p.orders orders rows: id, event_id, buyer_profile_id, status, total, expires_at, paid_at, created_at,
+ *   kind, surcharge_registration_id, surcharge_to_category_id. A competition change's surcharge
+ *   (kind 'surcharge') owns no registration, so it is never an order of its own here (a paid one
+ *   would read as an order whose entries all went): an open one the session pays is the entry's
+ *   `surcharge` ({ orderId, toCompetition, grosze, expiresAt }, else null), so RA5 can link to it.
  * @param {object[]} p.registrations registrations rows: id, event_id, category_id, status, first_name, last_name, profile_id, created_at
  * @param {object[]} p.competitions competitions rows: category_id, name
  * @param {Map<string, number>} [p.refunded] order id → grosze dpay has paid back (accepted refunds)
  * @param {Set<string>} [p.liveOrderIds] orders that still hold a live entry; a paid order outside it
  *   had every entry cancelled (`cancelled: true`). Omitted, no order is marked.
+ * @param {string|null} [p.email] the session's address (an adult entry at it is the session's to change)
+ * @param {Set<string>} [p.captains] registration ids that captain their team
+ * @param {object[]} [p.openSurcharges] pending surcharge orders of the listed entries, whoever pays them
+ *   (kind, status, expires_at, surcharge_registration_id): any of them hides „Zmień konkurencję”
+ * @param {Set<string>} [p.enabledClubs] club ids with registration_enabled; settings rows need club_id
+ * @param {Set<string>} [p.agreementClubs] club ids that accepted the organizer agreement (any version)
+ *   (clubsWithAgreement in organizer.js): „Zmień konkurencję” only there
+ * @param {Map<string, Set<string>>} [p.changeTargets] event id → its visible individual competitions
+ *   (changeTargetsByEvent in selfService.js): „Zmień konkurencję” only with another one to go to
+ * @param {Map<string, object>} [p.transfers] registration id → its transfer block (transferViews in
+ *   transfers.js, the same one my-event-registrations returns); a person without one gets null
  * @param {Date} [p.now]
+ * Each person carries `actions: { change, edit }` (selfService.js), registrations rows then also
+ * need email, guardian_profile_id, team_id and settings closes_at, runner_competition_change,
+ * runner_data_edit; without them both are false.
  */
-export function shapeMyRegistrations({ userId, settings, orders, registrations, competitions, refunded = new Map(), liveOrderIds = null, now = new Date() }) {
+export function shapeMyRegistrations({ userId, email = null, settings, orders, registrations, competitions, refunded = new Map(), liveOrderIds = null, captains = new Set(), openSurcharges = [], enabledClubs = new Set(), agreementClubs = new Set(), changeTargets = new Map(), transfers = new Map(), now = new Date() }) {
   const settingsOf = new Map(settings.filter((s) => s.state !== 'draft').map((s) => [s.event_id, s]))
   const compName = new Map(competitions.map((c) => [c.category_id, c.name]))
   const events = new Map()
@@ -60,9 +80,11 @@ export function shapeMyRegistrations({ userId, settings, orders, registrations, 
     return events.get(eventId)
   }
 
+  const isSurcharge = (o) => o.kind === 'surcharge'
+  const surcharges = orders.filter((o) => isSurcharge(o) && o.buyer_profile_id === userId)
   const seenOrders = new Set()
   for (const o of [...orders].sort(byCreated)) {
-    if (seenOrders.has(o.id) || o.buyer_profile_id !== userId || !LISTED_ORDER_STATUSES.includes(o.status)) continue
+    if (isSurcharge(o) || seenOrders.has(o.id) || o.buyer_profile_id !== userId || !LISTED_ORDER_STATUSES.includes(o.status)) continue
     const ev = eventFor(o.event_id)
     if (!ev) continue
     seenOrders.add(o.id)
@@ -84,6 +106,9 @@ export function shapeMyRegistrations({ userId, settings, orders, registrations, 
     const ev = eventFor(r.event_id)
     if (!ev) continue
     seenRegs.add(r.id)
+    const surcharge = pendingSurcharge(r.id, surcharges, compName, now)
+    const anySurcharge = surcharge != null || pendingSurcharge(r.id, openSurcharges, compName, now) != null
+    const s = settingsOf.get(r.event_id)
     ev.people.push({
       id: r.id,
       firstName: r.first_name,
@@ -91,6 +116,13 @@ export function shapeMyRegistrations({ userId, settings, orders, registrations, 
       competition: compName.get(r.category_id) ?? null,
       status: r.status,
       mine: r.profile_id != null && r.profile_id === userId,
+      surcharge,
+      actions: selfServiceActions({
+        reg: r, settings: s, session: { userId, email }, clubEnabled: enabledClubs.has(s.club_id),
+        clubAgreement: agreementClubs.has(s.club_id), changeTargets: changeTargets.get(r.event_id) ?? null,
+        captain: captains.has(r.id), surchargeOpen: anySurcharge, now,
+      }),
+      transfer: transfers.get(r.id) ?? null,
     })
   }
 

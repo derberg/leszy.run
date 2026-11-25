@@ -6,7 +6,7 @@ import usePublicRegistrationEvent from '../../hooks/usePublicRegistrationEvent.j
 import { callFunction } from '../../lib/auth.js'
 import { eventPageModel } from '../../lib/eventPageModel.js'
 import { pollDelayMs } from '../../lib/orderPolling.js'
-import { paidOrderCancelled, refundState } from '../../lib/orderOutcome.js'
+import { paidOrderCancelled, refundState, surchargeEndedText } from '../../lib/orderOutcome.js'
 import { payLinkOpen } from '../../lib/checkout.js'
 import { captainTeamPath } from '../../lib/teamPage.js'
 import PageTop from '../../components/registration/PageTop.jsx'
@@ -46,6 +46,9 @@ import { eventPath } from './RegistrationEventPage.jsx'
 // expired / cancelled → „Zgłoszenie wygasło” / „…anulowane” and „Zapisz się ponownie”; a
 //             cancellation because the buyer took somebody's package (transfer_accepted) says so
 //             and links to the entry instead
+// surcharge (kind 'surcharge', a competition change paid online) → „Dopłata: zmiana z <A> na <B>”, the
+//             amount, the deadline, „Zapłać” and „Rezygnuję ze zmiany”; paid → „Konkurencja zmieniona”;
+//             expired / cancelled → the entry stays in A, and why. No people, consent or transfer block.
 
 const warsaw = new Intl.DateTimeFormat('pl-PL', {
   timeZone: 'Europe/Warsaw', day: 'numeric', month: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit',
@@ -169,7 +172,13 @@ function Paid({ order, raw, model, onAgain }) {
  * „Anuluj zgłoszenie” with its confirm step in the page (never window.confirm). The order holds
  * no money, so nothing is refunded; a payment still on its way is refunded in full by the server.
  */
-function CancelOrder({ orderId, prominent, onDone }) {
+const CANCEL_COPY = {
+  label: 'Anuluj zgłoszenie',
+  question: 'Na pewno anulować zgłoszenie?',
+  text: 'Zgłoszenie zniknie z listy, a Ty możesz od razu zapisać się ponownie. Nie pobraliśmy żadnej opłaty; jeśli wpłata jest właśnie w drodze, zwrócimy ją w całości.',
+}
+
+function CancelOrder({ orderId, prominent, onDone, copy = CANCEL_COPY }) {
   const [asking, setAsking] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState(null)
@@ -191,16 +200,14 @@ function CancelOrder({ orderId, prominent, onDone }) {
     return (
       <button type="button" onClick={() => setAsking(true)} className={prominent ? primaryBtn : secondaryBtn}
         data-testid="order-cancel" data-variant={prominent ? 'primary' : 'secondary'}>
-        Anuluj zgłoszenie
+        {copy.label}
       </button>
     )
   }
   return (
     <div className="border border-apex-red p-[18px] flex flex-col gap-3" data-testid="order-cancel-confirm" role="group" aria-labelledby="order-cancel-q">
-      <span id="order-cancel-q" className="font-display font-extrabold text-2xl leading-none uppercase text-apex-text-bright">Na pewno anulować zgłoszenie?</span>
-      <p className="text-base">
-        Zgłoszenie zniknie z listy, a Ty możesz od razu zapisać się ponownie. Nie pobraliśmy żadnej opłaty; jeśli wpłata jest właśnie w drodze, zwrócimy ją w całości.
-      </p>
+      <span id="order-cancel-q" className="font-display font-extrabold text-2xl leading-none uppercase text-apex-text-bright">{copy.question}</span>
+      <p className="text-base">{copy.text}</p>
       <div className="flex flex-col sm:flex-row gap-3">
         <button type="button" onClick={cancel} disabled={busy} className={primaryBtn}>{busy ? 'Chwileczkę…' : 'Tak, anuluj'}</button>
         <button type="button" onClick={() => { setAsking(false); setError(null) }} disabled={busy} className={secondaryBtn}>Nie, zostaw</button>
@@ -210,14 +217,17 @@ function CancelOrder({ orderId, prominent, onDone }) {
   )
 }
 
-function Pending({ orderId, order, raw, polling, onAgain }) {
+/**
+ * „Zapłać” of a pending order (a registration's or a surcharge's): pay-order starts a new dpay
+ * transaction at the frozen total; a page left open across closes_at drops the button then.
+ */
+function usePayOrder({ orderId, order, raw, onAgain }) {
   const [busy, setBusy] = useState(false)
   // The signup page lands here when dpay refused the first payment (create-order / register-team 502).
   const [message, setMessage] = useState(useLocation().state?.payError ?? null)
   const [, tick] = useState(0)
   const closesAt = order.closesAt ?? raw?.closesAt ?? null
   const closed = !payLinkOpen(closesAt)
-  const teamHref = captainTeamPath(order.event.slug, order.lines)
 
   // A page left open across closes_at drops „Zapłać” at that moment.
   useEffect(() => {
@@ -251,6 +261,13 @@ function Pending({ orderId, order, raw, polling, onAgain }) {
       if (err.status === 409) onAgain()
     }
   }
+
+  return { busy, message, closed, pay }
+}
+
+function Pending({ orderId, order, raw, polling, onAgain }) {
+  const { busy, message, closed, pay } = usePayOrder({ orderId, order, raw, onAgain })
+  const teamHref = captainTeamPath(order.event.slug, order.lines)
 
   return (
     <div className="flex flex-col gap-4" data-testid="order-pending">
@@ -358,6 +375,97 @@ function PaidCancelled({ order, raw }) {
   )
 }
 
+// A competition change's surcharge (order-status kind 'surcharge'): the move it pays for, the
+// amount and „Zapłać”; no people, consent or transfer block. The entry moves when it is paid.
+const changeLine = (order) => `Dopłata: zmiana z ${order.fromCompetition} na ${order.toCompetition}`
+
+const SURCHARGE_CANCEL_COPY = {
+  label: 'Rezygnuję ze zmiany',
+  question: 'Zrezygnować ze zmiany konkurencji?',
+  text: 'Zgłoszenie zostanie w dotychczasowej konkurencji. Nie pobraliśmy żadnej opłaty; jeśli wpłata jest właśnie w drodze, zwrócimy ją w całości.',
+}
+
+function SurchargeOrder({ orderId, order, raw, polling, onAgain }) {
+  const href = raw ? eventPath(raw.slug) : order.event.slug ? eventPath(order.event.slug) : null
+  const eventLink = href ? <Link to={href} className={secondaryBtn} data-testid="order-event-link">Strona zawodów</Link> : null
+  const total = order.total ?? order.amounts?.total ?? 0
+
+  if (order.status === 'paid') {
+    return (
+      <div className="flex flex-col gap-4" data-testid="order-surcharge-paid">
+        <PageTop right={order.event.name} />
+        <div className="bg-apex-yellow text-apex-ink p-[18px] flex flex-col gap-1">
+          <span className="font-mono text-xs uppercase">Opłacone · {formatPln(total)}</span>
+          <span className="font-display font-extrabold text-4xl leading-none uppercase">Konkurencja zmieniona</span>
+          <span className="text-base font-semibold" data-testid="order-surcharge-change">{changeLine(order)}</span>
+        </div>
+        <p className="text-lg">Zgłoszenie jest teraz w konkurencji {order.toCompetition}{order.startTime ? `, start ${order.startTime}` : ''}.</p>
+        {order.amounts?.refunded > 0 && (
+          <p className="text-base" data-testid="order-refunded">Zwrócono {formatPln(order.amounts.refunded)} z {formatPln(total)}.</p>
+        )}
+        {eventLink}
+      </div>
+    )
+  }
+  if (order.status !== 'pending') {
+    const expired = order.status === 'expired'
+    return (
+      <div className="flex flex-col gap-4" data-testid="order-surcharge-ended">
+        <PageTop right={order.event.name} />
+        <div className="border border-apex-border-bright p-[18px] flex flex-col gap-1">
+          <span className={labelCls}>{changeLine(order)}</span>
+          <span className="font-display font-extrabold text-[32px] leading-none uppercase text-apex-text-bright">
+            {expired ? 'Dopłata wygasła' : 'Dopłata anulowana'}
+          </span>
+        </div>
+        <p className="text-lg">
+          {surchargeEndedText(order)}
+        </p>
+        {eventLink}
+      </div>
+    )
+  }
+  return <SurchargePending orderId={orderId} order={order} raw={raw} polling={polling} onAgain={onAgain} total={total} />
+}
+
+function SurchargePending({ orderId, order, raw, polling, onAgain, total }) {
+  const { busy, message, closed, pay } = usePayOrder({ orderId, order, raw, onAgain })
+  return (
+    <div className="flex flex-col gap-4" data-testid="order-surcharge-pending">
+      <PageTop back={raw ? { to: eventPath(raw.slug), label: 'Zawody' } : null} right={order.event.name} />
+      <div className="border border-apex-cyan p-[18px] flex flex-col gap-1">
+        <span className="font-mono text-xs uppercase text-apex-cyan">Czeka na dopłatę · {formatPln(total)}</span>
+        <span className="font-display font-extrabold text-[32px] leading-none uppercase text-apex-text-bright" data-testid="order-surcharge-change">
+          {changeLine(order)}
+        </span>
+        {order.expiresAt && (
+          <span className="text-base font-semibold text-apex-text-bright" data-testid="order-deadline">Opłać do {warsaw.format(new Date(order.expiresAt))}</span>
+        )}
+      </div>
+      <div className="flex justify-between gap-2.5 py-1.5 text-lg font-bold text-apex-text-bright" data-testid="order-amounts">
+        <span>Dopłata</span><span className="font-mono text-apex-yellow whitespace-nowrap">{formatPln(total)}</span>
+      </div>
+      {closed
+        ? <p className="text-apex-red text-base" data-testid="order-closed">Zapisy są zamknięte.</p>
+        : order.full
+          ? <p className="text-apex-red text-base" data-testid="order-full">Brak wolnych miejsc w konkurencji {order.toCompetition}.</p>
+          : (
+            <button type="button" onClick={pay} disabled={busy} className={primaryBtn} data-testid="order-pay">
+              {busy ? 'Chwileczkę…' : 'Zapłać'}
+            </button>
+            )}
+      {message && <p className="text-apex-red text-base" role="alert">{message}</p>}
+      {polling
+        ? <span className="font-mono text-xs uppercase text-apex-muted" data-testid="order-checking" aria-live="polite">Sprawdzamy płatność…</span>
+        : <button type="button" onClick={onAgain} className={secondaryBtn} data-testid="order-recheck">Sprawdź ponownie</button>}
+      <p className="text-sm text-apex-muted">
+        Zgłoszenie przeniesiemy do konkurencji {order.toCompetition} po wpłacie. Bez wpłaty w terminie zostaje w konkurencji {order.fromCompetition}.
+      </p>
+      <CancelOrder orderId={orderId} onDone={onAgain} copy={SURCHARGE_CANCEL_COPY} />
+    </div>
+  )
+}
+
 function Message({ children, action }) {
   return (
     <div className="flex flex-col gap-4" data-testid="order-message">
@@ -394,6 +502,8 @@ export default function Zamowienie() {
     body = <Message>Nie znaleźliśmy tego zgłoszenia na Twoim koncie.</Message>
   } else if (order.status === 'error') {
     body = <Message>Nie udało się wczytać zgłoszenia. Odśwież stronę.</Message>
+  } else if (order.order.kind === 'surcharge') {
+    body = <SurchargeOrder orderId={orderId} order={order.order} raw={raw} polling={order.polling} onAgain={order.again} />
   } else if (paidOrderCancelled(order.order)) {
     body = <PaidCancelled order={order.order} raw={raw} />
   } else if (order.order.status === 'paid') {

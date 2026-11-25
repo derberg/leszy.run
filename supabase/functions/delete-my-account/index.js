@@ -453,6 +453,11 @@ Deno.serve(async (req) => {
     const { error: byErr } = await supabaseAdmin.from('registrations')
       .update({ registered_by_profile_id: null }).eq('registered_by_profile_id', profile.id)
     if (byErr) console.error('delete-my-account: registered_by cleanup failed:', byErr.message)
+    // Runner self-service (Plan 8): the audit of their own changes stays (field names, competitions
+    // and amounts, no personal value), but no longer names the account that made them.
+    const { error: changesErr } = await supabaseAdmin.from('registration_changes')
+      .update({ actor_profile_id: null }).eq('actor_profile_id', profile.id)
+    if (changesErr) console.error('delete-my-account: registration_changes cleanup failed:', changesErr.message)
 
     // 1d. Orders (paid registration). Payment records are accounting records,
     // kept 5 years from the end of the year of payment (tax law, Art. 17(3)(b)):

@@ -4,6 +4,7 @@ import { getSession } from '../_shared/session.js'
 import { checkAndIncrement } from '../_shared/throttle.js'
 import { dpayConfig, transactionDetails } from '../_shared/dpay.js'
 import { isUuid } from '../_shared/registration/organizerEvent.js'
+import { orderForSession } from '../_shared/registration/orderAccess.js'
 import { json, NOT_FOUND } from '../_shared/registration/registrationRequest.js'
 import { loadOrderView, logPaymentEvent, orderAmountsOf, settleConfirmOutcome } from '../_shared/registration/orderFlow.js'
 import { transferViews } from '../_shared/registration/transfers.js'
@@ -93,13 +94,15 @@ async function ownTransferViews(admin, view, userId) {
   return transferViews(admin, regs ?? [], settings, userId)
 }
 
-// POST { orderId } → 200 { data: { status, expiresAt, lines: [{ registrationId, name, firstName,
+// POST { orderId } → 200 { data: { kind: 'registration' | 'surcharge', status, expiresAt, lines: [{ registrationId, name, firstName,
 //   role: self|adult|minor, consentState: accepted|awaiting|office, competition, ageGroupLabel,
 //   kidsGroupLabel (a child's kids' group, else null), mine (the line is the buyer's own entry),
 //   startTime, amount, teamId, teamName, isCaptain, transferred (Plan 7: the package was handed on;
 //   then role, consentState and ageGroupLabel are null and mine false), transfer (Plan 7, RA5: the
 //   my-event-registrations block { allowed, until, pending } on the buyer's own line of a paid order,
 //   null on every other line) }], paidOffline (paid at the organizer, never the note), amounts (+ refunded: grosze dpay paid back), event: { slug, name }, closesAt, full, cancelledReason } }
+// A surcharge (a competition change paid online) adds fromCompetition, toCompetition, startTime,
+// total and lateRefund (a late payment refunded in full; no person's name), and has lines: [].
 // The order page's state, for the buyer only (401 without a session, 404 otherwise). While the
 // order is pending and dpay may have taken the money without an IPN reaching us, it asks dpay
 // (see poll) before answering.
@@ -119,10 +122,8 @@ Deno.serve(async (req) => {
     const orderId = body?.orderId
     if (!isUuid(orderId)) return json(NOT_FOUND, 404, req)
 
-    const { data: head, error } = await admin.from('orders')
-      .select('id, buyer_profile_id, status').eq('id', orderId).maybeSingle()
-    if (error) throw error
-    if (!head || head.buyer_profile_id !== session.userId) return json(NOT_FOUND, 404, req)
+    const head = await orderForSession(admin, orderId, session, 'id, status')
+    if (!head) return json(NOT_FOUND, 404, req)
     const throttle = await checkAndIncrement(admin, `status:${orderId}`, STATUS_LIMIT, { failOpen: true, windowSeconds: 3600 })
     if (!throttle.allowed) {
       return json({ error: 'Zbyt wiele prób. Spróbuj ponownie później.' }, 429, req,
@@ -154,8 +155,27 @@ Deno.serve(async (req) => {
       console.error('order-status: transfer views failed:', err?.message)
     }
     const refunded = (await acceptedRefundTotals(admin, [orderId])).get(orderId) ?? 0
+    // A competition change's surcharge (kind 'surcharge'): the move it pays for, no entry lines and
+    // so no consent or transfer block on the page.
+    let surcharge = {}
+    if (view.kind === 'surcharge') {
+      // lateRefund: a payment that arrived when the surcharge could no longer move the entry is being
+      // (or was) paid back in full (confirm_order's late_refund, an automatic refund not rejected).
+      const { data: late, error: lateErr } = await admin.from('refunds').select('id')
+        .eq('order_id', orderId).eq('kind', 'automatic').neq('dpay_status', 'rejected').limit(1)
+      if (lateErr) console.error('order-status: late refund read failed:', lateErr.message)
+      surcharge = {
+        fromCompetition: view.surcharge.fromCompetition,
+        toCompetition: view.surcharge.toCompetition,
+        startTime: view.surcharge.startTime,
+        total: view.order.total,
+        lateRefund: (late ?? []).length > 0,
+      }
+    }
     return json({
       data: {
+        kind: view.kind,
+        ...surcharge,
         status: view.order.status,
         // „Opłacone u organizatora”: the organizer marked it paid outside the system. The club's
         // note on it never leaves the organizer panel.

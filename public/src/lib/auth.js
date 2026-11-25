@@ -67,6 +67,10 @@ async function callEdge(name, body, { keepalive = false } = {}) {
     if (data.buyer) err.buyer = data.buyer
     // Plan 7: a cart refusal names the field of the person (`index`) it is about: voucherCode, extras, donation.
     if (typeof data.field === 'string') err.field = data.field
+    // organizer-entry-action change_competition: the real difference (409 price_changed), and the
+    // refund's state when the entry moved but dpay did not take the refund (409, data.moved).
+    if (Number.isInteger(data.difference)) err.difference = data.difference
+    if (data.data && typeof data.data === 'object') err.data = data.data
     const retryAfter = Number(res.headers.get('retry-after'))
     if (Number.isFinite(retryAfter) && retryAfter > 0) err.retryAfterSec = retryAfter
     throw err

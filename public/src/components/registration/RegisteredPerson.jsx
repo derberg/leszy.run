@@ -63,21 +63,28 @@ function RemindConsent({ registrationId, name, onStale, sent: sentBefore = false
 /**
  * @param {{ person: { role?, consentState?, mine? }, registrationId?: string, name: string,
  *   meta: Array<string|null>, showTag: boolean, testId: string, onStale?: () => void,
- *   reminded?: boolean, onReminded?: (registrationId: string) => void, footer?: import('react').ReactNode }} p
- * `footer`: what the page adds under the person (RA5's „Przekaż pakiet innej osobie →”).
+ *   reminded?: boolean, onReminded?: (registrationId: string) => void, menu?: import('react').ReactNode,
+ *   footer?: import('react').ReactNode }} p
+ * `menu`: the runner's „⋯” at the right end of the name line (RA5, EntryActions); `footer`: what the
+ * page adds under the person (RA5: an open surcharge, a pending transfer, the last change's result).
  */
-export default function RegisteredPerson({ person, registrationId, name, meta, showTag, testId, onStale, reminded, onReminded, footer }) {
+export default function RegisteredPerson({ person, registrationId, name, meta, showTag, testId, onStale, reminded, onReminded, menu, footer }) {
   const tag = showTag ? consentTag(person) : null
   return (
     <div className="border border-apex-border-mid bg-apex-surface p-3.5" data-testid={testId}>
       <div className="flex justify-between items-start gap-3">
         <span className="min-w-0 block text-lg font-bold text-apex-text-bright [overflow-wrap:anywhere]">{name}</span>
-        {tag && (
-          <span className={`shrink-0 mt-0.5 border px-1.5 py-0.5 font-mono text-xs uppercase whitespace-nowrap ${TAG_CLS[tag.kind]}`}
-            data-testid="consent-tag" data-kind={tag.kind}>
-            <span aria-hidden="true">{tag.label}</span>
-            <span className="sr-only">{tag.srLabel}</span>
-          </span>
+        {(tag || menu) && (
+          <div className="shrink-0 flex items-center gap-2">
+            {tag && (
+              <span className={`mt-0.5 border px-1.5 py-0.5 font-mono text-xs uppercase whitespace-nowrap ${TAG_CLS[tag.kind]}`}
+                data-testid="consent-tag" data-kind={tag.kind}>
+                <span aria-hidden="true">{tag.label}</span>
+                <span className="sr-only">{tag.srLabel}</span>
+              </span>
+            )}
+            {menu}
+          </div>
         )}
       </div>
       <MetaLine parts={meta} />

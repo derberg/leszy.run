@@ -8,6 +8,7 @@ import { nextOrganizerStep, organizerFeaturesShown } from '../../lib/organizerGa
 import { primaryBtnClass } from '../profil/fields.jsx'
 import { useKlub } from './context.js'
 import { UnlistedBadge } from './wydarzenia/wizardUi.jsx'
+import AgreementUpdateBanner from './AgreementUpdateBanner.jsx'
 import { btnGhost, fieldInput, fieldLabel } from './settingsUi.js'
 
 const cardClass = 'border border-apex-border bg-apex-surface p-5 space-y-3'
@@ -85,9 +86,11 @@ function AgreementCard({ club, isOwner, version }) {
 }
 
 // After acceptance the agreement card is gone; this line keeps the text (and its
-// PDF) one click away for the owner and admins.
-function AgreementLink({ club, version, acceptedAt }) {
-  const date = acceptedAt
+// PDF) one click away for the owner and admins. The acceptance date shows only when the club's
+// newest acceptance is the current version; an older one means the agreement was updated since
+// (an update, no re-acceptance: the strip above says so).
+function AgreementLink({ club, version, acceptedVersion, acceptedAt }) {
+  const date = acceptedAt && acceptedVersion === version
     ? new Date(acceptedAt).toLocaleDateString('pl-PL', { timeZone: 'Europe/Warsaw', day: '2-digit', month: '2-digit', year: 'numeric' })
     : null
   return (
@@ -175,7 +178,7 @@ export default function Wydarzenia() {
 
   const step = status ? nextOrganizerStep(status) : null
   const canManage = step === 'wizard'
-  // The list answers only once the club is on and the agreement accepted.
+  // The list answers only once the club is on and the agreement accepted (any version).
   const listable = !ready ? null : !!(status && organizerFeaturesShown(status) && status.agreementAccepted)
   const list = useClubRegistrationEvents(club.id, listable)
   const events = list.events
@@ -193,6 +196,7 @@ export default function Wydarzenia() {
       </div>
 
       {!ready && <p className="font-mono text-sm text-apex-muted animate-pulse">Ładowanie…</p>}
+      {canManage && <AgreementUpdateBanner club={club} status={status} isOwner={isOwner} onAcknowledged={reload} />}
       {ready && error && <p className="text-apex-red font-sans text-xs">{error}</p>}
       {creating && <NewEventForm club={club} onCancel={() => setCreating(false)} />}
       {status && step === null && list.ready && !events.length && (
@@ -209,7 +213,8 @@ export default function Wydarzenia() {
         </div>
       )}
       {canManage && status.agreementAccepted && (
-        <AgreementLink club={club} version={status.version} acceptedAt={status.agreementAcceptedAt} />
+        <AgreementLink club={club} version={status.currentVersion ?? status.version} acceptedVersion={status.acceptedVersion}
+          acceptedAt={status.agreementAcceptedAt} />
       )}
     </div>
   )

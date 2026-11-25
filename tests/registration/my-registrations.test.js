@@ -7,7 +7,9 @@ import crypto from 'node:crypto'
 import { localEnv, resetThrottle, sessionFor, EDGE_PROXY } from './helpers/stack.js'
 import { startCapture } from './helpers/emailCapture.js'
 import { acceptAgreement, callFn, createPublishedFreeEvent, createPublishedPaidEvent } from './helpers/registrationFixtures.js'
-import { attemptFor, confirmOk, db, orderOk, profileFor, runnerEmail } from './helpers/orders.js'
+import { attemptFor, confirmOk, db, orderOk, profileFor, runnerEmail, setSettings } from './helpers/orders.js'
+import { adult, orderGroupOk } from './helpers/groups.js'
+import { enableTransfers, inviteOk } from './helpers/transfers.js'
 
 let owner, stopCapture
 before(async () => {
@@ -104,4 +106,57 @@ test('W-88 my-registrations: 401 without a session; a stranger sees none of it; 
 
   const listed = (await callFn('my-registrations', session, {})).body.data.map((e) => e.eventId)
   assert.deepEqual(listed, [event.eventId])
+})
+
+test('RS-19 my-registrations carries my-event-registrations\' transfer block: on the session\'s own entry, never on an added adult\'s the session paid for', async () => {
+  const event = await createPublishedPaidEvent(owner)
+  const email = runnerEmail('holder')
+  const other = runnerEmail('added')
+  const out = await orderGroupOk(event, [adult(event.categoryIds[0], 'self', email), adult(event.categoryIds[0], 'adult', other)])
+  const att = await attemptFor(out.orderId, out.total)
+  await confirmOk(out.orderId, att.txn, out.total)
+  const session = await sessionFor(email)
+  const peopleOf = async () => (await callFn('my-registrations', session, {})).body.data.find((e) => e.eventId === event.eventId).people
+
+  const blocksOff = async () => {
+    const people = await peopleOf()
+    const mev = (await callFn('my-event-registrations', session, { slug: event.slug })).body.data
+    for (const p of people) assert.deepEqual(p.transfer, mev.find((r) => r.id === p.id).transfer, 'the same block as RA5')
+    return people
+  }
+  const off = await blocksOff()
+  assert.deepEqual(off.map((p) => p.transfer.allowed), [false, false], 'transfers off: nothing allowed, the block still there')
+  assert.deepEqual(off.map((p) => p.transfer.pending), [null, null])
+
+  await enableTransfers(event)
+  const people = await peopleOf()
+  const own = people.find((p) => p.mine)
+  const added = people.find((p) => !p.mine)
+  assert.ok(own && added, JSON.stringify(people))
+  const mev = (await callFn('my-event-registrations', session, { slug: event.slug })).body.data
+  assert.deepEqual(own.transfer, mev.find((r) => r.id === own.id).transfer, 'the same block as RA5')
+  assert.equal(own.transfer.allowed, true)
+  assert.equal(own.transfer.pending, null)
+  assert.equal(own.transfer.refundPending, false)
+  assert.deepEqual(added.transfer, { allowed: false, until: own.transfer.until, pending: null, refundPending: false },
+    'the payer never hands on an added adult\'s entry')
+})
+
+test('RS-19 an open invite still shows on Moje zapisy after the club switched transfers off, as on RA5', async () => {
+  const event = await createPublishedPaidEvent(owner)
+  const email = runnerEmail('holder')
+  const out = await orderGroupOk(event, [adult(event.categoryIds[0], 'self', email)])
+  const att = await attemptFor(out.orderId, out.total)
+  await confirmOk(out.orderId, att.txn, out.total)
+  const session = await sessionFor(email)
+  await enableTransfers(event)
+  const [reg] = (await db().from('registrations').select('id').eq('order_id', out.orderId)).data
+  const invited = await inviteOk(reg.id, await profileFor(email))
+  await setSettings(event.eventId, { transfer_enabled: false })
+
+  const own = (await callFn('my-registrations', session, {})).body.data.find((e) => e.eventId === event.eventId).people[0]
+  const mev = (await callFn('my-event-registrations', session, { slug: event.slug })).body.data.find((r) => r.id === reg.id)
+  assert.deepEqual(own.transfer, mev.transfer, 'the same block as RA5')
+  assert.equal(own.transfer.allowed, false, 'transferAllowed still decides')
+  assert.equal(own.transfer.pending?.transferId, invited.transferId)
 })

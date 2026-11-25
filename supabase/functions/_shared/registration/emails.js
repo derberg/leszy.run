@@ -658,3 +658,135 @@ export function squadChangedEmail({
   ].join('')
   return { subject: `Zmiana składu drużyny ${team.name} — ${event.name}`, text, html }
 }
+
+// ---- Moving a registration to another competition (competition change) ----------------------
+// These mails name the event and the two competitions and nothing else: no person's name, no
+// address (the payer's and the runner's may differ, and neither may learn the other's). Sent as
+// the club („<klub> przez LESZY.RUN”, reply-to the event's contact address) by
+// competitionChangeMail.js.
+
+/**
+ * A dearer move waits for the difference to be paid. `reminder` is the job's second mail.
+ * grosze = the surcharge, url = the order page, expiresAt = when the offer lapses (optional).
+ */
+export function surchargeEmail({ eventName, from, to, grosze, url, expiresAt = null, reminder = false }) {
+  const until = warsawDateTime(expiresAt)
+  const facts = [['Do zapłaty', formatPln(grosze)], ...(until ? [['Termin', until]] : [])]
+  const lead = `Zmiana konkurencji na zawodach ${eventName}: z ${from} na ${to} wymaga dopłaty.`
+  const keep = `Do czasu wpłaty zostajesz w konkurencji ${from}; zmiana nastąpi dopiero po opłaceniu dopłaty.`
+  const placeNote = `Miejsce w konkurencji ${to} zajmuje dopiero opłacona dopłata — jeśli inne osoby opłacą wcześniej wszystkie miejsca, dopłaty nie będzie można już opłacić.`
+  const text = [
+    'Cześć,', '', lead, keep, placeNote, '', ...textBlock(facts), '', `Zapłać: ${url}`, '', 'LESZY.RUN',
+  ].join('\n')
+  const html = [
+    '<p>Cześć,</p>',
+    `<p>${escapeHtml(lead)}</p>`,
+    `<p>${escapeHtml(keep)}</p>`,
+    `<p>${escapeHtml(placeNote)}</p>`,
+    htmlBlock(facts),
+    link(url, 'Zapłać'),
+    '<p>LESZY.RUN</p>',
+  ].join('')
+  const subject = `${reminder ? 'Przypomnienie: dopłata za zmianę konkurencji' : 'Dopłata za zmianę konkurencji'} — ${eventName}`
+  return { subject, text, html }
+}
+
+/** The entry is in the other competition now. A refund line only when the cheaper move was refunded. */
+export function competitionChangedEmail({ eventName, from, to, refundGrosze = null }) {
+  const refund = refundGrosze > 0
+    ? `Zwrot różnicy: ${formatPln(refundGrosze)} trafi na konto, z którego zapłacono.`
+    : null
+  const lead = `Zgłoszenie na zawody ${eventName} zostało przeniesione z konkurencji ${from} do konkurencji ${to}.`
+  const text = ['Cześć,', '', lead, ...(refund ? ['', refund] : []), '', 'Pytania kieruj do organizatora: wystarczy odpowiedzieć na tę wiadomość.', '', 'LESZY.RUN'].join('\n')
+  const html = [
+    '<p>Cześć,</p>',
+    `<p>${escapeHtml(lead)}</p>`,
+    refund ? `<p>${escapeHtml(refund)}</p>` : '',
+    '<p>Pytania kieruj do organizatora: wystarczy odpowiedzieć na tę wiadomość.</p>',
+    '<p>LESZY.RUN</p>',
+  ].join('')
+  return { subject: `Zmieniono konkurencję — ${eventName}`, text, html }
+}
+
+/** The surcharge was not paid in time (or the organizer withdrew it): the entry stays where it was. */
+export function surchargeExpiredEmail({ eventName, from }) {
+  const lead = `Dopłata za zmianę konkurencji na zawodach ${eventName} wygasła, bo nie została opłacona w terminie.`
+  const stay = `Zgłoszenie zostaje w konkurencji ${from}.`
+  const text = ['Cześć,', '', lead, stay, '', 'Pytania kieruj do organizatora: wystarczy odpowiedzieć na tę wiadomość.', '', 'LESZY.RUN'].join('\n')
+  const html = [
+    '<p>Cześć,</p>', `<p>${escapeHtml(lead)}</p>`, `<p>${escapeHtml(stay)}</p>`,
+    '<p>Pytania kieruj do organizatora: wystarczy odpowiedzieć na tę wiadomość.</p>', '<p>LESZY.RUN</p>',
+  ].join('')
+  return { subject: `Dopłata wygasła — zostajesz w ${from}`, text, html }
+}
+
+/** What the sentence of a refunded surcharge says; the wording of any reason without its own is neutral. */
+function surchargeRefundWhy(reason, to) {
+  switch (reason) {
+    case 'full': return `brak wolnych miejsc w ${to}`
+    case 'unavailable': return `konkurencja ${to} nie jest już dostępna`
+    case 'closed': return 'zapisy zostały już zamknięte'
+    default: return 'zgłoszenie zmieniło się'
+  }
+}
+
+/** A surcharge that arrived when the move could no longer be made: refunded in full. */
+export function surchargeRefundedEmail({ eventName, from, to, grosze, reason }) {
+  const why = surchargeRefundWhy(reason, to)
+  const lead = `Zwracamy dopłatę za zmianę konkurencji na zawodach ${eventName} w całości (${formatPln(grosze)}), bo ${why}.`
+  // A changed entry may be cancelled or moved on: only a refusal about the target says it stays put.
+  const stay = ['full', 'unavailable', 'closed'].includes(reason) ? `Zgłoszenie zostaje w konkurencji ${from}.` : null
+  const back = 'Pieniądze wrócą tą samą drogą, którą zostały wysłane, zwykle w ciągu kilku dni roboczych.'
+  const text = ['Cześć,', '', lead, ...(stay ? [stay] : []), '', back, '', 'LESZY.RUN'].join('\n')
+  const html = [
+    '<p>Cześć,</p>', `<p>${escapeHtml(lead)}</p>`, stay ? `<p>${escapeHtml(stay)}</p>` : '', `<p>${escapeHtml(back)}</p>`, '<p>LESZY.RUN</p>',
+  ].join('')
+  return { subject: 'Dopłata zwrócona', text, html }
+}
+
+// ---- The runner's own change (my-entry-action) --------------------------------------------------
+// To the club (the event's contact address): which entry, what changed, the panel link. The
+// person's name only, which the club holds already; a data edit names the fields, never a value.
+
+const FIELD_LABELS = {
+  birthDate: 'Data urodzenia', gender: 'Płeć', phone: 'Telefon', city: 'Miejscowość', club: 'Klub',
+  nationality: 'Narodowość', iceName: 'Kontakt alarmowy (imię i nazwisko)', icePhone: 'Telefon kontaktu alarmowego',
+  firstName: 'Imię', lastName: 'Nazwisko',
+}
+
+function runnerChangeLines({ from, to, outcome, grosze, refundStatus }) {
+  const lines = [`Zmiana konkurencji: z ${from} na ${to}.`]
+  if (outcome === 'surcharge') {
+    lines.push(`Nowa konkurencja jest droższa: zawodnik dostał prośbę o dopłatę ${formatPln(grosze)}. Zmiana nastąpi po jej opłaceniu.`)
+  } else if (outcome === 'refund') {
+    const amount = formatPln(Math.abs(grosze))
+    if (refundStatus === 'accepted') lines.push(`Różnica ${amount} została zwrócona płacącemu przez operatora płatności.`)
+    else if (refundStatus === 'unknown') lines.push(`Zwrot różnicy ${amount} jest w toku: operator płatności jeszcze go nie potwierdził.`)
+    else lines.push(`Operator płatności nie przyjął zwrotu różnicy ${amount}. Zwróć ją przez „Zwróć wpłatę” w panelu zgłoszeń.`)
+  } else if (outcome === 'moved_offline_refund') {
+    lines.push(`Różnica ${formatPln(Math.abs(grosze))} do zwrotu poza systemem.`)
+  } else {
+    lines.push('Cena się nie zmieniła.')
+  }
+  return lines
+}
+
+/**
+ * @param {{ eventName: string, person: string, url: string,
+ *   change?: { from, to, outcome, grosze, refundStatus? }, fields?: string[] }} args
+ */
+export function runnerChangeClubEmail({ eventName, person, url, change = null, fields = null }) {
+  const lead = `Zgłoszenie: ${person}. Na zawodach ${eventName} zawodnik (albo opiekun dziecka) sam zmienił je w „Moje zapisy”.`
+  const lines = change
+    ? runnerChangeLines(change)
+    : [`Zmienione dane: ${(fields ?? []).map((f) => FIELD_LABELS[f] ?? f).join(', ')}.`]
+  const text = ['Cześć,', '', lead, ...lines, '', `Zgłoszenia: ${url}`, '', 'LESZY.RUN'].join('\n')
+  const html = [
+    '<p>Cześć,</p>',
+    `<p>${escapeHtml(lead)}</p>`,
+    ...lines.map((l) => `<p>${escapeHtml(l)}</p>`),
+    link(url, 'Zgłoszenia'),
+    '<p>LESZY.RUN</p>',
+  ].join('')
+  return { subject: `Zawodnik zmienił zgłoszenie — ${eventName}`, text, html }
+}

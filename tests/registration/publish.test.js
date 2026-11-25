@@ -164,7 +164,7 @@ test('W-14 a slug taken by an ordinary event meanwhile → 409 „Adres zawodów
   }
 })
 
-test('W-14 without the current agreement → 409 agreement_required', async () => {
+test('W-14 a club with no agreement at all → 409 agreement_required (any version would do, AU-01)', async () => {
   const club = await makeClub({ slug: 'publikacja-umowa' })
   const own = await sessionFor(club.ownerEmail)
   const { eventId } = await completeEvent({ session: own, clubId: club.clubId })

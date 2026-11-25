@@ -14,6 +14,8 @@ const settings = [
   { event_id: 'e-older', slug: 'bieg-starszy', name: 'Bieg Starszy', state: 'closed', event_date: '2026-05-01', first_start_time: '09:30:00' },
   { event_id: 'e-draft', slug: 'szkic', name: 'Szkic', state: 'draft', event_date: '2026-12-01', first_start_time: null },
 ]
+// The fixture settings carry no runner switches or closes_at: no action anywhere.
+const NONE = { change: false, edit: false }
 const competitions = [{ category_id: 'c1', name: 'Bieg 10 km' }, { category_id: 'c2', name: 'Bieg dzieci' }]
 const reg = (over) => ({ category_id: 'c1', status: 'confirmed', first_name: 'Ola', last_name: 'Leśna', profile_id: null, created_at: '2026-10-01T10:00:00Z', ...over })
 const order = (over) => ({ buyer_profile_id: ME, status: 'paid', total: 6000, expires_at: null, paid_at: '2026-10-01T10:05:00Z', created_at: '2026-10-01T10:00:00Z', ...over })
@@ -56,9 +58,9 @@ test('W-87 orders and people per event, upcoming soonest first then past latest 
     { id: 'o2', status: 'pending', total: 3000, refunded: 0, cancelled: false, expiresAt: '2026-11-05T10:00:00Z', paidAt: null, createdAt: '2026-10-02T10:00:00Z' },
   ])
   assert.deepEqual(future.people, [
-    { id: 'r-me', firstName: 'Ola', lastName: 'Leśna', competition: 'Bieg 10 km', status: 'confirmed', mine: true },
-    { id: 'r-kid', firstName: 'Kuba', lastName: 'Leśna', competition: 'Bieg dzieci', status: 'confirmed', mine: false },
-    { id: 'r-pend', firstName: 'Ala', lastName: 'Leśna', competition: 'Bieg 10 km', status: 'pending_payment', mine: false },
+    { id: 'r-me', firstName: 'Ola', lastName: 'Leśna', competition: 'Bieg 10 km', status: 'confirmed', mine: true, surcharge: null, actions: NONE, transfer: null },
+    { id: 'r-kid', firstName: 'Kuba', lastName: 'Leśna', competition: 'Bieg dzieci', status: 'confirmed', mine: false, surcharge: null, actions: NONE, transfer: null },
+    { id: 'r-pend', firstName: 'Ala', lastName: 'Leśna', competition: 'Bieg 10 km', status: 'pending_payment', mine: false, surcharge: null, actions: NONE, transfer: null },
   ])
   assert.deepEqual(data[2].orders, [], 'another buyer’s order is never listed')
   assert.equal(data[0].firstStartTime, null)
@@ -103,4 +105,102 @@ test('W-87 compareEvents: race day is upcoming, an undated event ends the upcomi
   const ev = (eventId, eventDate) => ({ eventId, eventDate, eventName: eventId })
   const list = [ev('past1', '2026-10-01'), ev('none', null), ev('today', '2026-11-02'), ev('later', '2027-01-01'), ev('past2', '2026-10-30')]
   assert.deepEqual(list.sort((a, b) => compareEvents(a, b, today)).map((e) => e.eventId), ['today', 'later', 'none', 'past2', 'past1'])
+})
+
+// Competition change (CC readers): a surcharge order owns no registration. A paid one is never a
+// separate (let alone cancelled) order; a pending one the session pays is shown on its entry.
+test('CC a surcharge order is never listed as an order; a pending one the session pays sits on its entry', () => {
+  const surcharge = (over) => order({
+    kind: 'surcharge', event_id: 'e-future', total: 2000, surcharge_registration_id: 'r-me',
+    surcharge_to_category_id: 'c2', created_at: '2026-10-03T10:00:00Z', ...over,
+  })
+  const data = shapeMyRegistrations({
+    userId: ME, settings, competitions, now: NOW,
+    orders: [
+      order({ id: 'o1', event_id: 'e-future', kind: 'registration' }),
+      surcharge({ id: 's-paid', status: 'paid' }),
+      surcharge({ id: 's-open', status: 'pending', paid_at: null, expires_at: '2026-11-05T10:00:00Z' }),
+      surcharge({ id: 's-other', status: 'pending', paid_at: null, expires_at: '2026-11-05T10:00:00Z', surcharge_registration_id: 'r-kid', buyer_profile_id: 'someone-else' }),
+      surcharge({ id: 's-due', status: 'pending', paid_at: null, expires_at: '2026-11-01T10:00:00Z', surcharge_registration_id: 'r-kid' }),
+    ],
+    registrations: [
+      reg({ id: 'r-me', event_id: 'e-future', profile_id: ME }),
+      reg({ id: 'r-kid', event_id: 'e-future', created_at: '2026-10-01T10:00:01Z' }),
+    ],
+    // The paid surcharge holds no registration: it must not read as an order whose entries went.
+    liveOrderIds: new Set(['o1']),
+  })
+  assert.equal(data.length, 1)
+  assert.deepEqual(data[0].orders.map((o) => [o.id, o.cancelled]), [['o1', false]])
+  const byId = new Map(data[0].people.map((p) => [p.id, p]))
+  assert.deepEqual(byId.get('r-me').surcharge, { orderId: 's-open', toCompetition: 'Bieg dzieci', grosze: 2000, expiresAt: '2026-11-05T10:00:00Z' })
+  assert.equal(byId.get('r-kid').surcharge, null, 'another payer’s surcharge and one past its window are not offered')
+})
+
+test('CC an event reached only through a surcharge order is not listed', () => {
+  const data = shapeMyRegistrations({
+    userId: ME, settings, competitions, now: NOW,
+    orders: [order({ id: 's1', kind: 'surcharge', event_id: 'e-future', surcharge_registration_id: 'r-x', surcharge_to_category_id: 'c1' })],
+    registrations: [],
+  })
+  assert.deepEqual(data, [])
+})
+
+test('RS-15 actions: the runner’s own entry, before close, with the club’s switches; never a team member', () => {
+  const open = { ...settings[0], club_id: 'club1', closes_at: '2026-12-01T22:00:00Z', runner_competition_change: true, runner_data_edit: true }
+  const enabledClubs = new Set(['club1'])
+  const shape = (over, opts = {}) => shapeMyRegistrations({
+    userId: ME, email: 'ola@example.com', settings: [{ ...open, ...opts.settings }], competitions, orders: opts.orders ?? [],
+    registrations: [reg({ id: 'r1', event_id: 'e-future', ...over })], captains: opts.captains, now: NOW,
+    enabledClubs: opts.enabledClubs ?? enabledClubs, openSurcharges: opts.openSurcharges ?? [],
+    agreementClubs: opts.agreementClubs ?? new Set(['club1']),
+    changeTargets: opts.changeTargets ?? new Map([['e-future', new Set(['c1', 'c3'])]]),
+  })[0].people[0]
+  assert.deepEqual(shape({ profile_id: ME }).actions, { change: true, edit: true })
+  assert.deepEqual(shape({ email: 'OLA@example.com' }).actions, { change: true, edit: true }, 'an adult entry at the session’s address')
+  assert.deepEqual(shape({ email: null, guardian_profile_id: ME }).actions, { change: true, edit: true }, 'a child’s guardian')
+  assert.deepEqual(shape({ email: 'inna@example.com', registered_by_profile_id: ME }).actions, NONE, 'another adult the session registered')
+  assert.deepEqual(shape({ profile_id: ME, status: 'pending_payment' }).actions, { change: false, edit: true })
+  assert.deepEqual(shape({ profile_id: ME }, { settings: { runner_competition_change: false } }).actions, { change: false, edit: true })
+  assert.deepEqual(shape({ profile_id: ME }, { settings: { runner_data_edit: false } }).actions, { change: true, edit: false })
+  assert.deepEqual(shape({ profile_id: ME }, { settings: { closes_at: '2026-11-02T10:59:59Z' } }).actions, NONE, 'after closes_at')
+  assert.deepEqual(shape({ profile_id: ME, team_id: 't1' }).actions, NONE, 'a team member')
+  assert.deepEqual(shape({ profile_id: ME, team_id: 't1' }, { captains: new Set(['r1']) }).actions, { change: false, edit: true }, 'a captain edits only')
+  assert.deepEqual(shape({ profile_id: ME }, { enabledClubs: new Set() }).actions, NONE, 'a club with registration switched off')
+  assert.deepEqual(shape({ profile_id: ME }, { agreementClubs: new Set() }).actions, { change: false, edit: true },
+    'a club with no organizer agreement: no competition change (money), the data edit stays (L-2)')
+  assert.deepEqual(shape({ profile_id: ME }, { changeTargets: new Map([['e-future', new Set(['c1'])]]) }).actions, { change: false, edit: true },
+    'RS-15b one visible individual competition: nowhere to go, no „Zmień konkurencję”')
+  assert.deepEqual(shape({ profile_id: ME }, { changeTargets: new Map() }).actions, { change: false, edit: true }, 'no targets known')
+  const othersSurcharge = order({ id: 's0', event_id: 'e-future', buyer_profile_id: 'the-buyer', kind: 'surcharge', status: 'pending', total: 2000,
+    surcharge_registration_id: 'r1', surcharge_to_category_id: 'c2', expires_at: '2026-11-03T10:00:00Z' })
+  const waitsForOther = shape({ profile_id: ME }, { openSurcharges: [othersSurcharge] })
+  assert.deepEqual([waitsForOther.actions, waitsForOther.surcharge], [{ change: false, edit: true }, null],
+    'somebody else’s pending surcharge hides the change; only its payer gets „Zapłać”')
+  const surcharge = order({ id: 's1', event_id: 'e-future', kind: 'surcharge', status: 'pending', total: 2000, surcharge_registration_id: 'r1', surcharge_to_category_id: 'c2', expires_at: '2026-11-03T10:00:00Z' })
+  const people = shapeMyRegistrations({
+    userId: ME, settings: [open], competitions, orders: [surcharge],
+    registrations: [reg({ id: 'r1', event_id: 'e-future', profile_id: ME })], enabledClubs, now: NOW,
+  })[0].people[0]
+  assert.deepEqual(people.surcharge, { orderId: 's1', toCompetition: 'Bieg dzieci', grosze: 2000, expiresAt: '2026-11-03T10:00:00Z' })
+  assert.deepEqual(people.actions, { change: false, edit: true }, 'a surcharge waiting: Zapłać instead of a second change')
+})
+
+test('RS-19 each person carries its transfer block from transferViews, null without one', () => {
+  const block = { allowed: true, until: '2026-12-05', pending: null, refundPending: false }
+  const people = shapeMyRegistrations({
+    userId: ME, settings, competitions, orders: [], now: NOW,
+    registrations: [reg({ id: 'r1', event_id: 'e-future', profile_id: ME }), reg({ id: 'r2', event_id: 'e-future', created_at: '2026-10-02T10:00:00Z' })],
+    transfers: new Map([['r1', block]]),
+  })[0].people
+  assert.deepEqual(people.map((p) => [p.id, p.transfer]), [['r1', block], ['r2', null]])
+})
+
+test('RS-15b hasChangeTarget: another visible individual competition than the entry\'s own', async () => {
+  const { hasChangeTarget } = await import('../../../supabase/functions/_shared/registration/selfService.js')
+  assert.equal(hasChangeTarget(new Set(['c1']), 'c1'), false)
+  assert.equal(hasChangeTarget(new Set(['c1', 'c2']), 'c1'), true)
+  assert.equal(hasChangeTarget(new Set(['c2']), 'c1'), true)
+  assert.equal(hasChangeTarget(null, 'c1'), false)
+  assert.equal(hasChangeTarget([], 'c1'), false)
 })

@@ -34,6 +34,7 @@ export const TRANSFER_MESSAGES = Object.freeze({
   race_day: 'W dniu zawodów pakiet przekazuje się w biurze zawodów.',
   transfer_retry: 'Nie udało się przekazać pakietu. Spróbuj ponownie.',
   refund_pending: 'Trwa zwrot wpłaty za ten pakiet — przekazanie jest niemożliwe.',
+  surcharge_open: 'Ten pakiet czeka na dopłatę za zmianę konkurencji — przekazanie jest niemożliwe, dopóki nie zostanie opłacona albo anulowana.',
   throttled: 'Zbyt wiele prób. Spróbuj ponownie później.',
   expired: 'To zaproszenie już wygasło. Link nie działa.',
   not_pending: 'Zaproszenia nie można już cofnąć: zostało przyjęte, cofnięte albo wygasło.',

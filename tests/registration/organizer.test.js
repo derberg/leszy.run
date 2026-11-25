@@ -2,11 +2,12 @@ import { test, before, after } from 'node:test'
 import assert from 'node:assert/strict'
 import { localEnv, admin, sessionFor, EDGE_PROXY } from './helpers/stack.js'
 import { startCapture, messagesTo, clearMessages } from './helpers/emailCapture.js'
+import { AGREEMENT_CHANGES } from '../../supabase/functions/_shared/organizer.js'
 
 const OPERATOR = 'operator@leszy.test' // PIPELINE_ALERT_EMAIL in functions.env
 const ZT = '00000000-0000-4000-8000-0000000000c1' // enabled
 const IK = '00000000-0000-4000-8000-0000000000c2' // disabled
-const VERSION = '2026-11-v6'
+const VERSION = '2026-11-v7'
 
 let stopCapture
 before(async () => {
@@ -33,7 +34,8 @@ test('F-17 status of a disabled club for a member: enabled false', async () => {
   const r = await call('organizer-status', s, { clubId: IK })
   assert.equal(r.status, 200)
   assert.deepEqual(r.body.data, {
-    enabled: false, waitlisted: false, agreementAccepted: false, agreementAcceptedAt: null, version: VERSION, payoutConfigured: false, role: 'member',
+    enabled: false, waitlisted: false, agreementAccepted: false, agreementAcceptedAt: null,
+    acceptedVersion: null, currentVersion: VERSION, version: VERSION, agreementChanges: [...AGREEMENT_CHANGES], payoutConfigured: false, role: 'member',
   })
 })
 

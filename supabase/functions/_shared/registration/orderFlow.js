@@ -16,6 +16,7 @@ import { issueOrderConsentRequests, publicSite } from './consentRequests.js'
 import { transferredRegistrationIds } from './transfers.js'
 import { registrationRole } from './group.js'
 import { kidsGroupLabels } from './kidsGroupLabels.js'
+import { deliverSurchargeChange, sendSurchargeRefunded } from './competitionChangeMail.js'
 
 /**
  * Inserts an operator_alerts row → true when it is stored (or already was, by its key).
@@ -161,16 +162,21 @@ export async function ownPendingOrder(admin, eventId, people, profileId) {
   }
   const ids = [...new Set(found.map((r) => r.order_id).filter(Boolean))]
   if (!ids.length) return null
+  // A competition change's surcharge is never a registration's own order; filtered all the same.
   const { data: orders, error: oErr } = await admin.from('orders')
-    .select('id').in('id', ids).eq('status', 'pending').eq('buyer_profile_id', profileId).limit(1)
+    .select('id').in('id', ids).eq('kind', 'registration').eq('status', 'pending').eq('buyer_profile_id', profileId).limit(1)
   if (oErr) throw oErr
   return orders?.[0]?.id ?? null
 }
 
 /**
  * The order as its buyer sees it, or null when there is none.
- * → { order, settings, club, lines: [{ registrationId, cancelled, firstName, lastName, competition,
- *     ageGroupLabel, startTime, amount }] }, the live lines first, then the cancelled ones.
+ * → { kind: 'registration', order, settings, club, lines: [{ registrationId, cancelled, firstName,
+ *     lastName, competition, ageGroupLabel, startTime, amount }] }, the live lines first, then the
+ *     cancelled ones.
+ * A competition change's surcharge (orders.kind = 'surcharge') owns no entry: → { kind: 'surcharge',
+ *   order, settings, club, lines: [], surcharge: { registrationId, fromCompetition, toCompetition,
+ *   startTime } }, with no consent or transfer block (the entry already went through both).
  */
 export async function loadOrderView(admin, orderId) {
   const { data: order, error } = await admin.from('orders').select('*').eq('id', orderId).maybeSingle()
@@ -184,6 +190,7 @@ export async function loadOrderView(admin, orderId) {
   ])
   if (settingsRow.error) throw settingsRow.error
   const settings = settingsRow.data
+  if (order.kind === 'surcharge') return surchargeView(admin, order, settings)
   const regIds = lineRows.filter((l) => l.registration_id).map((l) => l.registration_id)
   const regs = regIds.length
     ? await rows(admin.from('registrations')
@@ -261,7 +268,35 @@ export async function loadOrderView(admin, orderId) {
   // The live entries first, in their order, then the cancelled ones (user decision 2026-11-02):
   // the confirmation, its re-send and the order page all read this order.
   const lines = [...built.filter((l) => !l.cancelled), ...built.filter((l) => l.cancelled)]
-  return { order, settings, club, lines }
+  return { kind: 'registration', order, settings, club, lines }
+}
+
+// loadOrderView of a surcharge: the move it pays for, from → to. It names nobody: the order page
+// says „Dopłata: zmiana z <A> na <B>”, and a person's name here could reach a payer who no longer
+// holds the entry (ruling N-1; registration_surcharge_buyer bills the holder after any transfer).
+async function surchargeView(admin, order, settings) {
+  const catIds = [order.surcharge_from_category_id, order.surcharge_to_category_id]
+  const [comps, clubRow] = await Promise.all([
+    rows(admin.from('competitions').select('category_id, name, start_time').in('category_id', catIds)),
+    settings?.club_id
+      ? admin.from('clubs').select('name').eq('id', settings.club_id).maybeSingle()
+      : { data: null },
+  ])
+  const compOf = new Map(comps.map((c) => [c.category_id, c]))
+  const to = compOf.get(order.surcharge_to_category_id) ?? {}
+  return {
+    kind: 'surcharge',
+    order,
+    settings,
+    club: clubRow.data ?? null,
+    lines: [],
+    surcharge: {
+      registrationId: order.surcharge_registration_id,
+      fromCompetition: compOf.get(order.surcharge_from_category_id)?.name ?? null,
+      toCompetition: to.name ?? null,
+      startTime: (to.start_time ?? settings?.first_start_time)?.slice(0, 5) ?? null,
+    },
+  }
 }
 
 /** The amounts block every answer and e-mail shows. */
@@ -275,7 +310,7 @@ export function orderAmountsOf(order) {
 }
 
 // The order page dpay returns the runner to (the same URL the dpay client builds).
-function orderPageUrl(orderId) {
+export function orderPageUrl(orderId) {
   const base = (globalThis.Deno?.env.get('PUBLIC_SITE_URL') ?? '').replace(/\/+$/, '')
   return base ? `${base}/zamowienie/${encodeURIComponent(orderId)}` : null
 }
@@ -384,6 +419,8 @@ async function confirmationMail(admin, view) {
 /** The order's confirmation, built and sent. → false with no buyer address; throws when not sent. */
 async function deliverConfirmation(admin, orderId) {
   const view = await loadOrderView(admin, orderId)
+  // A surcharge's confirmation is the change notice (the first send and the job's resend alike).
+  if (view?.kind === 'surcharge') return deliverSurchargeChange(admin, orderId)
   if (!view?.order.buyer_email) return false
   const res = await sendEmail({ to: view.order.buyer_email, ...await confirmationMail(admin, view), noTracking: true })
   if (res && res.ok === false) throw Object.assign(new Error(`e-mail not accepted (${res.status})`), { status: res.status })
@@ -456,6 +493,12 @@ async function releaseForRetry(admin, orderId) {
 async function sendRefundNotice(admin, orderId, grosze, reason) {
   try {
     const view = await loadOrderView(admin, orderId)
+    if (view?.kind === 'surcharge') {
+      // Its own wording: the surcharge, never „zgłoszenie”; a failure is alerted like any refund mail.
+      const sent = await sendSurchargeRefunded(admin, orderId, reason)
+      if (sent.error) throw new Error(sent.error)
+      return
+    }
     if (!view?.order.buyer_email) return
     const args = orderEmailArgs(view)
     const build = (r) => paymentRefundedEmail({ event: args.event, order: args.order, amount: grosze, reason: r })
@@ -550,6 +593,13 @@ async function verifyRefund(admin, cfg, { attemptId, txn, refundId, grosze }) {
 export async function settleConfirmOutcome(admin, cfg, outcome) {
   const { orderId, txn, refund } = outcome ?? {}
   const kind = outcome?.outcome
+  // A competition change's surcharge was paid and the entry moved: no order confirmation and no
+  // consent requests (the entry had both when it was registered). The change notice goes here, claimed
+  // on the surcharge order's confirmation_sent_at like a confirmation (the job resends a lost one).
+  if (kind === 'surcharge_moved') {
+    await sendOrderConfirmation(admin, orderId)
+    return { emailed: true }
+  }
   if (kind === 'confirmed' || kind === 'late_confirmed') {
     await sendOrderConfirmation(admin, orderId)
     // Plan 4 ruling 4: the added adults of a paid group are asked now that it is paid, never

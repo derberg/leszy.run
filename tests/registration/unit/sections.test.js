@@ -677,3 +677,29 @@ test('W-19c basics contactPhone: optional, the registration phone rule, spaces c
     assert.equal(res.errors.contactPhone, 'Podaj poprawny numer telefonu.')
   }
 })
+
+test('Plan 8 payments: runnerCompetitionChange is a boolean, anything else is refused', () => {
+  for (const ctx of [DRAFT, PUBLISHED]) {
+    assert.deepEqual(validateSection('payments', { runnerCompetitionChange: false }, ctx),
+      { ok: true, value: { runner_competition_change: false } })
+    for (const v of ['true', 1, null]) {
+      const r = validateSection('payments', { runnerCompetitionChange: v }, ctx)
+      assert.equal(r.ok, false, String(v))
+      assert.equal(r.errors.runnerCompetitionChange, 'Nieprawidłowa wartość.')
+    }
+  }
+})
+
+test('Plan 8 form: runnerDataEdit is a boolean, alone or beside the fields', () => {
+  for (const ctx of [DRAFT, PUBLISHED]) {
+    assert.deepEqual(validateSection('form', { runnerDataEdit: false }, ctx),
+      { ok: true, value: { runner_data_edit: false } })
+    assert.deepEqual(validateSection('form', { runnerDataEdit: true }, ctx),
+      { ok: true, value: { runner_data_edit: true } })
+    for (const v of ['false', 0, null]) {
+      const r = validateSection('form', { runnerDataEdit: v }, ctx)
+      assert.equal(r.ok, false, String(v))
+      assert.equal(r.errors.runnerDataEdit, 'Nieprawidłowa wartość.')
+    }
+  }
+})

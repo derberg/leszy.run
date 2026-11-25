@@ -107,7 +107,7 @@ describe('entryActions (O-06)', () => {
   const open = { closed: false, raceDay: false, isTeamRow: false }
 
   it('a paid entry before close', () => {
-    assert.deepEqual(entryActions(row(), open), ['edit', 'message', 'partner', 'transfer', 'refund', 'cancel'])
+    assert.deepEqual(entryActions(row(), open), ['edit', 'change_competition', 'message', 'partner', 'transfer', 'refund', 'cancel'])
   })
   it('V-87 M-1: no „Przekaż pakiet” while a refund of the entry is in flight (refundPending)', () => {
     assert.deepEqual(entryActions(row({ refundPending: true }), open), ['edit', 'message', 'partner', 'refund', 'cancel'])
@@ -165,6 +165,43 @@ describe('entryActions (O-06)', () => {
     for (const [status, statusKey] of [['cancelled', 'cancelled'], ['transferred_out', 'transferred'], ['transferred_out', 'withdraw_on_host']]) {
       assert.ok(!entryActions(row({ status, statusKey }), open).includes('transfer'), statusKey)
     }
+  })
+  it('CC-90: „Zmień konkurencję” for a confirmed individual entry before close only', () => {
+    assert.ok(entryActions(row(), open).includes('change_competition'))
+    assert.ok(entryActions(row({ statusKey: 'free', paidAmount: 0, lines: [] }), open).includes('change_competition'))
+    assert.ok(entryActions(row({ paidOffline: true, statusKey: 'paid_offline' }), open).includes('change_competition'))
+    assert.ok(entryActions(row({ role: 'minor' }), open).includes('change_competition'))
+    assert.ok(!entryActions(row(), { ...open, closed: true }).includes('change_competition'))
+    assert.ok(!entryActions(row({ status: 'pending_payment', statusKey: 'awaiting', paidAmount: 0 }), open).includes('change_competition'))
+    const member = row({ categoryId: 'c2', team: { id: 't' } })
+    assert.ok(!entryActions(member, open).includes('change_competition'))
+    assert.ok(!entryActions(member, { ...open, isCaptain: true }).includes('change_competition'))
+    assert.ok(!entryActions(member, { ...open, isCaptain: true, isTeamRow: true }).includes('change_competition'))
+    assert.ok(!entryActions(row({ refundPending: true }), open).includes('change_competition'))
+    for (const [status, statusKey] of [['cancelled', 'cancelled'], ['transferred_out', 'transferred'], ['expired', 'expired']]) {
+      assert.ok(!entryActions(row({ status, statusKey }), open).includes('change_competition'), statusKey)
+    }
+  })
+  it('CC-91: „Zmień konkurencję” only with another visible individual competition to go to', async () => {
+    const { otherIndividualCompetition } = await import('../../src/lib/entriesModel.js')
+    assert.ok(!entryActions(row(), { ...open, hasChangeTarget: false }).includes('change_competition'))
+    const one = [{ id: 'c1', kind: 'individual' }]
+    assert.equal(otherIndividualCompetition(one, 'c1'), false)
+    assert.equal(otherIndividualCompetition([...one, { id: 't1', kind: 'team' }], 'c1'), false, 'a team competition is no target')
+    assert.equal(otherIndividualCompetition([...one, { id: 'c2', kind: 'individual' }], 'c1'), true)
+    assert.equal(otherIndividualCompetition([], 'c1'), false)
+  })
+  it('CC-90: an open surcharge replaces „Zmień konkurencję” with its reminder and its cancel', () => {
+    const surcharge = { orderId: 'o2', toCompetition: 'Bieg 21 km', grosze: 4000, expiresAt: '2026-12-01T10:00:00Z' }
+    assert.deepEqual(entryActions(row({ surcharge }), open),
+      ['edit', 'surcharge_remind', 'surcharge_cancel', 'message', 'partner', 'transfer', 'refund', 'cancel'])
+    // Online payment stops an hour before close: no reminder, the cancel stays.
+    const late = entryActions(row({ surcharge }), { ...open, payingClosed: true })
+    assert.ok(!late.includes('surcharge_remind') && late.includes('surcharge_cancel'))
+    assert.ok(entryActions(row({ surcharge }), { ...open, closed: true }).includes('surcharge_cancel'))
+    assert.equal(actionLabel('change_competition', row()), 'Zmień konkurencję')
+    assert.equal(actionLabel('surcharge_remind', row()), 'Przypomnij o dopłacie')
+    assert.equal(actionLabel('surcharge_cancel', row()), 'Anuluj dopłatę')
   })
   it('a transferred entry\'s money is not refunded from its old row', () => {
     assert.ok(!entryActions(row({ status: 'transferred_out', statusKey: 'transferred' }), open).includes('refund'))

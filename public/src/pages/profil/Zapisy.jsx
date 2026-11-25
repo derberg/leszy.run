@@ -1,14 +1,21 @@
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
 import useSeo from '../../hooks/useSeo.js'
 import { callFunction } from '../../lib/auth.js'
 import { formatPln } from '@registration/money.js'
 import { sectionTitle } from './fields.jsx'
+import EntryActions from '../../components/registration/EntryActions.jsx'
+import ActionMenu from '../../components/ActionMenu.jsx'
+import { cardLinks, linksInHeader } from '../../lib/zapisyCard.js'
 
 // „Moje zapisy”: the registration events the session bought an order for or is on an entry of,
-// from my-registrations (upcoming first, then past).
-
-const linkCls = 'whitespace-nowrap font-mono text-[11px] text-apex-yellow no-underline hover:text-apex-yellow-bright'
+// from my-registrations (upcoming first, then past). At the end of each person's line a „⋯” menu of
+// the runner's own actions („Zmień konkurencję”, „Popraw dane”, „Przekaż pakiet”), and under it an
+// open surcharge's „Zapłać” (EntryActions), where the server offers them.
+//
+// The card's links, „Zamówienie” (each order's page) and „Twój zapis(y)” (/zapisano, when an entry is
+// confirmed), close every person's „⋯”, after that person's actions behind a divider (the links
+// alone for a person with no action), so each person has exactly one „⋯”. Only a card with no person
+// line (an order only) puts them in a „⋯” at the end of the header line.
 
 /** '2026-12-06' → '06.12.2026', no time zone involved. */
 export function dayLabel(isoDate) {
@@ -47,32 +54,46 @@ function Skeleton() {
   )
 }
 
-function EventCard({ ev, today }) {
+function EventCard({ ev, today, onChanged }) {
   const past = ev.eventDate != null && ev.eventDate < today
-  // „Twój zapis” opens /zapisano, which lists every confirmed entry of the session's for the event.
-  const confirmed = ev.people.filter((p) => p.status === 'confirmed').length
+  const links = cardLinks(ev)
+  const inHeader = linksInHeader(ev)
   return (
     <article data-testid="zapisy-event" className="border border-apex-border border-l-2 hover:border-l-apex-yellow p-3 transition-colors">
-      <div className="flex items-baseline gap-3 min-w-0">
+      <div className="flex items-center gap-3 min-w-0">
         <span className={`font-mono text-[11px] font-semibold flex-shrink-0 ${past ? 'text-apex-muted' : 'text-apex-yellow'}`}>
           {dayLabel(ev.eventDate)}{ev.firstStartTime && !past ? ` · ${ev.firstStartTime}` : ''}
         </span>
         <a href={`/events/${ev.slug}`} className="flex-1 min-w-0 truncate font-display font-bold text-sm uppercase text-apex-text-bright no-underline hover:text-apex-yellow">
           {ev.eventName}
         </a>
+        {inHeader && links.length > 0 && (
+          <ActionMenu label={`Zgłoszenie: ${ev.eventName}`} items={links} size="sm" itemWeight="font-medium" testId="zapisy-card-menu" />
+        )}
       </div>
 
       {ev.people.length > 0 && (
-        <ul className="mt-2 space-y-0.5">
+        <ul className="mt-2 space-y-1">
           {ev.people.map((p) => (
-            <li key={p.id} className="flex items-center gap-2 text-xs min-w-0">
-              <span className={`truncate ${p.mine ? 'text-apex-text-bright' : 'text-apex-text'}`}>
-                {p.firstName} {p.lastName}
-                {p.competition && <span className="text-apex-muted"> · {p.competition}</span>}
-              </span>
-              {p.status === 'pending_payment' && (
-                <span className="whitespace-nowrap flex-shrink-0 font-mono text-[9px] text-apex-muted">czeka na wpłatę</span>
-              )}
+            <li key={p.id} className="text-xs min-w-0" data-testid="zapisy-person">
+              <EntryActions entry={{ ...p, name: `${p.firstName} ${p.lastName}` }} slug={ev.slug} onChanged={onChanged}
+                links={links}>
+                {({ menu, details }) => (<>
+                  <div className="flex items-center justify-between gap-2 min-w-0 min-h-7">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className={`truncate ${p.mine ? 'text-apex-text-bright' : 'text-apex-text'}`}>
+                        {p.firstName} {p.lastName}
+                        {p.competition && <span className="text-apex-muted" data-testid="zapisy-competition"> · {p.competition}</span>}
+                      </span>
+                      {p.status === 'pending_payment' && (
+                        <span className="whitespace-nowrap flex-shrink-0 font-mono text-[9px] text-apex-muted">czeka na wpłatę</span>
+                      )}
+                    </div>
+                    {menu}
+                  </div>
+                  {details}
+                </>)}
+              </EntryActions>
             </li>
           ))}
         </ul>
@@ -90,16 +111,9 @@ function EventCard({ ev, today }) {
               {o.status === 'pending' && o.expiresAt && (
                 <span className="font-mono text-[10px] text-apex-muted whitespace-nowrap">do {expiryLabel(o.expiresAt)}</span>
               )}
-              <Link to={`/zamowienie/${o.id}`} className={`${linkCls} ml-auto`}>Zamówienie →</Link>
             </li>
           ))}
         </ul>
-      )}
-
-      {confirmed > 0 && (
-        <div className="mt-2 flex justify-end">
-          <Link to={`/events/${ev.slug}/zapisano`} className={linkCls}>{confirmed > 1 ? 'Twoje zapisy →' : 'Twój zapis →'}</Link>
-        </div>
       )}
     </article>
   )
@@ -108,14 +122,16 @@ function EventCard({ ev, today }) {
 export default function Zapisy() {
   useSeo({ title: 'Moje zapisy — Leszy.run', path: '/profil/zapisy', noindex: true })
   const [state, setState] = useState({ status: 'loading', events: [] })
+  // Bumped after a change or an edit: the list is read again (the list stays on screen meanwhile).
+  const [reads, setReads] = useState(0)
 
   useEffect(() => {
     let active = true
     callFunction('my-registrations', {})
       .then((r) => { if (active) setState({ status: 'ok', events: r.data ?? [] }) })
-      .catch(() => { if (active) setState({ status: 'error', events: [] }) })
+      .catch(() => { if (active) setState((s) => (s.status === 'ok' ? s : { status: 'error', events: [] })) })
     return () => { active = false }
-  }, [])
+  }, [reads])
 
   // Warsaw calendar day, the same rule the function sorts by.
   const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/Warsaw' })
@@ -135,7 +151,7 @@ export default function Zapisy() {
       )}
       {state.status === 'ok' && state.events.length > 0 && (
         <div className="space-y-3" data-testid="zapisy-list">
-          {state.events.map((ev) => <EventCard key={ev.eventId} ev={ev} today={today} />)}
+          {state.events.map((ev) => <EventCard key={ev.eventId} ev={ev} today={today} onChanged={() => setReads((n) => n + 1)} />)}
         </div>
       )}
     </section>

@@ -1,5 +1,7 @@
 import crypto from 'node:crypto'
+import fs from 'node:fs'
 import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { test, expect } from './fixtures.js'
 import { admin, sessionFor } from '../helpers/stack.js'
 import { callFn, makeClub } from '../helpers/registrationFixtures.js'
@@ -15,6 +17,19 @@ import { callFn, makeClub } from '../helpers/registrationFixtures.js'
 
 const IBAN_GROUPED = 'PL61 1090 1014 0000 0712 1981 2874'
 const SHOTS = process.env.SCREENSHOT_DIR
+// The competition-change feature's review screenshots (present only in its worktree).
+const CC_SCREENS = path.resolve(path.dirname(fileURLToPath(import.meta.url)),
+  '../../../.superpowers/sdd/2026-11-24-competition-change/screens')
+
+async function ccShot(page, testId, name, width = 1280) {
+  if (!fs.existsSync(path.dirname(CC_SCREENS))) return
+  fs.mkdirSync(CC_SCREENS, { recursive: true })
+  await page.setViewportSize({ width, height: width < 640 ? 844 : 800 })
+  const decline = page.getByRole('button', { name: 'Odrzuć' })
+  if (await decline.isVisible()) await decline.click()
+  await page.getByTestId(testId).evaluate((el) => window.scrollTo(0, el.getBoundingClientRect().top + window.scrollY - 120))
+  await page.screenshot({ path: path.join(CC_SCREENS, name) })
+}
 
 async function contextFor(browser, email) {
   const context = await browser.newContext()
@@ -121,6 +136,55 @@ test('P-43 Płatności renders A6; the payout checklist item opens it; the owner
   await expect(tip).toHaveCount(0)
   await page.getByRole('radio', { name: '7 dni' }).click()
   await expect.poll(windowRow, { timeout: 15_000 }).toEqual({ payment_window_hours: 168, payment_window_until_close: false })
+
+  // CC-100: the club's consent to the runner's own competition change, ticked by default, autosaved.
+  const runnerRow = async () => {
+    const { data } = await admin().from('registration_settings')
+      .select('runner_competition_change, runner_data_edit').eq('event_id', eventId).single()
+    return data
+  }
+  const runnerChange = page.getByTestId('runner-change-settings').getByRole('checkbox', { name: 'Zgadzam się, by zawodnik mógł sam zmienić konkurencję' })
+  await expect(runnerChange).toBeChecked()
+  await runnerChange.uncheck()
+  await expect.poll(async () => (await runnerRow()).runner_competition_change, { timeout: 15_000 }).toBe(false)
+  await runnerChange.check()
+  await expect.poll(async () => (await runnerRow()).runner_competition_change, { timeout: 15_000 }).toBe(true)
+  await ccShot(page, 'runner-change-settings', 'po-platnosci-checkbox-desktop.png')
+  await page.getByTestId('runner-change-settings').getByRole('button', { name: 'Co oznacza zmiana konkurencji przez zawodnika' }).click()
+  await expect(page.getByTestId('runner-change-tip')).toHaveText('Działa tylko, dopóki zapisy są otwarte. Po zamknięciu zapisów zmiany wprowadza organizator.')
+  // The open tip sits outside the label: clicking its text leaves the setting alone, and the
+  // checkbox is named by the label text only.
+  await page.getByTestId('runner-change-tip').click()
+  await expect(runnerChange).toBeChecked()
+  await expect(page.getByTestId('runner-change')).toHaveAccessibleName('Zgadzam się, by zawodnik mógł sam zmienić konkurencję')
+  await page.waitForTimeout(1500)
+  expect((await runnerRow()).runner_competition_change).toBe(true)
+  await ccShot(page, 'runner-change-settings', 'po-platnosci-checkbox-tip-desktop.png')
+  await ccShot(page, 'runner-change-settings', 'po-platnosci-checkbox-tip-390.png', 390)
+  await page.setViewportSize({ width: 1280, height: 800 })
+  await page.keyboard.press('Escape')
+
+  // The same for the runner's own data fix, on Formularz.
+  await page.goto(`${base}/formularz`)
+  const dataEdit = page.getByTestId('runner-data-edit')
+  await expect(dataEdit).toBeChecked()
+  await dataEdit.uncheck()
+  await expect.poll(async () => (await runnerRow()).runner_data_edit, { timeout: 15_000 }).toBe(false)
+  await dataEdit.check()
+  await expect.poll(async () => (await runnerRow()).runner_data_edit, { timeout: 15_000 }).toBe(true)
+  await ccShot(page, 'form-fields', 'po-formularz-checkbox-desktop.png')
+  await page.getByRole('button', { name: 'Co oznacza zmiana danych przez zawodnika' }).click()
+  await expect(page.getByTestId('runner-data-tip')).toHaveText('Działa tylko, dopóki zapisy są otwarte. Imienia, nazwiska i adresu e-mail zawodnik nie zmienia — to zawsze robi organizator.')
+  await page.getByTestId('runner-data-tip').click()
+  await expect(dataEdit).toBeChecked()
+  await expect(dataEdit).toHaveAccessibleName('Zgadzam się, by zawodnik mógł sam zmienić swoje dane')
+  await page.waitForTimeout(1500)
+  expect((await runnerRow()).runner_data_edit).toBe(true)
+  await ccShot(page, 'runner-data-edit', 'po-formularz-checkbox-tip-desktop.png')
+  await ccShot(page, 'runner-data-edit', 'po-formularz-checkbox-tip-390.png', 390)
+  await page.setViewportSize({ width: 1280, height: 800 })
+  await page.keyboard.press('Escape')
+  await page.goto(`${base}/platnosci`)
 
   // Another account, owner only.
   await page.getByRole('radio', { name: 'Inne konto' }).click()

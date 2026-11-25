@@ -3,6 +3,7 @@ import { guardRequest } from '../_shared/cors.js'
 import { getSession } from '../_shared/session.js'
 import { checkAndIncrement } from '../_shared/throttle.js'
 import { isUuid } from '../_shared/registration/organizerEvent.js'
+import { orderForSession } from '../_shared/registration/orderAccess.js'
 import { json, NOT_FOUND } from '../_shared/registration/registrationRequest.js'
 
 // Cancels per buyer, per hour (claim_throttle_slot).
@@ -47,6 +48,9 @@ Deno.serve(async (req) => {
     const orderId = body?.orderId
     if (!isUuid(orderId)) return json(NOT_FOUND, 404, req)
 
+    // A surcharge whose buyer had no account is claimed by its address first; buyer_cancel_order
+    // then sees the session's profile as the buyer. Anybody else is 404 as before.
+    if (!await orderForSession(admin, orderId, session)) return json(NOT_FOUND, 404, req)
     const { data: outcome, error } = await admin.rpc('buyer_cancel_order', { p_order_id: orderId, p_profile_id: session.userId })
     if (error) throw error
     if (outcome === 'cancelled') return json({ data: { status: 'cancelled' } }, 200, req)

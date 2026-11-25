@@ -8,7 +8,7 @@
 // the client. An outsider and a disabled club get 404 (the event is not
 // theirs to know about); an active member's write gets 403.
 
-import { clubRole, clubRegistrationEnabled, ORGANIZER_AGREEMENT_VERSION } from '../organizer.js'
+import { clubRole, clubRegistrationEnabled } from '../organizer.js'
 import { getCorsHeaders } from '../cors.js'
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
@@ -26,9 +26,11 @@ function respond(req, status, body) {
   })
 }
 
+// Any accepted version counts: a later version is an update with a notice e-mail, never a
+// re-acceptance (agreement §13 ust. 6, owner decision 2026-11-25).
 export async function clubHasAgreement(admin, clubId) {
   const { data, error } = await admin.from('organizer_agreements')
-    .select('id').eq('club_id', clubId).eq('version', ORGANIZER_AGREEMENT_VERSION).limit(1)
+    .select('id').eq('club_id', clubId).limit(1)
   if (error) throw error
   return (data?.length ?? 0) > 0
 }

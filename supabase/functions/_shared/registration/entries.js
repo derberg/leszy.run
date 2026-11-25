@@ -81,3 +81,54 @@ export function statusLabel(key, row = {}) {
   if (row.autoRefundReason === 'full') label += ' · ZWROT: BRAK MIEJSC'
   return label
 }
+
+const ENTRY_MONEY = new Set(['entry', 'surcharge'])
+
+/**
+ * The money one entry holds (B3), from its order lines. A competition change's surcharge is an
+ * order of its own (orders.kind = 'surcharge') whose one line points at the entry: it is the
+ * entry's money only once that order is paid, so an unpaid, expired or cancelled surcharge line is
+ * left out. Every line counts in paidAmount when its own order is paid.
+ * registrations.refunded holds everything given back of the entry's own money (entry and surcharge
+ * lines), including a difference refunded outside the system, which has no line; it never reads
+ * less than those lines say.
+ * @param {{ price?: number, refunded?: number }} reg  the registration row
+ * @param {{ lines: { id, order_id, kind, amount, refunded }[], orderOf: Map<string, { status: string }> }} p
+ * @returns {{ lines: { id, kind, amount, refunded }[], paidAmount: number, refunded: number, entryRefunded: number }}
+ *   `refunded`: the extras' refunds plus `entryRefunded`; reservations count, as on the lines.
+ */
+export function entryMoney(reg, { lines, orderOf }) {
+  const paid = (l) => orderOf.get(l.order_id)?.status === 'paid'
+  // The entry's own order's lines as they come, then its paid surcharges (the refund dialog's order).
+  const own = [...lines.filter((l) => l.kind !== 'surcharge'), ...lines.filter((l) => l.kind === 'surcharge' && paid(l))]
+  const sum = (list, key) => list.reduce((n, l) => n + (l[key] ?? 0), 0)
+  const entryRefunded = Math.max(reg.refunded ?? 0, sum(own.filter((l) => ENTRY_MONEY.has(l.kind)), 'refunded'))
+  return {
+    lines: own.map((l) => ({ id: l.id, kind: l.kind, amount: l.amount, refunded: l.refunded })),
+    paidAmount: sum(own.filter(paid), 'amount'),
+    refunded: sum(own.filter((l) => !ENTRY_MONEY.has(l.kind)), 'refunded') + entryRefunded,
+    entryRefunded,
+  }
+}
+
+/**
+ * The entry's open surcharge (a dearer competition change waiting for its payment) → { orderId,
+ * toCompetition, grosze, expiresAt }, or null. One past its window counts as expired already: the
+ * job expires it within minutes, and nothing can pay it.
+ * @param {string} registrationId
+ * @param {object[]} orders  orders rows: id, kind, status, total, expires_at, surcharge_registration_id, surcharge_to_category_id
+ * @param {Map<string, string>} nameOf  category id → competition name
+ * @param {Date} now
+ */
+export function pendingSurcharge(registrationId, orders, nameOf, now) {
+  const o = orders.find((x) => x.kind === 'surcharge' && x.status === 'pending'
+    && x.surcharge_registration_id === registrationId
+    && (x.expires_at == null || Date.parse(x.expires_at) > now.getTime()))
+  if (!o) return null
+  return {
+    orderId: o.id,
+    toCompetition: nameOf.get(o.surcharge_to_category_id) ?? null,
+    grosze: o.total,
+    expiresAt: o.expires_at ?? null,
+  }
+}

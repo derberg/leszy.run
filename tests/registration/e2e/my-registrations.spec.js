@@ -32,6 +32,15 @@ async function runnerContext(browser, email) {
   return { context, session }
 }
 
+/** Opens a person's „⋯” (portalled to the page) and returns the menu. */
+async function openMenu(page, scope, name) {
+  const label = `Zarządzaj zgłoszeniem: ${name}`
+  await scope.getByRole('button', { name: label, exact: true }).click()
+  const menu = page.getByRole('menu', { name: label })
+  await expect(menu).toBeVisible()
+  return menu
+}
+
 async function noOverflow(page) {
   const wide = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth)
   expect(wide, 'no horizontal scroll at 390 px').toBe(false)
@@ -56,18 +65,30 @@ test('W-89 the runner’s registrations on /profil/zapisy and in the account men
   await page.goto('/profil/zapisy')
   const cards = page.getByTestId('zapisy-event')
   await expect(cards).toHaveCount(2)
+  // One person per card: „Zamówienie” and „Twój zapis” close that person's „⋯”, behind a divider
+  // after the actions (an unpaid entry offers only „Popraw dane”).
   const freeCard = cards.filter({ hasText: 'Bieg Zapisany' })
   await expect(freeCard.getByText('Ola Zapisana')).toBeVisible()
-  await expect(freeCard.getByRole('link', { name: 'Twój zapis →' })).toHaveAttribute('href', `/events/${free.slug}/zapisano`)
+  // Only the event's name is a link on the card itself.
+  await expect(freeCard.getByRole('link')).toHaveCount(1)
+  let menu = await openMenu(page, freeCard, 'Ola Zapisana')
+  // The free event has a single competition, so there is nowhere to move: no „Zmień konkurencję”.
+  await expect(menu.getByRole('menuitem')).toHaveText(['Popraw dane', 'Twój zapis'])
+  await expect(menu.getByRole('menuitem', { name: 'Twój zapis' })).toHaveAttribute('href', `/events/${free.slug}/zapisano`)
+  await expect(menu.getByRole('separator')).toHaveCount(1)
+  await page.keyboard.press('Escape')
   const paidCard = cards.filter({ hasText: 'Bieg Płatny' })
   await expect(paidCard.getByText('DO ZAPŁATY')).toBeVisible()
   await expect(paidCard.getByText('60,00 zł')).toBeVisible()
-  await expect(paidCard.getByRole('link', { name: 'Zamówienie →' })).toHaveAttribute('href', `/zamowienie/${order.orderId}`)
-  await expect(paidCard.getByRole('link', { name: 'Twój zapis →' })).toHaveCount(0)
-  for (const link of await page.getByRole('link', { name: /→$/ }).all()) {
-    const box = await link.boundingBox()
-    expect(box.height, 'a link label stays on one line').toBeLessThan(24)
-  }
+  await expect(paidCard.getByTestId('zapisy-card-menu')).toHaveCount(0)
+  menu = await openMenu(page, paidCard, 'Ola Leśna')
+  await expect(menu.getByRole('menuitem')).toHaveText(['Popraw dane', 'Zamówienie'])
+  await expect(menu.getByRole('separator')).toHaveCount(1)
+  await expect(menu.getByRole('menuitem', { name: 'Zamówienie' })).toHaveAttribute('href', `/zamowienie/${order.orderId}`)
+  await menu.getByRole('menuitem', { name: 'Zamówienie' }).click()
+  await expect(page).toHaveURL(new RegExp(`/zamowienie/${order.orderId}$`))
+  await page.goBack()
+  await expect(cards).toHaveCount(2)
   await noOverflow(page)
   await expect(page.getByTestId('profil-nav').getByRole('link').first()).toHaveText('Zapisy')
   await page.screenshot({ path: test.info().outputPath('zapisy-390.png'), fullPage: true })

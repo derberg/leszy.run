@@ -87,6 +87,7 @@ export function entryCounts(rows, competitions) {
  */
 export function entryActions(row, {
   closed = false, payingClosed = closed, raceDay = false, isTeamRow = false, full = false, isCaptain = false,
+  hasChangeTarget = true,
 } = {}) {
   const live = isLive(row)
   const awaitingPayment = row.statusKey === 'awaiting' && !closed && !payingClosed
@@ -98,8 +99,19 @@ export function entryActions(row, {
   // offered there, as the payment reminder is not (D6-27).
   const unpaid = row.statusKey === 'awaiting' || (row.statusKey === 'expired' && (row.status === 'pending_payment' || row.status === 'expired'))
   const canMarkOffline = unpaid && Boolean(row.orderId) && !raceDay && !full
+  // A competition change (organizer-entry-action change_competition): a confirmed individual entry
+  // before closes_at, never a team's, never with a refund in flight (refund_pending); while its
+  // surcharge waits, the reminder and the cancel of that surcharge stand in its place.
+  const surcharge = row.surcharge ?? null
+  // Only with somewhere to go: another visible individual competition (hasChangeTarget,
+  // otherIndividualCompetition below); an event with one such competition never offers it.
+  const canChange = row.status === 'confirmed' && !closed && !isTeamRow && !row.team && !row.refundPending && !surcharge
+    && hasChangeTarget
   return [
     ['edit', live && !closed && !isTeamRow],
+    ['change_competition', canChange],
+    ['surcharge_remind', Boolean(surcharge) && !isTeamRow && !payingClosed],
+    ['surcharge_cancel', Boolean(surcharge) && !isTeamRow],
     ['remind_payment', awaitingPayment && !full],
     ['extend', awaitingPayment],
     ['remind_consent', awaitingConsent(row) && !isTeamRow],
@@ -114,6 +126,16 @@ export function entryActions(row, {
     ['rename_team', live && isTeamRow],
     ['squad', live && isTeamRow],
   ].filter(([, offered]) => offered).map(([action]) => action)
+}
+
+/**
+ * Whether a competition change has a target: another visible (list-event-registrations'
+ * `competitions` are the visible ones) individual competition besides `categoryId`.
+ * @param {{ id: string, kind?: string }[]} competitions
+ * @param {string} categoryId
+ */
+export function otherIndividualCompetition(competitions, categoryId) {
+  return (competitions ?? []).some((c) => c.id !== categoryId && (c.kind ?? 'individual') === 'individual')
 }
 
 /**
@@ -274,6 +296,9 @@ export function actionLabel(action, row, { isTeamRow = false, isCaptain = false 
     case 'transfer': return 'Przekaż pakiet'
     case 'mark_paid_offline': return 'Opłacone poza systemem'
     case 'offline_note': return 'Notatka o wpłacie'
+    case 'change_competition': return 'Zmień konkurencję'
+    case 'surcharge_remind': return 'Przypomnij o dopłacie'
+    case 'surcharge_cancel': return 'Anuluj dopłatę'
     default: throw new Error(`unknown action: ${action}`)
   }
 }

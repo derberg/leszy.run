@@ -189,23 +189,27 @@ function dayBefore(isoDate) {
 }
 
 const TRANSFER_TIP = 'Zawodnik może przekazać opłacony pakiet innej osobie. Ta osoba dostaje link, wypełnia formularz zapisu (bez płatności) i dopiero wtedy pakiet przechodzi na nią. Link działa także po zamknięciu zapisów, do podanej daty. Rozliczenie pieniędzy między nimi nas nie dotyczy.'
+const RUNNER_CHANGE_TIP = 'Działa tylko, dopóki zapisy są otwarte. Po zamknięciu zapisów zmiany wprowadza organizator.'
 
 export default function Platnosci({ event, queue, saveState, readOnly, reload }) {
   const s = event.settings
   const writer = event.role === 'owner' || event.role === 'admin'
   const [choice, setChoice] = useState(s.paymentWindowUntilClose ? UNTIL_CLOSE : (s.paymentWindowHours ?? 168))
   const [transfer, setTransfer] = useState({ enabled: s.transferEnabled === true, until: s.transferUntil ?? '' })
+  // Ticked unless the club refused: the column defaults to true for every event.
+  const [runnerChange, setRunnerChange] = useState(s.runnerCompetitionChange !== false)
   const errors = sectionErrors(saveState, 'payments')
   const untilId = useId()
   const lastDay = s.eventDate ? dayBefore(s.eventDate) : undefined
 
   // The whole section each time: autosave keeps one value per section, the latest.
-  function send(window, t) {
+  function send(window, t, runner = runnerChange) {
     queue('payments', {
       ...(window === UNTIL_CLOSE
         ? { paymentWindowUntilClose: true }
         : { paymentWindowHours: window, paymentWindowUntilClose: false }),
       transferEnabled: t.enabled,
+      runnerCompetitionChange: runner,
       ...(t.enabled ? { transferUntil: t.until || null } : {}),
     })
   }
@@ -218,6 +222,11 @@ export default function Platnosci({ event, queue, saveState, readOnly, reload })
   function changeTransfer(next) {
     setTransfer(next)
     send(choice, next)
+  }
+
+  function changeRunner(on) {
+    setRunnerChange(on)
+    send(choice, transfer, on)
   }
 
   // Allowing it starts at the last day it may run to, the day before the race.
@@ -266,6 +275,22 @@ export default function Platnosci({ event, queue, saveState, readOnly, reload })
           </div>
         )}
         {untilError && <p id={`${untilId}-err`} className="text-apex-red font-sans text-sm">{untilError}</p>}
+      </section>
+
+      <section className={cardClass} data-testid="runner-change-settings">
+        <h2 className={cardTitle}>Zmiana konkurencji</h2>
+        <fieldset disabled={readOnly} className="min-w-0">
+          {/* The tip is a sibling of the label: inside it, a click on the open tip's text would
+              toggle the checkbox and the tip would join the checkbox's accessible name. */}
+          <div className="flex flex-wrap items-center gap-2.5">
+            <label className="flex items-center gap-2.5 font-sans text-base text-apex-text-bright min-h-9">
+              <input type="checkbox" className="w-[18px] h-[18px] accent-apex-yellow" data-testid="runner-change"
+                checked={runnerChange} onChange={(e) => changeRunner(e.target.checked)} />
+              Zgadzam się, by zawodnik mógł sam zmienić konkurencję
+            </label>
+            <InfoTip label="Co oznacza zmiana konkurencji przez zawodnika" testId="runner-change-tip">{RUNNER_CHANGE_TIP}</InfoTip>
+          </div>
+        </fieldset>
       </section>
 
       {writer && event.moneyLive !== false && <Vouchers eventId={s.eventId} competitions={event.competitions ?? []} />}

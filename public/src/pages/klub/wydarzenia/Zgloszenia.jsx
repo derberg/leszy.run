@@ -7,12 +7,13 @@ import { callFunction } from '../../../lib/auth.js'
 import { downloadCsv } from '../../../lib/csvDownload.js'
 import {
   AWAITING_CONSENT, competitionChips, entryActions, entryCounts, filterEntries, listedTile, noPlacesForAwaiting, offlineIncomeNote,
-  partnerChips, statusChips,
+  otherIndividualCompetition, partnerChips, statusChips,
 } from '../../../lib/entriesModel.js'
 import { teamStatusLabel } from '../../../lib/teamPage.js'
 import { btnGhost, btnPrimary } from '../settingsUi.js'
 import EntryMenu from './entries/EntryMenu.jsx'
 import CancelDialog from './entries/CancelDialog.jsx'
+import ChangeCompetitionDialog, { SurchargeCancelDialog } from './entries/ChangeCompetitionDialog.jsx'
 import EditEntryDialog from './entries/EditEntryDialog.jsx'
 import ExtendDialog from './entries/ExtendDialog.jsx'
 import MessageDialog from './entries/MessageDialog.jsx'
@@ -38,6 +39,9 @@ import TransferDialog from './entries/TransferDialog.jsx'
 // (OfflinePaymentDialog) confirms an unpaid order the club was paid for outside LESZY.RUN: its rows
 // read „POZA SYSTEMEM” with the club's note under it, and its money stays out of the online income
 // („poza systemem: …” under the WPŁYWY tile).
+// ⋯ „Zmień konkurencję” (ChangeCompetitionDialog) moves a confirmed individual entry; a dearer
+// competition waits for the payer's surcharge, and the row reads „ZMIANA NA <cel> — CZEKA NA DOPŁATĘ”
+// with ⋯ „Przypomnij o dopłacie” and „Anuluj dopłatę” (asks first) until it is paid or ends.
 
 const LIVE = new Set(['confirmed', 'pending_payment'])
 // Online payment, and with it the reminder and the extension, stops an hour before closes_at
@@ -97,6 +101,16 @@ function SubLine({ r }) {
   return (
     <span className={`block text-xs ${r.guardianRemoved ? 'text-apex-red' : 'text-apex-muted'}`}
       data-testid={r.guardianRemoved ? 'guardian-removed' : 'registration-sub'}>{sub}</span>
+  )
+}
+
+/** An open surcharge of a competition change: the entry moves once the payer pays it. */
+function SurchargeLine({ r }) {
+  if (!r.surcharge) return null
+  return (
+    <span className="block max-w-[260px] font-mono text-xs uppercase text-apex-cyan [overflow-wrap:anywhere]" data-testid="registration-surcharge">
+      Zmiana na {r.surcharge.toCompetition} — czeka na dopłatę {formatPln(r.surcharge.grosze)}
+    </span>
   )
 }
 
@@ -235,6 +249,7 @@ function rowMenu(r, ctx, { isTeamRow = false, menuRow = r, name = r.name, squadH
   const actions = entryActions(menuRow, {
     closed: ctx.closed, payingClosed: ctx.payingClosed, raceDay: ctx.raceDay, isTeamRow, full: ctx.fullCategories.has(menuRow.categoryId),
     isCaptain: ctx.captainIds.has(menuRow.id),
+    hasChangeTarget: otherIndividualCompetition(ctx.competitions, menuRow.categoryId),
   }).filter((a) => a !== 'squad' || squadHref) // no address for the team page without the event's slug
     // Nothing to pick while the event has no partner, unless the entry still carries one to clear.
     .filter((a) => a !== 'partner' || ctx.hasPartners || menuRow.partnerId)
@@ -262,6 +277,7 @@ function PersonCard({ r, ctx, testId = 'registration-card' }) {
         <span className={statusColour(r.statusKey)} data-testid="registration-status">{statusLabel(r.statusKey, r)}</span>
         <span className={amountColour}>{amount}</span>
       </div>
+      <SurchargeLine r={r} />
       <OfflineNote r={r} />
       <ConsentLine r={r} />
       {ctx.hasPartners && r.partnerName && (
@@ -324,6 +340,7 @@ function PersonTableRow({ r, ctx, member = false }) {
         <span className={`block font-mono text-xs whitespace-nowrap ${statusColour(r.statusKey)}`} data-testid="registration-status">
           {statusLabel(r.statusKey, r)}
         </span>
+        <SurchargeLine r={r} />
         <OfflineNote r={r} />
         <ConsentLine r={r} />
       </td>
@@ -449,6 +466,9 @@ export default function Zgloszenia({
 
   function onAction(action, row, { isTeamRow, trigger }) {
     if (action === 'remind_payment') return remind('organizer-entry-action', { action: 'remind_payment', registrationId: row.id }, row, trigger)
+    if (action === 'surcharge_remind') {
+      return remind('organizer-entry-action', { action: 'surcharge_remind', orderId: row.surcharge?.orderId }, row, trigger)
+    }
     if (action === 'remind_consent') return remind('remind-consent', { registrationId: row.id }, row, trigger)
     if (action === 'consent_office') return setOffice({ row, trigger })
     setDialog({ kind: action, row, isTeamRow, trigger })
@@ -506,6 +526,7 @@ export default function Zgloszenia({
     payingClosed,
     raceDay,
     captainIds: new Set(state.teams.map((t) => t.captainId)),
+    competitions: state.competitions,
     fullCategories: new Set(counts.perCompetition.filter((c) => c.listed >= c.capacity).map((c) => c.id)),
     onAction,
     rowOf: (id) => byId.get(id) ?? null,
@@ -541,6 +562,9 @@ export default function Zgloszenia({
           : [row]
         return <CancelDialog row={row} team={captainOf} orderRows={orderRows} {...common} />
       }
+      case 'change_competition': return <ChangeCompetitionDialog row={row} {...common} />
+      // The surcharge the dialog opened on, even when a re-read finds it ended meanwhile (the refusal stays readable).
+      case 'surcharge_cancel': return <SurchargeCancelDialog row={row.surcharge ? row : dialog.row} {...common} />
       case 'edit': return <EditEntryDialog row={row} formFields={formFields} {...common} />
       case 'rename_team': return captainOf ? <RenameTeamDialog team={captainOf} {...common} /> : null
       case 'partner': return <PartnerDialog row={row} partners={state.partners} {...common} />

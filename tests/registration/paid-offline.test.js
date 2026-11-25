@@ -290,10 +290,10 @@ test('OP-9 list-event-registrations: the row reads paid_offline with the note, c
   const csv = await callFn('export-event-registrations', owner, { eventId: event.eventId, filter: { statusKey: 'paid_offline' } })
   assert.equal(csv.status, 200, JSON.stringify(csv.body))
   const lines = csv.body.data.csv.split('\r\n')
-  assert.match(lines[0], /"Notatka o wpłacie"$/)
+  assert.match(lines[0], /"Notatka o wpłacie";"Dopłata czeka \(zł\)";"Zmiana konkurencji na"$/)
   assert.equal(lines.length, 2, 'the filter keeps the offline row only')
   assert.match(lines[1], /"POZA SYSTEMEM"/)
-  assert.ok(lines[1].endsWith(`"${NOTE}"`))
+  assert.ok(lines[1].endsWith(`"${NOTE}";"";""`))
 })
 
 test('OP-10 offline_note: the owner changes the note (audit without it), an order not marked → 409 not_offline', async () => {

@@ -9,10 +9,15 @@ import { loadOrderView, orderEmailArgs, settleConfirmOutcome } from '../_shared/
 import { paymentReminderEmail } from '../_shared/registration/emails.js'
 import { issueConsentRequests, publicSite } from '../_shared/registration/consentRequests.js'
 import { validatePerson } from '../_shared/registration/person.js'
+import { checkEdit } from '../_shared/registration/editCheck.js'
 import { personContexts } from '../_shared/registration/registrationRequest.js'
 import { TEAM_NAME_MESSAGE } from '../_shared/registration/team.js'
 import { releaseSlot, sendOnAllowance } from '../_shared/registration/organizerMail.js'
 import { callTransferRpc, organizerTransferRefusal, sendAcceptedTransferEmail } from '../_shared/registration/transfers.js'
+import { dpayConfig, DpayConfigError } from '../_shared/dpay.js'
+import { changeRefusal, PAYING_CLOSES_BEFORE_MS } from '../_shared/registration/competitionChange.js'
+import { changePreview, runChange } from '../_shared/registration/changeCompetitionFlow.js'
+import { sendSurchargeEmail } from '../_shared/registration/competitionChangeMail.js'
 
 function json(body, status, req, headers = {}) {
   return new Response(JSON.stringify(body), {
@@ -25,16 +30,15 @@ const NOT_FOUND = { error: 'Not found' }
 const DAY = 86400
 // An organizer bringing a person in (an organizer transfer, like a squad edit in team-squad).
 const ORGANIZER_PEOPLE_PER_DAY = 100
-// Online payment stops an hour before closes_at (spec 14.10, create_order's paying_closed).
-const PAYING_CLOSES_BEFORE_MS = 3600_000
 const FIELD_MESSAGE = 'Sprawdź to pole.'
-const ACTIONS = ['extend', 'remind_payment', 'cancel', 'edit', 'rename_team', 'partner', 'transfer', 'mark_paid_offline', 'offline_note']
+const ACTIONS = ['extend', 'remind_payment', 'cancel', 'edit', 'rename_team', 'partner', 'transfer', 'mark_paid_offline', 'offline_note',
+  'change_competition_preview', 'change_competition', 'surcharge_cancel', 'surcharge_remind']
+// A competition change's surcharge order (its event read from the order row, never the client).
+const SURCHARGE_ACTIONS = new Set(['surcharge_cancel', 'surcharge_remind'])
 // The order actions: the target is an order, named directly or through one of its registrations.
 const ORDER_ACTIONS = new Set(['extend', 'remind_payment', 'mark_paid_offline', 'offline_note'])
 // „Opłacone poza systemem”: the club's own note on the order (orders.offline_note's CHECK).
 const OFFLINE_NOTE_MAX = 300
-// The fields „Edytuj dane” may change (ruling 7). Never the e-mail: the one-start key and the account.
-const EDITABLE = ['firstName', 'lastName', 'birthDate', 'gender', 'phone', 'city', 'club', 'nationality', 'iceName', 'icePhone']
 
 // Every refusal of the RPCs this function calls, by the message they raise.
 const REFUSALS = {
@@ -69,7 +73,26 @@ const REFUSALS = {
   stock: [409, 'Dodatku z tego zamówienia nie ma już w magazynie.'],
   not_offline: [409, 'To zamówienie nie jest opłacone poza systemem.'],
   not_found: [404, NOT_FOUND.error],
+  // extend / remind_payment on a competition change's surcharge order: it has its own reminder and
+  // a window the change set (final review).
+  surcharge_order: [409, 'To jest dopłata za zmianę konkurencji — użyj „Przypomnij o dopłacie”.'],
+  // organizer_mark_paid_offline on a competition change's surcharge order (task 4), cancel_surcharge
+  // on another order: the change's own copy.
+  ...Object.fromEntries(['surcharge', 'not_surcharge'].map((c) => {
+    const r = changeRefusal(c)
+    return [c, [r.status, r.error]]
+  })),
 }
+
+// What the change's difference refund answers when dpay did not take it: the entry has moved
+// already (change_competition committed), so every copy says so.
+const CHANGE_REFUND = {
+  rejected: 'Konkurencję zmieniono, ale operator płatności odrzucił zwrot różnicy. Zwróć ją później przez „Zwróć wpłatę”.',
+  insufficient_balance: 'Konkurencję zmieniono, ale operator płatności odrzucił zwrot różnicy: brak środków. Zwróć ją po doładowaniu salda przez „Zwróć wpłatę”.',
+  blocked: 'Konkurencję zmieniono, ale operator płatności blokuje zwroty tej wpłaty. Pieniądze nie zostały zwrócone. Zgłosiliśmy to i wyjaśniamy z operatorem.',
+}
+// change_competition's 422s are about the chosen competition, except a team entry's.
+const CHANGE_ENTRY_422 = new Set(['team_competition'])
 
 /** The note as stored (trimmed), or null when it is empty or too long. */
 function offlineNote(value) {
@@ -108,6 +131,11 @@ async function targetOf(admin, action, body) {
     const team = await single(admin.from('teams').select('id, event_id').eq('id', body.teamId).maybeSingle())
     return team && { eventId: team.event_id, teamId: team.id }
   }
+  if (SURCHARGE_ACTIONS.has(action)) {
+    if (!isUuid(body.orderId)) return null
+    const order = await single(admin.from('orders').select('id, event_id, kind').eq('id', body.orderId).maybeSingle())
+    return order && { eventId: order.event_id, orderId: order.id, orderKind: order.kind }
+  }
   if (ORDER_ACTIONS.has(action)) {
     let orderId = body.orderId
     if (!isUuid(orderId) && isUuid(body.registrationId)) {
@@ -115,8 +143,8 @@ async function targetOf(admin, action, body) {
       orderId = reg?.order_id
     }
     if (!isUuid(orderId)) return null
-    const order = await single(admin.from('orders').select('id, event_id').eq('id', orderId).maybeSingle())
-    return order && { eventId: order.event_id, orderId: order.id }
+    const order = await single(admin.from('orders').select('id, event_id, kind').eq('id', orderId).maybeSingle())
+    return order && { eventId: order.event_id, orderId: order.id, orderKind: order.kind }
   }
   if (!isUuid(body.registrationId)) return null
   const reg = await single(admin.from('registrations').select('id, event_id').eq('id', body.registrationId).maybeSingle())
@@ -148,39 +176,48 @@ async function remindPayment(admin, settings, orderId) {
   })
 }
 
-/**
- * „Edytuj dane”: validatePerson over the stored person with the edits applied, so the organizer
- * gets the form's own messages, keyed by field. Only the fields the edit touches can fail: a value
- * stored before a form switch changed stays valid, as organizer_edit_registration also decides.
- * The age group and kids' group are re-derived by organizer_edit_registration itself under its
- * locks; a label computed here is never trusted (Task 2, decision 9).
- */
-async function checkEdit(admin, settings, registrationId, fields) {
-  if (!fields || typeof fields !== 'object' || Array.isArray(fields)) return { invalid: {} }
-  const keys = Object.keys(fields)
-  if (!keys.length || keys.some((k) => !EDITABLE.includes(k) || (fields[k] !== null && typeof fields[k] !== 'string'))) {
-    return { invalid: {} }
-  }
-  const reg = await single(admin.from('registrations')
-    .select('category_id, first_name, last_name, birth_date, gender, email, phone, city, club, nationality, ice_name, ice_phone')
-    .eq('id', registrationId).single())
-  const competition = await single(admin.from('competitions').select('*').eq('category_id', reg.category_id).single())
-  const context = (await personContexts(admin, settings, [competition])).get(competition.category_id)
-  const stored = {
-    firstName: reg.first_name, lastName: reg.last_name, birthDate: reg.birth_date, gender: reg.gender,
-    email: reg.email, phone: reg.phone, city: reg.city, club: reg.club, nationality: reg.nationality,
-    iceName: reg.ice_name, icePhone: reg.ice_phone,
-  }
-  const checked = validatePerson({ ...stored, ...fields }, { ...context, now: new Date() })
-  const errors = Object.fromEntries(Object.entries(checked.errors).filter(([k]) => keys.includes(k)))
-  return Object.keys(errors).length ? { invalid: errors } : { keys }
+/** A competition change refusal as the panel's answer: a 422 names the field, price_changed the real difference. */
+function changeAnswer(req, refused) {
+  const r = changeRefusal(refused.refused)
+  const body = { error: r.error, code: r.code }
+  if (r.status === 422) body.fields = CHANGE_ENTRY_422.has(r.code) ? {} : { categoryId: r.error }
+  if (refused.difference !== undefined) body.difference = refused.difference
+  if (refused.remaining !== undefined) body.remaining = refused.remaining
+  return json(body, r.status, req)
+}
+
+// „Przypomnij o dopłacie”: the surcharge request again, as remind_payment does for an order: refused
+// for a surcharge nobody can pay any more, once online payment has stopped an hour before closes_at
+// and into a full competition, and once per order per 24 h (the same `pay-remind:<orderId>` key).
+// Only a sent e-mail spends that allowance.
+async function remindSurcharge(admin, settings, orderId) {
+  const order = await single(admin.from('orders').select('id, status, expires_at, buyer_email').eq('id', orderId).single())
+  if (order.status === 'paid') return { refused: 'paid' }
+  if (order.status === 'cancelled') return { refused: 'cancelled' }
+  if (order.status !== 'pending' || (order.expires_at && Date.parse(order.expires_at) <= Date.now())) return { refused: 'expired' }
+  if (!settings.closes_at || Date.now() >= Date.parse(settings.closes_at) - PAYING_CLOSES_BEFORE_MS) return { refused: 'paying_closed' }
+  const { data: fits, error } = await admin.rpc('registration_order_fits', { p_order_id: orderId })
+  if (error) throw error
+  if (fits === false) return { refused: 'full' }
+  if (!order.buyer_email) return { refused: 'no_address' }
+  const key = `pay-remind:${orderId}`
+  return sendOnAllowance({
+    claim: () => checkAndIncrement(admin, key, 1, { windowSeconds: DAY }),
+    release: releaseSlot(admin, key),
+    send: async () => {
+      const sent = await sendSurchargeEmail(admin, orderId, { reminder: true })
+      if (!sent.sent) throw new Error(sent.error ?? 'not sent')
+      return { ok: true }
+    },
+  })
 }
 
 // POST { action, registrationId | orderId | teamId, … } → the organizer's actions on one entry that
 // move no money (B3). The event comes from the target row, never from the client.
 //   extend          { orderId | registrationId, until }  → 200 { data: { expiresAt } }
 //                   „Przedłuż termin wpłaty”: up to 14 days and never past closes_at (ruling 2). It
-//                   reserves no place (D6-13). 409 expired, 422 invalid_until.
+//                   reserves no place (D6-13). 409 expired, 422 invalid_until, 409 surcharge_order
+//                   for a competition change's surcharge (extend and remind_payment alike).
 //   remind_payment  { orderId | registrationId }          → 200 { data: { sent: true } }
 //                   409 paid / cancelled / expired, 409 paying_closed (from an hour before
 //                   closes_at), 409 full (D6-27), 409 no_address, 429 a second within 24 h,
@@ -214,6 +251,28 @@ async function checkEdit(admin, settings, registrationId, fields) {
 //                   payment_received / race_day / unavailable / duplicate / full / voucher / stock.
 //   offline_note    { orderId | registrationId, note }  → 200 { data: { note } }
 //                   Changes that note. 409 not_offline for an order not marked; 422 invalid_note.
+//                   409 surcharge for a competition change's surcharge order (paid online only).
+//   change_competition_preview { registrationId }     → 200 { data: { entry: { registrationId, categoryId,
+//                   held, offlinePaid }, targets: [{ categoryId, name, listPrice, price, difference, kind,
+//                   voucherKept, extrasNotOffered, eligible, reason?, offlineAck? }] } }
+//                   „Zmień konkurencję”: every other visible individual competition at change_competition's
+//                   price (changeCompetitionFlow.js). An entry that cannot move at all answers its refusal
+//                   (409 not_live / edits_closed / refund_pending / surcharge_open / transfer_open, 422
+//                   team_competition).
+//   change_competition { registrationId, categoryId, expectedDifference, requestKey, offlineAck? }
+//                   change_competition, then: same price → 200 { outcome: 'moved' } and „Zmieniono
+//                   konkurencję”; cheaper → the difference refunded through dpay as organizer-refund does
+//                   (200 accepted, 202 „Zwrot niepotwierdzony.”, 409 rejected / insufficient_balance /
+//                   refund_blocked, each with data.moved: the entry has moved whatever dpay said); an
+//                   entry paid outside LESZY.RUN needs offlineAck (409 offline_paid) → 200
+//                   moved_offline_refund, the club gives the difference back by hand; dearer → 200
+//                   { outcome: 'surcharge', orderId, expiresAt } and the surcharge e-mail to its payer.
+//                   409 price_changed with `difference`, 422s with `fields: { categoryId }`, 503 when a
+//                   dpay refund is needed and dpay is not configured. The same requestKey is a replay.
+//   surcharge_cancel { orderId }                       → 200 { data: { cancelled: true } }
+//                   cancel_surcharge; 409 paid / expired / cancelled, 409 not_surcharge for another order.
+//   surcharge_remind { orderId }                       → 200 { data: { sent: true } }
+//                   The surcharge e-mail again, as remind_payment (same `pay-remind:<orderId>` allowance).
 // The owner or an admin of the event's club: a member 403, an outsider or a disabled club 404, an
 // unknown target 404. Every change writes one organizer_actions row naming its target; no personal
 // value goes into the payload or a log.
@@ -241,6 +300,10 @@ Deno.serve(async (req) => {
     const log = (name, targetId, payload = null) => logOrganizerAction(admin, req, {
       actorId: actor, clubId: settings.club_id, eventId: settings.event_id, action: name, target: targetId, payload,
     })
+
+    if ((action === 'extend' || action === 'remind_payment') && target.orderKind === 'surcharge') {
+      return refuse(req, 'surcharge_order')
+    }
 
     if (action === 'extend') {
       const until = typeof body.until === 'string' ? new Date(body.until) : null
@@ -376,6 +439,65 @@ Deno.serve(async (req) => {
       return json({
         data: { registrationId: data.registrationId, consentState: 'awaiting', hostWithdraw, consentRequestSent, holderNotified },
       }, 200, req)
+    }
+
+    if (action === 'change_competition_preview') {
+      const preview = await changePreview(admin, target.registrationId)
+      if (!preview) return json(NOT_FOUND, 404, req)
+      if (preview.refusal) return changeAnswer(req, { refused: preview.refusal })
+      return json({ data: preview }, 200, req)
+    }
+
+    if (action === 'change_competition') {
+      const { categoryId, expectedDifference, requestKey } = body
+      if (!isUuid(categoryId)) return changeAnswer(req, { refused: 'not_found' })
+      if (!Number.isInteger(expectedDifference) || !isUuid(requestKey)) {
+        return json({ error: 'Nieprawidłowe żądanie.', code: 'invalid_request' }, 400, req)
+      }
+      let cfg = null
+      try {
+        cfg = dpayConfig(Deno.env)
+      } catch (err) {
+        if (!(err instanceof DpayConfigError)) throw err
+        console.error('organizer-entry-action: dpay not configured:', err.message)
+      }
+      const out = await runChange(admin, cfg, {
+        registrationId: target.registrationId, categoryId, expectedDifference, requestKey,
+        actor, actorKind: 'organizer', offlineAck: body.offlineAck === true,
+      }, { log })
+      if (out.refused) return changeAnswer(req, out)
+      const data = { outcome: out.outcome, grosze: out.grosze, categoryId: out.toCategoryId, emailed: out.emailed }
+      if (out.outcome === 'surcharge') return json({ data: { ...data, orderId: out.orderId, expiresAt: out.expiresAt } }, 200, req)
+      if (out.outcome !== 'refund') return json({ data }, 200, req)
+      // The difference refund, answered as organizer-refund answers a refund in that state; the
+      // entry has moved whatever dpay said.
+      const refundData = { ...data, status: out.refund.status, refundIds: out.refund.refundIds, moved: true }
+      if (out.refund.status === 'accepted') return json({ data: refundData }, 200, req)
+      if (out.refund.status === 'unknown') return json({ data: refundData, message: 'Zwrot niepotwierdzony.' }, 202, req)
+      const code = out.refund.status === 'blocked' ? 'refund_blocked' : out.refund.status
+      return json({ error: CHANGE_REFUND[out.refund.status] ?? CHANGE_REFUND.rejected, code, data: refundData }, 409, req)
+    }
+
+    if (SURCHARGE_ACTIONS.has(action)) {
+      if (target.orderKind !== 'surcharge') return refuse(req, 'not_surcharge')
+      if (action === 'surcharge_cancel') {
+        const { data, error } = await admin.rpc('cancel_surcharge', { p_order_id: target.orderId, p_reason: 'organizer_cancelled' })
+        if (error) return refusalOrThrow(req, error)
+        if (!data?.cancelled) return refuse(req, data?.status === 'paid' ? 'paid' : data?.status === 'expired' ? 'expired' : 'cancelled')
+        await log('surcharge_cancelled', target.orderId)
+        return json({ data: { cancelled: true } }, 200, req)
+      }
+      const out = await remindSurcharge(admin, settings, target.orderId)
+      if (out.refused) return refuse(req, out.refused)
+      if (out.throttled) {
+        return json({ error: 'Przypomnienie o dopłacie można wysłać raz na dobę.', code: 'throttled' }, 429, req,
+          { 'Retry-After': String(out.throttled) })
+      }
+      if (out.failed) {
+        return json({ error: 'Nie udało się wysłać przypomnienia. Spróbuj ponownie za chwilę.', code: 'email_failed' }, 502, req)
+      }
+      await log('surcharge_reminded', target.orderId, { sent: true })
+      return json({ data: { sent: true } }, 200, req)
     }
 
     if (action === 'mark_paid_offline' || action === 'offline_note') {
