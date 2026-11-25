@@ -15,6 +15,7 @@ import { captain, freeTeamEvent, teamOk } from './helpers/teams.js'
 import { nodeDpay } from './helpers/organizerRefund.js'
 import { assertSlotInvariant } from './helpers/slotInvariant.js'
 import { registerTransaction } from '../../supabase/functions/_shared/dpay.js'
+import { ORGANIZER_AGREEMENT_VERSION } from '../../supabase/functions/_shared/organizer.js'
 
 const OWNER = 'owner@zatyrani-test.local'
 const C5 = { name: 'Bieg 5 km', discipline: 'run', distanceLabel: '5 km', startTime: '11:00', capacity: 50 }
@@ -440,3 +441,42 @@ test('RS-16 details prefills „Popraw dane” (never the e-mail); my-registrati
   await setSettings(event.eventId, { runner_competition_change: true, runner_data_edit: true, closes_at: new Date(Date.now() - 60_000).toISOString() })
   assert.deepEqual(await listed(), [{ change: false, edit: false }, { change: false, edit: false }], 'after closes_at')
 })
+
+test('RS-16b a club without the current agreement version: no „Zmień konkurencję” anywhere and change 403 not_allowed; „Popraw dane” stays (L-2)', async () => {
+  const event = await paidEvent()
+  const [, c5] = event.categoryIds
+  const e = await ownEntry(event)
+  const { slug } = await one('registration_settings', { event_id: event.eventId })
+  const listed = async () => {
+    const mine = await callFn('my-registrations', e.session, {})
+    const ev = mine.body.data.find((x) => x.eventId === event.eventId)
+    const onEvent = await callFn('my-event-registrations', e.session, { slug })
+    return [ev.people.find((p) => p.id === e.registrationId).actions, onEvent.body.data.find((r) => r.id === e.registrationId).actions]
+  }
+  assert.deepEqual(await listed(), [{ change: true, edit: true }, { change: true, edit: true }], 'current version accepted')
+  const { data: club } = await db().from('clubs').select('id').eq('slug', 'zatyrani-test').single()
+  const { error: delErr } = await db().from('organizer_agreements').delete().eq('club_id', club.id).eq('version', ORGANIZER_AGREEMENT_VERSION)
+  if (delErr) throw delErr
+  try {
+    assert.deepEqual(await listed(), [{ change: false, edit: true }, { change: false, edit: true }])
+    const t = await targets(e.session, e.registrationId)
+    assert.equal(t.status, 200)
+    assert.deepEqual([t.body.data.allowed, t.body.data.competitionChange, t.body.data.refusal, t.body.data.targets], [false, false, 'not_allowed', []])
+    const d = await act(e.session, { action: 'details', registrationId: e.registrationId })
+    assert.deepEqual([d.body.data.competitionChange, d.body.data.dataEdit], [false, true])
+    const refusedChange = await change(e.session, e.registrationId, c5, -2000)
+    assert.deepEqual([refusedChange.status, refusedChange.body.code], [403, 'not_allowed'])
+    assert.equal((await reg(e.registrationId)).category_id, event.categoryIds[0])
+    const edited = await edit(e.session, e.registrationId, { city: 'Szubin' })
+    assert.equal(edited.status, 200, JSON.stringify(edited.body))
+    // The organizer's change is untouched.
+    const byOrganizer = await callFn('organizer-entry-action', owner, {
+      action: 'change_competition', registrationId: e.registrationId, categoryId: c5, expectedDifference: -2000, requestKey: crypto.randomUUID(),
+    })
+    assert.equal(byOrganizer.status, 200, JSON.stringify(byOrganizer.body))
+  } finally {
+    await acceptAgreement('zatyrani-test')
+  }
+  assert.deepEqual(await listed(), [{ change: true, edit: true }, { change: true, edit: true }])
+})
+

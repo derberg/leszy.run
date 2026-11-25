@@ -11,6 +11,21 @@ export async function clubRole(admin, clubId, userId) {
   return data?.role ?? null
 }
 
+/**
+ * The clubs among `clubIds` that accepted the CURRENT agreement version → Set of club ids. The
+ * runner's own competition change moves the club's money through dpay with no organizer action,
+ * which only that version covers (§6 ust. 7–9): without it the change is neither offered
+ * (selfServiceActions) nor allowed (change_competition, given the version as p_agreement_version).
+ */
+export async function clubsOnCurrentAgreement(admin, clubIds) {
+  const ids = [...new Set((clubIds ?? []).filter(Boolean))]
+  if (!ids.length) return new Set()
+  const { data, error } = await admin.from('organizer_agreements').select('club_id')
+    .in('club_id', ids).eq('version', ORGANIZER_AGREEMENT_VERSION)
+  if (error) throw error
+  return new Set((data ?? []).map((a) => a.club_id))
+}
+
 export async function clubRegistrationEnabled(admin, clubId) {
   const { data } = await admin.from('clubs').select('registration_enabled').eq('id', clubId).maybeSingle()
   return data?.registration_enabled === true

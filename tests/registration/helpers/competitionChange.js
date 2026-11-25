@@ -2,14 +2,19 @@
 // through PostgREST as service_role, the way organizer-entry-action calls them.
 import crypto from 'node:crypto'
 import { rpc } from './orders.js'
+import { ORGANIZER_AGREEMENT_VERSION } from '../../../supabase/functions/_shared/organizer.js'
 
-/** change_competition → the RPC's raw { data, error }. */
+/**
+ * change_competition → the RPC's raw { data, error }. `agreement` is p_agreement_version, the
+ * current version by default as the edge functions pass it; `agreement: null` leaves it out.
+ */
 export const changeCompetition = (registrationId, to, expected, {
-  actor = null, kind = 'organizer', key = crypto.randomUUID(), offlineAck,
+  actor = null, kind = 'organizer', key = crypto.randomUUID(), offlineAck, agreement = ORGANIZER_AGREEMENT_VERSION,
 } = {}) => rpc('change_competition', {
   p_registration_id: registrationId, p_to: to, p_expected_difference: expected,
   p_actor: actor, p_actor_kind: kind, p_request_key: key,
   ...(offlineAck === undefined ? {} : { p_offline_ack: offlineAck }),
+  ...(agreement === null ? {} : { p_agreement_version: agreement }),
 })
 
 /** change_competition that must succeed → its jsonb result. */

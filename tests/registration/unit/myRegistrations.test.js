@@ -153,6 +153,7 @@ test('RS-15 actions: the runner’s own entry, before close, with the club’s s
     userId: ME, email: 'ola@example.com', settings: [{ ...open, ...opts.settings }], competitions, orders: opts.orders ?? [],
     registrations: [reg({ id: 'r1', event_id: 'e-future', ...over })], captains: opts.captains, now: NOW,
     enabledClubs: opts.enabledClubs ?? enabledClubs, openSurcharges: opts.openSurcharges ?? [],
+    agreementClubs: opts.agreementClubs ?? new Set(['club1']),
   })[0].people[0]
   assert.deepEqual(shape({ profile_id: ME }).actions, { change: true, edit: true })
   assert.deepEqual(shape({ email: 'OLA@example.com' }).actions, { change: true, edit: true }, 'an adult entry at the session’s address')
@@ -165,6 +166,8 @@ test('RS-15 actions: the runner’s own entry, before close, with the club’s s
   assert.deepEqual(shape({ profile_id: ME, team_id: 't1' }).actions, NONE, 'a team member')
   assert.deepEqual(shape({ profile_id: ME, team_id: 't1' }, { captains: new Set(['r1']) }).actions, { change: false, edit: true }, 'a captain edits only')
   assert.deepEqual(shape({ profile_id: ME }, { enabledClubs: new Set() }).actions, NONE, 'a club with registration switched off')
+  assert.deepEqual(shape({ profile_id: ME }, { agreementClubs: new Set() }).actions, { change: false, edit: true },
+    'a club without the current agreement: no competition change (money), the data edit stays (L-2)')
   const othersSurcharge = order({ id: 's0', event_id: 'e-future', buyer_profile_id: 'the-buyer', kind: 'surcharge', status: 'pending', total: 2000,
     surcharge_registration_id: 'r1', surcharge_to_category_id: 'c2', expires_at: '2026-11-03T10:00:00Z' })
   const waitsForOther = shape({ profile_id: ME }, { openSurcharges: [othersSurcharge] })
