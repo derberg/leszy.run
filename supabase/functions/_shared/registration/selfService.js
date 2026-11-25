@@ -29,14 +29,14 @@ export function actsOnEntry(reg, session) {
  * @param {object} p.settings registration_settings row: runner_competition_change, runner_data_edit, closes_at
  * @param {{ userId: string, email?: string|null }} p.session
  * @param {boolean} p.clubEnabled clubs.registration_enabled of the event's club
- * @param {boolean} [p.agreementCurrent] the club accepted the current organizer agreement version
- *   (clubsOnCurrentAgreement): a competition change needs it, a data edit (no money) does not
+ * @param {boolean} [p.clubAgreement] the club accepted the organizer agreement (any version)
+ *   (clubsWithAgreement): a competition change needs it, a data edit (no money) does not
  * @param {boolean} [p.captain] the entry is its team's captain (ignored without team_id)
  * @param {boolean} [p.surchargeOpen]
  * @param {Date} [p.now]
  * @returns {{ change: boolean, edit: boolean }}
  */
-export function selfServiceActions({ reg, settings, session, clubEnabled, agreementCurrent = false, captain = false, surchargeOpen = false, now = new Date() }) {
+export function selfServiceActions({ reg, settings, session, clubEnabled, clubAgreement = false, captain = false, surchargeOpen = false, now = new Date() }) {
   const none = { change: false, edit: false }
   if (clubEnabled !== true || !reg || !settings || !actsOnEntry(reg, session)) return none
   const closes = settings.closes_at ? Date.parse(settings.closes_at) : NaN
@@ -44,7 +44,7 @@ export function selfServiceActions({ reg, settings, session, clubEnabled, agreem
   const team = reg.team_id != null
   if (team && !captain) return none
   return {
-    change: settings.runner_competition_change === true && agreementCurrent === true && !team && reg.status === 'confirmed' && !surchargeOpen,
+    change: settings.runner_competition_change === true && clubAgreement === true && !team && reg.status === 'confirmed' && !surchargeOpen,
     edit: settings.runner_data_edit === true && (reg.status === 'confirmed' || reg.status === 'pending_payment'),
   }
 }

@@ -204,7 +204,7 @@ const callChange = (admin, args) => admin.rpc('change_competition', {
   p_registration_id: args.registrationId, p_to: args.categoryId, p_expected_difference: args.expectedDifference,
   p_actor: args.actor ?? null, p_actor_kind: args.actorKind, p_request_key: args.requestKey,
   p_offline_ack: args.offlineAck === true,
-  // A runner's change needs the club's acceptance of this version (the RPC checks it, L-2).
+  // Kept for the signature; the RPC now asks only that the club has the agreement (any version).
   p_agreement_version: ORGANIZER_AGREEMENT_VERSION,
 })
 

@@ -17,7 +17,7 @@ test('a club without registration goes to the waitlist, joined or not', () => {
   }
 })
 
-test('an enabled club without the current agreement goes to the agreement', () => {
+test('an enabled club that never accepted the agreement goes to the agreement', () => {
   for (const role of ['owner', 'admin']) {
     assert.equal(nextOrganizerStep({ enabled: true, waitlisted: false, agreementAccepted: false, role }), 'agreement')
   }
@@ -35,4 +35,21 @@ test('payout and agreement are shown only when organizer-status says enabled: tr
   assert.equal(organizerFeaturesShown({ enabled: false, waitlisted: false, role: 'admin' }), false)
   assert.equal(organizerFeaturesShown(null), false)
   assert.equal(organizerFeaturesShown(undefined), false)
+})
+
+test('a club that accepted an older agreement version still goes to the wizard (an update, no re-acceptance)', () => {
+  for (const role of ['owner', 'admin']) {
+    assert.equal(nextOrganizerStep({ enabled: true, agreementAccepted: true, acceptedVersion: '2026-11-v6', currentVersion: '2026-11-v7', role }), 'wizard')
+  }
+})
+
+test('agreementUpdated: only an owner or admin of a club on an older accepted version', async () => {
+  const { agreementUpdated } = await import('../../src/lib/organizerGate.js')
+  const base = { enabled: true, agreementAccepted: true, acceptedVersion: '2026-11-v6', currentVersion: '2026-11-v7' }
+  assert.equal(agreementUpdated({ ...base, role: 'owner' }), true)
+  assert.equal(agreementUpdated({ ...base, role: 'admin' }), true)
+  assert.equal(agreementUpdated({ ...base, role: 'member' }), false)
+  assert.equal(agreementUpdated({ ...base, acceptedVersion: '2026-11-v7', role: 'owner' }), false)
+  assert.equal(agreementUpdated({ ...base, agreementAccepted: false, acceptedVersion: null, role: 'owner' }), false)
+  assert.equal(agreementUpdated(null), false)
 })

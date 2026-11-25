@@ -9,6 +9,7 @@ import { organizerFeaturesShown } from '../../lib/organizerGate.js'
 import { actionBtnClass, primaryBtnClass } from '../profil/fields.jsx'
 import { printDocument } from '../../lib/printDocument.js'
 import { useKlub } from './context.js'
+import AgreementUpdateBanner from './AgreementUpdateBanner.jsx'
 
 const eyebrowClass = 'font-mono text-[10px] tracking-widest uppercase text-apex-muted'
 
@@ -70,7 +71,7 @@ export function AgreementText({ body }) {
 export default function UmowaOrganizatora() {
   const { club, canManage, isOwner } = useKlub()
   const navigate = useNavigate()
-  const { ready, status, error } = useOrganizerStatus(club.id)
+  const { ready, status, error, reload } = useOrganizerStatus(club.id)
   const [busy, setBusy] = useState(false)
   const [acceptError, setAcceptError] = useState(null)
 
@@ -112,6 +113,7 @@ export default function UmowaOrganizatora() {
           Pobierz PDF
         </button>
       </div>
+      <AgreementUpdateBanner club={club} status={status} isOwner={isOwner} onAcknowledged={reload} showChanges />
       <AgreementText body={organizerAgreement.body} />
 
       <div data-print-hide>

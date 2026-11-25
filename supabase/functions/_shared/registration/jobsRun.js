@@ -11,6 +11,7 @@ import { issueConsentRequestsReport, rotateAndSend } from './consentRequests.js'
 import { notifyRefundRunner, refundNoticeArgs } from './refundNotice.js'
 import { resendTransferEmails } from './transfers.js'
 import { sendSurchargeEmail, sendSurchargeExpired } from './competitionChangeMail.js'
+import { sendAgreementNotices } from './agreementNotices.js'
 
 // The payment window jobs (plan 3, task 7). pg_cron POSTs here every 15 minutes through pg_net
 // (job `registration-jobs`) with the header x-jobs-secret = REGISTRATION_JOBS_SECRET; anything
@@ -62,6 +63,12 @@ import { sendSurchargeEmail, sendSurchargeExpired } from './competitionChangeMai
 //      step needs CONSENT_STEP_MS to start, and each sub-step starts (claims) only with
 //      CONSENT_PART_MS left, so a claim is never made that the run has no time to send; what
 //      does not fit waits, unclaimed, for the next run. Its counts are e-mails sent, not claims.
+//   8a. agreement notices (owner decision 2026-11-25; no dpay): a new organizer agreement version
+//      is an update, never a re-acceptance (§13 ust. 6). Every enabled club whose newest accepted
+//      version is older than ORGANIZER_AGREEMENT_VERSION is claimed once per version
+//      (claim_agreement_notices, an organizer_agreement_notices row) and its owner and admins get
+//      „Zaktualizowaliśmy umowę organizatora”, one e-mail per address (agreementNotices.js). A
+//      failed send is alerted (email_failed, template agreement_notice), never resent.
 //   8b. refunds made in the dpay panel (external_refunds): dpay sends no IPN for a refund, so an
 //      organizer who refunds in the merchant panel instead of „Zwróć wpłatę” leaves the order paid
 //      and the entry live. Each paid order whose event is at most 60 days past is claimed once a
@@ -87,12 +94,12 @@ import { sendSurchargeEmail, sendSurchargeExpired } from './competitionChangeMai
 // POST body: {} from cron; { budgetMs } may only shorten the budget (tests).
 // → 200 { data: { checked, confirmed, reminders, expiredNotices, confirmationsResent,
 //   refundEmails, refundRetries, stalledRefunds, consentRequestsIssued, consentEmailsResent, consentReminders,
-//   transferEmailsResent, externalRefundsChecked, externalRefundAlerts, externalRefundErrors,
+//   transferEmailsResent, agreementNotices, agreementNoticeEmails, externalRefundsChecked, externalRefundAlerts, externalRefundErrors,
 //   alertsEmailed, deferred: [step…], skipped: { step: reason } } }
 
 const BUDGET_MS = 90_000
 const MIN_BUDGET_MS = 5_000
-const LIMIT = { check: 50, reminders: 100, notices: 100, confirmations: 50, refundEmails: 50, retries: 20, stalled: 100, alerts: 200, consent: 50, transfers: 50, externalRefunds: 20 }
+const LIMIT = { check: 50, reminders: 100, notices: 100, confirmations: 50, refundEmails: 50, retries: 20, stalled: 100, alerts: 200, consent: 50, transfers: 50, agreementNotices: 20, externalRefunds: 20 }
 const CHECK_AHEAD_MS = 20 * 60_000 // a run every 15 min sees each order at least once before expiry
 const CHECK_BEHIND_MS = 2 * 3_600_000 // after this an expired order is told without a dpay check
 const CHECK_GAP_MS = 10 * 60_000
@@ -340,7 +347,7 @@ export async function runJobs(admin, cfg, { site, alertTo, budgetMs }) {
     checked: 0, confirmed: 0, reminders: 0, expiredNotices: 0, confirmationsResent: 0, refundEmails: 0,
     surchargeReminders: 0, surchargeExpiredNotices: 0, surchargeConfirmationsResent: 0,
     refundRetries: 0, stalledRefunds: 0, consentRequestsIssued: 0, consentEmailsResent: 0, consentReminders: 0,
-    transferEmailsResent: 0, externalRefundsChecked: 0, externalRefundAlerts: 0, externalRefundErrors: 0,
+    transferEmailsResent: 0, agreementNotices: 0, agreementNoticeEmails: 0, externalRefundsChecked: 0, externalRefundAlerts: 0, externalRefundErrors: 0,
     alertsEmailed: 0, deferred: [], skipped: {},
   }
   const hour = new Date().toISOString().slice(0, 13)
@@ -481,6 +488,11 @@ export async function runJobs(admin, cfg, { site, alertTo, budgetMs }) {
       await eachLimited(due, async (id) => {
         if (await consentMail(admin, id, { reminder: true, site, template: 'consent_reminder' })) counts.consentReminders++
       })
+    }],
+    ['agreement_notices', 2_000, async () => {
+      const r = await sendAgreementNotices(admin, { site, limit: LIMIT.agreementNotices })
+      counts.agreementNotices = r.clubs
+      counts.agreementNoticeEmails = r.emails
     }],
     ['external_refunds', EXTERNAL_BATCH_MS, async () => {
       try {

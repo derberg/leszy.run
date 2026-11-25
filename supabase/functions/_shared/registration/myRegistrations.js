@@ -48,8 +48,8 @@ export function compareEvents(a, b, today) {
  * @param {object[]} [p.openSurcharges] pending surcharge orders of the listed entries, whoever pays them
  *   (kind, status, expires_at, surcharge_registration_id): any of them hides „Zmień konkurencję”
  * @param {Set<string>} [p.enabledClubs] club ids with registration_enabled; settings rows need club_id
- * @param {Set<string>} [p.agreementClubs] club ids that accepted the current organizer agreement
- *   (clubsOnCurrentAgreement in organizer.js): „Zmień konkurencję” only there
+ * @param {Set<string>} [p.agreementClubs] club ids that accepted the organizer agreement (any version)
+ *   (clubsWithAgreement in organizer.js): „Zmień konkurencję” only there
  * @param {Map<string, object>} [p.transfers] registration id → its transfer block (transferViews in
  *   transfers.js, the same one my-event-registrations returns); a person without one gets null
  * @param {Date} [p.now]
@@ -117,7 +117,7 @@ export function shapeMyRegistrations({ userId, email = null, settings, orders, r
       surcharge,
       actions: selfServiceActions({
         reg: r, settings: s, session: { userId, email }, clubEnabled: enabledClubs.has(s.club_id),
-        agreementCurrent: agreementClubs.has(s.club_id),
+        clubAgreement: agreementClubs.has(s.club_id),
         captain: captains.has(r.id), surchargeOpen: anySurcharge, now,
       }),
       transfer: transfers.get(r.id) ?? null,

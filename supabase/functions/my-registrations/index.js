@@ -7,7 +7,7 @@ import {
 } from '../_shared/registration/myRegistrations.js'
 import { acceptedRefundTotals } from '../_shared/registration/refundedTotals.js'
 import { transferViews } from '../_shared/registration/transfers.js'
-import { clubsOnCurrentAgreement } from '../_shared/organizer.js'
+import { clubsWithAgreement } from '../_shared/organizer.js'
 
 function json(body, status, req) {
   return new Response(JSON.stringify(body), {
@@ -119,8 +119,8 @@ Deno.serve(async (req) => {
       const clubs = await allRows(() => admin.from('clubs').select('id, registration_enabled').in('id', ids).order('id'))
       for (const c of clubs) if (c.registration_enabled === true) enabledClubs.add(c.id)
     }
-    // „Zmień konkurencję” needs the club's acceptance of the current agreement (L-2).
-    const agreementClubs = await clubsOnCurrentAgreement(admin, [...enabledClubs])
+    // „Zmień konkurencję” needs the club to have the organizer agreement, any version (L-2, §13 ust. 6).
+    const agreementClubs = await clubsWithAgreement(admin, [...enabledClubs])
     const categoryIds = [...new Set([
       ...registrations.map((r) => r.category_id),
       ...orders.map((o) => o.surcharge_to_category_id),

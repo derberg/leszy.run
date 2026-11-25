@@ -93,20 +93,37 @@ test('RS-01 each switch gates only its own action', async () => {
   assert.equal((await changeOk(a.reg.id, c5, -2000, { kind: 'runner', actor: a.profileId })).outcome, 'refund')
 })
 
-test('RS-01b the runner\'s change needs the club\'s acceptance of the current agreement version (p_agreement_version); the organizer\'s and the runner\'s data edit do not (L-2)', async () => {
+test('RS-01b the runner\'s change needs the club to have the organizer agreement, any version (§13 ust. 6); none → not_allowed; the organizer\'s and the runner\'s data edit never need it (L-2)', async () => {
   const event = await paidEvent()
   const [, c5, c21] = event.categoryIds
-  const a = await paidEntry(event)
-  refused(await changeCompetition(a.reg.id, c5, -2000, { kind: 'runner', actor: a.profileId, agreement: null }), 'not_allowed')
-  refused(await changeCompetition(a.reg.id, c5, -2000, { kind: 'runner', actor: a.profileId, agreement: '1999-01-v0' }), 'not_allowed')
-  assert.equal((await reg(a.reg.id)).category_id, a.reg.category_id)
-  assert.deepEqual(await changesOf(a.reg.id), [])
-  assert.equal(ok(await runnerEdit(a.reg.id, { city: 'Nakło' }, a.profileId)).changed, true, 'the data edit moves no money')
-  // The organizer's change never needs it.
-  assert.equal((await changeOk(a.reg.id, c21, 2000, { actor: ownerId, agreement: null })).outcome, 'surcharge')
-  // With the current version accepted (every test club has it), the runner's change works.
-  const b = await paidEntry(event)
-  assert.equal((await changeOk(b.reg.id, c5, -2000, { kind: 'runner', actor: b.profileId })).outcome, 'refund')
+  const { data: club } = await db().from('clubs').select('id, name').eq('slug', 'zatyrani-test').single()
+  const { data: kept } = await db().from('organizer_agreements').select('*').eq('club_id', club.id)
+  const restore = async () => {
+    await db().from('organizer_agreements').delete().eq('club_id', club.id)
+    if (kept.length) {
+      const { error } = await db().from('organizer_agreements').insert(kept)
+      if (error) throw error
+    }
+  }
+  try {
+    // No agreement at all: refused, whatever version the caller passes.
+    await db().from('organizer_agreements').delete().eq('club_id', club.id)
+    const a = await paidEntry(event)
+    refused(await changeCompetition(a.reg.id, c5, -2000, { kind: 'runner', actor: a.profileId }), 'not_allowed')
+    refused(await changeCompetition(a.reg.id, c5, -2000, { kind: 'runner', actor: a.profileId, agreement: null }), 'not_allowed')
+    assert.equal((await reg(a.reg.id)).category_id, a.reg.category_id)
+    assert.deepEqual(await changesOf(a.reg.id), [])
+    assert.equal(ok(await runnerEdit(a.reg.id, { city: 'Nakło' }, a.profileId)).changed, true, 'the data edit moves no money')
+    // The organizer's change never needs it.
+    assert.equal((await changeOk(a.reg.id, c21, 2000, { actor: ownerId, agreement: null })).outcome, 'surcharge')
+    // Only an older version accepted: an update, no re-acceptance, so the runner's change works.
+    const { error } = await db().from('organizer_agreements').insert({ club_id: club.id, club_name: club.name, version: '2026-11-v1' })
+    if (error) throw error
+    const b = await paidEntry(event)
+    assert.equal((await changeOk(b.reg.id, c5, -2000, { kind: 'runner', actor: b.profileId, agreement: null })).outcome, 'refund')
+  } finally {
+    await restore()
+  }
 })
 
 // ---------------------------------------------------------------- RS-02 runner competition change

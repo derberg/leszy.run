@@ -1,7 +1,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { getCorsHeaders, guardRequest } from '../_shared/cors.js'
 import { getSession } from '../_shared/session.js'
-import { clubRegistrationEnabled, clubsOnCurrentAgreement } from '../_shared/organizer.js'
+import { clubRegistrationEnabled, clubsWithAgreement } from '../_shared/organizer.js'
 import { checkAndIncrement } from '../_shared/throttle.js'
 import { sendEmail } from '../_shared/email.js'
 import { isUuid } from '../_shared/registration/organizerEvent.js'
@@ -183,11 +183,11 @@ Deno.serve(async (req) => {
     if (!found) return json(NOT_FOUND, 404, req)
     const { reg, settings, team } = found
     if (team && (!team.captain || (action !== 'edit' && action !== 'details'))) return json(NOT_FOUND, 404, req)
-    // The club's switch, and its acceptance of the current agreement version, which is what lets
-    // a runner move the club's money (L-2; change_competition checks the same, given the version).
+    // The club's switch, and its organizer agreement (any version, §13 ust. 6), which is what lets
+    // a runner move the club's money (L-2; change_competition checks the same).
     const competitionChange = settings.runner_competition_change === true
       && action !== 'edit'
-      && (await clubsOnCurrentAgreement(admin, [settings.club_id])).has(settings.club_id)
+      && (await clubsWithAgreement(admin, [settings.club_id])).has(settings.club_id)
     const dataEdit = settings.runner_data_edit === true
     const claim = () => checkAndIncrement(admin, `runner-change:${reg.id}`, CHANGES_PER_DAY, { windowSeconds: DAY })
 

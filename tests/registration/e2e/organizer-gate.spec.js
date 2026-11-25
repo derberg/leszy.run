@@ -123,6 +123,51 @@ test('F-20 zatyrani-test: the owner accepts the agreement, then owner and admin 
   await expect(member.getByTestId('agreement-link')).toHaveCount(0)
 })
 
+test('AU-05 a club on an older agreement version: owner and admins see the update strip, nothing is blocked, the owner\'s „Rozumiem” records the current version', async ({ actors }) => {
+  const db = admin()
+  await db.from('organizer_agreements').delete().eq('club_id', ZT)
+  const { error } = await db.from('organizer_agreements').insert({ club_id: ZT, club_name: 'Zatyrani Test', version: '2026-11-v1' })
+  if (error) throw error
+  const shots = new URL('../../../.superpowers/sdd/2026-11-24-competition-change/screens/', import.meta.url).pathname
+
+  const adm = await open(actors.admin, '/klub/zatyrani-test/wydarzenia')
+  const strip = adm.getByTestId('agreement-updated')
+  await expect(strip).toContainText(/Zaktualizowaliśmy umowę organizatora \(wersja .+\) — zobacz zmiany/)
+  await expect(strip.getByRole('button', { name: 'Rozumiem' })).toHaveCount(0)
+  await expect(adm.getByRole('button', { name: '+ Nowe wydarzenie' })).toBeEnabled()
+  await expect(adm.getByTestId('agreement-pending')).toHaveCount(0)
+
+  const member = await open(actors.member, '/klub/zatyrani-test/wydarzenia')
+  await expect(member.getByRole('heading', { name: 'Wydarzenia klubu' })).toBeVisible()
+  await expect(member.getByTestId('agreement-updated')).toHaveCount(0)
+
+  const owner = await open(actors.owner, '/klub/zatyrani-test/wydarzenia')
+  await owner.setViewportSize({ width: 1280, height: 800 })
+  const ownerStrip = owner.getByTestId('agreement-updated')
+  await expect(ownerStrip.getByRole('button', { name: 'Rozumiem' })).toBeVisible()
+  await expect(owner.getByRole('button', { name: '+ Nowe wydarzenie' })).toBeEnabled()
+  await owner.screenshot({ path: `${shots}po-agreement-banner-desktop.png` })
+  await owner.setViewportSize({ width: 390, height: 844 })
+  const button = ownerStrip.getByRole('button', { name: 'Rozumiem' })
+  const box = await button.boundingBox()
+  expect(box.height).toBeLessThan(40)
+  await owner.screenshot({ path: `${shots}po-agreement-banner-390.png` })
+  await owner.setViewportSize({ width: 1280, height: 800 })
+
+  await ownerStrip.getByRole('link', { name: 'zobacz zmiany' }).click()
+  await expect(owner).toHaveURL(/\/klub\/zatyrani-test\/wydarzenia\/umowa$/)
+  await expect(owner.getByTestId('agreement-changes').getByRole('listitem').first()).toBeVisible()
+  await expect(owner.getByTestId('agreement-accepted')).toBeVisible()
+  await owner.getByTestId('agreement-updated').getByRole('button', { name: 'Rozumiem' }).click()
+  await expect(owner.getByTestId('agreement-updated')).toHaveCount(0)
+  const { data } = await db.from('organizer_agreements').select('version').eq('club_id', ZT)
+  expect(data.length).toBe(2)
+
+  await adm.reload()
+  await expect(adm.getByRole('heading', { name: 'Wydarzenia klubu' })).toBeVisible()
+  await expect(adm.getByTestId('agreement-updated')).toHaveCount(0)
+})
+
 test('F-20b the owner saves the details in parts: no account number is fine, and the 7-day payout warning shows', async ({ actors }) => {
   const owner = await open(actors.owner, '/klub/zatyrani-test/ustawienia')
   await owner.getByLabel('Nazwa podmiotu', { exact: true }).fill('Stowarzyszenie Zatyrani Test')

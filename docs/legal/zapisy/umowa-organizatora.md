@@ -3,7 +3,7 @@
 **Wersja:** 2026-11-v7
 **Status:** obowiązująca od akceptacji w Serwisie
 
-Umowę zawiera się w Serwisie: właściciel klubu wybiera „Akceptuję umowę organizatora” na ekranie „Klub → Wydarzenia → Umowa”. Serwis zapisuje wersję umowy, nazwę klubu, konto osoby akceptującej, datę i godzinę, adres IP oraz identyfikator przeglądarki (tabela `organizer_agreements`). Bez akceptacji bieżącej wersji klub nie może utworzyć żadnego wydarzenia, płatnego ani bezpłatnego.
+Umowę zawiera się w Serwisie: właściciel klubu wybiera „Akceptuję umowę organizatora” na ekranie „Klub → Wydarzenia → Umowa”. Serwis zapisuje wersję umowy, nazwę klubu, konto osoby akceptującej, datę i godzinę, adres IP oraz identyfikator przeglądarki (tabela `organizer_agreements`). Bez akceptacji umowy klub nie może utworzyć żadnego wydarzenia, płatnego ani bezpłatnego. Kolejne wersje umowy nie wymagają ponownej akceptacji (§13 ust. 6).
 
 ---
 
@@ -178,7 +178,7 @@ Organizator:
 3. Każda strona może wypowiedzieć umowę ze skutkiem natychmiastowym, jeżeli druga strona rażąco narusza umowę i nie usunie naruszenia w terminie 7 dni od wezwania. Usługodawca może także wypowiedzieć umowę ze skutkiem natychmiastowym, jeżeli Operator płatności rozwiąże z nim umowę lub zablokuje przyjmowanie płatności dla Organizatora albo jeżeli Wydarzenie lub działania Organizatora naruszają prawo.
 4. Od dnia złożenia wypowiedzenia Organizator nie może tworzyć nowych Wydarzeń. Wydarzenia opublikowane przed tym dniem są obsługiwane do ich zakończenia i wypłaty, chyba że rozwiązanie następuje z przyczyn z ust. 3 — wtedy Usługodawca zamyka zapisy, a strony rozliczają wpłaty zgodnie z §6 i §7.
 5. Rozwiązanie umowy nie wpływa na obowiązek wypłaty środków należnych Organizatorowi, na §10 ust. 14 i na §12.
-6. Zmiany umowy wprowadza się jako nową wersję, o której Usługodawca informuje właściciela klubu e-mailem co najmniej 14 dni przed jej wejściem w życie. Do Wydarzeń opublikowanych przed wejściem w życie nowej wersji stosuje się dotychczasową wersję, chyba że zmiana wynika z przepisów prawa. Bez akceptacji nowej wersji klub nie może tworzyć nowych Wydarzeń.
+6. Zmiany umowy wprowadza się jako nową wersję. Usługodawca informuje o niej e-mailem właściciela i administratorów klubu. Nowa wersja obowiązuje od dnia wysłania informacji. Organizator, który nie akceptuje zmian, może w ciągu 7 dni zgłosić to na adres lukasz@leszy.run — wtedy umowa wygasa, a Wydarzenia już opublikowane są obsługiwane do końca na dotychczasowych zasadach.
 7. Organizator będący konsumentem (art. 22¹ Kodeksu cywilnego) albo osobą fizyczną, o której mowa w art. 385⁵ Kodeksu cywilnego, może odstąpić od umowy bez podania przyczyny w terminie 14 dni od jej akceptacji, wysyłając oświadczenie na adres lukasz@leszy.run. Jeżeli zażądał rozpoczęcia świadczenia usług przed upływem tego terminu, płaci za usługi spełnione do chwili odstąpienia (art. 35 ustawy z dnia 30 maja 2014 r. o prawach konsumenta).
 
 ## §14. Postanowienia końcowe
@@ -226,3 +226,4 @@ Organizator:
     a) §4 ust. 3 i 6 — Organizator może pozwolić Uczestnikowi poprawiać dane Zgłoszenia (bez imienia, nazwiska i adresu e-mail); ustawienie domyślnie włączone.
     b) §6 ust. 2 i 5 — wyjątki od zwrotu dokonywanego przez Organizatora; zwrot różnicy w cenie nie anuluje Zgłoszenia.
     c) §6 ust. 7–9 — zmiana konkurencji przez Organizatora i, jeżeli Organizator pozwala (domyślnie tak), przez Uczestnika; automatyczny zwrot różnicy przy zmianie na tańszą; dopłata online przy zmianie na droższą, należna Organizatorowi.
+    d) §13 ust. 6 i wstęp — zmiana umowy jest aktualizacją: nowa wersja obowiązuje od dnia wysłania informacji e-mailem właścicielowi i administratorom klubu i nie wymaga ponownej akceptacji; Organizator, który nie akceptuje zmian, zgłasza to w ciągu 7 dni na lukasz@leszy.run, wtedy umowa wygasa, a opublikowane Wydarzenia są obsługiwane do końca na dotychczasowych zasadach (decyzja 2026-11-25).

@@ -117,8 +117,14 @@ WHERE c.registration_enabled = true
 ORDER BY c.name;
 ```
 
-Compare `latest_agreement` with the current version and report "aktualna" or
-"nieaktualna (<version>)" or "brak".
+Compare `latest_agreement` with the current version and report "aktualna",
+"zaktualizowana bez potwierdzenia (<version>)" or "brak". A club on an older
+version HAS the agreement: a new version is an update with a notice e-mail and
+never needs re-acceptance (agreement §13 ust. 6); nothing is blocked for it.
+Whether the notice went out: `organizer_agreement_notices` (`club_id`,
+`version`, `claimed_at`, `sent_at`; `sent_at` NULL after a claim means a failed
+send, alerted as `email_failed` template `agreement_notice`, never resent: write
+to that club by hand).
 
 A stored value shorter than 12 characters prints only `••••`: first four plus
 last four of a short string would show most of it.
@@ -224,19 +230,36 @@ read back), with these differences:
 
 ## 5. New organizer agreement version (a PR, not a DB write)
 
+An agreement change is ALWAYS an update plus an information e-mail; it never
+needs re-acceptance (owner decision 2026-11-25, agreement §13 ust. 6). The new
+version applies from the day the e-mail goes out; a club that does not accept it
+writes to lukasz@leszy.run within 7 days, then the agreement ends and its
+published events run to the end on the old terms (handled by hand).
+
 1. `scripts/worktree.sh new feature/organizer-agreement-<version>` and work
    only in the worktree (CLAUDE.md workflow).
-2. Edit the text in `public/src/legal/organizerAgreement.js` and set its
+2. Edit the text in `public/src/legal/organizerAgreement.js` and
+   `docs/legal/zapisy/umowa-organizatora.md` (same wording) and set
    `version: '<NEW_VERSION>'`.
 3. Set `ORGANIZER_AGREEMENT_VERSION = '<NEW_VERSION>'` in
    `supabase/functions/_shared/organizer.js`. The two strings must be
    identical; `public/tests/unit/agreementVersion.test.js` fails otherwise.
-4. `npm run test:unit --workspace=public` (and `npm test --workspace=backend`
-   if anything else changed), commit, push, `gh pr create --title "feat(registration): organizer agreement <NEW_VERSION>"`, `gh pr merge --squash`
-   once checks pass. The edge function deploys from `main` via CI.
-5. After the deploy every owner sees the stale-version state and re-accepts,
-   which inserts a **new** `organizer_agreements` row (UNIQUE `club_id, version`).
-   Task 2 shows who has not re-accepted yet.
+4. Rewrite `AGREEMENT_CHANGES` in the same file: the Polish list of what
+   changed in this version. It is the body of the notice e-mail and of the
+   club panel's strip; `tests/registration/unit/agreementNotices.test.js`
+   fails on an empty list.
+5. `npm run test:unit --workspace=public` and
+   `node --test "tests/registration/unit/*.test.js"`, commit, push,
+   `gh pr create --title "feat(registration): organizer agreement <NEW_VERSION>"`,
+   `gh pr merge --squash` once checks pass. The edge functions deploy from
+   `main` via CI.
+6. Nothing else to do. Within 15 minutes of the deploy the `registration-jobs`
+   step `agreement_notices` e-mails „Zaktualizowaliśmy umowę organizatora” to
+   the active owner and admins of every enabled club whose newest accepted
+   version is older, once per club and version (`organizer_agreement_notices`).
+   The panel shows those clubs a strip; the owner's „Rozumiem” records the new
+   version as a new `organizer_agreements` row. Task 2 shows who is still
+   „zaktualizowana bez potwierdzenia”, which is not a problem.
 
 Never UPDATE or DELETE an `organizer_agreements` row to "move" a club to the
 new version.

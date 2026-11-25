@@ -15,7 +15,6 @@ import { captain, freeTeamEvent, teamOk } from './helpers/teams.js'
 import { nodeDpay } from './helpers/organizerRefund.js'
 import { assertSlotInvariant } from './helpers/slotInvariant.js'
 import { registerTransaction } from '../../supabase/functions/_shared/dpay.js'
-import { ORGANIZER_AGREEMENT_VERSION } from '../../supabase/functions/_shared/organizer.js'
 
 const OWNER = 'owner@zatyrani-test.local'
 const C5 = { name: 'Bieg 5 km', discipline: 'run', distanceLabel: '5 km', startTime: '11:00', capacity: 50 }
@@ -442,7 +441,7 @@ test('RS-16 details prefills „Popraw dane” (never the e-mail); my-registrati
   assert.deepEqual(await listed(), [{ change: false, edit: false }, { change: false, edit: false }], 'after closes_at')
 })
 
-test('RS-16b a club without the current agreement version: no „Zmień konkurencję” anywhere and change 403 not_allowed; „Popraw dane” stays (L-2)', async () => {
+test('RS-16b a club with no organizer agreement at all: no „Zmień konkurencję” anywhere and change 403 not_allowed; „Popraw dane” stays (L-2); an older version only is enough (§13 ust. 6)', async () => {
   const event = await paidEvent()
   const [, c5] = event.categoryIds
   const e = await ownEntry(event)
@@ -454,8 +453,9 @@ test('RS-16b a club without the current agreement version: no „Zmień konkuren
     return [ev.people.find((p) => p.id === e.registrationId).actions, onEvent.body.data.find((r) => r.id === e.registrationId).actions]
   }
   assert.deepEqual(await listed(), [{ change: true, edit: true }, { change: true, edit: true }], 'current version accepted')
-  const { data: club } = await db().from('clubs').select('id').eq('slug', 'zatyrani-test').single()
-  const { error: delErr } = await db().from('organizer_agreements').delete().eq('club_id', club.id).eq('version', ORGANIZER_AGREEMENT_VERSION)
+  const { data: club } = await db().from('clubs').select('id, name').eq('slug', 'zatyrani-test').single()
+  const { data: kept } = await db().from('organizer_agreements').select('*').eq('club_id', club.id)
+  const { error: delErr } = await db().from('organizer_agreements').delete().eq('club_id', club.id)
   if (delErr) throw delErr
   try {
     assert.deepEqual(await listed(), [{ change: false, edit: true }, { change: false, edit: true }])
@@ -474,7 +474,16 @@ test('RS-16b a club without the current agreement version: no „Zmień konkuren
       action: 'change_competition', registrationId: e.registrationId, categoryId: c5, expectedDifference: -2000, requestKey: crypto.randomUUID(),
     })
     assert.equal(byOrganizer.status, 200, JSON.stringify(byOrganizer.body))
+    // Only an older version: the agreement was updated, never re-accepted; the change is offered.
+    const { error: oldErr } = await db().from('organizer_agreements').insert({ club_id: club.id, club_name: club.name, version: '2026-11-v1' })
+    if (oldErr) throw oldErr
+    const again = await ownEntry(event)
+    const mine = await callFn('my-registrations', again.session, {})
+    const person = mine.body.data.find((x) => x.eventId === event.eventId).people.find((p) => p.id === again.registrationId)
+    assert.equal(person.actions.change, true)
   } finally {
+    await db().from('organizer_agreements').delete().eq('club_id', club.id)
+    if (kept.length) await db().from('organizer_agreements').insert(kept)
     await acceptAgreement('zatyrani-test')
   }
   assert.deepEqual(await listed(), [{ change: true, edit: true }, { change: true, edit: true }])

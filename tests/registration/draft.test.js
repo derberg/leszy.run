@@ -207,7 +207,7 @@ test('W-10 the admin of another enabled club with an agreement gets 404 on this 
   assert.equal((await callFn('save-registration-section', otherAdmin, { eventId, section: 'timing', value: { timingMode: 'none' } })).status, 404)
 })
 
-test('W-10 the owner of a club without the current agreement → 409 agreement_required', async () => {
+test('W-10 the owner of a club with no agreement at all → 409 agreement_required', async () => {
   const club = await makeClub({ slug: `p2-${rand()}`, agreement: false })
   const o = await sessionFor(club.ownerEmail)
   const r = await callFn('create-registration-event', o, { clubId: club.clubId, name: 'Bieg bez umowy' })
