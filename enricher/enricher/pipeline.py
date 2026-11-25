@@ -280,9 +280,11 @@ async def process_event(event: dict, config: Config) -> dict:
     # This is what rescues events where the "registration page" is a thin
     # login stub but the real content lives on subpages like "Opis Imprezy".
     followup_urls: list[str] = []
-    # Each entry is (pdf_url, parent_origin). A PDF linked from a search result
-    # is search-derived; one linked from a scraper-declared page is not.
-    followup_from_pdf_links: list[tuple[str, str]] = []
+    # Each entry is (pdf_url, parent_origin, parent_field). A PDF linked from a
+    # search result is search-derived; one linked from a scraper-declared page
+    # is not. parent_field says which page linked it (Step 4 reads a PDF linked
+    # from the regulamin page as that regulamin's own document).
+    followup_from_pdf_links: list[tuple[str, str, str]] = []
     followup_pdf_seen: set[str] = set()
     for field, url in crawl_urls.items():
         crawl_result = crawled.get(field)
@@ -304,7 +306,7 @@ async def process_event(event: dict, config: Config) -> dict:
             if u.lower().endswith(".pdf"):
                 if u not in followup_pdf_seen:
                     followup_pdf_seen.add(u)
-                    followup_from_pdf_links.append((u, parent_origin))
+                    followup_from_pdf_links.append((u, parent_origin, field))
             elif u not in followup_urls and u not in crawl_urls.values():
                 followup_urls.append(u)
 
@@ -323,7 +325,7 @@ async def process_event(event: dict, config: Config) -> dict:
             "followed": len(followup_urls),
             "followup_urls": followup_urls,
             "pdf_candidates": len(followup_from_pdf_links),
-            "pdf_candidate_urls": [u for u, _ in followup_from_pdf_links],
+            "pdf_candidate_urls": [u for u, _, _ in followup_from_pdf_links],
             "successful": len([v for v in followup_crawled.values() if v]),
         }
 
@@ -357,8 +359,21 @@ async def process_event(event: dict, config: Config) -> dict:
 
     # Fallback: try PDFs discovered on crawled pages (often the real regulamin
     # is linked as a PDF from an aggregator stub page)
+    #
+    # Fields come only from a document this run keeps. A discovered PDF is read
+    # when it becomes the regulamin candidate (the event has none, or a dead one,
+    # and nothing else is on offer) or when the event's own regulamin page links
+    # it. Any other PDF is a guess whose URL is never stored, and reading it
+    # writes another document's figures. Letni Ultra Świr (2027-08-27) declares
+    # an HTML regulamin; the 2026-11-25 run read Regulamin_Wyspowy_Ultra_Swir_2027.pdf
+    # off its b4sport registration page and wrote that race's 65/43/23 km and
+    # 90-300 zł, while the PDF's URL went nowhere.
     if not pdf_text and followup_from_pdf_links:
-        for pdf_url, parent_origin in followup_from_pdf_links:
+        for pdf_url, parent_origin, parent_field in followup_from_pdf_links:
+            offered = "regulamin_url" in missing and search_candidates.get("regulamin_url") in (None, pdf_url)
+            if not offered and parent_field != "regulamin_url":
+                result["steps"].setdefault("pdf_skipped", []).append(pdf_url)
+                continue
             p = await download_pdf(pdf_url)
             if p:
                 text = extract_pdf_text(p, max_chars=config.max_pdf_chars)
@@ -372,10 +387,10 @@ async def process_event(event: dict, config: Config) -> dict:
                 if text:
                     pdf_text = text
                     result["steps"]["pdf"] = {"source": "discovered", "url": pdf_url, "extracted_chars": len(text)}
-                    # If we had no regulamin_url, offer this as a candidate
-                    if not event.get("regulamin_url"):
-                        if search_candidates.setdefault("regulamin_url", pdf_url) == pdf_url:
-                            candidate_origin["regulamin_url"] = parent_origin
+                    # The event has no working regulamin: offer this one.
+                    if offered:
+                        search_candidates["regulamin_url"] = pdf_url
+                        candidate_origin["regulamin_url"] = parent_origin
                     break
 
     # Step 3c: Clean crawled content before it reaches the regex pre-pass and the

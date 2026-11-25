@@ -292,7 +292,74 @@ def pdf_belongs_to_event(event: dict, text: str) -> bool:
     """
     if not text or not text.strip():
         return False
-    return page_matches_event(event, text, fuzzy=True)
+    if not page_matches_event(event, text, fuzzy=True):
+        return False
+    return not names_a_sibling_race(event, text)
+
+
+# Words that can stand before a race name in a document's title without naming
+# a different race: "REGULAMIN Ultra Świr", "Regulamin biegów górskich …".
+_TITLE_FILLER_WORDS = {
+    "regulamin", "regulaminu", "regulaminie", "biegów", "biegow", "biegach",
+    "biegiem", "zawodów", "zawodow", "imprezy", "imprezie", "edycji", "edycja",
+    "górskich", "gorskich", "górskiego", "gorskiego", "trailowego", "trailowych",
+    "ulicznego", "ulicznych", "przełajowego", "przelajowego", "zasady", "zasad",
+    "organizacji", "udziału", "udzialu", "pod", "nazwą", "nazwa", "nazwie",
+    "rozgrywanego", "rozgrywanych", "dotyczący", "dotyczacy",
+}
+
+# How far into a document its title can sit. A regulamin names its own race in
+# the first lines; a sibling race mentioned further down (a series calendar, a
+# combined ranking) says nothing about which race the document is for.
+_TITLE_LINES = 8
+
+_WORD_RE = r"[a-ząćęłńóśźż]+"
+
+
+def names_a_sibling_race(event: dict, text: str) -> bool:
+    """True when the document's title names another race of the same series.
+
+    An organizer who runs a series gives every race the same core and a
+    different leading word: Fundacja Małopolska Biega runs Wiosenny, Wyspowy and
+    Letni Ultra Świr, and b4sport lists all their regulamins in one folder.
+    page_matches_event only counts tokens, so for "Letni Ultra Świr" the one
+    hit "świr" in Regulamin_Wyspowy_Ultra_Swir_2027.pdf is half the name and
+    passes, and the 2026-11-25 run wrote Wyspowy's 65/43/23 km and 90-300 zł
+    onto Letni (48h/24h/12h/6h, NW 15,5 km).
+
+    Deliberately narrow: it fires only when the event name's FIRST word is
+    distinctive and appears nowhere in the document (not even one letter off),
+    the rest of the name is at least two words with a distinctive one among
+    them, and one of the document's first lines has that rest of the name
+    preceded by some other real word. A town missing from a regulamin, or a
+    typo in the scraped name, never meets all of that.
+    """
+    words = [
+        w for w in re.findall(_WORD_RE + r"|\d+", (event.get("name") or "").lower())
+        if not w.isdigit() and not re.fullmatch(r"[ivxlc]+", w)
+    ]
+    if len(words) < 3:
+        return False
+    lead, rest = words[0], words[1:]
+    if lead not in _distinctive_tokens(lead):
+        return False
+    if not any(_distinctive_tokens(w) for w in rest):
+        return False
+    tl = text.lower()
+    if _token_in_text(lead, tl, set(_TOKEN_RE.findall(tl)), fuzzy=True):
+        return False
+    pattern = re.compile(
+        r"(?<![a-ząćęłńóśźż])(" + _WORD_RE + r")\s+" + r"\s+".join(map(re.escape, rest))
+        + r"(?![a-ząćęłńóśźż])"
+    )
+    lines = [ln for ln in tl.splitlines() if ln.strip()][:_TITLE_LINES]
+    for line in lines:
+        for m in pattern.finditer(line):
+            other = m.group(1)
+            if len(other) < 4 or other in GENERIC_NAME_WORDS or other in _TITLE_FILLER_WORDS:
+                continue
+            return True
+    return False
 
 
 def strip_foreign_event_lines(text: str, self_urls: list) -> str:
