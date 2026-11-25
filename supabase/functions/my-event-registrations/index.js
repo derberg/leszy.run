@@ -6,7 +6,7 @@ import { isValidSlug } from '../_shared/registration/slug.js'
 import { registrationRole } from '../_shared/registration/group.js'
 import { kidsGroupLabels } from '../_shared/registration/kidsGroupLabels.js'
 import { transferViews } from '../_shared/registration/transfers.js'
-import { selfServiceActions } from '../_shared/registration/selfService.js'
+import { changeTargetsByEvent, selfServiceActions } from '../_shared/registration/selfService.js'
 import { pendingSurcharge } from '../_shared/registration/entries.js'
 import { clubRegistrationEnabled, clubsWithAgreement } from '../_shared/organizer.js'
 
@@ -99,6 +99,7 @@ Deno.serve(async (req) => {
     const clubEnabled = await clubRegistrationEnabled(admin, settings.club_id)
     // A runner's competition change needs the club to have the organizer agreement, any version (L-2, §13 ust. 6).
     const clubAgreement = clubEnabled && (await clubsWithAgreement(admin, [settings.club_id])).has(settings.club_id)
+    const changeTargets = (await changeTargetsByEvent(admin, [settings.event_id])).get(settings.event_id)
 
     return json({
       data: regs.map((r) => {
@@ -123,7 +124,7 @@ Deno.serve(async (req) => {
           transfer: transfers.get(r.id),
           surcharge: pendingSurcharge(r.id, paysOwn, toNames, now),
           actions: selfServiceActions({
-            reg: r, settings, session, clubEnabled, clubAgreement, captain: team?.captain_registration_id === r.id,
+            reg: r, settings, session, clubEnabled, clubAgreement, changeTargets, captain: team?.captain_registration_id === r.id,
             surchargeOpen: pendingSurcharge(r.id, surchargeOrders, toNames, now) != null, now,
           }),
         }

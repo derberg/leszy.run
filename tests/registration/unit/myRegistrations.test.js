@@ -154,6 +154,7 @@ test('RS-15 actions: the runner’s own entry, before close, with the club’s s
     registrations: [reg({ id: 'r1', event_id: 'e-future', ...over })], captains: opts.captains, now: NOW,
     enabledClubs: opts.enabledClubs ?? enabledClubs, openSurcharges: opts.openSurcharges ?? [],
     agreementClubs: opts.agreementClubs ?? new Set(['club1']),
+    changeTargets: opts.changeTargets ?? new Map([['e-future', new Set(['c1', 'c3'])]]),
   })[0].people[0]
   assert.deepEqual(shape({ profile_id: ME }).actions, { change: true, edit: true })
   assert.deepEqual(shape({ email: 'OLA@example.com' }).actions, { change: true, edit: true }, 'an adult entry at the session’s address')
@@ -167,7 +168,10 @@ test('RS-15 actions: the runner’s own entry, before close, with the club’s s
   assert.deepEqual(shape({ profile_id: ME, team_id: 't1' }, { captains: new Set(['r1']) }).actions, { change: false, edit: true }, 'a captain edits only')
   assert.deepEqual(shape({ profile_id: ME }, { enabledClubs: new Set() }).actions, NONE, 'a club with registration switched off')
   assert.deepEqual(shape({ profile_id: ME }, { agreementClubs: new Set() }).actions, { change: false, edit: true },
-    'a club without the current agreement: no competition change (money), the data edit stays (L-2)')
+    'a club with no organizer agreement: no competition change (money), the data edit stays (L-2)')
+  assert.deepEqual(shape({ profile_id: ME }, { changeTargets: new Map([['e-future', new Set(['c1'])]]) }).actions, { change: false, edit: true },
+    'RS-15b one visible individual competition: nowhere to go, no „Zmień konkurencję”')
+  assert.deepEqual(shape({ profile_id: ME }, { changeTargets: new Map() }).actions, { change: false, edit: true }, 'no targets known')
   const othersSurcharge = order({ id: 's0', event_id: 'e-future', buyer_profile_id: 'the-buyer', kind: 'surcharge', status: 'pending', total: 2000,
     surcharge_registration_id: 'r1', surcharge_to_category_id: 'c2', expires_at: '2026-11-03T10:00:00Z' })
   const waitsForOther = shape({ profile_id: ME }, { openSurcharges: [othersSurcharge] })
@@ -190,4 +194,13 @@ test('RS-19 each person carries its transfer block from transferViews, null with
     transfers: new Map([['r1', block]]),
   })[0].people
   assert.deepEqual(people.map((p) => [p.id, p.transfer]), [['r1', block], ['r2', null]])
+})
+
+test('RS-15b hasChangeTarget: another visible individual competition than the entry\'s own', async () => {
+  const { hasChangeTarget } = await import('../../../supabase/functions/_shared/registration/selfService.js')
+  assert.equal(hasChangeTarget(new Set(['c1']), 'c1'), false)
+  assert.equal(hasChangeTarget(new Set(['c1', 'c2']), 'c1'), true)
+  assert.equal(hasChangeTarget(new Set(['c2']), 'c1'), true)
+  assert.equal(hasChangeTarget(null, 'c1'), false)
+  assert.equal(hasChangeTarget([], 'c1'), false)
 })

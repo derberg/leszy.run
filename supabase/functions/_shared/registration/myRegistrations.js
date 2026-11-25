@@ -50,6 +50,8 @@ export function compareEvents(a, b, today) {
  * @param {Set<string>} [p.enabledClubs] club ids with registration_enabled; settings rows need club_id
  * @param {Set<string>} [p.agreementClubs] club ids that accepted the organizer agreement (any version)
  *   (clubsWithAgreement in organizer.js): „Zmień konkurencję” only there
+ * @param {Map<string, Set<string>>} [p.changeTargets] event id → its visible individual competitions
+ *   (changeTargetsByEvent in selfService.js): „Zmień konkurencję” only with another one to go to
  * @param {Map<string, object>} [p.transfers] registration id → its transfer block (transferViews in
  *   transfers.js, the same one my-event-registrations returns); a person without one gets null
  * @param {Date} [p.now]
@@ -57,7 +59,7 @@ export function compareEvents(a, b, today) {
  * need email, guardian_profile_id, team_id and settings closes_at, runner_competition_change,
  * runner_data_edit; without them both are false.
  */
-export function shapeMyRegistrations({ userId, email = null, settings, orders, registrations, competitions, refunded = new Map(), liveOrderIds = null, captains = new Set(), openSurcharges = [], enabledClubs = new Set(), agreementClubs = new Set(), transfers = new Map(), now = new Date() }) {
+export function shapeMyRegistrations({ userId, email = null, settings, orders, registrations, competitions, refunded = new Map(), liveOrderIds = null, captains = new Set(), openSurcharges = [], enabledClubs = new Set(), agreementClubs = new Set(), changeTargets = new Map(), transfers = new Map(), now = new Date() }) {
   const settingsOf = new Map(settings.filter((s) => s.state !== 'draft').map((s) => [s.event_id, s]))
   const compName = new Map(competitions.map((c) => [c.category_id, c.name]))
   const events = new Map()
@@ -117,7 +119,7 @@ export function shapeMyRegistrations({ userId, email = null, settings, orders, r
       surcharge,
       actions: selfServiceActions({
         reg: r, settings: s, session: { userId, email }, clubEnabled: enabledClubs.has(s.club_id),
-        clubAgreement: agreementClubs.has(s.club_id),
+        clubAgreement: agreementClubs.has(s.club_id), changeTargets: changeTargets.get(r.event_id) ?? null,
         captain: captains.has(r.id), surchargeOpen: anySurcharge, now,
       }),
       transfer: transfers.get(r.id) ?? null,

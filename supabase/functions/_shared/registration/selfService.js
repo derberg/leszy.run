@@ -31,12 +31,15 @@ export function actsOnEntry(reg, session) {
  * @param {boolean} p.clubEnabled clubs.registration_enabled of the event's club
  * @param {boolean} [p.clubAgreement] the club accepted the organizer agreement (any version)
  *   (clubsWithAgreement): a competition change needs it, a data edit (no money) does not
+ * @param {Iterable<string>|null} [p.changeTargets] the event's visible (hidden_at NULL) individual
+ *   competitions (changeTargetsByEvent): a change is offered only when one of them is not the
+ *   entry's own, so an event with a single individual competition never offers it
  * @param {boolean} [p.captain] the entry is its team's captain (ignored without team_id)
  * @param {boolean} [p.surchargeOpen]
  * @param {Date} [p.now]
  * @returns {{ change: boolean, edit: boolean }}
  */
-export function selfServiceActions({ reg, settings, session, clubEnabled, clubAgreement = false, captain = false, surchargeOpen = false, now = new Date() }) {
+export function selfServiceActions({ reg, settings, session, clubEnabled, clubAgreement = false, changeTargets = null, captain = false, surchargeOpen = false, now = new Date() }) {
   const none = { change: false, edit: false }
   if (clubEnabled !== true || !reg || !settings || !actsOnEntry(reg, session)) return none
   const closes = settings.closes_at ? Date.parse(settings.closes_at) : NaN
@@ -44,7 +47,37 @@ export function selfServiceActions({ reg, settings, session, clubEnabled, clubAg
   const team = reg.team_id != null
   if (team && !captain) return none
   return {
-    change: settings.runner_competition_change === true && clubAgreement === true && !team && reg.status === 'confirmed' && !surchargeOpen,
+    change: settings.runner_competition_change === true && clubAgreement === true && !team && reg.status === 'confirmed' && !surchargeOpen
+      && hasChangeTarget(changeTargets, reg.category_id),
     edit: settings.runner_data_edit === true && (reg.status === 'confirmed' || reg.status === 'pending_payment'),
   }
+}
+
+/** One of `targets` (visible individual competition ids of the event) is not `categoryId`. */
+export function hasChangeTarget(targets, categoryId) {
+  for (const id of targets ?? []) if (id !== categoryId) return true
+  return false
+}
+
+const PAGE = 1000
+
+/**
+ * The visible (hidden_at NULL) individual competitions of each event → Map<eventId, Set<categoryId>>,
+ * one query per 100 events (paged), for selfServiceActions' `changeTargets`.
+ */
+export async function changeTargetsByEvent(admin, eventIds) {
+  const ids = [...new Set((eventIds ?? []).filter(Boolean))]
+  const out = new Map(ids.map((id) => [id, new Set()]))
+  for (let i = 0; i < ids.length; i += 100) {
+    const chunk = ids.slice(i, i + 100)
+    for (let from = 0; ; from += PAGE) {
+      const { data, error } = await admin.from('competitions').select('event_id, category_id')
+        .in('event_id', chunk).is('hidden_at', null).eq('kind', 'individual')
+        .order('category_id').range(from, from + PAGE - 1)
+      if (error) throw error
+      for (const c of data ?? []) out.get(c.event_id)?.add(c.category_id)
+      if (!data || data.length < PAGE) break
+    }
+  }
+  return out
 }

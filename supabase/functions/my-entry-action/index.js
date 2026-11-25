@@ -12,7 +12,7 @@ import { checkEdit, RUNNER_EDITABLE, RUNNER_NOT_EDITABLE } from '../_shared/regi
 import { changeRefusal } from '../_shared/registration/competitionChange.js'
 import { changePreview, runChange } from '../_shared/registration/changeCompetitionFlow.js'
 import { dpayConfig, DpayConfigError } from '../_shared/dpay.js'
-import { actsOnEntry } from '../_shared/registration/selfService.js'
+import { actsOnEntry, changeTargetsByEvent, hasChangeTarget } from '../_shared/registration/selfService.js'
 
 function json(body, status, req, headers = {}) {
   return new Response(JSON.stringify(body), {
@@ -76,7 +76,7 @@ async function single(query) {
 async function entryFor(admin, session, registrationId) {
   if (!isUuid(registrationId)) return null
   const reg = await single(admin.from('registrations')
-    .select('id, event_id, order_id, profile_id, email, guardian_profile_id, team_id, first_name, last_name')
+    .select('id, event_id, category_id, order_id, profile_id, email, guardian_profile_id, team_id, first_name, last_name')
     .eq('id', registrationId).maybeSingle())
   if (!reg || !actsOnEntry(reg, session)) return null
   const settings = await single(admin.from('registration_settings')
@@ -188,6 +188,8 @@ Deno.serve(async (req) => {
     const competitionChange = settings.runner_competition_change === true
       && action !== 'edit'
       && (await clubsWithAgreement(admin, [settings.club_id])).has(settings.club_id)
+      // …and somewhere to go: another visible individual competition (the RPC refuses the rest).
+      && hasChangeTarget((await changeTargetsByEvent(admin, [settings.event_id])).get(settings.event_id), reg.category_id)
     const dataEdit = settings.runner_data_edit === true
     const claim = () => checkAndIncrement(admin, `runner-change:${reg.id}`, CHANGES_PER_DAY, { windowSeconds: DAY })
 

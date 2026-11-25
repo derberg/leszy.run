@@ -441,6 +441,28 @@ test('RS-16 details prefills „Popraw dane” (never the e-mail); my-registrati
   assert.deepEqual(await listed(), [{ change: false, edit: false }, { change: false, edit: false }], 'after closes_at')
 })
 
+test('RS-16c an event with one visible individual competition: no „Zmień konkurencję” (lists, targets, details); a hidden second one does not count; „Popraw dane” stays', async () => {
+  const event = await createPublishedPaidEvent(owner, { competitions: [BIEG(), C5], prices: { 'Bieg 9 km': 6000, 'Bieg 5 km': 4000 } })
+  event.categoryIds.forEach((c) => competitionsSeen.add(c))
+  const e = await ownEntry(event)
+  const { slug } = await one('registration_settings', { event_id: event.eventId })
+  const listed = async () => {
+    const mine = await callFn('my-registrations', e.session, {})
+    const ev = mine.body.data.find((x) => x.eventId === event.eventId)
+    const onEvent = await callFn('my-event-registrations', e.session, { slug })
+    return [ev.people.find((p) => p.id === e.registrationId).actions, onEvent.body.data.find((r) => r.id === e.registrationId).actions]
+  }
+  assert.deepEqual(await listed(), [{ change: true, edit: true }, { change: true, edit: true }], 'two visible individual competitions')
+  const { error } = await db().from('competitions').update({ hidden_at: new Date().toISOString() }).eq('category_id', event.categoryIds[1])
+  if (error) throw error
+  assert.deepEqual(await listed(), [{ change: false, edit: true }, { change: false, edit: true }], 'the other one hidden: nowhere to go')
+  const t = await targets(e.session, e.registrationId)
+  assert.deepEqual([t.status, t.body.data.allowed, t.body.data.competitionChange], [200, false, false])
+  const d = await act(e.session, { action: 'details', registrationId: e.registrationId })
+  assert.deepEqual([d.body.data.competitionChange, d.body.data.dataEdit], [false, true])
+  assert.equal((await edit(e.session, e.registrationId, { city: 'Szubin' })).status, 200)
+})
+
 test('RS-16b a club with no organizer agreement at all: no „Zmień konkurencję” anywhere and change 403 not_allowed; „Popraw dane” stays (L-2); an older version only is enough (§13 ust. 6)', async () => {
   const event = await paidEvent()
   const [, c5] = event.categoryIds

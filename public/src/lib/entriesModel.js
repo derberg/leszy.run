@@ -87,6 +87,7 @@ export function entryCounts(rows, competitions) {
  */
 export function entryActions(row, {
   closed = false, payingClosed = closed, raceDay = false, isTeamRow = false, full = false, isCaptain = false,
+  hasChangeTarget = true,
 } = {}) {
   const live = isLive(row)
   const awaitingPayment = row.statusKey === 'awaiting' && !closed && !payingClosed
@@ -102,7 +103,10 @@ export function entryActions(row, {
   // before closes_at, never a team's, never with a refund in flight (refund_pending); while its
   // surcharge waits, the reminder and the cancel of that surcharge stand in its place.
   const surcharge = row.surcharge ?? null
+  // Only with somewhere to go: another visible individual competition (hasChangeTarget,
+  // otherIndividualCompetition below); an event with one such competition never offers it.
   const canChange = row.status === 'confirmed' && !closed && !isTeamRow && !row.team && !row.refundPending && !surcharge
+    && hasChangeTarget
   return [
     ['edit', live && !closed && !isTeamRow],
     ['change_competition', canChange],
@@ -122,6 +126,16 @@ export function entryActions(row, {
     ['rename_team', live && isTeamRow],
     ['squad', live && isTeamRow],
   ].filter(([, offered]) => offered).map(([action]) => action)
+}
+
+/**
+ * Whether a competition change has a target: another visible (list-event-registrations'
+ * `competitions` are the visible ones) individual competition besides `categoryId`.
+ * @param {{ id: string, kind?: string }[]} competitions
+ * @param {string} categoryId
+ */
+export function otherIndividualCompetition(competitions, categoryId) {
+  return (competitions ?? []).some((c) => c.id !== categoryId && (c.kind ?? 'individual') === 'individual')
 }
 
 /**

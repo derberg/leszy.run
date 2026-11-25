@@ -379,3 +379,24 @@ test('RS-18 a card with two people: no header ⋯, each person one ⋯ with thei
   await expect(page).toHaveURL(new RegExp(`/events/${e.slug}/zapisano$`))
   await context.close()
 })
+
+test('RS-16c an event with one individual competition: no „Zmień konkurencję” in the runner\'s ⋯ nor in B3\'s ⋯', async ({ browser, actors }) => {
+  await resetThrottle()
+  await dpayReset()
+  const e = await createPublishedPaidEvent(owner, { competitions: [COMPETITIONS[0]], prices: { 'Bieg 5 km': 4000 } })
+  const email = runnerEmail('jedna')
+  const name = 'Iza Jedynaczka'
+  await paidEntry(e, email, { firstName: 'Iza', lastName: 'Jedynaczka' })
+  const { context, page } = await runnerPage(browser, email)
+  await toZapisy(page)
+  const menu = await openMenu(page, personRow(page, name), name)
+  await expect(menu.getByRole('menuitem')).toHaveText(['Popraw dane', 'Zamówienie', 'Twój zapis'])
+  await page.keyboard.press('Escape')
+  await context.close()
+
+  const club = await actors.owner.newPage()
+  await club.goto(`/klub/zatyrani-test/wydarzenia/${e.eventId}/zgloszenia`)
+  await club.getByRole('button', { name: `Akcje — ${name}` }).first().click()
+  await expect(club.getByRole('menuitem', { name: 'Edytuj dane', exact: true })).toBeVisible()
+  await expect(club.getByRole('menuitem', { name: 'Zmień konkurencję', exact: true })).toHaveCount(0)
+})

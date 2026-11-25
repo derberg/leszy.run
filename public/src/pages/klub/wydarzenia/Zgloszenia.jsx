@@ -7,7 +7,7 @@ import { callFunction } from '../../../lib/auth.js'
 import { downloadCsv } from '../../../lib/csvDownload.js'
 import {
   AWAITING_CONSENT, competitionChips, entryActions, entryCounts, filterEntries, listedTile, noPlacesForAwaiting, offlineIncomeNote,
-  partnerChips, statusChips,
+  otherIndividualCompetition, partnerChips, statusChips,
 } from '../../../lib/entriesModel.js'
 import { teamStatusLabel } from '../../../lib/teamPage.js'
 import { btnGhost, btnPrimary } from '../settingsUi.js'
@@ -249,6 +249,7 @@ function rowMenu(r, ctx, { isTeamRow = false, menuRow = r, name = r.name, squadH
   const actions = entryActions(menuRow, {
     closed: ctx.closed, payingClosed: ctx.payingClosed, raceDay: ctx.raceDay, isTeamRow, full: ctx.fullCategories.has(menuRow.categoryId),
     isCaptain: ctx.captainIds.has(menuRow.id),
+    hasChangeTarget: otherIndividualCompetition(ctx.competitions, menuRow.categoryId),
   }).filter((a) => a !== 'squad' || squadHref) // no address for the team page without the event's slug
     // Nothing to pick while the event has no partner, unless the entry still carries one to clear.
     .filter((a) => a !== 'partner' || ctx.hasPartners || menuRow.partnerId)
@@ -525,6 +526,7 @@ export default function Zgloszenia({
     payingClosed,
     raceDay,
     captainIds: new Set(state.teams.map((t) => t.captainId)),
+    competitions: state.competitions,
     fullCategories: new Set(counts.perCompetition.filter((c) => c.listed >= c.capacity).map((c) => c.id)),
     onAction,
     rowOf: (id) => byId.get(id) ?? null,

@@ -5,6 +5,7 @@ import { allRows } from '../_shared/registration/allRows.js'
 import {
   LISTED_ORDER_STATUSES, LISTED_REGISTRATION_STATUSES, shapeMyRegistrations,
 } from '../_shared/registration/myRegistrations.js'
+import { changeTargetsByEvent } from '../_shared/registration/selfService.js'
 import { acceptedRefundTotals } from '../_shared/registration/refundedTotals.js'
 import { transferViews } from '../_shared/registration/transfers.js'
 import { clubsWithAgreement } from '../_shared/organizer.js'
@@ -121,6 +122,8 @@ Deno.serve(async (req) => {
     }
     // „Zmień konkurencję” needs the club to have the organizer agreement, any version (L-2, §13 ust. 6).
     const agreementClubs = await clubsWithAgreement(admin, [...enabledClubs])
+    // …and somewhere to go: another visible individual competition of the event (one query, batched).
+    const changeTargets = await changeTargetsByEvent(admin, settings.map((s) => s.event_id))
     const categoryIds = [...new Set([
       ...registrations.map((r) => r.category_id),
       ...orders.map((o) => o.surcharge_to_category_id),
@@ -142,7 +145,7 @@ Deno.serve(async (req) => {
       .map((regs) => transferViews(admin, regs, settings.find((s) => s.event_id === regs[0].event_id), me)))
     for (const map of views) for (const [id, view] of map) transfers.set(id, view)
 
-    return json({ data: shapeMyRegistrations({ userId: me, email: session.email, settings, orders, registrations, competitions, refunded, liveOrderIds, captains, openSurcharges, enabledClubs, agreementClubs, transfers }) }, 200, req)
+    return json({ data: shapeMyRegistrations({ userId: me, email: session.email, settings, orders, registrations, competitions, refunded, liveOrderIds, captains, openSurcharges, enabledClubs, agreementClubs, changeTargets, transfers }) }, 200, req)
   } catch (err) {
     console.error('my-registrations error:', err?.message, err?.code)
     return json({ error: 'Internal server error' }, 500, req)
