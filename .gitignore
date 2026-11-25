@@ -42,3 +42,6 @@ tests/registration/test-results/
 public/public/kalendarz/
 public/public/listy/.manifest.json
 public/public/events/.manifest.json
+
+# Admin agentic e2e (frontend/e2e): run results, traces with screenshots, replay cache
+frontend/.e2e/
