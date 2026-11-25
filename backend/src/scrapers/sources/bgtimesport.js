@@ -1,5 +1,5 @@
 import * as cheerio from 'cheerio'
-import { pickRegulaminFromDom } from '../../lib/pickRegulaminUrl.js'
+import { pickRegulaminFromDom, pickRegulaminUrl } from '../../lib/pickRegulaminUrl.js'
 
 const BASE_URL = 'https://www.bgtimesport.pl'
 const LISTING_URL = `${BASE_URL}/zawody`
@@ -177,22 +177,38 @@ async function fetchDetail(sourceId) {
   }
 }
 
+function pickRegulaminFromHtml(html) {
+  const $ = cheerio.load(html)
+  // This page IS the event's regulamin page (/zawody/regulamin/id/<id>), so a
+  // PDF on it needs no "regulamin" token to qualify — bgtimesport names them
+  // opaquely (824reg20260228t234530.pdf). requireToken:false keeps those while
+  // the deny-list still rejects an oświadczenie/map PDF linked alongside.
+  const pdf = pickRegulaminFromDom($, {
+    selector: 'a[href$=".pdf"], a[href*=".pdf?"]',
+    baseUrl: BASE_URL,
+    requireToken: false,
+  })
+  if (pdf) return pdf
+
+  // Some organizers link Google Drive instead (id 892: "Regulamin Turyści i
+  // dzieci" + "Regulamin Puchar Polski"). A Drive href is opaque, so the link
+  // text must say "regulamin". When there are several, prefer the one that is
+  // not the side regulamin for kids/tourists: the main race's carries the fees.
+  const drive = []
+  $('a[href*="drive.google.com/file/"], a[href*="drive.google.com/drive/folders/"]').each((_, el) => {
+    drive.push({ href: $(el).attr('href'), text: $(el).text() })
+  })
+  const main = drive.filter(c => !/dzie[cć]|turyst|junior|m[lł]odzie/i.test(c.text))
+  return pickRegulaminUrl(main, { baseUrl: BASE_URL })
+    || pickRegulaminUrl(drive, { baseUrl: BASE_URL })
+}
+
 async function fetchRegulaminPdf(sourceId) {
   const url = `${BASE_URL}/zawody/regulamin/id/${sourceId}`
   try {
     const res = await fetch(url, { headers: { 'User-Agent': USER_AGENT } })
     if (!res.ok) return null
-    const html = await res.text()
-    const $ = cheerio.load(html)
-    // This page IS the event's regulamin page (/zawody/regulamin/id/<id>), so a
-    // PDF on it needs no "regulamin" token to qualify — bgtimesport names them
-    // opaquely (824reg20260228t234530.pdf). requireToken:false keeps those while
-    // the deny-list still rejects an oświadczenie/map PDF linked alongside.
-    return pickRegulaminFromDom($, {
-      selector: 'a[href$=".pdf"], a[href*=".pdf?"]',
-      baseUrl: BASE_URL,
-      requireToken: false,
-    })
+    return pickRegulaminFromHtml(await res.text())
   } catch {
     return null
   }
@@ -248,4 +264,4 @@ async function scrape({ knownIds = new Set() } = {}) {
   return results
 }
 
-export { scrape, parseListingDate, distancesFromBiegName, isKidsEvent, hasKidsSignal, detectEventTypes, parseListing }
+export { scrape, parseListingDate, distancesFromBiegName, isKidsEvent, hasKidsSignal, detectEventTypes, parseListing, pickRegulaminFromHtml }
