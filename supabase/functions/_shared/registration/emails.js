@@ -743,3 +743,50 @@ export function surchargeRefundedEmail({ eventName, from, to, grosze, reason }) 
   ].join('')
   return { subject: 'Dopłata zwrócona', text, html }
 }
+
+// ---- The runner's own change (my-entry-action) --------------------------------------------------
+// To the club (the event's contact address): which entry, what changed, the panel link. The
+// person's name only, which the club holds already; a data edit names the fields, never a value.
+
+const FIELD_LABELS = {
+  birthDate: 'Data urodzenia', gender: 'Płeć', phone: 'Telefon', city: 'Miejscowość', club: 'Klub',
+  nationality: 'Narodowość', iceName: 'Kontakt alarmowy (imię i nazwisko)', icePhone: 'Telefon kontaktu alarmowego',
+  firstName: 'Imię', lastName: 'Nazwisko',
+}
+
+function runnerChangeLines({ from, to, outcome, grosze, refundStatus }) {
+  const lines = [`Zmiana konkurencji: z ${from} na ${to}.`]
+  if (outcome === 'surcharge') {
+    lines.push(`Nowa konkurencja jest droższa: zawodnik dostał prośbę o dopłatę ${formatPln(grosze)}. Zmiana nastąpi po jej opłaceniu.`)
+  } else if (outcome === 'refund') {
+    const amount = formatPln(Math.abs(grosze))
+    if (refundStatus === 'accepted') lines.push(`Różnica ${amount} została zwrócona płacącemu przez operatora płatności.`)
+    else if (refundStatus === 'unknown') lines.push(`Zwrot różnicy ${amount} jest w toku: operator płatności jeszcze go nie potwierdził.`)
+    else lines.push(`Operator płatności nie przyjął zwrotu różnicy ${amount}. Zwróć ją przez „Zwróć wpłatę” w panelu zgłoszeń.`)
+  } else if (outcome === 'moved_offline_refund') {
+    lines.push(`Różnica ${formatPln(Math.abs(grosze))} do zwrotu poza systemem.`)
+  } else {
+    lines.push('Cena się nie zmieniła.')
+  }
+  return lines
+}
+
+/**
+ * @param {{ eventName: string, person: string, url: string,
+ *   change?: { from, to, outcome, grosze, refundStatus? }, fields?: string[] }} args
+ */
+export function runnerChangeClubEmail({ eventName, person, url, change = null, fields = null }) {
+  const lead = `Zgłoszenie: ${person}. Na zawodach ${eventName} zawodnik (albo opiekun dziecka) sam zmienił je w „Moje zapisy”.`
+  const lines = change
+    ? runnerChangeLines(change)
+    : [`Zmienione dane: ${(fields ?? []).map((f) => FIELD_LABELS[f] ?? f).join(', ')}.`]
+  const text = ['Cześć,', '', lead, ...lines, '', `Zgłoszenia: ${url}`, '', 'LESZY.RUN'].join('\n')
+  const html = [
+    '<p>Cześć,</p>',
+    `<p>${escapeHtml(lead)}</p>`,
+    ...lines.map((l) => `<p>${escapeHtml(l)}</p>`),
+    link(url, 'Zgłoszenia'),
+    '<p>LESZY.RUN</p>',
+  ].join('')
+  return { subject: `Zawodnik zmienił zgłoszenie — ${eventName}`, text, html }
+}

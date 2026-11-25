@@ -36,7 +36,9 @@ const CODES = ['edits_closed', 'team_competition', 'refund_pending', 'surcharge_
   // Raised by change_competition / reserve_organizer_refund / organizer_mark_paid_offline (task 7).
   'paying_closed', 'request_key_mismatch', 'refund_in_progress', 'exceeds', 'invalid_kind', 'not_found',
   'change_retry', 'surcharge', 'not_paid', 'invalid_amount', 'invalid_request_key', 'entry_changed',
-  'not_surcharge', 'dpay_not_configured']
+  'not_surcharge', 'dpay_not_configured',
+  // runner_edit_registration's own (task 13).
+  'field_not_allowed', 'team_member', 'invalid_field']
 
 test('every refusal has status, Polish error and code', () => {
   for (const c of CODES) {
@@ -50,6 +52,16 @@ test('every refusal has status, Polish error and code', () => {
   assert.equal(changeRefusal('not_found').status, 404)
   assert.equal(changeRefusal('dpay_not_configured').status, 503)
   assert.equal(changeRefusal('change_retry').status, 409)
+})
+
+test('the runner reads the club\'s refusal and its own copy for an offline-paid entry', () => {
+  assert.equal(changeRefusal('not_allowed').error, 'Organizator nie zezwala na tę zmianę.')
+  assert.equal(changeRefusal('field_not_allowed').status, 422)
+  assert.equal(changeRefusal('team_member').status, 404)
+  assert.equal(changeRefusal('offline_paid', { runner: true }).status, 409)
+  assert.match(changeRefusal('offline_paid', { runner: true }).error, /organizator/i)
+  assert.notEqual(changeRefusal('offline_paid', { runner: true }).error, changeRefusal('offline_paid').error)
+  assert.equal(changeRefusal('full', { runner: true }).error, changeRefusal('full').error)
 })
 
 test('unknown refusal throws', () => {

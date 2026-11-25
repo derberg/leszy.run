@@ -9,6 +9,7 @@ import { loadOrderView, orderEmailArgs, settleConfirmOutcome } from '../_shared/
 import { paymentReminderEmail } from '../_shared/registration/emails.js'
 import { issueConsentRequests, publicSite } from '../_shared/registration/consentRequests.js'
 import { validatePerson } from '../_shared/registration/person.js'
+import { checkEdit } from '../_shared/registration/editCheck.js'
 import { personContexts } from '../_shared/registration/registrationRequest.js'
 import { TEAM_NAME_MESSAGE } from '../_shared/registration/team.js'
 import { releaseSlot, sendOnAllowance } from '../_shared/registration/organizerMail.js'
@@ -38,8 +39,6 @@ const SURCHARGE_ACTIONS = new Set(['surcharge_cancel', 'surcharge_remind'])
 const ORDER_ACTIONS = new Set(['extend', 'remind_payment', 'mark_paid_offline', 'offline_note'])
 // „Opłacone poza systemem”: the club's own note on the order (orders.offline_note's CHECK).
 const OFFLINE_NOTE_MAX = 300
-// The fields „Edytuj dane” may change (ruling 7). Never the e-mail: the one-start key and the account.
-const EDITABLE = ['firstName', 'lastName', 'birthDate', 'gender', 'phone', 'city', 'club', 'nationality', 'iceName', 'icePhone']
 
 // Every refusal of the RPCs this function calls, by the message they raise.
 const REFUSALS = {
@@ -208,34 +207,6 @@ async function remindSurcharge(admin, settings, orderId) {
       return { ok: true }
     },
   })
-}
-
-/**
- * „Edytuj dane”: validatePerson over the stored person with the edits applied, so the organizer
- * gets the form's own messages, keyed by field. Only the fields the edit touches can fail: a value
- * stored before a form switch changed stays valid, as organizer_edit_registration also decides.
- * The age group and kids' group are re-derived by organizer_edit_registration itself under its
- * locks; a label computed here is never trusted (Task 2, decision 9).
- */
-async function checkEdit(admin, settings, registrationId, fields) {
-  if (!fields || typeof fields !== 'object' || Array.isArray(fields)) return { invalid: {} }
-  const keys = Object.keys(fields)
-  if (!keys.length || keys.some((k) => !EDITABLE.includes(k) || (fields[k] !== null && typeof fields[k] !== 'string'))) {
-    return { invalid: {} }
-  }
-  const reg = await single(admin.from('registrations')
-    .select('category_id, first_name, last_name, birth_date, gender, email, phone, city, club, nationality, ice_name, ice_phone')
-    .eq('id', registrationId).single())
-  const competition = await single(admin.from('competitions').select('*').eq('category_id', reg.category_id).single())
-  const context = (await personContexts(admin, settings, [competition])).get(competition.category_id)
-  const stored = {
-    firstName: reg.first_name, lastName: reg.last_name, birthDate: reg.birth_date, gender: reg.gender,
-    email: reg.email, phone: reg.phone, city: reg.city, club: reg.club, nationality: reg.nationality,
-    iceName: reg.ice_name, icePhone: reg.ice_phone,
-  }
-  const checked = validatePerson({ ...stored, ...fields }, { ...context, now: new Date() })
-  const errors = Object.fromEntries(Object.entries(checked.errors).filter(([k]) => keys.includes(k)))
-  return Object.keys(errors).length ? { invalid: errors } : { keys }
 }
 
 // POST { action, registrationId | orderId | teamId, … } → the organizer's actions on one entry that

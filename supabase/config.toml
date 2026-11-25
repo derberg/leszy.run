@@ -254,6 +254,10 @@ entrypoint = "./functions/dpay-ipn/index.js"
 verify_jwt = false
 entrypoint = "./functions/my-event-registrations/index.js"
 
+[functions.my-entry-action]
+verify_jwt = false
+entrypoint = "./functions/my-entry-action/index.js"
+
 [functions.my-registrations]
 verify_jwt = false
 entrypoint = "./functions/my-registrations/index.js"

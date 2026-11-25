@@ -61,3 +61,33 @@ test('no mail carries an address or the word for a bib', () => {
   ]
   for (const m of mails) assert.ok(!/@/.test(all(m)), m.subject)
 })
+
+// ---- Task 13: the club is told about a runner's own change or edit --------------------------
+
+test('runnerChangeClubEmail: a competition change with its money outcome and the panel link', async () => {
+  const { runnerChangeClubEmail } = await import('../../../supabase/functions/_shared/registration/emails.js')
+  const url = 'https://www.leszy.run/klub/k/wydarzenia/e/zgloszenia'
+  const m = runnerChangeClubEmail({
+    eventName: 'Bieg Leszego', person: 'Ola Leśna', url,
+    change: { from: 'Bieg 9 km', to: 'Bieg 5 km', outcome: 'refund', grosze: -2000, refundStatus: 'accepted' },
+  })
+  assert.equal(m.subject, 'Zawodnik zmienił zgłoszenie — Bieg Leszego')
+  for (const part of ['Ola Leśna', 'Bieg 9 km', 'Bieg 5 km', '20,00 zł', url]) assert.ok(m.text.includes(part), part)
+  assert.ok(m.html.includes('Ola Leśna'))
+  const s = runnerChangeClubEmail({
+    eventName: 'B', person: '<b>X</b>', url,
+    change: { from: 'A', to: 'C', outcome: 'surcharge', grosze: 2000 },
+  })
+  assert.match(s.text, /dopłat/i)
+  assert.ok(!s.html.includes('<b>X</b>'), 'escaped')
+  const rejected = runnerChangeClubEmail({
+    eventName: 'B', person: 'X', url, change: { from: 'A', to: 'C', outcome: 'refund', grosze: -500, refundStatus: 'rejected' },
+  })
+  assert.match(rejected.text, /Zwróć wpłatę/)
+})
+
+test('runnerChangeClubEmail: a data edit names the fields, never their values', async () => {
+  const { runnerChangeClubEmail } = await import('../../../supabase/functions/_shared/registration/emails.js')
+  const m = runnerChangeClubEmail({ eventName: 'B', person: 'Ola Leśna', url: 'https://x/y', fields: ['birthDate', 'city', 'icePhone'] })
+  for (const part of ['Data urodzenia', 'Miejscowość', 'Telefon kontaktu alarmowego']) assert.ok(m.text.includes(part), part)
+})

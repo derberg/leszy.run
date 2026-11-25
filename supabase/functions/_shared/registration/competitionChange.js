@@ -43,7 +43,13 @@ const REFUSALS = {
   race_day: [409, 'W dniu zawodów zmiana konkurencji jest już niemożliwa.'],
   offline_paid: [409, 'To zgłoszenie opłacono poza systemem — zmiana konkurencji jest niemożliwa.'],
   not_live: [409, 'To zgłoszenie nie jest aktywne.'],
-  not_allowed: [403, 'Zmiana konkurencji nie jest włączona dla tego wydarzenia.'],
+  // The runner's own change or edit (my-entry-action), refused by the club's switch.
+  not_allowed: [403, 'Organizator nie zezwala na tę zmianę.'],
+  // runner_edit_registration's own: a name or the e-mail, a key it does not know, a team member
+  // who is not the captain (my-entry-action answers 404 for that before the RPC).
+  field_not_allowed: [422, 'Imię, nazwisko i adres e-mail zmienia tylko organizator.'],
+  invalid_field: [422, 'Popraw zaznaczone pola.'],
+  team_member: [404, 'Nie znaleźliśmy tego zgłoszenia albo konkurencji.'],
   // change_competition's own, and what it passes on from reserve_organizer_refund (task 7).
   paying_closed: [409, 'Płatność online jest już zamknięta: kończy się godzinę przed zamknięciem zapisów. Dopłaty nie można już utworzyć.'],
   request_key_mismatch: [409, 'To żądanie dotyczy innej zmiany. Otwórz okno zmiany konkurencji jeszcze raz.'],
@@ -62,9 +68,19 @@ const REFUSALS = {
   dpay_not_configured: [503, 'Płatności online są chwilowo niedostępne.'],
 }
 
-/** @returns {{ status: number, error: string, code: string }} */
-export function changeRefusal(code) {
-  const r = Object.hasOwn(REFUSALS, code) ? REFUSALS[code] : null
+// The runner's own wording where the club's would tell them to do what only the club can.
+const RUNNER_REFUSALS = {
+  offline_paid: [409, 'To zgłoszenie opłacono u organizatora: o zmianę na tańszą konkurencję poproś organizatora.'],
+}
+
+/**
+ * @param {string} code
+ * @param {{ runner?: boolean }} [opts] the runner's own copy (my-entry-action) where it differs
+ * @returns {{ status: number, error: string, code: string }}
+ */
+export function changeRefusal(code, { runner = false } = {}) {
+  const r = runner && Object.hasOwn(RUNNER_REFUSALS, code) ? RUNNER_REFUSALS[code]
+    : Object.hasOwn(REFUSALS, code) ? REFUSALS[code] : null
   if (!r) throw new Error(`unknown change refusal: ${code}`)
   return { status: r[0], error: r[1], code }
 }
