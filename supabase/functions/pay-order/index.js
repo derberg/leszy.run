@@ -4,6 +4,7 @@ import { getSession } from '../_shared/session.js'
 import { checkAndIncrement } from '../_shared/throttle.js'
 import { dpayConfig } from '../_shared/dpay.js'
 import { isUuid } from '../_shared/registration/organizerEvent.js'
+import { orderForSession } from '../_shared/registration/orderAccess.js'
 import { json, NOT_FOUND, REFUSALS } from '../_shared/registration/registrationRequest.js'
 import { DPAY_DOWN, PAYMENTS_OFF, startPaymentAttempt } from '../_shared/registration/orderFlow.js'
 
@@ -48,10 +49,8 @@ Deno.serve(async (req) => {
     const orderId = body?.orderId
     if (!isUuid(orderId)) return json(NOT_FOUND, 404, req)
 
-    const { data: order, error } = await admin.from('orders')
-      .select('id, event_id, buyer_profile_id, status, total, expires_at').eq('id', orderId).maybeSingle()
-    if (error) throw error
-    if (!order || order.buyer_profile_id !== session.userId) return json(NOT_FOUND, 404, req)
+    const order = await orderForSession(admin, orderId, session, 'id, event_id, status, total, expires_at')
+    if (!order) return json(NOT_FOUND, 404, req)
 
     const refuse = ([status, text], code) => json({ error: text, code }, status, req)
     if (STATE_REFUSALS[order.status]) return refuse(STATE_REFUSALS[order.status], order.status)

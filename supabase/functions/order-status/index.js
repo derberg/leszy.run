@@ -4,6 +4,7 @@ import { getSession } from '../_shared/session.js'
 import { checkAndIncrement } from '../_shared/throttle.js'
 import { dpayConfig, transactionDetails } from '../_shared/dpay.js'
 import { isUuid } from '../_shared/registration/organizerEvent.js'
+import { orderForSession } from '../_shared/registration/orderAccess.js'
 import { json, NOT_FOUND } from '../_shared/registration/registrationRequest.js'
 import { loadOrderView, logPaymentEvent, orderAmountsOf, settleConfirmOutcome } from '../_shared/registration/orderFlow.js'
 import { transferViews } from '../_shared/registration/transfers.js'
@@ -121,10 +122,8 @@ Deno.serve(async (req) => {
     const orderId = body?.orderId
     if (!isUuid(orderId)) return json(NOT_FOUND, 404, req)
 
-    const { data: head, error } = await admin.from('orders')
-      .select('id, buyer_profile_id, status').eq('id', orderId).maybeSingle()
-    if (error) throw error
-    if (!head || head.buyer_profile_id !== session.userId) return json(NOT_FOUND, 404, req)
+    const head = await orderForSession(admin, orderId, session, 'id, status')
+    if (!head) return json(NOT_FOUND, 404, req)
     const throttle = await checkAndIncrement(admin, `status:${orderId}`, STATUS_LIMIT, { failOpen: true, windowSeconds: 3600 })
     if (!throttle.allowed) {
       return json({ error: 'Zbyt wiele prób. Spróbuj ponownie później.' }, 429, req,
