@@ -20,6 +20,9 @@ import EditMyDataDialog from './EditMyDataDialog.jsx'
 // surcharge opens its order page to pay at once; any other change or edit reads the list again
 // (`onChanged`).
 //
+// `links` (Moje zapisy, a card with one person: „Zamówienie”, „Twój zapis”) close the menu after the
+// actions, behind a divider; with no action the menu holds the links alone.
+//
 // The page places the two parts: children({ menu, details }), `menu` on the person's line (null
 // when there is nothing to offer), `details` under it (null when empty).
 
@@ -37,9 +40,10 @@ const PAY = 'whitespace-nowrap text-apex-yellow hover:text-apex-yellow-bright un
  *   transfer?: { allowed: boolean, pending: { toEmail: string } | null } | null,
  *   surcharge?: { orderId: string, toCompetition: string|null, grosze: number } | null },
  *   slug?: string|null, onChanged: () => void, variant?: 'compact' | 'card',
+ *   links?: Array<{ key: string, label: string, to: string, testId?: string }>,
  *   children: (parts: { menu: import('react').ReactNode, details: import('react').ReactNode }) => import('react').ReactNode }} p
  */
-export default function EntryActions({ entry, slug = null, onChanged, variant = 'compact', children }) {
+export default function EntryActions({ entry, slug = null, onChanged, variant = 'compact', links = [], children }) {
   const v = variants[variant]
   const navigate = useNavigate()
   const [dialog, setDialog] = useState(null)
@@ -74,6 +78,7 @@ export default function EntryActions({ entry, slug = null, onChanged, variant = 
     actions.edit && { key: 'edit', label: 'Popraw dane', onSelect: open('edit'), testId: 'self-edit' },
     transfer && { key: 'transfer', label: 'Przekaż pakiet', to: transfer.href, testId: 'transfer-action' },
   ].filter(Boolean)
+  if (links.length) items.push(...(items.length ? [{ key: 'links-sep', separator: true }] : []), ...links)
 
   const menu = items.length
     ? <ActionMenu label={`Zarządzaj zgłoszeniem: ${entry.name}`} items={items} size="sm" itemWeight="font-medium" testId="self-menu" />

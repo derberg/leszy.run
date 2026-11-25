@@ -107,7 +107,11 @@ test('RS-17 the runner moves to a dearer competition and pays the surcharge; the
   const row = personRow(page, name)
   await expect(row.getByTestId('zapisy-competition')).toHaveText(' · Bieg 5 km')
   let menu = await openMenu(page, row, name)
-  await expect(menu.getByRole('menuitem')).toHaveText(['Zmień konkurencję', 'Popraw dane'])
+  // A card with one person: the card's links close that person's menu, behind a divider.
+  await expect(menu.getByRole('menuitem')).toHaveText(['Zmień konkurencję', 'Popraw dane', 'Zamówienie', 'Twój zapis'])
+  await expect(menu.getByRole('separator')).toHaveCount(1)
+  await expect(menu.getByRole('menuitem', { name: 'Zamówienie' })).toHaveAttribute('href', `/zamowienie/${entry.orderId}`)
+  await expect(menu.getByRole('menuitem', { name: 'Twój zapis' })).toHaveAttribute('href', `/events/${e.slug}/zapisano`)
   await shot(page, 'po-zapisy-actions-desktop.png')
   await page.keyboard.press('Escape')
   await expect(menu).toHaveCount(0)
@@ -139,8 +143,8 @@ test('RS-17 the runner moves to a dearer competition and pays the surcharge; the
   await toZapisy(page)
   const waiting = personRow(page, name).getByTestId('self-surcharge')
   await expect(waiting).toHaveText('Dopłata czeka: 20,00 zł (Bieg 10 km) — Zapłać')
-  // Only „Popraw dane” is left in the menu.
-  await expect((await openMenu(page, personRow(page, name), name)).getByRole('menuitem')).toHaveText(['Popraw dane'])
+  // Only „Popraw dane” is left of the actions.
+  await expect((await openMenu(page, personRow(page, name), name)).getByRole('menuitem')).toHaveText(['Popraw dane', 'Zamówienie', 'Twój zapis'])
   await page.keyboard.press('Escape')
   await noOverflow(page)
   await shot(page, 'po-zapisy-surcharge-390.png')
@@ -199,7 +203,11 @@ test('RS-17 the club unticks both switches: neither button is shown', async ({ b
   await setSettings(e.eventId, { runner_competition_change: false, runner_data_edit: false })
   await toZapisy(page)
   await expect(personRow(page, name)).toBeVisible()
-  await expect(trigger(personRow(page, name), name)).toHaveCount(0)
+  // The ⋯ stays for the card's links alone, with no divider.
+  const menu = await openMenu(page, personRow(page, name), name)
+  await expect(menu.getByRole('menuitem')).toHaveText(['Zamówienie', 'Twój zapis'])
+  await expect(menu.getByRole('separator')).toHaveCount(0)
+  await page.keyboard.press('Escape')
   await expect(personRow(page, name).getByTestId('self-service')).toHaveCount(0)
   await context.close()
 })
@@ -215,7 +223,7 @@ async function outlined(page, testIds) {
  * The person's „⋯” sits at the right end of the person's own line (no extra row) and opens a menu of
  * the three actions, in order, each on one line, inside the viewport and right-aligned to the trigger.
  */
-async function menuOnTheLine(page, scope, name, nameLocator) {
+async function menuOnTheLine(page, scope, name, nameLocator, expected = ['Zmień konkurencję', 'Popraw dane', 'Przekaż pakiet']) {
   const t = trigger(scope, name)
   await expect(t).toHaveCount(1)
   await expect(t).toHaveAttribute('aria-haspopup', 'menu')
@@ -225,7 +233,7 @@ async function menuOnTheLine(page, scope, name, nameLocator) {
   expect(sb.x + sb.width - (tb.x + tb.width), 'the trigger ends the line').toBeLessThan(20)
   const menu = await openMenu(page, scope, name)
   await expect(t).toHaveAttribute('aria-expanded', 'true')
-  await expect(menu.getByRole('menuitem')).toHaveText(['Zmień konkurencję', 'Popraw dane', 'Przekaż pakiet'])
+  await expect(menu.getByRole('menuitem')).toHaveText(expected)
   const mb = await menu.boundingBox()
   const vw = page.viewportSize().width
   expect(mb.x, 'inside the viewport').toBeGreaterThanOrEqual(0)
@@ -252,7 +260,9 @@ test('RS-18 one ⋯ menu per runner on Moje zapisy and RA5: Zmień konkurencję,
   await page.goto('/profil/zapisy'); await decline()
   const row = personRow(page, name)
   const rowName = row.getByText(name, { exact: false }).first()
-  let menu = await menuOnTheLine(page, row, name, rowName)
+  const ZAPISY_ITEMS = ['Zmień konkurencję', 'Popraw dane', 'Przekaż pakiet', 'Zamówienie', 'Twój zapis']
+  let menu = await menuOnTheLine(page, row, name, rowName, ZAPISY_ITEMS)
+  await expect(menu.getByRole('separator')).toHaveCount(1)
   await expect(menu.getByRole('menuitem', { name: 'Przekaż pakiet' }))
     .toHaveAttribute('href', `/events/${e.slug}/przekaz/${entry.registrationId}`)
   // Click outside closes it.
@@ -266,8 +276,10 @@ test('RS-18 one ⋯ menu per runner on Moje zapisy and RA5: Zmień konkurencję,
   await noOverflow(page)
   await shot(page, 'po-zapisy-where-390.png')
   await shot(page, 'po-zapisy-all-actions-390.png')
+  // Status and amount stay on the card; the links left it.
+  await expect(page.getByTestId('zapisy-event').getByRole('link', { name: /Zamówienie|Twój zapis/ })).toHaveCount(0)
   await style.evaluate((el) => el.remove())
-  menu = await menuOnTheLine(page, row, name, rowName)
+  menu = await menuOnTheLine(page, row, name, rowName, ZAPISY_ITEMS)
   await shot(page, 'po-zapisy-menu-open-390.png')
   // The item navigates like the old link did.
   await menu.getByRole('menuitem', { name: 'Przekaż pakiet' }).click()
@@ -291,5 +303,68 @@ test('RS-18 one ⋯ menu per runner on Moje zapisy and RA5: Zmień konkurencję,
   await style.evaluate((el) => el.remove())
   menu = await menuOnTheLine(page, card, name, cardName)
   await shot(page, 'po-ra5-menu-open-390.png')
+  await context.close()
+})
+
+test('RS-18 a card with two people: the card header’s ⋯ holds Zamówienie and Twoje zapisy, each person’s ⋯ only their actions (screenshots)', async ({ browser }) => {
+  await resetThrottle()
+  await dpayReset()
+  const eventName = `Bieg Rodzinny ${crypto.randomBytes(3).toString('hex')}`
+  const e = await createPublishedPaidEvent(owner, { name: eventName, competitions: COMPETITIONS, prices: PRICES })
+  const email = runnerEmail('grupa')
+  const name = 'Joanna Biegaczka'
+  const other = 'Piotr Biegacz'
+  const out = await orderOk(e, {
+    categoryId: e.categoryIds[0],
+    people: [person(email, { firstName: 'Joanna', lastName: 'Biegaczka' }),
+      person(runnerEmail('grupa2'), { firstName: 'Piotr', lastName: 'Biegacz', gender: 'M', ageGroupLabel: 'M open' })],
+  })
+  const paid = await callFn('pay-order', await sessionFor(email), { orderId: out.orderId })
+  expect(paid.status, JSON.stringify(paid.body)).toBe(200)
+  await payMock(await latestTxn(out.orderId), 'paid')
+  await expect.poll(async () => (await orderOf(out.orderId)).status, { timeout: 15_000 }).toBe('paid')
+  const { context, page } = await runnerPage(browser, email)
+  await page.setViewportSize(PHONE)
+
+  await toZapisy(page)
+  const card = page.getByTestId('zapisy-event').filter({ hasText: eventName })
+  await expect(card.getByTestId('zapisy-person')).toHaveCount(2)
+  const cardLabel = `Zgłoszenie: ${eventName}`
+  const cardTrigger = card.getByRole('button', { name: cardLabel, exact: true })
+  await expect(cardTrigger).toHaveCount(1)
+  // The header's ⋯ ends the date · name line.
+  const header = card.getByRole('link', { name: eventName })
+  const [tb, hb, cb] = await Promise.all([cardTrigger.boundingBox(), header.boundingBox(), card.boundingBox()])
+  expect(Math.abs((tb.y + tb.height / 2) - (hb.y + hb.height / 2)), 'the trigger is on the header line').toBeLessThan(8)
+  expect(cb.x + cb.width - (tb.x + tb.width), 'the trigger ends the line').toBeLessThan(20)
+  // Each person's ⋯ holds their own actions only; the added adult has none, so no trigger.
+  let menu = await openMenu(page, personRow(page, name), name)
+  await expect(menu.getByRole('menuitem')).toHaveText(['Zmień konkurencję', 'Popraw dane'])
+  await expect(menu.getByRole('separator')).toHaveCount(0)
+  await page.keyboard.press('Escape')
+  await expect(trigger(personRow(page, other), other)).toHaveCount(0)
+  await expect(card.getByRole('link', { name: /Zamówienie|Twój zapis|Twoje zapisy/ })).toHaveCount(0)
+  await noOverflow(page)
+  const style = await outlined(page, ['self-menu', 'zapisy-card-menu'])
+  await shot(page, 'po-zapisy-group-390.png')
+  await style.evaluate((el) => el.remove())
+
+  await cardTrigger.click()
+  menu = page.getByRole('menu', { name: cardLabel })
+  await expect(menu).toBeVisible()
+  await expect(menu.getByRole('menuitem')).toHaveText(['Zamówienie', 'Twoje zapisy'])
+  await expect(menu.getByRole('menuitem').first()).toBeFocused()
+  await expect(menu.getByRole('menuitem', { name: 'Zamówienie' })).toHaveAttribute('href', `/zamowienie/${out.orderId}`)
+  await expect(menu.getByRole('menuitem', { name: 'Twoje zapisy' })).toHaveAttribute('href', `/events/${e.slug}/zapisano`)
+  const mb = await menu.boundingBox()
+  expect(mb.x + mb.width, 'inside the viewport').toBeLessThanOrEqual(PHONE.width)
+  expect(Math.abs(mb.x + mb.width - (tb.x + tb.width)), 'right-aligned to the trigger').toBeLessThan(2)
+  await noOverflow(page)
+  await shot(page, 'po-zapisy-group-menu-open-390.png')
+  // Keyboard: ArrowDown moves to the link, Enter follows it.
+  await page.keyboard.press('ArrowDown')
+  await expect(menu.getByRole('menuitem', { name: 'Twoje zapisy' })).toBeFocused()
+  await page.keyboard.press('Enter')
+  await expect(page).toHaveURL(new RegExp(`/events/${e.slug}/zapisano$`))
   await context.close()
 })

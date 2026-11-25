@@ -3,9 +3,11 @@ import { createPortal } from 'react-dom'
 import { Link } from 'react-router-dom'
 
 // A „⋯” button opening a menu of actions: the organizer's row menu (B3, EntryMenu) and the runner's
-// per-person menu („Moje zapisy”, RA5; EntryActions). Each item is { key, label, onSelect?, to?,
-// testId? }: `to` makes it a link, otherwise onSelect(triggerElement) runs after the menu closes,
-// so whatever the action opens can give the focus back to the trigger. The menu is fixed to the
+// per-person menu („Moje zapisy”, RA5; EntryActions) and a „Moje zapisy” card's links. Each item is
+// { key, label, onSelect?, to?, testId? }: `to` makes it a link (a real <a>), otherwise
+// onSelect(triggerElement) runs after the menu closes, so whatever the action opens can give the
+// focus back to the trigger. { key, separator: true } draws a thin divider between groups; it is
+// not an item, so the keyboard skips it. The menu is fixed to the
 // viewport, never to its row or card, so no `overflow` clips it; it sits under the trigger with the
 // right edges aligned, inside the viewport, and opens upwards when there is no room below.
 // Escape closes it, ArrowUp/ArrowDown/Home/End move between items, a click outside closes it.
@@ -24,8 +26,8 @@ const TRIGGER = {
 }
 
 /**
- * @param {{ label: string, items: Array<{ key: string, label: string, onSelect?: (trigger: HTMLElement) => void,
- *   to?: string, testId?: string }>, size?: 'md' | 'sm', itemWeight?: string, testId?: string }} p
+ * @param {{ label: string, items: Array<{ key: string, label?: string, onSelect?: (trigger: HTMLElement) => void,
+ *   to?: string, testId?: string, separator?: boolean }>, size?: 'md' | 'sm', itemWeight?: string, testId?: string }} p
  */
 export default function ActionMenu({ label, items, size = 'md', itemWeight = 'font-semibold', testId }) {
   const [open, setOpen] = useState(false)
@@ -96,7 +98,7 @@ export default function ActionMenu({ label, items, size = 'md', itemWeight = 'fo
     }
   }, [open])
 
-  if (!items.length) return null
+  if (!items.some((item) => !item.separator)) return null
 
   function pick(item) {
     close({ focus: false })
@@ -116,7 +118,9 @@ export default function ActionMenu({ label, items, size = 'md', itemWeight = 'fo
         <div ref={menu} id={menuId} role="menu" aria-label={label}
           style={place ? { top: place.top, left: place.left } : { top: 0, left: 0, visibility: 'hidden' }}
           className="fixed z-50 min-w-[220px] max-w-[calc(100vw-32px)] py-1 border border-apex-border-bright bg-apex-surface">
-          {items.map((item) => (item.to
+          {items.map((item) => (item.separator
+            ? <div key={item.key} role="separator" className="my-1 border-t border-apex-border" />
+            : item.to
             ? <Link key={item.key} role="menuitem" tabIndex={-1} to={item.to} className={itemClass} data-testid={item.testId}
                 onClick={() => close({ focus: false })}>
                 {item.label}
