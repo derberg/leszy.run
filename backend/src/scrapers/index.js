@@ -49,6 +49,7 @@ import { looksNonPolish } from '../lib/polishLocation.js'
 import { sameAtest } from '../lib/atestMatch.js'
 import { looksVirtual } from '../lib/virtualEvent.js'
 import { looksMultisport } from '../lib/multisportEvent.js'
+import { looksNonRunningSport } from '../lib/nonRunningSport.js'
 import { looksWalkingRally, looksUnracedRajd } from '../lib/walkingRally.js'
 import { decideDateMove, rowKeys, warsawToday, collectSaDates, collisionFinder, applyDateMove, refileByDate } from '../lib/publishDateMove.js'
 import { fuzzyMatchIn } from './publishFuzzy.js'
@@ -1448,14 +1449,18 @@ async function mergeIntoScraperAll({ dryRun = false } = {}) {
           // inside looksMultisport(), which is why isRunBike does not guard it.
           const isMultisport = looksMultisport(raw)
 
+          // Skiing (bieg narciarski is a ski race), ski touring, snowboard,
+          // pumptrack and off-road motor rallies. See lib/nonRunningSport.js.
+          const isOtherSport = looksNonRunningSport(raw.name)
+
           // A rajd pieszy: walked, not raced. A name that also carries a run or
           // a nordic walking race keeps its exemption inside looksWalkingRally().
           const isWalkingRally = looksWalkingRally(raw)
 
           // Skip non-running events and past events — mark merged so they don't re-appear
-          if ((raw.name && SKIP_KEYWORDS.test(raw.name) && !isRunBike) || isMultisport || isWalkingRally || (raw.date && raw.date < today) || isForeign || isVirtual || isSmakMaratonJunk || isRyskaJunk || isItmbJunk || isWtorkiJunk) {
+          if ((raw.name && SKIP_KEYWORDS.test(raw.name) && !isRunBike) || isMultisport || isOtherSport || isWalkingRally || (raw.date && raw.date < today) || isForeign || isVirtual || isSmakMaratonJunk || isRyskaJunk || isItmbJunk || isWtorkiJunk) {
             stats.skipped++
-            if ((raw.name && SKIP_KEYWORDS.test(raw.name)) || isMultisport || isWalkingRally) stats.skippedReasons.non_running++
+            if ((raw.name && SKIP_KEYWORDS.test(raw.name)) || isMultisport || isOtherSport || isWalkingRally) stats.skippedReasons.non_running++
             else if (raw.date && raw.date < today) stats.skippedReasons.past_date++
             else if (isForeign) stats.skippedReasons.foreign++
             else if (isVirtual) stats.skippedReasons.virtual++

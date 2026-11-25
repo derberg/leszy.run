@@ -1,3 +1,4 @@
+import { looksNonRunningSport } from '../../lib/nonRunningSport.js'
 import * as cheerio from 'cheerio'
 import { verifyPdf } from '../../lib/verifyPdf.js'
 
@@ -47,9 +48,13 @@ function registrationSlugWords(url) {
 }
 
 // Whether this listing row is a sport we do not carry.
+// Snow sports, pumptrack and off-road rallies come from the shared list in
+// lib/nonRunningSport.js, read over the same two texts.
 function isNonRunningEvent(name, registrationUrl) {
+  const slugWords = registrationSlugWords(registrationUrl)
   return SKIP_KEYWORDS.test(name || '') ||
-    SKIP_KEYWORDS.test(registrationSlugWords(registrationUrl))
+    SKIP_KEYWORDS.test(slugWords) ||
+    looksNonRunningSport(name, slugWords)
 }
 
 function parseCardDate(raw) {

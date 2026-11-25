@@ -1,4 +1,6 @@
 import * as cheerio from 'cheerio'
+import { looksNonRunningSport } from '../../lib/nonRunningSport.js'
+import { looksMultisport } from '../../lib/multisportEvent.js'
 import { pickRegulaminFromDom, pickRegulaminUrl } from '../../lib/pickRegulaminUrl.js'
 
 const BASE_URL = 'https://www.bgtimesport.pl'
@@ -85,6 +87,17 @@ function detectEventTypes(name) {
   if (/\bultra\b|\b\d{1,3}\s*h\s*run\b/i.test(blob)) tags.add('ultra')
   if (/\bocr\b/i.test(blob)) tags.add('ocr')
   return [...tags]
+}
+
+// bgtimesport times skiing, biathlon, pumptrack and MTB beside its runs and has
+// no discipline field. The race headings of the detail page name the sport
+// where the event name may not: id 892 "ZŁOTY GROŃ SKITUR ATAK 2026" lists
+// "… - Puchar Polski w skialpinizmie". MTB is matched on its own because the
+// merge's SKIP_KEYWORDS covers it only after the row is stored.
+function isNonRunningEvent(name, biegHeadings = []) {
+  const texts = [name, ...biegHeadings]
+  return looksNonRunningSport(...texts) ||
+    texts.some(t => looksMultisport({ name: t }) || /\bmtb\b/i.test(t || ''))
 }
 
 async function fetchListing() {
@@ -241,6 +254,11 @@ async function scrape({ knownIds = new Set() } = {}) {
     await new Promise(r => setTimeout(r, 1100))
     console.log(`[bgtimesport] Detail ${results.length + 1}/${newEntries.length} — ${entry.name}`)
 
+    if (isNonRunningEvent(entry.name, detail.biegHeadings)) {
+      console.log(`[bgtimesport] Skipping non-running event ${entry.sourceId} — ${entry.name}`)
+      continue
+    }
+
     const eventTypes = detectEventTypes(entry.name)
     results.push({
       name: entry.name,
@@ -264,4 +282,4 @@ async function scrape({ knownIds = new Set() } = {}) {
   return results
 }
 
-export { scrape, parseListingDate, distancesFromBiegName, isKidsEvent, hasKidsSignal, detectEventTypes, parseListing, pickRegulaminFromHtml }
+export { scrape, parseListingDate, distancesFromBiegName, isKidsEvent, hasKidsSignal, detectEventTypes, parseListing, pickRegulaminFromHtml, isNonRunningEvent }

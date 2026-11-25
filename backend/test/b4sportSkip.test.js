@@ -71,3 +71,16 @@ test('registrationSlugWords survives a URL with no event segment', () => {
   assert.equal(registrationSlugWords('not a url'), '')
   assert.equal(registrationSlugWords(null), '')
 })
+
+test('a 4x4 and quad rally is dropped by its series name', () => {
+  // The organizer segment (zamosc4x4) is not read; the series name decides.
+  assert.equal(
+    isNonRunningEvent(
+      '15 Terenowa Integracja Dla Choinki Zamość 2026',
+      `${B}/zamosc4x4/zapisy_na_15_terenowa_integracja_dla_choinki_zamosc_2026/13456`,
+    ),
+    true,
+  )
+  assert.equal(isNonRunningEvent('Zimowy Bieg Narciarski', `${B}/x/zapisy_na_bieg/2`), true)
+  assert.equal(isNonRunningEvent('Bieg Quadrans', `${B}/quad_team/zapisy_na_bieg_quadrans/3`), false)
+})
