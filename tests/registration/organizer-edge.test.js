@@ -646,7 +646,47 @@ test('O-30 M6 a list row carries exactly the D6-11 key set, so a field added lat
     'paidOffline', 'offlineNote', 'orderTotal',
     // Competition change: the entry's refunded money (registrations.refunded) and an open surcharge
     'entryRefunded', 'surcharge',
+    // The extras list (dodatki): the row's extras and whether the runner will not start
+    'extras', 'withdrawn',
   ].sort())
+})
+
+test('O-64 list rows carry their extras and the event\'s extras with live unit counts', async () => {
+  const event = await paidEvent()
+  const cat = event.categoryIds[0]
+  const shirt = await makeExtra(event, { name: 'Koszulka', price: 4500, variants: [['S', 10], ['L', 10]] })
+  const medal = await makeExtra(event, { name: 'Medal', price: 2000, variants: [['Złoty', 10]] })
+  await db().from('extras').update({ sort_order: 1 }).eq('id', medal.extra.id)
+  const paidEmail = runnerEmail('dodatki')
+  const total = PRICE + 2 * 4500 + 2000
+  const paid = await orderGroupOk(event, [{
+    ...adult(cat, 'self', paidEmail),
+    extras: [{ variantId: medal.variants['Złoty'].id, qty: 1 }, { variantId: shirt.variants.L.id, qty: 2 }],
+  }], { displayed: total })
+  const att = await attemptFor(paid.orderId, total)
+  assert.equal((await confirmOk(paid.orderId, att.txn, total)).outcome, 'confirmed')
+  const unpaid = await orderGroupOk(event, [{
+    ...adult(cat, 'self', runnerEmail('dodatki-czeka')), extras: [{ variantId: shirt.variants.S.id, qty: 1 }],
+  }], { displayed: PRICE + 4500 })
+
+  const r = await callFn('list-event-registrations', owner, { eventId: event.eventId })
+  assert.equal(r.status, 200, JSON.stringify(r.body))
+  const [paidReg] = await rows('registrations', { order_id: paid.orderId })
+  const [unpaidReg] = await rows('registrations', { order_id: unpaid.orderId })
+  const row = r.body.data.find((x) => x.id === paidReg.id)
+  const lines = await rows('order_lines', { order_id: paid.orderId })
+  const lineOf = (variantId) => lines.find((l) => l.extra_variant_id === variantId).id
+  assert.deepEqual(row.extras, [
+    { lineId: lineOf(shirt.variants.L.id), extraId: shirt.extra.id, name: 'Koszulka', variantId: shirt.variants.L.id, variant: 'L', qty: 2, amount: 9000, refunded: 0, extraOrder: 0, variantOrder: 1 },
+    { lineId: lineOf(medal.variants['Złoty'].id), extraId: medal.extra.id, name: 'Medal', variantId: medal.variants['Złoty'].id, variant: 'Złoty', qty: 1, amount: 2000, refunded: 0, extraOrder: 1, variantOrder: 0 },
+  ])
+  assert.equal(row.withdrawn, false)
+  const waiting = r.body.data.find((x) => x.id === unpaidReg.id)
+  assert.deepEqual(waiting.extras.map((e) => [e.name, e.variant, e.qty, e.amount]), [['Koszulka', 'S', 1, 4500]], 'an unpaid order keeps its extras')
+  assert.deepEqual(r.body.extras, [
+    { id: shirt.extra.id, name: 'Koszulka', count: 3 },
+    { id: medal.extra.id, name: 'Medal', count: 1 },
+  ])
 })
 
 test('O-35 M1–M3 remind_payment: a send that did not go out → 502 and no allowance spent; refused once online payment stopped and when the competition is full', async () => {
