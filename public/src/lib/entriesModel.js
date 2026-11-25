@@ -98,8 +98,16 @@ export function entryActions(row, {
   // offered there, as the payment reminder is not (D6-27).
   const unpaid = row.statusKey === 'awaiting' || (row.statusKey === 'expired' && (row.status === 'pending_payment' || row.status === 'expired'))
   const canMarkOffline = unpaid && Boolean(row.orderId) && !raceDay && !full
+  // A competition change (organizer-entry-action change_competition): a confirmed individual entry
+  // before closes_at, never a team's, never with a refund in flight (refund_pending); while its
+  // surcharge waits, the reminder and the cancel of that surcharge stand in its place.
+  const surcharge = row.surcharge ?? null
+  const canChange = row.status === 'confirmed' && !closed && !isTeamRow && !row.team && !row.refundPending && !surcharge
   return [
     ['edit', live && !closed && !isTeamRow],
+    ['change_competition', canChange],
+    ['surcharge_remind', Boolean(surcharge) && !isTeamRow && !payingClosed],
+    ['surcharge_cancel', Boolean(surcharge) && !isTeamRow],
     ['remind_payment', awaitingPayment && !full],
     ['extend', awaitingPayment],
     ['remind_consent', awaitingConsent(row) && !isTeamRow],
@@ -274,6 +282,9 @@ export function actionLabel(action, row, { isTeamRow = false, isCaptain = false 
     case 'transfer': return 'Przekaż pakiet'
     case 'mark_paid_offline': return 'Opłacone poza systemem'
     case 'offline_note': return 'Notatka o wpłacie'
+    case 'change_competition': return 'Zmień konkurencję'
+    case 'surcharge_remind': return 'Przypomnij o dopłacie'
+    case 'surcharge_cancel': return 'Anuluj dopłatę'
     default: throw new Error(`unknown action: ${action}`)
   }
 }

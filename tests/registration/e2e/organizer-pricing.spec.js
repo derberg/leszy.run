@@ -492,7 +492,7 @@ test('V-73 B3: ⋯ „Partner” sets it and the „Partnerzy” filter shows th
   const trigger = page.getByRole('button', { name: 'Akcje — Jan Kowalski' }).first()
   await trigger.click()
   expect(await page.getByRole('menu').getByRole('menuitem').allTextContents())
-    .toEqual(['Edytuj dane', 'Napisz do zawodnika', 'Partner', 'Przekaż pakiet', 'Zwróć wpłatę', 'Anuluj zgłoszenie'])
+    .toEqual(['Edytuj dane', 'Zmień konkurencję', 'Napisz do zawodnika', 'Partner', 'Przekaż pakiet', 'Zwróć wpłatę', 'Anuluj zgłoszenie'])
   await page.getByRole('menuitem', { name: 'Partner', exact: true }).click()
   const pd = page.getByRole('dialog', { name: 'Partner' })
   await expect(pd.getByRole('radio', { name: 'Bez partnera' })).toBeChecked()
