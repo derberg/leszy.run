@@ -43,6 +43,10 @@ const REGISTRATION_COLUMNS = 'id, event_id, category_id, status, first_name, las
 const TRANSFER_COLUMNS = 'id, event_id, registration_id, new_registration_id, kind, status, from_profile_id, to_email, '
   + 'accepted_by_profile_id, created_at, expires_at, accepted_at, cancelled_at, registration_settings(name, event_date, club_id)'
 
+// Runner self-service (Plan 8): a change's audit row. actor_profile_id is read only to tell the
+// person whether they made it; it is never exported.
+const REGISTRATION_CHANGE_COLUMNS = 'id, registration_id, actor_profile_id, kind, fields, from_category_id, to_category_id, grosze, created_at'
+
 const GUARDIAN_COLUMNS = 'id, event_id, status, first_name, last_name, guardian_name, guardian_email, guardian_removed_at, created_at, '
   + 'registration_settings(name, event_date), '
   + 'consent_acceptances(consent_kind, accepted_as, accepted_by_profile_id, regulamin_version, accepted_at, ip, user_agent)'
@@ -395,6 +399,37 @@ Deno.serve(async (req) => {
       .order('sent_at').order('id'), 'organizer_messages')
     : []
 
+  // Runner self-service (Plan 8): the person's own competition changes and data edits, on their
+  // entries and their children's, and those they made themselves. A row holds the names of the
+  // fields that changed, never a value, and never who else acted (only whether it was them).
+  const changeRegIds = [...new Set([...ownRegIds, ...registrationsAsGuardian.map((r) => r.id)])]
+  const changeLists = await Promise.all([
+    changeRegIds.length
+      ? fetchAll(() => supabaseAdmin.from('registration_changes').select(REGISTRATION_CHANGE_COLUMNS)
+        .in('registration_id', changeRegIds).order('created_at').order('id'), 'registration_changes of own entries')
+      : Promise.resolve([]),
+    fetchAll(() => supabaseAdmin.from('registration_changes').select(REGISTRATION_CHANGE_COLUMNS)
+      .eq('actor_profile_id', userId).order('created_at').order('id'), 'registration_changes made'),
+  ])
+  const changeRows = [...new Map(changeLists.flat().map((c) => [c.id, c])).values()]
+    .sort((a, b) => String(a.created_at).localeCompare(String(b.created_at)) || String(a.id).localeCompare(String(b.id)))
+  const changeCategories = [...new Set(changeRows.flatMap((c) => [c.from_category_id, c.to_category_id]).filter(Boolean))]
+  const changeCompetitionName = new Map(changeCategories.length > 0
+    ? (await fetchAll(() => supabaseAdmin.from('competitions').select('category_id, name')
+      .in('category_id', changeCategories).order('category_id'), 'registration_changes competitions'))
+      .map((c) => [c.category_id, c.name])
+    : [])
+  const registrationChanges = changeRows.map((c) => ({
+    registration_id: changeRegIds.includes(c.registration_id) ? c.registration_id : null,
+    kind: c.kind,
+    fields: c.fields ?? [],
+    from_competition: changeCompetitionName.get(c.from_category_id) ?? null,
+    to_competition: changeCompetitionName.get(c.to_category_id) ?? null,
+    grosze: c.grosze,
+    by_you: c.actor_profile_id === userId,
+    created_at: c.created_at,
+  }))
+
   const memberships = (clubMemberships.data ?? []).map((m) => ({
     club_name: m.clubs?.name ?? null,
     role: m.role,
@@ -457,6 +492,7 @@ Deno.serve(async (req) => {
     transfers,
     orders,
     organizer_messages_received: organizerMessages.map(organizerMessageView),
+    registration_changes: registrationChanges,
     race_entries: (raceEntries.data ?? []).map((p) => ({
       event_name: p.events?.name ?? null,
       event_date: p.events?.date ?? null,
