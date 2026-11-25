@@ -280,12 +280,16 @@ export default function Platnosci({ event, queue, saveState, readOnly, reload })
       <section className={cardClass} data-testid="runner-change-settings">
         <h2 className={cardTitle}>Zmiana konkurencji</h2>
         <fieldset disabled={readOnly} className="min-w-0">
-          <label className="flex items-center gap-2.5 font-sans text-base text-apex-text-bright min-h-9">
-            <input type="checkbox" className="w-[18px] h-[18px] accent-apex-yellow" checked={runnerChange}
-              onChange={(e) => changeRunner(e.target.checked)} />
-            Zgadzam się, by zawodnik mógł sam zmienić konkurencję
+          {/* The tip is a sibling of the label: inside it, a click on the open tip's text would
+              toggle the checkbox and the tip would join the checkbox's accessible name. */}
+          <div className="flex flex-wrap items-center gap-2.5">
+            <label className="flex items-center gap-2.5 font-sans text-base text-apex-text-bright min-h-9">
+              <input type="checkbox" className="w-[18px] h-[18px] accent-apex-yellow" data-testid="runner-change"
+                checked={runnerChange} onChange={(e) => changeRunner(e.target.checked)} />
+              Zgadzam się, by zawodnik mógł sam zmienić konkurencję
+            </label>
             <InfoTip label="Co oznacza zmiana konkurencji przez zawodnika" testId="runner-change-tip">{RUNNER_CHANGE_TIP}</InfoTip>
-          </label>
+          </div>
         </fieldset>
       </section>
 

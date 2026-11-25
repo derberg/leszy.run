@@ -174,13 +174,14 @@ export default function Formularz({ event, queue, saveState, readOnly, onSaved, 
             )}>{f.label}</Row>
           ))}
           <Row right={<Always />}>Dane opiekuna · zawodnik niepełnoletni</Row>
-          <div className="px-3.5 py-2 border-b border-apex-border">
+          {/* The tip is a sibling of the label, so clicking its text never toggles the checkbox. */}
+          <div className="px-3.5 py-2 border-b border-apex-border flex flex-wrap items-center gap-2.5">
             <label className="flex items-center gap-2.5 font-sans text-base text-apex-text-bright min-h-9">
               <input type="checkbox" className="w-[18px] h-[18px] accent-apex-yellow" data-testid="runner-data-edit"
                 checked={dataEdit} onChange={(e) => apply({ dataEdit: e.target.checked })} />
               Zgadzam się, by zawodnik mógł sam zmienić swoje dane
-              <InfoTip label="Co oznacza zmiana danych przez zawodnika" testId="runner-data-tip">{RUNNER_DATA_TIP}</InfoTip>
             </label>
+            <InfoTip label="Co oznacza zmiana danych przez zawodnika" testId="runner-data-tip">{RUNNER_DATA_TIP}</InfoTip>
           </div>
           <div className="p-3.5 flex items-center gap-2">
             <button type="button" className={btnGhost} disabled>+ Własne pytanie</button>

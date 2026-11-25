@@ -21,10 +21,10 @@ const SHOTS = process.env.SCREENSHOT_DIR
 const CC_SCREENS = path.resolve(path.dirname(fileURLToPath(import.meta.url)),
   '../../../.superpowers/sdd/2026-11-24-competition-change/screens')
 
-async function ccShot(page, testId, name) {
+async function ccShot(page, testId, name, width = 1280) {
   if (!fs.existsSync(path.dirname(CC_SCREENS))) return
   fs.mkdirSync(CC_SCREENS, { recursive: true })
-  await page.setViewportSize({ width: 1280, height: 800 })
+  await page.setViewportSize({ width, height: width < 640 ? 844 : 800 })
   const decline = page.getByRole('button', { name: 'Odrzuć' })
   if (await decline.isVisible()) await decline.click()
   await page.getByTestId(testId).evaluate((el) => window.scrollTo(0, el.getBoundingClientRect().top + window.scrollY - 120))
@@ -152,7 +152,16 @@ test('P-43 Płatności renders A6; the payout checklist item opens it; the owner
   await ccShot(page, 'runner-change-settings', 'po-platnosci-checkbox-desktop.png')
   await page.getByTestId('runner-change-settings').getByRole('button', { name: 'Co oznacza zmiana konkurencji przez zawodnika' }).click()
   await expect(page.getByTestId('runner-change-tip')).toHaveText('Działa tylko, dopóki zapisy są otwarte. Po zamknięciu zapisów zmiany wprowadza organizator.')
+  // The open tip sits outside the label: clicking its text leaves the setting alone, and the
+  // checkbox is named by the label text only.
+  await page.getByTestId('runner-change-tip').click()
+  await expect(runnerChange).toBeChecked()
+  await expect(page.getByTestId('runner-change')).toHaveAccessibleName('Zgadzam się, by zawodnik mógł sam zmienić konkurencję')
+  await page.waitForTimeout(1500)
+  expect((await runnerRow()).runner_competition_change).toBe(true)
   await ccShot(page, 'runner-change-settings', 'po-platnosci-checkbox-tip-desktop.png')
+  await ccShot(page, 'runner-change-settings', 'po-platnosci-checkbox-tip-390.png', 390)
+  await page.setViewportSize({ width: 1280, height: 800 })
   await page.keyboard.press('Escape')
 
   // The same for the runner's own data fix, on Formularz.
@@ -166,7 +175,14 @@ test('P-43 Płatności renders A6; the payout checklist item opens it; the owner
   await ccShot(page, 'form-fields', 'po-formularz-checkbox-desktop.png')
   await page.getByRole('button', { name: 'Co oznacza zmiana danych przez zawodnika' }).click()
   await expect(page.getByTestId('runner-data-tip')).toHaveText('Działa tylko, dopóki zapisy są otwarte. Imienia, nazwiska i adresu e-mail zawodnik nie zmienia — to zawsze robi organizator.')
-  await ccShot(page, 'form-fields', 'po-formularz-checkbox-tip-desktop.png')
+  await page.getByTestId('runner-data-tip').click()
+  await expect(dataEdit).toBeChecked()
+  await expect(dataEdit).toHaveAccessibleName('Zgadzam się, by zawodnik mógł sam zmienić swoje dane')
+  await page.waitForTimeout(1500)
+  expect((await runnerRow()).runner_data_edit).toBe(true)
+  await ccShot(page, 'runner-data-edit', 'po-formularz-checkbox-tip-desktop.png')
+  await ccShot(page, 'runner-data-edit', 'po-formularz-checkbox-tip-390.png', 390)
+  await page.setViewportSize({ width: 1280, height: 800 })
   await page.keyboard.press('Escape')
   await page.goto(`${base}/platnosci`)
 
