@@ -7,6 +7,7 @@ const AWAITING = 'pending_payment'
 /** Units of a line still to hand out: qty less the units whose price came back. */
 export function handoutUnits(line) {
   const qty = Number(line.qty) || 0
+  if (qty <= 0) return 0
   const amount = Number(line.amount) || 0
   if (amount <= 0) return qty
   const unit = amount / qty
@@ -41,6 +42,7 @@ export function extrasList(rows, { extraId } = {}) {
   const handout = []
   const awaiting = []
   const totals = new Map()
+  let seen = 0
   for (const row of rows) {
     const waiting = row.status === AWAITING && row.statusKey !== 'expired'
     const give = row.status === 'confirmed' && row.withdrawn === false
@@ -60,12 +62,16 @@ export function extrasList(rows, { extraId } = {}) {
       if (waiting) { awaiting.push(item); continue }
       handout.push(item)
       const key = `${e.extraId}\u0000${e.variantId ?? ''}`
-      const t = totals.get(key) ?? { extraId: e.extraId, extra: e.name, variantId: e.variantId ?? null, variant: e.variant ?? null, count: 0 }
+      const t = totals.get(key) ?? { extraId: e.extraId, extra: e.name, variantId: e.variantId ?? null, variant: e.variant ?? null, count: 0, seen: seen++, extraOrder: e.extraOrder, variantOrder: e.variantOrder }
       t.count += units
       totals.set(key, t)
     }
   }
   handout.sort(byPerson)
   awaiting.sort(byPerson)
-  return { handout, awaiting, totals: [...totals.values()] }
+  const ordered = (t) => Number.isFinite(t.extraOrder) && Number.isFinite(t.variantOrder)
+  const list = [...totals.values()].sort((a, b) => (ordered(a) && ordered(b)
+    ? a.extraOrder - b.extraOrder || a.variantOrder - b.variantOrder
+    : 0) || a.seen - b.seen)
+  return { handout, awaiting, totals: list.map(({ seen: _s, extraOrder: _e, variantOrder: _v, ...t }) => t) }
 }

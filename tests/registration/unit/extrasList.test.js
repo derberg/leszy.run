@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
-import { extrasList, extrasText } from '../../../supabase/functions/_shared/registration/extrasList.js'
+import { extrasList, extrasText, handoutUnits } from '../../../supabase/functions/_shared/registration/extrasList.js'
 import { extrasToCsv } from '../../../supabase/functions/_shared/registration/entriesCsv.js'
 
 const line = (over = {}) => ({
@@ -21,6 +21,18 @@ describe('extrasList', () => {
     ]
     const { totals } = extrasList(rows)
     assert.deepEqual(totals.map((t) => [t.extra, t.variant, t.count]), [['Koszulka', 'S', 1], ['Koszulka', 'L', 3]])
+  })
+  it('totals follow the event order, not first appearance', () => {
+    const o = (extraOrder, variantOrder) => ({ extraOrder, variantOrder })
+    const a = row({ extras: [line({ ...o(0, 1) })] })
+    const b = row({ extras: [line({ variantId: 'vS', variant: 'S', ...o(0, 0) }), line({ ...o(0, 1) })] })
+    assert.deepEqual(extrasList([a, b]).totals.map((t) => [t.variant, t.count]), [['S', 1], ['L', 2]])
+    const medal = row({ extras: [line({ extraId: 'e2', name: 'Medal', variantId: null, variant: null, amount: 0, ...o(1, 0) })] })
+    assert.deepEqual(extrasList([medal, a]).totals.map((t) => t.extra), ['Koszulka', 'Medal'])
+  })
+  it('a line with no quantity gives no units', () => {
+    assert.equal(handoutUnits({ qty: 0, amount: 0, refunded: 0 }), 0)
+    assert.deepEqual(extrasList([row({ extras: [line({ qty: 0, amount: 0 })] })]).handout, [])
   })
   it('partial refund of one unit leaves two', () => {
     const { handout, totals } = extrasList([row({ extras: [line({ qty: 3, amount: 15000, refunded: 5000 })] })])
