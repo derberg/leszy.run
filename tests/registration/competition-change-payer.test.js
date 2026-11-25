@@ -1,7 +1,7 @@
 // Competition change, task 8: a surcharge whose buyer has no account is claimed by the session
 // whose e-mail equals buyer_email (order-status, pay-order, cancel-my-order); never a registration
 // order, never another address. The buyer rule itself (CC-30/31) is in competition-change-rpc and
-// -readers. Scenario CC-32 in docs/registration/scenario-matrix.md. LOCAL stack only.
+// -readers. Scenario CC-47 in docs/registration/scenario-matrix.md. LOCAL stack only.
 import { after, before, test } from 'node:test'
 import assert from 'node:assert/strict'
 import { localEnv, resetThrottle, sessionFor } from './helpers/stack.js'
@@ -48,7 +48,7 @@ async function accountlessSurcharge() {
   return { event, a, s }
 }
 
-test('CC-32 a runner without an account: surcharge has buyer_email only; that address claims it on order-status, anybody else gets 404', async () => {
+test('CC-47 a runner without an account: surcharge has buyer_email only; that address claims it on order-status, anybody else gets 404', async () => {
   const { a, s } = await accountlessSurcharge()
   const order = await one('orders', { id: s.orderId })
   assert.equal(order.kind, 'surcharge')
@@ -71,7 +71,7 @@ test('CC-32 a runner without an account: surcharge has buyer_email only; that ad
   assert.equal((await callFn('order-status', runner, { orderId: s.orderId })).status, 200)
 })
 
-test('CC-32 the claimed buyer can pay the surcharge (dpay mock)', async () => {
+test('CC-47 the claimed buyer can pay the surcharge (dpay mock)', async () => {
   const { a, s } = await accountlessSurcharge()
   const runner = await sessionFor(a.email)
   const res = await callFn('pay-order', runner, { orderId: s.orderId })
@@ -82,14 +82,14 @@ test('CC-32 the claimed buyer can pay the surcharge (dpay mock)', async () => {
   assert.ok(txns.some((t) => t.request.custom === s.orderId))
 })
 
-test('CC-32 the claimed buyer can cancel it (cancel-my-order)', async () => {
+test('CC-47 the claimed buyer can cancel it (cancel-my-order)', async () => {
   const { a, s } = await accountlessSurcharge()
   const res = await callFn('cancel-my-order', await sessionFor(a.email), { orderId: s.orderId })
   assert.equal(res.status, 200, JSON.stringify(res.body))
   assert.equal((await one('orders', { id: s.orderId })).status, 'cancelled')
 })
 
-test('CC-32 a registration order with no buyer profile is never claimable, even by its own address', async () => {
+test('CC-47 a registration order with no buyer profile is never claimable, even by its own address', async () => {
   const event = await paidEvent()
   const email = `noacct-${Date.now()}@test.local`
   const out = await orderOk(event, { buyerEmail: email })

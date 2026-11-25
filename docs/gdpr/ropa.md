@@ -2,8 +2,8 @@
 
 **Administrator:** Wookiee Łukasz Górnicki, ul. Wierzbowa 2, 44-144 Nieborowice, NIP 6292248418, REGON 385416140, prowadzący serwis Leszy.run
 **Kontakt:** lukasz@leszy.run
-**Data ostatniej aktualizacji:** 2026-11-02
-**Wersja:** 1.11
+**Data ostatniej aktualizacji:** 2026-11-25
+**Wersja:** 1.12
 
 ## Rola Leszy.run
 
@@ -234,10 +234,24 @@ Leszy.run / Łukasz Górnicki jest **jedynym administratorem (controller)** dla 
   - osoba przyjmująca potwierdza swój adres kodem wysłanym e-mailem (albo sesją na ten adres); limity: 10 wywołań na token i 30 na adres IP na godzinę, 5 zaproszeń na zgłoszenie na dobę;
   - e-maile z linkiem z tokenem bez śledzenia kliknięć (link nie jest przepisywany).
 
+## 15. Zmiana konkurencji i poprawianie danych przez zawodnika (`registration_changes`, zamówienia dopłat)
+
+- **Rola:** jak w pkt 10 i 13 — dane zgłoszeń LESZY.RUN przetwarza w imieniu Organizatora (art. 28 RODO); dane płatności (zamówienie dopłaty, zwrot różnicy) — jak w pkt 10.
+- **Cel:** zmiana konkurencji zgłoszenia przez Organizatora lub przez samego zawodnika (ta sama cena — od razu; niższa — od razu ze zwrotem różnicy; wyższa — po opłaceniu dopłaty), poprawianie przez zawodnika własnych danych zgłoszenia oraz rozliczalność tych zmian (kto, kiedy, jakie pola).
+- **Podstawa prawna:** art. 6(1)(b) RODO — wykonanie umowy o udział w zawodach (zmiana zgłoszenia, dopłata, zwrot); art. 6(1)(c) — dowody płatności; art. 6(1)(f) — rozliczalność zmian i ochrona przed nadużyciem (dziennik zmian, limit 10 zmian na zgłoszenie na dobę).
+- **Kategorie danych:** `registration_changes` — identyfikator zgłoszenia, konto osoby, która zmianę wykonała (`actor_profile_id`), rodzaj (`competition` / `data`), **nazwy zmienionych pól (nigdy ich wartości)**, konkurencja źródłowa i docelowa, kwota różnicy w groszach, data; zamówienie dopłaty (`orders.kind = 'surcharge'`) — jak zamówienie w pkt 10 (adres e-mail płacącego, kwota, status, terminy) z identyfikatorem zgłoszenia i konkurencjami; `refunds.requested_by` — przy zwrocie różnicy wywołanym przez zawodnika może zawierać identyfikator jego konta.
+- **Kategorie osób:** zawodnicy, opiekunowie dzieci, osoby płacące dopłatę, właściciele i administratorzy klubów (zmiana wykonana przez Organizatora jest w `organizer_actions`, pkt 13).
+- **Odbiorcy:** Organizator — e-mail o zmianie wykonanej przez zawodnika (zawodnik, konkurencja z–na, wynik finansowy albo nazwy zmienionych pól, bez wartości); dpay (zwrot różnicy, dopłata — jak w pkt 10); SendGrid (e-maile); Supabase, Inc. Brak innych odbiorców.
+- **Transfery poza EOG:** jak w pkt 1 i 10.
+- **Okres przechowywania:** `registration_changes` — razem ze zgłoszeniem (kasowane kaskadowo wraz z nim; zgłoszenie jest anonimizowane i czyszczone zgodnie z pkt 10–11); zamówienia dopłat i ich zwroty — jak pozostałe dowody płatności, **5 lat od końca roku kalendarzowego, w którym dokonano płatności**; przy usunięciu konta `actor_profile_id` jest zerowany, wiersz zostaje.
+- **Prawa osób:** eksport (`export-my-data`) zawiera `registration_changes` zgłoszeń osoby, jej dziecka i zmian przez nią wykonanych (z nazwą i datą wydarzenia, znacznikiem `by_you`, bez identyfikatora konta i bez wartości), a zamówienia dopłat jak zamówienia z pkt 10. Zawodnik sam sprostowuje dane (art. 16) przed końcem zapisów, z wyjątkiem imienia, nazwiska i adresu e-mail, które zmienia Organizator.
+- **Środki bezpieczeństwa:** tabela z RLS i `REVOKE ALL … FROM anon, authenticated`; dostęp tylko przez funkcje z kluczem usługi; uprawnienie zawodnika ustalane po stronie serwera (jego konto, jego adres albo opiekun dziecka; inni dostają 404); Organizator może wyłączyć samodzielną zmianę konkurencji i poprawianie danych; kwoty liczone po stronie serwera w groszach, różnica zatwierdzana przez zawodnika porównywana z wyliczoną (`price_changed`); limit 10 zmian na zgłoszenie na dobę przy awarii licznika odmawiany.
+
 ## Historia zmian
 
 | Wersja | Data | Opis |
 |---|---|---|
+| 1.12 | 2026-11-25 | Dodano sekcję 15 (zmiana konkurencji przez Organizatora lub zawodnika, poprawianie danych przez zawodnika, dziennik `registration_changes` z nazwami pól bez wartości, zamówienia dopłat, `refunds.requested_by` z kontem zawodnika); retencja zamówień dopłat jak dowodów płatności. |
 | 1.11 | 2026-11-02 | Sekcja 14: partnerzy w jednej tabeli `event_partners` (zamiast `registration_partners`); partner publiczny (nazwa, logo, link) jest jawny na stronie zawodów, partner ukryty, notatki i partner przypisany do zgłoszenia pozostają wyłącznie dla Organizatora. |
 | 1.10 | 2026-11-01 | Sekcja 14: adres osoby zaproszonej usuwany przy przyjęciu przez nią zaproszenia, niezapisywany przy przekazaniu przez Organizatora, a w pozostałych przypadkach 30 dni po zawodach; dane osoby przejmującej po przekazaniu przez Organizatora nie trafiają do dotychczasowego zawodnika także na stronie zamówienia, w ponownie wysłanym potwierdzeniu i w e-mailu o zwrocie. |
 | 1.9 | 2026-11-01 | Sekcja 14: przy usunięciu konta przekazującego osoba zaproszona dostaje e-mail o cofnięciu zaproszenia, bez danych przekazującego. |
