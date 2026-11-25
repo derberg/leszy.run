@@ -28,6 +28,7 @@ const READERS = ['owner', 'admin']
 //   competitions  the visible ones, in the event's order: [{ id, name, capacity, taken, kind }]
 //   event         { name, slug, eventDate, closesAt, state }
 //   partners      the event's partners: [{ id, name, count }], count = live entries attributed
+//   extras        the event's extras: [{ id, name, count }], count = units on live entries
 // A child's guardian address is not returned (the CSV export has it).
 //
 // The owner and admins of the owning club (registration_settings.club_id)
@@ -51,8 +52,8 @@ Deno.serve(async (req) => {
     if (loaded instanceof Response) return loaded
     if (!READERS.includes(loaded.role)) return json({ error: 'Not found' }, 404, req)
 
-    const { rows, counts, teams, competitions, event, partners } = await loadEntries(admin, loaded.settings)
-    return json({ data: rows, counts, teams, competitions, event, partners }, 200, req)
+    const { rows, counts, teams, competitions, event, partners, extras } = await loadEntries(admin, loaded.settings)
+    return json({ data: rows, counts, teams, competitions, event, partners, extras }, 200, req)
   } catch (err) {
     console.error('list-event-registrations error:', err?.message, err?.code)
     return json({ error: 'Internal server error' }, 500, req)

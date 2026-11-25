@@ -5,7 +5,8 @@ import { logOrganizerAction } from '../_shared/organizer.js'
 import { loadOrganizerEvent } from '../_shared/registration/organizerEvent.js'
 import { loadEntries } from '../_shared/registration/organizerEntries.js'
 import { filterEntries, filterSummary } from '../_shared/registration/entriesFilter.js'
-import { entriesToCsv } from '../_shared/registration/entriesCsv.js'
+import { entriesToCsv, extrasToCsv } from '../_shared/registration/entriesCsv.js'
+import { extrasList } from '../_shared/registration/extrasList.js'
 import { warsawToday } from '../_shared/registration/dates.js'
 
 // Runner personal data: never kept by a browser or a proxy cache.
@@ -17,7 +18,7 @@ function json(body, status, req) {
 }
 
 const READERS = ['owner', 'admin']
-const FILTER_KEYS = ['categoryId', 'statusKey', 'q', 'partnerId']
+const FILTER_KEYS = ['categoryId', 'statusKey', 'q', 'partnerId', 'extraId']
 const AUDIT_FAILED = 'Nie udało się zapisać eksportu w historii zmian. Spróbuj ponownie za chwilę.'
 
 // Only the panel's filter keys, each a short string.
@@ -28,6 +29,7 @@ function cleanFilter(filter) {
     .map((k) => [k, filter[k].slice(0, 200)]))
 }
 
+// With `kind: 'extras'` and `format: 'csv' | 'pdf'` it answers the extras list instead (`extras_exported`).
 // POST { eventId, filter? } → 200 { data: { filename: 'zgloszenia-<slug>-<yyyy-mm-dd>.csv', csv } }.
 // The rows are list-event-registrations' (loadEntries, every page past PostgREST's 1000), narrowed
 // by the panel's own filter (filterEntries: categoryId, statusKey, q, partnerId), plus a child's
@@ -54,9 +56,35 @@ Deno.serve(async (req) => {
     if (!READERS.includes(loaded.role)) return json({ error: 'Not found' }, 404, req)
     const { settings } = loaded
 
+    // Refuse a malformed request before any runner data is read.
+    if (body.kind !== undefined && body.kind !== 'extras') return json({ error: 'Invalid kind' }, 400, req)
+    if (body.kind === 'extras') {
+      if (body.format !== 'csv' && body.format !== 'pdf') return json({ error: 'Invalid format' }, 400, req)
+    } else if (body.format !== undefined) return json({ error: 'Invalid format' }, 400, req)
+
     const filter = cleanFilter(body.filter)
     const { rows } = await loadEntries(admin, settings, { guardianEmail: true })
     const picked = filterEntries(rows, filter)
+
+    // kind 'extras': the ordered extras (dodatki), as a CSV or as the list a PDF is drawn from.
+    if (body.kind === 'extras') {
+      const format = body.format
+      const list = extrasList(picked, { extraId: filter.extraId, contacts: format === 'csv' })
+      const filename = `dodatki-${settings.slug ?? settings.event_id}-${warsawToday()}.${format}`
+      const logged = await logOrganizerAction(admin, req, {
+        actorId: session.userId, clubId: settings.club_id, eventId: settings.event_id, action: 'extras_exported',
+        target: settings.event_id,
+        payload: { format, rows: list.handout.length + list.awaiting.length, filter: filterSummary(filter) },
+      })
+      if (!logged) return json({ error: AUDIT_FAILED, code: 'audit_failed' }, 503, req)
+      return json({
+        // csv: the file only; pdf: the list (no contacts) and the event, drawn in the browser
+        data: format === 'csv'
+          ? { filename, csv: extrasToCsv(list) }
+          : { filename, list, event: { name: settings.name ?? null, eventDate: settings.event_date ?? null } },
+      }, 200, req)
+    }
+
     const csv = entriesToCsv(picked)
     const filename = `zgloszenia-${settings.slug ?? settings.event_id}-${warsawToday()}.csv`
     const logged = await logOrganizerAction(admin, req, {

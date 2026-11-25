@@ -135,8 +135,8 @@ test('CC-42 B3 rows: a pending surcharge is the row\'s surcharge and not its mon
   const csv = await callFn('export-event-registrations', owner, { eventId: event.eventId })
   assert.equal(csv.status, 200, JSON.stringify(csv.body))
   const lines = csv.body.data.csv.split('\r\n')
-  assert.match(lines[0], /"Dopłata czeka \(zł\)";"Zmiana konkurencji na"$/)
-  assert.ok(lines.some((l) => l.endsWith('"20,00";"Bieg 21 km"')))
+  assert.match(lines[0], /"Dopłata czeka \(zł\)";"Zmiana konkurencji na";"Dodatki"$/)
+  assert.ok(lines.some((l) => l.endsWith('"20,00";"Bieg 21 km";""')))
 
   await pay(s.orderId)
   ;({ row, counts } = await rowOf(event, a.reg.id))

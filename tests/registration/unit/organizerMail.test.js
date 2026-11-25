@@ -66,6 +66,10 @@ test('sendOnAllowance: a release that fails is logged, never thrown', async () =
   assert.deepEqual(await sendOnAllowance(h), { failed: true, unknown: false })
 })
 
+test('filterSummary keeps extraId as a key', () => {
+  assert.deepEqual(filterSummary({ extraId: 'e1' }), { keys: ['extraId'], search: false })
+})
+
 test('filterSummary: the filter keys used and whether there was a search, never the search text', () => {
   assert.deepEqual(filterSummary({}), { keys: [], search: false })
   assert.deepEqual(filterSummary(null), { keys: [], search: false })

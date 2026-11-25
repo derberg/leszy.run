@@ -100,8 +100,14 @@ const groupBy = (items, key) => {
  *   voucherCode         the code the entry was bought with, null when none
  *   missingFields       what a team member still owes (memberDetails.js: the captain gave only the
  *                       name, birth date, gender and e-mail), [] when nothing; the panel's „brak danych”
+ *   extras              every extra line of the entry, paid or not: [{ lineId, extraId, name, variantId,
+ *                       variant, qty, amount, refunded, extraOrder, variantOrder }], in the event's order
+ *                       (extra, then variant: sort_order, id; the two indexes are that order)
+ *   withdrawn           the participant is withdrawn („Nie startuje”) or removed
  * partners are the event's: [{ id, name, count }], count = the live entries attributed to each
  * (pending_payment or confirmed, not lapsed). Organizer-only, like the rows (V-38).
+ * extras are the event's extras in its order: [{ id, name, count }], count = units (qty) on live
+ * entries (pending_payment or confirmed, not lapsed).
  * counts are per person (D5-32), with people's places (placesLeft) and teams' (teamPlacesLeft) apart;
  * counts.dpayFee is dpay's commission on the event so far (money.js dpayCommission), grosze;
  * counts.offlineTotal / offlineOrders: the orders marked „opłacone poza systemem”, their totals in
@@ -112,7 +118,7 @@ const groupBy = (items, key) => {
 export async function loadEntries(admin, settings, { guardianEmail = false, now = new Date() } = {}) {
   const eventId = settings.event_id
   const regColumns = guardianEmail ? `${REG_COLUMNS}, guardian_email` : REG_COLUMNS
-  const [regs, comps, orders, teamRows, lineRows, refundRows, participants, partnerRows, voucherRows, priceRows, attemptRows] = await Promise.all([
+  const [regs, comps, orders, teamRows, lineRows, refundRows, participants, partnerRows, voucherRows, priceRows, attemptRows, extraRows] = await Promise.all([
     allRows(() => admin.from('registrations').select(regColumns)
       .eq('event_id', eventId).order('created_at').order('id')),
     // In the event's own order (the wizard's), which the panel's chips follow.
@@ -121,7 +127,7 @@ export async function loadEntries(admin, settings, { guardianEmail = false, now 
     allRows(() => admin.from('orders').select('id, kind, total, status, expires_at, buyer_name, tier_id, paid_offline_at, offline_note, surcharge_registration_id, surcharge_to_category_id')
       .eq('event_id', eventId).order('id')),
     allRows(() => admin.from('teams').select('id, name, category_id, captain_registration_id, released_at').eq('event_id', eventId).order('id')),
-    allRows(() => admin.from('order_lines').select('id, order_id, kind, registration_id, amount, refunded, orders!inner(event_id)')
+    allRows(() => admin.from('order_lines').select('id, order_id, kind, registration_id, amount, refunded, extra_variant_id, qty, orders!inner(event_id)')
       .eq('orders.event_id', eventId).order('id')),
     allRows(() => admin.from('refunds').select('id, order_id, payment_attempt_id, order_line_id, kind, reason, dpay_status, amount, orders!inner(event_id)')
       .eq('orders.event_id', eventId).order('id')),
@@ -134,7 +140,36 @@ export async function loadEntries(admin, settings, { guardianEmail = false, now 
     // Only for dpay's commission (counts.dpayFee): every payment dpay took.
     allRows(() => admin.from('payment_attempts').select('id, grosze, status, orders!inner(event_id)')
       .eq('orders.event_id', eventId).in('status', ['paid', 'refunded']).order('id')),
+    // The extras list (dodatki), in the event's order (the wizard's).
+    allRows(() => admin.from('extras').select('id, name, sort_order')
+      .eq('event_id', eventId).order('sort_order').order('id')),
   ])
+  const extraIds = extraRows.map((x) => x.id)
+  const variantRows = extraIds.length
+    ? await allRows(() => admin.from('extra_variants').select('id, extra_id, label, sort_order')
+      .in('extra_id', extraIds).order('extra_id').order('sort_order').order('id'))
+    : []
+  // extraOrder / variantOrder: the index in the event's order (sort_order, then id), which the
+  // extras list sorts its totals by.
+  const extraOf = new Map(extraRows.map((x, i) => [x.id, { ...x, order: i }]))
+  const variantOf = new Map()
+  for (const x of extraRows) {
+    variantRows.filter((v) => v.extra_id === x.id)
+      .forEach((v, i) => variantOf.set(v.id, { ...v, order: i }))
+  }
+  /** The row's extras from every one of its extra lines, paid or not (entryMoney's lines aside). */
+  function extrasOf(regLines) {
+    return regLines.filter((l) => l.kind === 'extra' && variantOf.has(l.extra_variant_id))
+      .map((l) => {
+        const v = variantOf.get(l.extra_variant_id)
+        const x = extraOf.get(v.extra_id)
+        return {
+          lineId: l.id, extraId: x.id, name: x.name, variantId: v.id, variant: v.label,
+          qty: l.qty, amount: l.amount, refunded: l.refunded ?? 0, extraOrder: x.order, variantOrder: v.order,
+        }
+      })
+      .sort((a, b) => a.extraOrder - b.extraOrder || a.variantOrder - b.variantOrder || (a.lineId < b.lineId ? -1 : 1))
+  }
   // V-87 (M-1): ⋯ „Przekaż pakiet” is not offered while a refund of the entry waits for dpay.
   const inFlight = await refundsInFlight(admin, regs.filter((r) => r.status === 'confirmed').map((r) => r.id))
   const partnerName = new Map(partnerRows.map((p) => [p.id, p.name]))
@@ -268,6 +303,9 @@ export async function loadEntries(admin, settings, { guardianEmail = false, now 
       transferTo: transferTo(r),
       refundPending: inFlight.has(r.id),
       missingFields: entryOwedDetails(r, settings, now),
+      extras: extrasOf(linesOf.get(r.id) ?? []),
+      // The runner will not start (participants.withdrawn_at, „Nie startuje”) or was removed.
+      withdrawn: participant != null && (participant.withdrawn_at != null || participant.removed_at != null),
     }
     row.statusKey = entryStatusKey({ ...row, refunds, participant }, now)
     if (guardianEmail) row.guardianEmail = role === 'minor' ? (r.guardian_email ?? null) : null
@@ -300,10 +338,19 @@ export async function loadEntries(admin, settings, { guardianEmail = false, now 
     .map((p) => ({ id: p.id, name: p.name, count: partnerCount.get(p.id) ?? 0 }))
     .sort((a, b) => a.name.localeCompare(b.name, 'pl'))
 
+  // The event's extras with the units live entries ordered (paid or awaiting payment, not lapsed).
+  const extraUnits = new Map()
+  for (const row of rows) {
+    if (!LIVE.has(row.status) || row.statusKey === 'expired') continue
+    for (const e of row.extras) extraUnits.set(e.extraId, (extraUnits.get(e.extraId) ?? 0) + (e.qty ?? 0))
+  }
+  const extras = extraRows.map((x) => ({ id: x.id, name: x.name, count: extraUnits.get(x.id) ?? 0 }))
+
   return {
     rows,
     counts,
     partners,
+    extras,
     teams,
     competitions: visible.map((c) => ({ id: c.category_id, name: c.name, capacity: c.capacity, taken: c.taken, kind: c.kind })),
     event: { name: settings.name, slug: settings.slug ?? null, eventDate: settings.event_date, closesAt: settings.closes_at, state: settings.state },

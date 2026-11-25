@@ -2,7 +2,7 @@ import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
 import {
   AWAITING_CONSENT, actionLabel, competitionChips, entryActions, extendChoices, entryCounts, filterEntries, listedTile, noPlacesForAwaiting,
-  offlineIncomeNote, partnerChips, statusChips, transferPersonFrom, transferRecipients, transferTargets,
+  extraChips, offlineIncomeNote, partnerChips, statusChips, transferPersonFrom, transferRecipients, transferTargets,
 } from '../../src/lib/entriesModel.js'
 
 const row = (over = {}) => ({
@@ -328,6 +328,18 @@ describe('partnerChips (B3 „Partnerzy”)', () => {
   it('none without partners', () => assert.deepEqual(partnerChips([row()], []), []))
 })
 
+describe('filterEntries by extra', () => {
+  const rows = [
+    row({ id: 'a', extras: [{ extraId: 'e1' }, { extraId: 'e2' }] }),
+    row({ id: 'b', extras: [{ extraId: 'e2' }] }),
+    row({ id: 'c' }),
+  ]
+  it('extraId filters rows holding that extra', () => {
+    assert.deepEqual(filterEntries(rows, { extraId: 'e1' }).map((r) => r.id), ['a'])
+    assert.deepEqual(filterEntries(rows, { extraId: 'e2' }).map((r) => r.id), ['a', 'b'])
+  })
+})
+
 describe('transferTargets (TransferDialog)', () => {
   const competitions = [
     { id: 'c1', name: 'Bieg 9 km', kind: 'individual' }, { id: 'c3', name: 'NW 9 km', kind: 'individual' }, { id: 'c2', name: 'Sztafeta', kind: 'team' },
@@ -433,5 +445,17 @@ describe('„Opłacone poza systemem” (OP-9, OP-10)', () => {
     assert.equal(statusChips({ ...base, byStatus: { paid_offline: 2 } }).find((c) => c.key === 'paid_offline').label, 'Poza systemem · 2')
     assert.equal(actionLabel('mark_paid_offline', awaiting), 'Opłacone poza systemem')
     assert.equal(actionLabel('offline_note', offline), 'Notatka o wpłacie')
+  })
+})
+
+describe('extraChips (B3 „Dodatki”)', () => {
+  it('extraChips is empty without extras', () => {
+    assert.deepEqual(extraChips([]), [])
+    assert.deepEqual(extraChips(undefined), [])
+  })
+  it('extraChips labels name and unit count', () => {
+    assert.deepEqual(extraChips([{ id: 'x1', name: 'Koszulka', count: 3 }, { id: 'x2', name: 'Medal', count: 0 }]), [
+      { id: null, label: 'Wszystkie' }, { id: 'x1', label: 'Koszulka · 3' }, { id: 'x2', label: 'Medal · 0' },
+    ])
   })
 })
