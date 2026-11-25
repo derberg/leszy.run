@@ -11,6 +11,9 @@ import { Link } from 'react-router-dom'
 // viewport, never to its row or card, so no `overflow` clips it; it sits under the trigger with the
 // right edges aligned, inside the viewport, and opens upwards when there is no room below.
 // Escape closes it, ArrowUp/ArrowDown/Home/End move between items, a click outside closes it.
+// Tab (and Shift+Tab) closes it and moves on from the trigger, as the WAI-ARIA menu pattern asks:
+// the menu is portaled to the end of <body>, so the focus goes back to the trigger first and the
+// browser's own Tab then moves to the element after (or before) it.
 
 const GAP = 4
 const EDGE = 16
@@ -73,6 +76,11 @@ export default function ActionMenu({ label, items, size = 'md', itemWeight = 'fo
       if (e.key === 'Escape') {
         e.preventDefault()
         close()
+        return
+      }
+      if (e.key === 'Tab') {
+        trigger.current?.focus()
+        close({ focus: false })
         return
       }
       if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp' && e.key !== 'Home' && e.key !== 'End') return

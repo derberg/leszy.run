@@ -354,6 +354,16 @@ test('RS-18 a card with two people: no header ⋯, each person one ⋯ with thei
   await noOverflow(page)
   await shot(page, 'po-zapisy-group-menu-open-390.png')
   await page.keyboard.press('Escape')
+  // Tab closes the menu and moves on from the trigger (WAI-ARIA menu pattern), never into <body>'s end.
+  menu = await openMenu(page, personRow(page, name), name)
+  await expect(menu.getByRole('menuitem').first()).toBeFocused()
+  await page.keyboard.press('Tab')
+  await expect(menu).toHaveCount(0)
+  await expect(trigger(personRow(page, name), name)).not.toBeFocused()
+  expect(await page.evaluate(() => document.activeElement !== document.body
+    && !document.activeElement.closest('[role="menu"]'))).toBe(true)
+  await page.keyboard.press('Shift+Tab')
+  await expect(trigger(personRow(page, name), name)).toBeFocused()
 
   // Piotr (the added adult, no action): the two links only, no divider.
   menu = await openMenu(page, personRow(page, other), other)
