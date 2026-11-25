@@ -1,6 +1,6 @@
 # Umowa organizatora LESZY.RUN
 
-**Wersja:** 2026-11-v6
+**Wersja:** 2026-11-v7
 **Status:** obowiązująca od akceptacji w Serwisie
 
 Umowę zawiera się w Serwisie: właściciel klubu wybiera „Akceptuję umowę organizatora” na ekranie „Klub → Wydarzenia → Umowa”. Serwis zapisuje wersję umowy, nazwę klubu, konto osoby akceptującej, datę i godzinę, adres IP oraz identyfikator przeglądarki (tabela `organizer_agreements`). Bez akceptacji bieżącej wersji klub nie może utworzyć żadnego wydarzenia, płatnego ani bezpłatnego.
@@ -43,9 +43,10 @@ Pojęcia pisane wielką literą, niezdefiniowane poniżej, mają znaczenie nadan
 
 1. Organizator udziela Usługodawcy umocowania do zawierania w jego imieniu umów o udział w Wydarzeniu z osobami, które wypełnią formularz zapisu i opłacą Zgłoszenie na warunkach ustalonych przez Organizatora w Serwisie i w regulaminie Wydarzenia. Usługodawca działa wyłącznie w imieniu Organizatora (odbiorcy płatności), nigdy w imieniu Uczestnika (art. 6 pkt 2 ustawy z dnia 19 sierpnia 2011 r. o usługach płatniczych).
 2. Strony kwalifikują umowę w zakresie §3 ust. 2 lit. a i b jako umowę agencyjną (art. 758 i nast. Kodeksu cywilnego), a jeżeli Organizator nie jest przedsiębiorcą — jako umowę zlecenia z pełnomocnictwem (art. 734 i nast. oraz art. 750 Kodeksu cywilnego).
-3. Warunki Zgłoszenia (konkurencje, limity miejsc, opłaty i ich progi czasowe, termin zapisów, czas na opłacenie, możliwość przekazania pakietu i jego opłata, kody rabatowe) ustala Organizator w Serwisie. Usługodawca zawiera umowy o udział w Wydarzeniu wyłącznie w granicach tych ustawień i jest uprawniony do odmowy zawarcia umowy, w szczególności gdy brak wolnych miejsc, zapisy są zamknięte, Zgłoszenie jest duplikatem innego Zgłoszenia albo jest sprzeczne z regulaminem Wydarzenia.
+3. Warunki Zgłoszenia (konkurencje, limity miejsc, opłaty i ich progi czasowe, termin zapisów, czas na opłacenie, możliwość przekazania pakietu i jego opłata, kody rabatowe, samodzielna zmiana konkurencji i poprawianie danych przez Uczestnika) ustala Organizator w Serwisie. Usługodawca zawiera umowy o udział w Wydarzeniu wyłącznie w granicach tych ustawień i jest uprawniony do odmowy zawarcia umowy, w szczególności gdy brak wolnych miejsc, zapisy są zamknięte, Zgłoszenie jest duplikatem innego Zgłoszenia albo jest sprzeczne z regulaminem Wydarzenia.
 4. Usługodawca nie przyjmuje Zgłoszeń ponad limit miejsc. Wyjątek stanowi przekazanie pakietu innej osobie do innej konkurencji o tej samej cenie, które może przekroczyć limit tej konkurencji, bo miejsce zostało już sprzedane. Limit miejsc obejmuje wyłącznie Zgłoszenia opłacone oraz Zgłoszenia niewymagające opłaty. Zgłoszenie oczekujące na płatność nie zajmuje miejsca; miejsce przypada temu, czyja płatność wpłynie wcześniej.
 5. Opłacona przez Uczestnika kwota obejmuje wyłącznie Opłaty od Uczestników. Uczestnik widzi każdą z tych pozycji osobno przed zapłatą. Usługodawca nie pobiera od Uczestników żadnych opłat na swoją rzecz.
+6. Organizator może pozwolić Uczestnikowi na samodzielne poprawianie danych jego Zgłoszenia w zakładce „Moje zapisy” Serwisu, do zamknięcia zapisów, z wyjątkiem imienia, nazwiska i adresu e-mail. Służy do tego ustawienie „Zgadzam się, by zawodnik sam poprawił swoje dane” w kroku „Formularz”, domyślnie włączone; Organizator może je w każdej chwili wyłączyć. Poprawione dane podlegają tym samym warunkom co dane podane przy zapisie, w szczególności limitom wieku konkurencji. O każdej poprawce Serwis powiadamia Organizatora wiadomością e-mail na adres kontaktowy Wydarzenia, wskazując zmienione pola.
 
 ## §5. Przyjmowanie Opłat od Uczestników
 
@@ -58,14 +59,17 @@ Pojęcia pisane wielką literą, niezdefiniowane poniżej, mają znaczenie nadan
 ## §6. Zwroty
 
 1. Zasady rezygnacji i zwrotu opłaty startowej określa Organizator w regulaminie Wydarzenia. Uczestnikowi nie przysługuje ustawowe prawo odstąpienia od umowy o udział w Wydarzeniu (art. 38 ust. 1 pkt 12 ustawy z dnia 30 maja 2014 r. o prawach konsumenta).
-2. Zwrotu dokonuje Organizator w panelu Wydarzenia, dla jednego Zgłoszenia, w wybranej przez siebie kwocie, nie wyższej niż kwota zapłacona za to Zgłoszenie i niezwrócona wcześniej. Usługodawca realizuje zwrot przez Operatora płatności na rachunek lub instrument, z którego dokonano płatności.
+2. Z zastrzeżeniem ust. 4, 8 i 9 zwrotu dokonuje Organizator w panelu Wydarzenia, dla jednego Zgłoszenia, w wybranej przez siebie kwocie, nie wyższej niż kwota zapłacona za to Zgłoszenie i niezwrócona wcześniej. Usługodawca realizuje zwrot przez Operatora płatności na rachunek lub instrument, z którego dokonano płatności.
 3. Zwroty są możliwe do końca dnia poprzedzającego Dzień zawodów (do godziny 24:00 czasu polskiego). Po tym terminie Usługodawca nie realizuje zwrotów, a ewentualne rozliczenia z Uczestnikami Organizator prowadzi sam, po otrzymaniu wypłaty.
 4. Usługodawca zwraca Uczestnikowi całą zapłaconą kwotę bez dyspozycji Organizatora i niezależnie od terminu z ust. 3, gdy:
    a) w chwili wpływu płatności nie można przyjąć Zgłoszenia: opłacone wcześniej Zgłoszenia innych osób wyczerpały limit miejsc w konkurencji, konkurencja została ukryta albo zapisy zostały zamknięte; zwrot obejmuje całe zamówienie, także gdy brak miejsca dotyczy tylko jednej z objętych nim konkurencji,
    b) ta sama osoba ma już opłacone Zgłoszenie w tym Wydarzeniu,
    c) płatność nie może zostać przypisana do Zgłoszenia z innych przyczyn technicznych.
-5. Pełny zwrot opłaty startowej anuluje Zgłoszenie. Zwrot opłaty za Zgłoszenie drużyny anuluje Zgłoszenie całej drużyny.
+5. Pełny zwrot opłaty startowej anuluje Zgłoszenie. Zwrot opłaty za Zgłoszenie drużyny anuluje Zgłoszenie całej drużyny. Zwrot różnicy w cenie przy zmianie konkurencji (ust. 8) nie anuluje Zgłoszenia, także gdy obejmuje całą zapłaconą opłatę startową.
 6. Odwołanie Wydarzenia nie jest obsługiwane w Serwisie. Jeżeli Organizator odwoła Wydarzenie przed Dniem zawodów lub w Dniu zawodów, niezwłocznie powiadamia Usługodawcę, a strony ustalają w formie dokumentowej, czy zwroty zrealizuje Usługodawca przed wypłatą, czy Organizator po wypłacie. Jeżeli strony nie ustalą inaczej, zwrotów dokonuje Usługodawca przed wypłatą: Uczestnicy otrzymują zwrot wpłaconych Opłat od Uczestników w pełnej wysokości, a wypłata Organizatora zmniejsza się o dokonane zwroty.
+7. Organizator może w panelu Wydarzenia zmienić konkurencję Zgłoszenia jednej osoby na inną konkurencję tego samego Wydarzenia, do zamknięcia zapisów. Organizator może także pozwolić Uczestnikom na samodzielną zmianę konkurencji w zakładce „Moje zapisy” Serwisu. Służy do tego ustawienie „Zgadzam się, by zawodnik sam zmienił konkurencję” w kroku „Płatności”, domyślnie włączone; Organizator może je w każdej chwili wyłączyć. Zmiana konkurencji jest możliwa wyłącznie w granicach ustawień Wydarzenia (wolne miejsca, limity wieku, termin zapisów). O każdej zmianie dokonanej przez Uczestnika Serwis powiadamia Organizatora wiadomością e-mail na adres kontaktowy Wydarzenia.
+8. Przy zmianie na konkurencję tańszą, dokonanej przez Organizatora albo, jeżeli Organizator na to pozwala, przez Uczestnika, Usługodawca zwraca różnicę w cenie automatycznie, bez odrębnej dyspozycji Organizatora, osobie, która zapłaciła za Zgłoszenie, przez Operatora płatności na rachunek lub instrument, z którego dokonano płatności. Przy zmianie na konkurencję bezpłatną zwrot obejmuje całą zapłaconą opłatę startową. Termin z ust. 3 stosuje się odpowiednio. Jeżeli Zgłoszenie zostało opłacone poza Serwisem, różnicę w cenie zwraca Uczestnikowi Organizator.
+9. Przy zmianie na konkurencję droższą różnicę w cenie płaci się online przez Operatora płatności („dopłata”): przy zmianie dokonanej przez Organizatora — osoba, która zapłaciła za Zgłoszenie (po przekazaniu pakietu — jego obecny posiadacz), a przy zmianie dokonanej przez Uczestnika — ten Uczestnik. Konkurencja zmienia się dopiero po wpłacie dopłaty w wyznaczonym terminie. Dopłata jest częścią opłaty startowej za to Zgłoszenie; Usługodawca przyjmuje ją w imieniu i na rzecz Organizatora i wypłaca Organizatorowi na zasadach §5 i §7. Dopłatę wpłaconą po terminie albo wtedy, gdy zmiana nie jest już możliwa, Usługodawca zwraca w całości bez dyspozycji Organizatora.
 
 ## §7. Wypłata
 
@@ -218,3 +222,7 @@ Organizator:
     o) §14 ust. 2 — właściwość sądu: konsument (art. 22¹ KC) albo osoba z art. 385⁵ KC.
     p) §14 ust. 4 — dane osób działających w imieniu Organizatora przetwarza Usługodawca jako administrator (Polityka prywatności).
     q) Nagłówek — status „obowiązująca od akceptacji w Serwisie”.
+14. **Zastosowane 2026-11-25 (wersja 2026-11-v7):** zmiana konkurencji i samodzielna obsługa Zgłoszenia przez Uczestnika.
+    a) §4 ust. 3 i 6 — Organizator może pozwolić Uczestnikowi poprawiać dane Zgłoszenia (bez imienia, nazwiska i adresu e-mail); ustawienie domyślnie włączone.
+    b) §6 ust. 2 i 5 — wyjątki od zwrotu dokonywanego przez Organizatora; zwrot różnicy w cenie nie anuluje Zgłoszenia.
+    c) §6 ust. 7–9 — zmiana konkurencji przez Organizatora i, jeżeli Organizator pozwala (domyślnie tak), przez Uczestnika; automatyczny zwrot różnicy przy zmianie na tańszą; dopłata online przy zmianie na droższą, należna Organizatorowi.
