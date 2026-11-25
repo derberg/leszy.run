@@ -72,7 +72,8 @@ test('W-89 the runner’s registrations on /profil/zapisy and in the account men
   // Only the event's name is a link on the card itself.
   await expect(freeCard.getByRole('link')).toHaveCount(1)
   let menu = await openMenu(page, freeCard, 'Ola Zapisana')
-  await expect(menu.getByRole('menuitem')).toHaveText(['Zmień konkurencję', 'Popraw dane', 'Twój zapis'])
+  // The free event has a single competition, so there is nowhere to move: no „Zmień konkurencję”.
+  await expect(menu.getByRole('menuitem')).toHaveText(['Popraw dane', 'Twój zapis'])
   await expect(menu.getByRole('menuitem', { name: 'Twój zapis' })).toHaveAttribute('href', `/events/${free.slug}/zapisano`)
   await expect(menu.getByRole('separator')).toHaveCount(1)
   await page.keyboard.press('Escape')
