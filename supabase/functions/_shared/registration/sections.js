@@ -438,8 +438,13 @@ const FORM_FIELDS = Object.keys(FORM_FIELD_DEFAULTS)
 const RETIRED_FORM_FIELDS = ['phone']
 
 function validateForm(value, ctx, c) {
-  checkKeys(value, ['formFields', 'consents', 'legOrder'], c)
+  checkKeys(value, ['formFields', 'consents', 'legOrder', 'runnerDataEdit'], c)
   const out = {}
+  // „Zgadzam się, by zawodnik sam poprawił swoje dane” (Plan 8): false refuses the runner's own edit.
+  if ('runnerDataEdit' in value) {
+    if (typeof value.runnerDataEdit === 'boolean') out.runner_data_edit = value.runnerDataEdit
+    else c.fail('runnerDataEdit', 'Nieprawidłowa wartość.')
+  }
   if ('legOrder' in value) {
     const teams = new Set(ctx.teamCategoryIds ?? [])
     const entries = isPlainObject(value.legOrder) ? Object.entries(value.legOrder) : null
@@ -527,8 +532,13 @@ function validateTransfer(value, ctx, c, out) {
 }
 
 function validatePayments(value, ctx, c) {
-  checkKeys(value, ['paymentWindowHours', 'paymentWindowUntilClose', 'transferEnabled', 'transferUntil'], c)
+  checkKeys(value, ['paymentWindowHours', 'paymentWindowUntilClose', 'transferEnabled', 'transferUntil', 'runnerCompetitionChange'], c)
   const out = {}
+  // „Zgadzam się, by zawodnik sam zmienił konkurencję” (Plan 8): false refuses the runner's own change.
+  if ('runnerCompetitionChange' in value) {
+    if (typeof value.runnerCompetitionChange === 'boolean') out.runner_competition_change = value.runnerCompetitionChange
+    else c.fail('runnerCompetitionChange', 'Nieprawidłowa wartość.')
+  }
   validateTransfer(value, ctx, c, out)
   if ('paymentWindowHours' in value) {
     const v = rules.oneOf(PAYMENT_WINDOW_HOURS, 'Wybierz czas na opłacenie zgłoszenia.')(value.paymentWindowHours, 'paymentWindowHours', c)

@@ -75,7 +75,9 @@ export default function Formularz({ event, queue, saveState, readOnly, onSaved, 
   const [teams] = useState(() => teamCompetitions(event.competitions))
   const [legOrder, setLegOrder] = useState(() => legOrderChoices(teams))
   const [localError, setLocalError] = useState(null)
-  const latest = useRef({ fields, rows, legOrder })
+  // Ticked unless the club refused: the column defaults to true for every event.
+  const [dataEdit, setDataEdit] = useState(s.runnerDataEdit !== false)
+  const latest = useRef({ fields, rows, legOrder, dataEdit })
   const sentKeys = useRef([])
   // A map once staged stays until another replaces it, so it can never just stop being sent.
   const legOrderStaged = useRef(!!event.pending?.payload?.form?.leg_order)
@@ -94,7 +96,7 @@ export default function Formularz({ event, queue, saveState, readOnly, onSaved, 
   const build = () => {
     const { items, keys } = consentsValue(latest.current.rows)
     const legs = legOrderToSend({ state: s.state, teams, choices: latest.current.legOrder, staged: legOrderStaged.current })
-    return { value: { formFields: latest.current.fields, consents: items, ...(legs ? { legOrder: legs } : {}) }, keys }
+    return { value: { formFields: latest.current.fields, consents: items, ...(legs ? { legOrder: legs } : {}), runnerDataEdit: latest.current.dataEdit }, keys }
   }
   const sectionNow = () => {
     const { value, keys } = build()
@@ -108,6 +110,7 @@ export default function Formularz({ event, queue, saveState, readOnly, onSaved, 
     if (next.fields) setFields(next.fields)
     if (next.rows) setRows(next.rows)
     if (next.legOrder) setLegOrder(next.legOrder)
+    if ('dataEdit' in next) setDataEdit(next.dataEdit)
     const check = validateSection('form', build().value, { state: s.state, teamCategoryIds })
     setLocalError(check.ok ? null : Object.values(check.errors).join(' '))
     if (check.ok) queue('form', sectionNow)
@@ -170,6 +173,13 @@ export default function Formularz({ event, queue, saveState, readOnly, onSaved, 
             )}>{f.label}</Row>
           ))}
           <Row right={<Always />}>Dane opiekuna · zawodnik niepełnoletni</Row>
+          <div className="px-3.5 py-2 border-b border-apex-border">
+            <label className="flex items-center gap-2.5 font-sans text-base text-apex-text-bright min-h-9">
+              <input type="checkbox" className="w-[18px] h-[18px] accent-apex-yellow" data-testid="runner-data-edit"
+                checked={dataEdit} onChange={(e) => apply({ dataEdit: e.target.checked })} />
+              Zgadzam się, by zawodnik sam poprawił swoje dane
+            </label>
+          </div>
           <div className="p-3.5 flex items-center gap-2">
             <button type="button" className={btnGhost} disabled>+ Własne pytanie</button>
             <Soon />

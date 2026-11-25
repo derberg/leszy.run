@@ -342,3 +342,15 @@ test('W-81 „Widoczność” is a diff row in words, and no notice to runners',
   assert.deepEqual(back, [{ field: 'basics.listed', label: 'Widoczność', before: 'Tylko przez link', after: 'Publiczne' }])
   assert.deepEqual(changeDiff({ ...live, settings: { ...live.settings, listed: true } }, { basics: { listed: true } }), [])
 })
+
+test('Plan 8 the runner self-service switches are diff rows, Tak / Nie', () => {
+  const s = { ...live.settings, runner_competition_change: true, runner_data_edit: true }
+  assert.deepEqual(changeDiff({ ...live, settings: s }, { payments: { runner_competition_change: false } }),
+    [{ field: 'payments.runner_competition_change', label: 'Zmiana konkurencji przez zawodnika', before: 'Tak', after: 'Nie' }])
+  assert.deepEqual(changeDiff({ ...live, settings: s }, { form: { runner_data_edit: false } }),
+    [{ field: 'form.runner_data_edit', label: 'Poprawianie danych przez zawodnika', before: 'Tak', after: 'Nie' }])
+  const off = { ...live, settings: { ...s, runner_data_edit: false, runner_competition_change: false } }
+  assert.deepEqual(changeDiff(off, { form: { runner_data_edit: true }, payments: { runner_competition_change: true } }).map((d) => [d.before, d.after]),
+    [['Nie', 'Tak'], ['Nie', 'Tak']])
+  assert.deepEqual(changeDiff({ ...live, settings: s }, { form: { runner_data_edit: true }, payments: { runner_competition_change: true } }), [])
+})

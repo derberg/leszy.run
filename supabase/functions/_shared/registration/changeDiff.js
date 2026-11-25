@@ -41,10 +41,10 @@ const SETTINGS_LABELS = {
   competitions: { pricing_mode: 'Rodzaj opłaty' },
   categories: { age_reckoning: 'Liczenie wieku' },
   timing: { timing_company: 'Firma pomiaru czasu', results_url: 'Wyniki', live_results_url: 'Wyniki na żywo' },
-  form: { form_fields: 'Pola formularza' },
+  form: { form_fields: 'Pola formularza', runner_data_edit: 'Poprawianie danych przez zawodnika' },
   payments: {
     payment_window_hours: 'Czas na opłacenie zgłoszenia', transfer_enabled: 'Przekazanie pakietu',
-    transfer_until: 'Przekazanie możliwe do',
+    transfer_until: 'Przekazanie możliwe do', runner_competition_change: 'Zmiana konkurencji przez zawodnika',
   },
 }
 
@@ -53,6 +53,8 @@ const WINDOW_WORDS = { 24: '24 godziny', 168: '7 dni', 336: '14 dni' }
 const VALUE_WORDS = {
   'payments.payment_window_hours': (v) => WINDOW_WORDS[v] ?? (v == null ? null : `${v} godz.`),
   'payments.transfer_enabled': (v) => (v === true ? 'tak' : 'nie'),
+  'payments.runner_competition_change': (v) => (v === false ? 'Nie' : 'Tak'),
+  'form.runner_data_edit': (v) => (v === false ? 'Nie' : 'Tak'),
   'basics.listed': (v) => (v === false ? 'Tylko przez link' : 'Publiczne'),
 }
 // The payment window as the organizer chose it: „do końca zapisów” hides the hours behind it.
@@ -214,7 +216,7 @@ export function changeDiff(live, pending) {
       if (before !== after) {
         out.push({ field: 'payments.payment_window_hours', label: SETTINGS_LABELS.payments.payment_window_hours, before, after })
       }
-      for (const key of ['transfer_enabled', 'transfer_until']) {
+      for (const key of ['transfer_enabled', 'transfer_until', 'runner_competition_change']) {
         if (!(key in value) || same(settings[key] ?? null, value[key])) continue
         const field = `payments.${key}`
         const words = VALUE_WORDS[field] ?? shown
