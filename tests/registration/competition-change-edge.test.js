@@ -143,10 +143,10 @@ test('CC-61 preview: each other visible individual competition with its price, d
   assert.deepEqual(r.body.data.targets.map((t) => t.categoryId).sort(), [c5, c21].sort())
   assert.deepEqual(targetOf(r.body, c5), {
     categoryId: c5, name: 'Bieg 5 km', listPrice: 6000, price: 6000, difference: 600, kind: 'surcharge',
-    voucherKept: false, extrasNotOffered: ['Koszulka'], eligible: true,
+    voucherKept: false, voucherLost: true, extrasNotOffered: ['Koszulka'], eligible: true,
   })
   const t21 = targetOf(r.body, c21)
-  assert.deepEqual([t21.price, t21.difference, t21.voucherKept, t21.eligible, t21.reason], [7200, 1800, true, false, 'ineligible'])
+  assert.deepEqual([t21.price, t21.difference, t21.voucherKept, t21.voucherLost, t21.eligible, t21.reason], [7200, 1800, true, false, false, 'ineligible'])
 
   // A hidden competition is no target.
   const { error: hErr } = await db().from('competitions').update({ hidden_at: new Date().toISOString() }).eq('category_id', c5)
@@ -173,6 +173,7 @@ test('CC-62 the preview\'s difference is what change_competition applies: same, 
   const a = await paidEntry(event)
   const pa = targetOf((await preview(owner, a.registrationId)).body, c5)
   assert.equal(pa.kind, 'same')
+  assert.equal(pa.voucherLost, false, 'no code, nothing to lose')
   const ra = await change(owner, a.registrationId, c5, pa.difference)
   assert.deepEqual([ra.status, ra.body.data?.outcome], [200, 'moved'], JSON.stringify(ra.body))
 

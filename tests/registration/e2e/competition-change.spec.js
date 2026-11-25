@@ -20,6 +20,13 @@ const COMPETITIONS = [
   { name: 'Bieg 10 km', discipline: 'run', distanceLabel: '10 km', startTime: '11:00', capacity: 50 },
 ]
 const PRICES = { 'Bieg 5 km': 4000, 'Bieg 10 km': 6000 }
+// CC-90's event also has a cheaper and a children's competition, so the dialog shows all three kinds of target.
+const WIDE = [
+  ...COMPETITIONS,
+  { name: 'Marsz Nordic Walking 5 km', discipline: 'nw', distanceLabel: '5 km', startTime: '10:30', capacity: 50 },
+  { name: 'Bieg Młodzików 2 km', discipline: 'run', distanceLabel: '2 km', startTime: '09:30', capacity: 50 },
+]
+const WIDE_PRICES = { ...PRICES, 'Marsz Nordic Walking 5 km': 3000, 'Bieg Młodzików 2 km': 2000 }
 const PAY_PAGE = new RegExp(`localhost:${DPAY_MOCK_PORT}\\/pay\\/`)
 const SCREENS = path.resolve(path.dirname(fileURLToPath(import.meta.url)),
   '../../../.superpowers/sdd/2026-11-24-competition-change/screens')
@@ -56,8 +63,8 @@ async function latestTxn(orderId) {
 }
 
 /** A paid entry of `email` in `competition`, paid through pay-order and the dpay mock. */
-async function paidEntry(e, email, competition, name) {
-  const categoryId = e.categoryIds[COMPETITIONS.findIndex((c) => c.name === competition)]
+async function paidEntry(e, email, competition, name, list = COMPETITIONS) {
+  const categoryId = e.categoryIds[list.findIndex((c) => c.name === competition)]
   const out = await orderOk(e, { categoryId, people: [person(email, name)] })
   const paid = await callFn('pay-order', await sessionFor(email), { orderId: out.orderId })
   expect(paid.status, JSON.stringify(paid.body)).toBe(200)
@@ -76,6 +83,11 @@ const surchargeOrderOf = async (registrationId) => {
   return data[0] ?? null
 }
 
+/** The page scrolled to the top of the Zgłoszenia section, its tiles in full under the fixed navbar. */
+async function toSectionTop(page) {
+  await page.getByTestId('entries-actions').evaluate((el) => window.scrollTo(0, el.getBoundingClientRect().top + window.scrollY - 72))
+}
+
 async function openMenuItem(page, name, item) {
   await page.getByRole('button', { name: `Akcje — ${name}` }).first().click()
   await page.getByRole('menuitem', { name: item, exact: true }).click()
@@ -85,25 +97,33 @@ test('CC-90 dearer: the club moves Katarzyna from 5 km to 10 km, the payer pays 
   await resetThrottle()
   await dpayReset()
   await clearMessages()
-  const e = await createPublishedPaidEvent(owner, { competitions: COMPETITIONS, prices: PRICES })
+  const e = await createPublishedPaidEvent(owner, { competitions: WIDE, prices: WIDE_PRICES })
+  const { error: ageErr } = await admin().from('competitions').update({ max_age: 15 }).eq('category_id', e.categoryIds[3])
+  if (ageErr) throw ageErr
   const { name: eventName } = await one('registration_settings', { event_id: e.eventId })
-  await paidEntry(e, runnerEmail('obok'), 'Bieg 10 km', { firstName: 'Anna', lastName: 'Wiśniewska' })
+  await paidEntry(e, runnerEmail('obok'), 'Bieg 10 km', { firstName: 'Anna', lastName: 'Wiśniewska' }, WIDE)
   const runnerName = 'Katarzyna Zielińska'
-  const entry = await paidEntry(e, ACTOR_EMAILS.runner, 'Bieg 5 km', { firstName: 'Katarzyna', lastName: 'Zielińska' })
+  const entry = await paidEntry(e, ACTOR_EMAILS.runner, 'Bieg 5 km', { firstName: 'Katarzyna', lastName: 'Zielińska' }, WIDE)
 
   const ownerPage = await open(actors.owner, zgloszenia(e.eventId))
   await ownerPage.setViewportSize({ width: 1280, height: 800 })
   await rowOf(ownerPage, runnerName).waitFor()
-  await ownerPage.evaluate(() => window.scrollTo(0, 0))
   await ownerPage.getByRole('button', { name: `Akcje — ${runnerName}` }).first().click()
   await expect(ownerPage.getByRole('menuitem', { name: 'Zmień konkurencję', exact: true })).toBeVisible()
+  await toSectionTop(ownerPage)
   await shot(ownerPage, 'po-b3-menu-desktop.png')
   await ownerPage.getByRole('menuitem', { name: 'Zmień konkurencję', exact: true }).click()
 
   const dialog = ownerPage.getByRole('dialog', { name: 'Zmień konkurencję' })
   const target = dialog.getByTestId('change-target').filter({ hasText: 'Bieg 10 km' })
   await expect(target).toContainText('60,00 zł · dopłata 20,00 zł — zapłata online')
-  await expect(target.getByRole('radio')).toBeChecked()
+  await expect(dialog.getByTestId('change-target').filter({ hasText: 'Marsz Nordic Walking 5 km' }))
+    .toContainText('30,00 zł · zwrot 10,00 zł')
+  const kids = dialog.getByTestId('change-target').filter({ hasText: 'Bieg Młodzików 2 km' })
+  await expect(kids).toContainText('nie spełnia warunków')
+  await expect(kids.getByRole('radio')).toBeDisabled()
+  await target.getByRole('radio').check()
+  await toSectionTop(ownerPage)
   await shot(ownerPage, 'po-dialog-desktop.png')
   await ownerPage.setViewportSize({ width: 390, height: 844 })
   const submit = dialog.getByRole('button', { name: 'Zmień konkurencję', exact: true })
@@ -119,7 +139,7 @@ test('CC-90 dearer: the club moves Katarzyna from 5 km to 10 km, the payer pays 
   const badge = rowOf(ownerPage, runnerName).getByTestId('registration-surcharge')
   await expect(badge).toHaveText('Zmiana na Bieg 10 km — czeka na dopłatę 20,00 zł')
   await expect(rowOf(ownerPage, runnerName)).toContainText('Bieg 5 km')
-  await ownerPage.evaluate(() => window.scrollTo(0, 0))
+  await toSectionTop(ownerPage)
   await shot(ownerPage, 'po-b3-badge-desktop.png')
   await ownerPage.setViewportSize({ width: 390, height: 844 })
   const cardBadge = ownerPage.getByTestId('registrations-cards').getByTestId('registration-surcharge')

@@ -96,6 +96,8 @@ export default function ChangeCompetitionDialog({ row, onClose, onDone, onFailed
       // A refusal decided on the server spent nothing under this key; a lost answer keeps it (replay).
       if (err.status != null && err.status < 500) setKey(newKey())
       if (err.code === 'price_changed') {
+        // The new amount is confirmed afresh, the offline refund's acknowledgement too.
+        setAck(false)
         const targets = await read({ keep: target.categoryId })
         const now = targets?.find((t) => t.categoryId === target.categoryId)
         setError(now ? `Cena się zmieniła: teraz ${differenceText(now)}. Sprawdź i potwierdź ponownie.` : err.message)
@@ -132,6 +134,11 @@ export default function ChangeCompetitionDialog({ row, onClose, onDone, onFailed
                 <span className="block font-mono text-xs text-apex-muted [overflow-wrap:anywhere]">
                   {formatPln(t.price)} · <span className={t.kind === 'surcharge' ? 'text-apex-cyan' : t.kind === 'refund' ? 'text-apex-yellow' : ''}>{differenceText(t)}</span>
                 </span>
+                {t.voucherLost && (
+                  <span className="block font-mono text-xs text-apex-red [overflow-wrap:anywhere]" data-testid="change-voucher-lost">
+                    kod rabatowy nie obejmuje tej konkurencji
+                  </span>
+                )}
               </span>
               {!t.eligible && (
                 <span className="shrink-0 whitespace-nowrap font-mono text-xs uppercase text-apex-muted">{REASON[t.reason] ?? 'niedostępna'}</span>

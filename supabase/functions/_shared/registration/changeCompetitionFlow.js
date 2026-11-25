@@ -114,7 +114,8 @@ async function entryRefusal(admin, ctx, now) {
 /**
  * The dialog's preview for one entry → { refusal } when the entry cannot move at all (null if it
  * does not exist), else { entry: { registrationId, categoryId, held, offlinePaid }, targets }.
- * Each target: { categoryId, name, listPrice, price, difference, kind, voucherKept,
+ * Each target: { categoryId, name, listPrice, price, difference, kind, voucherKept, voucherLost (the
+ * entry's discount code took money off and does not cover this paid target),
  * extrasNotOffered: [name], eligible, reason?, offlineAck? } with change_competition's numbers
  * (changeQuote): the price in the order's frozen tier (no order: the current tier, which must be
  * 0 zł), the voucher kept only where it is offered, difference = price − (price paid − refunded).
@@ -136,6 +137,9 @@ export async function changePreview(admin, registrationId, { now = new Date() } 
   const refundsClosed = !settings.event_date || now.getTime() >= warsawDayStart(settings.event_date).getTime()
   const payingClosed = now.getTime() >= Date.parse(settings.closes_at) - PAYING_CLOSES_BEFORE_MS
   const offlinePaid = Boolean(order?.paid_offline_at)
+  // The entry's code took money off its price; a target the code does not cover (and that costs
+  // something) loses that discount, which the dialog says.
+  const discounted = Boolean(voucher) && voucher.percent > 0 && reg.list_price > 0 && reg.price < reg.list_price
 
   const targets = ctx.comps
     .filter((c) => c.category_id !== reg.category_id && !c.hidden_at && c.kind === 'individual')
@@ -166,6 +170,7 @@ export async function changePreview(admin, registrationId, { now = new Date() } 
         difference: quote.difference,
         kind,
         voucherKept: quote.voucherKept,
+        voucherLost: discounted && !covers && quote.listPrice > 0,
         extrasNotOffered: extras.filter((e) => e.categories && !e.categories.has(c.category_id)).map((e) => e.name),
         eligible: !reason,
         ...(reason ? { reason } : {}),
