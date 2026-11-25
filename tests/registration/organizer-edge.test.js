@@ -689,6 +689,58 @@ test('O-64 list rows carry their extras and the event\'s extras with live unit c
   ])
 })
 
+test('O-65 extras export: lists, totals, filter, audit', async () => {
+  const event = await paidEvent()
+  const cat = event.categoryIds[0]
+  const shirt = await makeExtra(event, { name: 'Koszulka', price: 4500, variants: [['S', 10], ['L', 10]] })
+  const medal = await makeExtra(event, { name: 'Medal', price: 2000, variants: [['Złoty', 10]] })
+  await db().from('extras').update({ sort_order: 1 }).eq('id', medal.extra.id)
+  const pay = async (tag, extras, displayed) => {
+    const o = await orderGroupOk(event, [{ ...adult(cat, 'self', runnerEmail(tag)), extras }], { displayed })
+    return o
+  }
+  const paid = await pay('eks', [{ variantId: medal.variants['Złoty'].id, qty: 1 }, { variantId: shirt.variants.L.id, qty: 2 }], PRICE + 9000 + 2000)
+  assert.equal((await confirmOk(paid.orderId, (await attemptFor(paid.orderId, PRICE + 11000)).txn, PRICE + 11000)).outcome, 'confirmed')
+  const gone = await pay('eks-nie', [{ variantId: medal.variants['Złoty'].id, qty: 1 }], PRICE + 2000)
+  assert.equal((await confirmOk(gone.orderId, (await attemptFor(gone.orderId, PRICE + 2000)).txn, PRICE + 2000)).outcome, 'confirmed')
+  const [goneReg] = await rows('registrations', { order_id: gone.orderId })
+  await db().from('participants').update({ withdrawn_at: new Date().toISOString() }).eq('registration_id', goneReg.id)
+  await pay('eks-czeka', [{ variantId: shirt.variants.S.id, qty: 1 }], PRICE + 4500)
+
+  const call = (extra) => callFn('export-event-registrations', owner, { eventId: event.eventId, kind: 'extras', ...extra })
+  const csv = await call({ format: 'csv' })
+  assert.equal(csv.status, 200, JSON.stringify(csv.body))
+  const d = csv.body.data
+  assert.match(d.filename, /^dodatki-.+-\d{4}-\d\d-\d\d\.csv$/)
+  assert.deepEqual(d.list.totals.map((t) => [t.extra, t.variant, t.count]), [['Koszulka', 'L', 2], ['Medal', 'Złoty', 1]])
+  assert.deepEqual(d.list.awaiting.map((i) => [i.extra, i.variant, i.qty]), [['Koszulka', 'S', 1]])
+  assert.ok(d.csv.startsWith('\uFEFF'))
+  assert.ok(d.event.name)
+  const [logged] = await actions(event.eventId, 'extras_exported')
+  assert.deepEqual(logged.payload, { format: 'csv', rows: d.list.handout.length + d.list.awaiting.length, filter: { keys: [], search: false } })
+
+  const only = await call({ format: 'csv', filter: { extraId: medal.extra.id } })
+  assert.equal(only.status, 200, JSON.stringify(only.body))
+  assert.deepEqual(only.body.data.list.totals.map((t) => [t.extra, t.count]), [['Medal', 1]])
+  assert.equal(only.body.data.list.awaiting.length, 0)
+
+  const pdf = await call({ format: 'pdf' })
+  assert.equal(pdf.status, 200, JSON.stringify(pdf.body))
+  assert.equal(pdf.body.data.csv, undefined)
+  assert.match(pdf.body.data.filename, /\.pdf$/)
+
+  assert.equal((await call({ format: 'doc' })).status, 400)
+  assert.equal((await callFn('export-event-registrations', member, { eventId: event.eventId, kind: 'extras', format: 'csv' })).status, 404)
+
+  const before = (await actions(event.eventId, 'extras_exported')).length
+  const refused = await whileRefusing('organizer_actions', 'INSERT',
+    `NEW.action = 'extras_exported' AND NEW.event_id = '${event.eventId}'`, () => call({ format: 'csv' }))
+  assert.equal(refused.status, 503, JSON.stringify(refused.body))
+  assert.equal(refused.body.code, 'audit_failed')
+  assert.equal(refused.body.data, undefined)
+  assert.equal((await actions(event.eventId, 'extras_exported')).length, before)
+})
+
 test('O-35 M1–M3 remind_payment: a send that did not go out → 502 and no allowance spent; refused once online payment stopped and when the competition is full', async () => {
   const event = await paidEvent({ competitions: BIEG(1) })
   const action = (body) => callFn('organizer-entry-action', owner, body)
