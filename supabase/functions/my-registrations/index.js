@@ -6,6 +6,7 @@ import {
   LISTED_ORDER_STATUSES, LISTED_REGISTRATION_STATUSES, shapeMyRegistrations,
 } from '../_shared/registration/myRegistrations.js'
 import { acceptedRefundTotals } from '../_shared/registration/refundedTotals.js'
+import { transferViews } from '../_shared/registration/transfers.js'
 
 function json(body, status, req) {
   return new Response(JSON.stringify(body), {
@@ -22,14 +23,18 @@ const chunks = (ids) => {
   return out
 }
 
-const REG_COLUMNS = 'id, event_id, category_id, order_id, status, first_name, last_name, profile_id, email, guardian_profile_id, team_id, created_at'
+const REG_COLUMNS = 'id, event_id, category_id, order_id, status, first_name, last_name, profile_id, email, guardian_profile_id, team_id, birth_date, created_at'
 
 // POST {} → 200 { data: [{ eventId, slug, eventName, eventDate, firstStartTime,
 //   orders: [{ id, status, total, refunded, cancelled, expiresAt, paidAt, createdAt }],
 //   people: [{ id, firstName, lastName, competition, status, mine,
 //     surcharge: { orderId, toCompetition, grosze, expiresAt } | null,
-//     actions: { change, edit } }] }] }  (actions: the runner's own „Zmień konkurencję” / „Popraw dane”,
-//     selfService.js; my-entry-action decides)
+//     actions: { change, edit },
+//     transfer: { allowed, until, pending: { transferId, toEmail, createdAt, expiresAt } | null, refundPending } | null }] }] }
+//   (actions: the runner's own „Zmień konkurencję” / „Popraw dane”, selfService.js; my-entry-action
+//   decides. transfer: „Przekaż pakiet”, the same block and rule as my-event-registrations
+//   (transferViews): allowed only on the session's own confirmed adult entry or a team's as captain,
+//   never on an entry it registered for somebody else; null for an event with transfers off.)
 // „Moje zapisy”: every published (or closed) registration event where the session bought an order
 // (pending or paid) or is on a live entry (confirmed or awaiting payment) as the runner, as the
 // person who registered it, or as a child's guardian. The people of the session's own orders are
@@ -90,7 +95,7 @@ Deno.serve(async (req) => {
     const settings = []
     for (const ids of chunks(eventIds)) {
       settings.push(...await allRows(() => admin.from('registration_settings')
-        .select('event_id, slug, name, state, event_date, first_start_time, closes_at, runner_competition_change, runner_data_edit, club_id')
+        .select('event_id, slug, name, state, event_date, first_start_time, closes_at, runner_competition_change, runner_data_edit, club_id, transfer_enabled, transfer_until')
         .in('event_id', ids).order('event_id')))
     }
     // Which team entries are their team's captain: only a captain edits (selfService.js).
@@ -123,7 +128,17 @@ Deno.serve(async (req) => {
         .select('category_id, name').in('category_id', ids).order('category_id')))
     }
 
-    return json({ data: shapeMyRegistrations({ userId: me, email: session.email, settings, orders, registrations, competitions, refunded, liveOrderIds, captains, openSurcharges, enabledClubs }) }, 200, req)
+    // „Przekaż pakiet”: my-event-registrations' block, per event with transfers on and an entry of
+    // the session's own (transferViews answers allowed: false for anybody else's).
+    const transfers = new Map()
+    for (const s of settings) {
+      if (!s.transfer_enabled || s.state === 'draft') continue
+      const regs = registrations.filter((r) => r.event_id === s.event_id)
+      if (!regs.some((r) => r.profile_id === me)) continue
+      for (const [id, view] of await transferViews(admin, regs, s, me)) transfers.set(id, view)
+    }
+
+    return json({ data: shapeMyRegistrations({ userId: me, email: session.email, settings, orders, registrations, competitions, refunded, liveOrderIds, captains, openSurcharges, enabledClubs, transfers }) }, 200, req)
   } catch (err) {
     console.error('my-registrations error:', err?.message, err?.code)
     return json({ error: 'Internal server error' }, 500, req)

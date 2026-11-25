@@ -58,9 +58,9 @@ test('W-87 orders and people per event, upcoming soonest first then past latest 
     { id: 'o2', status: 'pending', total: 3000, refunded: 0, cancelled: false, expiresAt: '2026-11-05T10:00:00Z', paidAt: null, createdAt: '2026-10-02T10:00:00Z' },
   ])
   assert.deepEqual(future.people, [
-    { id: 'r-me', firstName: 'Ola', lastName: 'Leśna', competition: 'Bieg 10 km', status: 'confirmed', mine: true, surcharge: null, actions: NONE },
-    { id: 'r-kid', firstName: 'Kuba', lastName: 'Leśna', competition: 'Bieg dzieci', status: 'confirmed', mine: false, surcharge: null, actions: NONE },
-    { id: 'r-pend', firstName: 'Ala', lastName: 'Leśna', competition: 'Bieg 10 km', status: 'pending_payment', mine: false, surcharge: null, actions: NONE },
+    { id: 'r-me', firstName: 'Ola', lastName: 'Leśna', competition: 'Bieg 10 km', status: 'confirmed', mine: true, surcharge: null, actions: NONE, transfer: null },
+    { id: 'r-kid', firstName: 'Kuba', lastName: 'Leśna', competition: 'Bieg dzieci', status: 'confirmed', mine: false, surcharge: null, actions: NONE, transfer: null },
+    { id: 'r-pend', firstName: 'Ala', lastName: 'Leśna', competition: 'Bieg 10 km', status: 'pending_payment', mine: false, surcharge: null, actions: NONE, transfer: null },
   ])
   assert.deepEqual(data[2].orders, [], 'another buyer’s order is never listed')
   assert.equal(data[0].firstStartTime, null)
@@ -177,4 +177,14 @@ test('RS-15 actions: the runner’s own entry, before close, with the club’s s
   })[0].people[0]
   assert.deepEqual(people.surcharge, { orderId: 's1', toCompetition: 'Bieg dzieci', grosze: 2000, expiresAt: '2026-11-03T10:00:00Z' })
   assert.deepEqual(people.actions, { change: false, edit: true }, 'a surcharge waiting: Zapłać instead of a second change')
+})
+
+test('RS-19 each person carries its transfer block from transferViews, null without one', () => {
+  const block = { allowed: true, until: '2026-12-05', pending: null, refundPending: false }
+  const people = shapeMyRegistrations({
+    userId: ME, settings, competitions, orders: [], now: NOW,
+    registrations: [reg({ id: 'r1', event_id: 'e-future', profile_id: ME }), reg({ id: 'r2', event_id: 'e-future', created_at: '2026-10-02T10:00:00Z' })],
+    transfers: new Map([['r1', block]]),
+  })[0].people
+  assert.deepEqual(people.map((p) => [p.id, p.transfer]), [['r1', block], ['r2', null]])
 })

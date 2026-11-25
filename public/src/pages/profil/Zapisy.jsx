@@ -4,12 +4,12 @@ import useSeo from '../../hooks/useSeo.js'
 import { callFunction } from '../../lib/auth.js'
 import { formatPln } from '@registration/money.js'
 import { sectionTitle } from './fields.jsx'
-import EntrySelfService from '../../components/registration/EntrySelfService.jsx'
+import EntryActions from '../../components/registration/EntryActions.jsx'
 
 // „Moje zapisy”: the registration events the session bought an order for or is on an entry of,
-// from my-registrations (upcoming first, then past). Under each person the runner's own „Zmień
-// konkurencję” / „Popraw dane” and an open surcharge's „Zapłać” (EntrySelfService), where the server
-// offers them.
+// from my-registrations (upcoming first, then past). Under each person one row of the runner's own
+// actions, „Zmień konkurencję →”, „Popraw dane →” and „Przekaż pakiet →”, and an open surcharge's
+// „Zapłać” (EntryActions), where the server offers them.
 
 const linkCls = 'whitespace-nowrap font-mono text-[11px] text-apex-yellow no-underline hover:text-apex-yellow-bright'
 
@@ -78,7 +78,7 @@ function EventCard({ ev, today, onChanged }) {
                   <span className="whitespace-nowrap flex-shrink-0 font-mono text-[9px] text-apex-muted">czeka na wpłatę</span>
                 )}
               </div>
-              <EntrySelfService entry={{ ...p, name: `${p.firstName} ${p.lastName}` }} onChanged={onChanged} />
+              <EntryActions entry={{ ...p, name: `${p.firstName} ${p.lastName}` }} slug={ev.slug} onChanged={onChanged} />
             </li>
           ))}
         </ul>

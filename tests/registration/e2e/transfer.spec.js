@@ -9,7 +9,7 @@ import { accept, enableTransfers, inviteOk, paidEntry } from '../helpers/transfe
 
 // Plan 7 task 8b: the runner's transfer pages in the browser. V-63…V-66 in
 // docs/registration/scenario-matrix.md:
-//   RA5  /events/:slug/zapisano      „Przekaż pakiet innej osobie →” on the rows the server allows
+//   RA5  /events/:slug/zapisano      „Przekaż pakiet →” on the rows the server allows
 //   RA6  /events/:slug/przekaz/:id   the holder invites an address and can take the invite back
 //   RA7  /przekazanie#<token>        the recipient takes the package (the token only in the fragment)
 
@@ -94,7 +94,7 @@ async function fillRecipient(page, email) {
   for (let i = 0; i < n; i++) await boxes.nth(i).check()
 }
 
-test('V-65 RA5: „Przekaż pakiet innej osobie →” on the holder\'s own row, never on the child\'s, and gone after transfer_until', async ({ browser }) => {
+test('V-65 RA5: „Przekaż pakiet →” on the holder\'s own row, never on the child\'s, and gone after transfer_until', async ({ browser }) => {
   const event = await createPublishedFreeEvent(owner, { competitions: [BIEG()] })
   await enableTransfers(event)
   const email = runnerEmail('parent')
@@ -108,7 +108,8 @@ test('V-65 RA5: „Przekaż pakiet innej osobie →” on the holder\'s own row,
   const own = rows.filter({ hasText: 'Ola Leśna' })
   const child = rows.filter({ hasText: 'Zosia' })
   const selfId = r.data.registrations.find((x) => x.role === 'self').id
-  await expect(own.getByRole('link', { name: 'Przekaż pakiet innej osobie →' })).toHaveAttribute('href', `/events/${event.slug}/przekaz/${selfId}`)
+  await expect(own.getByRole('link', { name: 'Przekaż pakiet — Ola Leśna' })).toHaveAttribute('href', `/events/${event.slug}/przekaz/${selfId}`)
+  await expect(own.getByTestId('transfer-action')).toHaveText('Przekaż pakiet →')
   await expect(child.getByRole('link', { name: /Przekaż pakiet/ })).toHaveCount(0)
 
   // The organizer's last day has passed: the server says no, and the page shows nothing.
@@ -129,7 +130,7 @@ test('V-63, V-64, V-66 RA6 → RA7 at 390 px: invite, take back, invite again; t
   const ra6 = await offline(await hctx.newPage())
   await ra6.setViewportSize({ width: 390, height: 844 })
   await ra6.goto(`/events/${event.slug}/zapisano`)
-  await ra6.getByRole('link', { name: 'Przekaż pakiet innej osobie →' }).click()
+  await ra6.getByRole('link', { name: /^Przekaż pakiet — / }).click()
   await expect(ra6).toHaveURL(new RegExp(`/events/${event.slug}/przekaz/${regId}$`))
   const page6 = ra6.getByTestId('transfer-invite')
   await expect(page6).toBeVisible()
@@ -387,7 +388,7 @@ test('V-87 M-1 a refund in flight: RA5 and B3 offer no transfer, RA6 says why, R
   await ra7.getByRole('button', { name: 'Spróbuj ponownie' }).click()
   await expect(ra7.getByTestId('transfer-accept')).toBeVisible()
   await ra5.goto(`/events/${event.slug}/zapisano`)
-  await expect(ra5.getByRole('link', { name: 'Przekaż pakiet innej osobie →' })).toHaveCount(1)
+  await expect(ra5.getByRole('link', { name: /^Przekaż pakiet — / })).toHaveCount(1)
   await b3.reload()
   await b3.getByRole('button', { name: /^Akcje — / }).first().click()
   await expect(b3.getByRole('menuitem', { name: 'Przekaż pakiet', exact: true })).toHaveCount(1)

@@ -101,7 +101,7 @@ test('RS-17 the runner moves to a dearer competition and pays the surcharge; the
   await shot(page, 'po-zapisy-actions-desktop.png')
   await page.setViewportSize(PHONE)
   for (const b of await row.getByTestId('self-service').getByRole('button').all()) {
-    expect((await b.boundingBox()).height, 'a button label stays on one line').toBeLessThan(24)
+    expect((await b.boundingBox()).height, 'a button label stays on one line').toBeLessThan(30)
   }
   await noOverflow(page)
   await shot(page, 'po-zapisy-actions-390.png')
@@ -195,35 +195,60 @@ async function outlined(page, testIds) {
   await page.addStyleTag({ content: testIds.map((t) => `[data-testid="${t}"] ${OUTLINE}`).join('\n') })
 }
 
-test('RS-18 where the runner finds Zmień konkurencję, Popraw dane and Przekaż pakiet (screenshots)', async ({ browser }) => {
+/** The three actions sit in one container, on one line on a desktop and one per line on a phone, right-aligned. */
+async function oneActionRow(page, row, { phone }) {
+  const box = row.getByTestId('entry-actions')
+  await expect(box).toHaveCount(1)
+  await expect(box.locator(':scope > *')).toHaveText(['Zmień konkurencję →', 'Popraw dane →', 'Przekaż pakiet →'])
+  const rects = await Promise.all(['self-change', 'self-edit', 'transfer-action'].map((t) => box.getByTestId(t).boundingBox()))
+  for (const r of rects) expect(r.height, 'an action stays on one line').toBeLessThan(30)
+  const container = await box.boundingBox()
+  if (phone) {
+    expect(rects[1].y).toBeGreaterThan(rects[0].y)
+    expect(rects[2].y).toBeGreaterThan(rects[1].y)
+    for (const r of rects) expect(Math.abs(r.x + r.width - (container.x + container.width)), 'right-aligned').toBeLessThan(2)
+  } else {
+    expect(new Set(rects.map((r) => Math.round(r.y))).size, 'one line').toBe(1)
+    expect(Math.abs(rects[2].x + rects[2].width - (container.x + container.width)), 'right-aligned').toBeLessThan(2)
+  }
+}
+
+test('RS-18 one action row per runner on Moje zapisy and RA5: Zmień konkurencję, Popraw dane, Przekaż pakiet (screenshots)', async ({ browser }) => {
   await resetThrottle()
   const e = await createPublishedPaidEvent(owner, { name: `Bieg Leśny ${crypto.randomBytes(3).toString('hex')}`, competitions: COMPETITIONS, prices: PRICES })
   await enableTransfers(e)
   const email = runnerEmail('gdzie')
   const name = 'Joanna Biegaczka'
-  await paidEntry(e, email, { firstName: 'Joanna', lastName: 'Biegaczka' })
+  const entry = await paidEntry(e, email, { firstName: 'Joanna', lastName: 'Biegaczka' })
   const { context, page } = await runnerPage(browser, email)
   const decline = () => page.getByRole('button', { name: 'Odrzuć', exact: true }).click({ timeout: 3000 }).catch(() => {})
+  const ACTIONS = ['self-change', 'self-edit', 'transfer-action']
 
+  // „Moje zapisy” now offers „Przekaż pakiet →” too, to the same RA6 address as RA5.
   await page.goto('/profil/zapisy'); await decline()
   const row = personRow(page, name)
-  await expect(row.getByTestId('self-change')).toBeVisible()
-  const transferOnZapisy = await page.getByTestId('transfer-action').count()
-  console.log(`ZAPISY transfer-action count: ${transferOnZapisy}`)
-  await outlined(page, ['self-change', 'self-edit'])
+  await expect(row.getByRole('link', { name: `Przekaż pakiet — ${name}` }))
+    .toHaveAttribute('href', `/events/${e.slug}/przekaz/${entry.registrationId}`)
+  await oneActionRow(page, row, { phone: false })
+  await outlined(page, ACTIONS)
   await shot(page, 'po-zapisy-where-desktop.png')
   await shot(page, 'po-zapisy-all-actions-desktop.png')
   await page.setViewportSize(PHONE)
+  await oneActionRow(page, row, { phone: true })
+  await noOverflow(page)
   await shot(page, 'po-zapisy-where-390.png')
+  await shot(page, 'po-zapisy-all-actions-390.png')
 
   await page.setViewportSize(DESKTOP)
   await page.goto(`/events/${e.slug}/zapisano`); await decline()
-  await expect(page.getByTestId('self-change')).toBeVisible()
-  await expect(page.getByTestId('transfer-action')).toBeVisible()
-  await outlined(page, ['self-change', 'self-edit', 'transfer-action'])
+  const card = page.getByTestId('done-person').filter({ hasText: name })
+  await oneActionRow(page, card, { phone: false })
+  await outlined(page, ACTIONS)
   await shot(page, 'po-ra5-all-actions-desktop.png')
   await shot(page, 'po-ra5-where-desktop.png')
   await page.setViewportSize(PHONE)
+  await oneActionRow(page, card, { phone: true })
+  await noOverflow(page)
   await shot(page, 'po-ra5-all-actions-390.png')
   await shot(page, 'po-ra5-where-390.png')
   await context.close()
