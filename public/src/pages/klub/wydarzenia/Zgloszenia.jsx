@@ -3,9 +3,10 @@ import { formatPln } from '@registration/money.js'
 import { statusLabel } from '@registration/entries.js'
 import { warsawToday } from '@registration/dates.js'
 import { missingDetailsText } from '@registration/memberDetails.js'
-import { extrasText } from '@registration/extrasList.js'
+import { extrasText, handoutUnits } from '@registration/extrasList.js'
 import { callFunction } from '../../../lib/auth.js'
 import { downloadCsv } from '../../../lib/csvDownload.js'
+import ActionMenu from '../../../components/ActionMenu.jsx'
 import {
   AWAITING_CONSENT, competitionChips, entryActions, entryCounts, filterEntries, listedTile, noPlacesForAwaiting, offlineIncomeNote,
   extraChips, otherIndividualCompetition, partnerChips, statusChips,
@@ -300,7 +301,7 @@ function ExtrasText({ extras }) {
     return (
       <Fragment key={e.lineId ?? i}>
         {i > 0 && ', '}
-        <span className={text.endsWith('(zwrócono)') ? 'text-apex-muted' : undefined}>{text}</span>
+        <span className={handoutUnits(e) === 0 ? 'text-apex-muted' : undefined}>{text}</span>
       </Fragment>
     )
   })
@@ -523,13 +524,52 @@ export default function Zgloszenia({
     }
   }
 
+  const filterBody = Object.fromEntries(Object.entries(filter).filter(([, v]) => typeof v === 'string' && v !== ''))
+
   async function exportCsv() {
     setExporting(true)
     setNotice(null)
     try {
-      const filterBody = Object.fromEntries(Object.entries(filter).filter(([, v]) => typeof v === 'string' && v !== ''))
       const r = await callFunction('export-event-registrations', { eventId, filter: filterBody })
       downloadCsv(r.data.filename, r.data.csv)
+    } catch (err) {
+      failed(err)
+    } finally {
+      setExporting(false)
+    }
+  }
+
+  // The active chips in words for the PDF's header; a search is named, never its text.
+  function filterText() {
+    const nameOf = (label) => String(label ?? '').split(' · ')[0]
+    const parts = []
+    const comp = categoryId ? state.competitions.find((c) => c.id === categoryId) : null
+    if (comp) parts.push(`Konkurencja: ${comp.name}`)
+    const status = statusKey ? statusChips(counts).find((c) => c.key === statusKey) : null
+    if (status) parts.push(`Status: ${nameOf(status.label)}`)
+    const partner = partnerFilter ? state.partners.find((p) => p.id === partnerFilter) : null
+    if (partner) parts.push(`Partner: ${partner.name}`)
+    const extra = extraFilter ? state.extras.find((x) => x.id === extraFilter) : null
+    if (extra) parts.push(`Dodatek: ${extra.name}`)
+    if (q.trim()) parts.push('wyszukiwanie')
+    return parts.join(' · ')
+  }
+
+  async function exportExtras(format) {
+    setExporting(true)
+    setNotice(null)
+    try {
+      const r = await callFunction('export-event-registrations', { eventId, filter: filterBody, kind: 'extras', format })
+      if (format === 'pdf') {
+        try {
+          const { downloadExtrasPdf } = await import('../../../lib/extrasPdf.js')
+          await downloadExtrasPdf(r.data, filterText())
+        } catch {
+          setNotice({ text: 'Nie udało się utworzyć pliku PDF.', error: true })
+        }
+      } else {
+        downloadCsv(r.data.filename, r.data.csv)
+      }
     } catch (err) {
       failed(err)
     } finally {
@@ -619,6 +659,13 @@ export default function Zgloszenia({
           Wiadomość do uczestników
         </button>
         <button type="button" className={btnGhost} disabled={exporting} onClick={exportCsv}>Eksport CSV</button>
+        {state.extras.length > 0 && (
+          <ActionMenu label="Eksport dodatków" text="Eksport dodatków" triggerClass={btnGhost} disabled={exporting} testId="extras-export"
+            items={[
+              { key: 'csv', label: 'CSV', testId: 'extras-export-csv', onSelect: () => exportExtras('csv') },
+              { key: 'pdf', label: 'PDF', testId: 'extras-export-pdf', onSelect: () => exportExtras('pdf') },
+            ]} />
+        )}
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">

@@ -11,6 +11,7 @@ import { Link } from 'react-router-dom'
 // viewport, never to its row or card, so no `overflow` clips it; it sits under the trigger with the
 // right edges aligned, inside the viewport, and opens upwards when there is no room below.
 // Escape closes it, ArrowUp/ArrowDown/Home/End move between items, a click outside closes it.
+// `text` replaces the „⋯” with a labelled button (`triggerClass` styles it): B3's „Eksport dodatków”.
 // Tab (and Shift+Tab) closes it and moves on from the trigger, as the WAI-ARIA menu pattern asks:
 // the menu is portaled to the end of <body>, so the focus goes back to the trigger first and the
 // browser's own Tab then moves to the element after (or before) it.
@@ -30,9 +31,10 @@ const TRIGGER = {
 
 /**
  * @param {{ label: string, items: Array<{ key: string, label?: string, onSelect?: (trigger: HTMLElement) => void,
- *   to?: string, testId?: string, separator?: boolean }>, size?: 'md' | 'sm', itemWeight?: string, testId?: string }} p
+ *   to?: string, testId?: string, separator?: boolean }>, size?: 'md' | 'sm', itemWeight?: string, testId?: string,
+ *   text?: string, triggerClass?: string, disabled?: boolean }} p
  */
-export default function ActionMenu({ label, items, size = 'md', itemWeight = 'font-semibold', testId }) {
+export default function ActionMenu({ label, items, size = 'md', itemWeight = 'font-semibold', testId, text, triggerClass, disabled = false }) {
   const [open, setOpen] = useState(false)
   const [place, setPlace] = useState(null)
   const trigger = useRef(null)
@@ -116,11 +118,12 @@ export default function ActionMenu({ label, items, size = 'md', itemWeight = 'fo
   const itemClass = `${ITEM} ${itemWeight}`
   return (
     <>
-      <button type="button" ref={trigger} aria-label={label} aria-haspopup="menu" aria-expanded={open}
+      <button type="button" ref={trigger} aria-label={text ? undefined : label} aria-haspopup="menu" aria-expanded={open}
         aria-controls={open ? menuId : undefined} onClick={() => (open ? close() : setOpen(true))} data-testid={testId}
-        className={`${TRIGGER[size]} shrink-0 inline-flex items-center justify-center border font-mono font-bold text-base leading-none whitespace-nowrap ${
+        disabled={disabled}
+        className={text ? triggerClass : `${TRIGGER[size]} shrink-0 inline-flex items-center justify-center border font-mono font-bold text-base leading-none whitespace-nowrap ${
           open ? 'border-apex-yellow text-apex-yellow' : 'border-apex-border-bright text-apex-text-bright hover:border-apex-yellow-dim'}`}>
-        <span aria-hidden="true">⋯</span>
+        {text ?? <span aria-hidden="true">⋯</span>}
       </button>
       {open && createPortal(
         <div ref={menu} id={menuId} role="menu" aria-label={label}

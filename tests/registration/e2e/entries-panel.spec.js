@@ -7,6 +7,8 @@ import {
 } from '../helpers/orders.js'
 import { dpayMode, dpayRefunds, dpayReset, payMock } from '../helpers/dpayControl.js'
 import { messagesTo } from '../helpers/emailCapture.js'
+import { makeExtra } from '../helpers/cart.js'
+import { adult, orderGroupOk } from '../helpers/groups.js'
 
 // Plan 6 task 6a: the organizer's entries panel (B3) in Zgłoszenia: the tiles, the competition and
 // status chips, the search, the CSV and the ⋯ menu. O-50…O-53 in docs/registration/scenario-matrix.md.
@@ -189,6 +191,57 @@ test('O-51 „Eksport CSV” downloads the filtered rows with the BOM and the he
   // The chip narrows the export as it narrows the list.
   expect(lines).toHaveLength(4)
   expect(lines.slice(1).join('\n')).not.toContain('Wiśniewska')
+})
+
+test('O-66 extras column, chip filter and both exports', async ({ actors }) => {
+  const e = await createPublishedPaidEvent(owner, { competitions: [BIEG5], prices: { 'Bieg 5 km': 4000 } })
+  const [cat] = e.categoryIds
+  const shirt = await makeExtra(e, { name: 'Koszulka', price: 4500, variants: [['L', 10]] })
+  const total = 4000 + 2 * 4500
+  const paid = await orderGroupOk(e, [{
+    ...adult(cat, 'self', runnerEmail('dodatki-e2e'), { firstName: 'Łucja', lastName: 'Żółć' }),
+    extras: [{ variantId: shirt.variants.L.id, qty: 2 }],
+  }], { displayed: total })
+  await confirmOk(paid.orderId, (await attemptFor(paid.orderId, total)).txn, total)
+  await paidOrderOk(e, { categoryId: cat, people: [person(runnerEmail('bez-dodatkow'), { firstName: 'Adam', lastName: 'Bez' })] })
+
+  const page = await open(actors.owner, 1440, zgloszenia(e.eventId))
+  const table = page.getByTestId('registrations')
+  await expect(table.locator('thead th')).toContainText(['Dodatki'])
+  await expect(personRows(page)).toHaveCount(2)
+  await expect(personRows(page).filter({ hasText: 'Łucja Żółć' })).toContainText('Koszulka L ×2')
+
+  await page.getByTestId('extra-chips').getByRole('button', { name: 'Koszulka · 2' }).click()
+  await expect(personRows(page)).toHaveCount(1)
+  await expect(personRows(page)).toContainText('Łucja Żółć')
+
+  const exportAs = async (item) => {
+    await page.getByTestId('extras-export').click()
+    await expect(page.getByRole('menu')).toBeVisible()
+    const [download] = await Promise.all([page.waitForEvent('download'), page.getByTestId(item).click()])
+    return download
+  }
+  const csv = await exportAs('extras-export-csv')
+  expect(csv.suggestedFilename()).toMatch(new RegExp(`^dodatki-${e.slug}-\\d{4}-\\d\\d-\\d\\d\\.csv$`))
+  const text = (await fs.readFile(await csv.path())).toString('utf8')
+  expect(text).toContain('Żółć')
+  expect(text).not.toContain('Adam')
+
+  const pdf = await exportAs('extras-export-pdf')
+  expect(pdf.suggestedFilename()).toMatch(new RegExp(`^dodatki-${e.slug}-\\d{4}-\\d\\d-\\d\\d\\.pdf$`))
+  const bytes = await fs.readFile(await pdf.path())
+  expect(bytes.subarray(0, 4).toString('latin1')).toBe('%PDF')
+  await expect(page.getByTestId('entries-notice')).toHaveCount(0)
+
+  // At 390 px the button stays on one line and its menu inside the screen.
+  await page.setViewportSize({ width: 390, height: 900 })
+  const button = page.getByTestId('extras-export')
+  const fits = await button.evaluate((el) => el.scrollWidth <= el.clientWidth + 1 && el.getBoundingClientRect().height < 40)
+  expect(fits).toBe(true)
+  await button.click()
+  const box = await page.getByRole('menu').boundingBox()
+  expect(box.x).toBeGreaterThanOrEqual(0)
+  expect(box.x + box.width).toBeLessThanOrEqual(390)
 })
 
 test('O-52 a member sent to …/zgloszenia lands on Podstawy, has no „Zgłoszenia” tab and gets no rows', async ({ actors }) => {

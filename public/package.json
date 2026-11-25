@@ -14,9 +14,11 @@
     "test:e2e": "playwright test"
   },
   "dependencies": {
+    "@pdf-lib/fontkit": "^1.1.1",
     "@supabase/supabase-js": "^2.0.0",
     "barcode-detector": "3.2.2",
     "leaflet": "^1.9.4",
+    "pdf-lib": "^1.17.1",
     "qrcode.react": "^4.0.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
