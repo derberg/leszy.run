@@ -189,6 +189,7 @@ function dayBefore(isoDate) {
 }
 
 const TRANSFER_TIP = 'Zawodnik może przekazać opłacony pakiet innej osobie. Ta osoba dostaje link, wypełnia formularz zapisu (bez płatności) i dopiero wtedy pakiet przechodzi na nią. Link działa także po zamknięciu zapisów, do podanej daty. Rozliczenie pieniędzy między nimi nas nie dotyczy.'
+const RUNNER_CHANGE_TIP = 'Działa tylko, dopóki zapisy są otwarte. Po zamknięciu zapisów zmiany wprowadza organizator.'
 
 export default function Platnosci({ event, queue, saveState, readOnly, reload }) {
   const s = event.settings
@@ -282,7 +283,8 @@ export default function Platnosci({ event, queue, saveState, readOnly, reload })
           <label className="flex items-center gap-2.5 font-sans text-base text-apex-text-bright min-h-9">
             <input type="checkbox" className="w-[18px] h-[18px] accent-apex-yellow" checked={runnerChange}
               onChange={(e) => changeRunner(e.target.checked)} />
-            Zgadzam się, by zawodnik sam zmienił konkurencję
+            Zgadzam się, by zawodnik mógł sam zmienić konkurencję
+            <InfoTip label="Co oznacza zmiana konkurencji przez zawodnika" testId="runner-change-tip">{RUNNER_CHANGE_TIP}</InfoTip>
           </label>
         </fieldset>
       </section>

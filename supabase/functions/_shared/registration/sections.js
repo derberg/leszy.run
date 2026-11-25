@@ -440,7 +440,7 @@ const RETIRED_FORM_FIELDS = ['phone']
 function validateForm(value, ctx, c) {
   checkKeys(value, ['formFields', 'consents', 'legOrder', 'runnerDataEdit'], c)
   const out = {}
-  // „Zgadzam się, by zawodnik sam poprawił swoje dane” (Plan 8): false refuses the runner's own edit.
+  // „Zgadzam się, by zawodnik mógł sam zmienić swoje dane” (Plan 8): false refuses the runner's own edit.
   if ('runnerDataEdit' in value) {
     if (typeof value.runnerDataEdit === 'boolean') out.runner_data_edit = value.runnerDataEdit
     else c.fail('runnerDataEdit', 'Nieprawidłowa wartość.')
@@ -534,7 +534,7 @@ function validateTransfer(value, ctx, c, out) {
 function validatePayments(value, ctx, c) {
   checkKeys(value, ['paymentWindowHours', 'paymentWindowUntilClose', 'transferEnabled', 'transferUntil', 'runnerCompetitionChange'], c)
   const out = {}
-  // „Zgadzam się, by zawodnik sam zmienił konkurencję” (Plan 8): false refuses the runner's own change.
+  // „Zgadzam się, by zawodnik mógł sam zmienić konkurencję” (Plan 8): false refuses the runner's own change.
   if ('runnerCompetitionChange' in value) {
     if (typeof value.runnerCompetitionChange === 'boolean') out.runner_competition_change = value.runnerCompetitionChange
     else c.fail('runnerCompetitionChange', 'Nieprawidłowa wartość.')

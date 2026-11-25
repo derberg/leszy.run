@@ -143,13 +143,17 @@ test('P-43 Płatności renders A6; the payout checklist item opens it; the owner
       .select('runner_competition_change, runner_data_edit').eq('event_id', eventId).single()
     return data
   }
-  const runnerChange = page.getByTestId('runner-change-settings').getByRole('checkbox', { name: 'Zgadzam się, by zawodnik sam zmienił konkurencję' })
+  const runnerChange = page.getByTestId('runner-change-settings').getByRole('checkbox', { name: 'Zgadzam się, by zawodnik mógł sam zmienić konkurencję' })
   await expect(runnerChange).toBeChecked()
   await runnerChange.uncheck()
   await expect.poll(async () => (await runnerRow()).runner_competition_change, { timeout: 15_000 }).toBe(false)
   await runnerChange.check()
   await expect.poll(async () => (await runnerRow()).runner_competition_change, { timeout: 15_000 }).toBe(true)
   await ccShot(page, 'runner-change-settings', 'po-platnosci-checkbox-desktop.png')
+  await page.getByTestId('runner-change-settings').getByRole('button', { name: 'Co oznacza zmiana konkurencji przez zawodnika' }).click()
+  await expect(page.getByTestId('runner-change-tip')).toHaveText('Działa tylko, dopóki zapisy są otwarte. Po zamknięciu zapisów zmiany wprowadza organizator.')
+  await ccShot(page, 'runner-change-settings', 'po-platnosci-checkbox-tip-desktop.png')
+  await page.keyboard.press('Escape')
 
   // The same for the runner's own data fix, on Formularz.
   await page.goto(`${base}/formularz`)
@@ -160,6 +164,10 @@ test('P-43 Płatności renders A6; the payout checklist item opens it; the owner
   await dataEdit.check()
   await expect.poll(async () => (await runnerRow()).runner_data_edit, { timeout: 15_000 }).toBe(true)
   await ccShot(page, 'form-fields', 'po-formularz-checkbox-desktop.png')
+  await page.getByRole('button', { name: 'Co oznacza zmiana danych przez zawodnika' }).click()
+  await expect(page.getByTestId('runner-data-tip')).toHaveText('Działa tylko, dopóki zapisy są otwarte. Imienia, nazwiska i adresu e-mail zawodnik nie zmienia — to zawsze robi organizator.')
+  await ccShot(page, 'form-fields', 'po-formularz-checkbox-tip-desktop.png')
+  await page.keyboard.press('Escape')
   await page.goto(`${base}/platnosci`)
 
   // Another account, owner only.

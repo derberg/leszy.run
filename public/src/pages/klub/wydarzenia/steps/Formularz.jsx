@@ -34,6 +34,7 @@ const PRESETS = [
   { label: 'Start na własną odpowiedzialność', text: 'Startuję na własną odpowiedzialność. Oświadczam, że mój stan zdrowia pozwala na udział w zawodach i nie mam przeciwwskazań lekarskich. Wiem, że udział w wydarzeniu wiąże się z ryzykiem urazu lub pogorszenia zdrowia.' },
   { label: 'Zgoda opiekuna · dzieci', text: 'Jako opiekun zgadzam się na udział dziecka w zawodach.', minorsOnly: true },
 ]
+const RUNNER_DATA_TIP = 'Działa tylko, dopóki zapisy są otwarte. Imienia, nazwiska i adresu e-mail zawodnik nie zmienia — to zawsze robi organizator.'
 const MINORS_ONLY_TIP = 'Widzi ją tylko ktoś, kto zapisuje dziecko. Dorosły zapisujący siebie jej nie zobaczy.'
 
 let rowSeq = 0
@@ -177,7 +178,8 @@ export default function Formularz({ event, queue, saveState, readOnly, onSaved, 
             <label className="flex items-center gap-2.5 font-sans text-base text-apex-text-bright min-h-9">
               <input type="checkbox" className="w-[18px] h-[18px] accent-apex-yellow" data-testid="runner-data-edit"
                 checked={dataEdit} onChange={(e) => apply({ dataEdit: e.target.checked })} />
-              Zgadzam się, by zawodnik sam poprawił swoje dane
+              Zgadzam się, by zawodnik mógł sam zmienić swoje dane
+              <InfoTip label="Co oznacza zmiana danych przez zawodnika" testId="runner-data-tip">{RUNNER_DATA_TIP}</InfoTip>
             </label>
           </div>
           <div className="p-3.5 flex items-center gap-2">

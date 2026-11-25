@@ -7,6 +7,7 @@ import { admin, resetThrottle, sessionFor } from '../helpers/stack.js'
 import { callFn, createPublishedPaidEvent } from '../helpers/registrationFixtures.js'
 import { dpayReset, payMock } from '../helpers/dpayControl.js'
 import { DPAY_MOCK_PORT } from '../helpers/dpayMock.js'
+import { enableTransfers } from '../helpers/transfers.js'
 import { one, orderOf, orderOk, person, rows, runnerEmail, setSettings } from '../helpers/orders.js'
 
 // Runner self-service, task 14 (RS-17 in docs/registration/scenario-matrix.md): on „Moje zapisy”
@@ -184,5 +185,46 @@ test('RS-17 the club unticks both switches: neither button is shown', async ({ b
   await toZapisy(page)
   await expect(personRow(page, name)).toBeVisible()
   await expect(personRow(page, name).getByTestId('self-service')).toHaveCount(0)
+  await context.close()
+})
+
+// Review screenshots only (written when the review directory exists): where the runner finds the actions.
+// The red outline is injected here and never ships in the app.
+const OUTLINE = '{ outline: 3px solid #e00 !important; outline-offset: 3px; }'
+async function outlined(page, testIds) {
+  await page.addStyleTag({ content: testIds.map((t) => `[data-testid="${t}"] ${OUTLINE}`).join('\n') })
+}
+
+test('RS-18 where the runner finds Zmień konkurencję, Popraw dane and Przekaż pakiet (screenshots)', async ({ browser }) => {
+  await resetThrottle()
+  const e = await createPublishedPaidEvent(owner, { name: `Bieg Leśny ${crypto.randomBytes(3).toString('hex')}`, competitions: COMPETITIONS, prices: PRICES })
+  await enableTransfers(e)
+  const email = runnerEmail('gdzie')
+  const name = 'Joanna Biegaczka'
+  await paidEntry(e, email, { firstName: 'Joanna', lastName: 'Biegaczka' })
+  const { context, page } = await runnerPage(browser, email)
+  const decline = () => page.getByRole('button', { name: 'Odrzuć', exact: true }).click({ timeout: 3000 }).catch(() => {})
+
+  await page.goto('/profil/zapisy'); await decline()
+  const row = personRow(page, name)
+  await expect(row.getByTestId('self-change')).toBeVisible()
+  const transferOnZapisy = await page.getByTestId('transfer-action').count()
+  console.log(`ZAPISY transfer-action count: ${transferOnZapisy}`)
+  await outlined(page, ['self-change', 'self-edit'])
+  await shot(page, 'po-zapisy-where-desktop.png')
+  await shot(page, 'po-zapisy-all-actions-desktop.png')
+  await page.setViewportSize(PHONE)
+  await shot(page, 'po-zapisy-where-390.png')
+
+  await page.setViewportSize(DESKTOP)
+  await page.goto(`/events/${e.slug}/zapisano`); await decline()
+  await expect(page.getByTestId('self-change')).toBeVisible()
+  await expect(page.getByTestId('transfer-action')).toBeVisible()
+  await outlined(page, ['self-change', 'self-edit', 'transfer-action'])
+  await shot(page, 'po-ra5-all-actions-desktop.png')
+  await shot(page, 'po-ra5-where-desktop.png')
+  await page.setViewportSize(PHONE)
+  await shot(page, 'po-ra5-all-actions-390.png')
+  await shot(page, 'po-ra5-where-390.png')
   await context.close()
 })
