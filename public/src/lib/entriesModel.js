@@ -206,6 +206,16 @@ export function partnerChips(_rows, partners = []) {
 }
 
 /**
+ * The „Dodatki” chips: „Wszystkie” and one per extra with the server's unit count.
+ * @param {{ id: string, name: string, count?: number }[]} [extras]
+ * @returns {{ id: string|null, label: string }[]}
+ */
+export function extraChips(extras = []) {
+  if (!extras?.length) return []
+  return [{ id: null, label: 'Wszystkie' }, ...extras.map((e) => ({ id: e.id, label: `${e.name} · ${e.count ?? 0}` }))]
+}
+
+/**
  * The competitions TransferDialog offers: the row's `transferTo` (list-event-registrations: the
  * same price in its frozen tier), in the event's order. Without that list, its own competition. The
  * own competition is offered even when it is hidden, which `competitions` (the visible ones) leaves

@@ -3,11 +3,12 @@ import { formatPln } from '@registration/money.js'
 import { statusLabel } from '@registration/entries.js'
 import { warsawToday } from '@registration/dates.js'
 import { missingDetailsText } from '@registration/memberDetails.js'
+import { extrasText } from '@registration/extrasList.js'
 import { callFunction } from '../../../lib/auth.js'
 import { downloadCsv } from '../../../lib/csvDownload.js'
 import {
   AWAITING_CONSENT, competitionChips, entryActions, entryCounts, filterEntries, listedTile, noPlacesForAwaiting, offlineIncomeNote,
-  otherIndividualCompetition, partnerChips, statusChips,
+  extraChips, otherIndividualCompetition, partnerChips, statusChips,
 } from '../../../lib/entriesModel.js'
 import { teamStatusLabel } from '../../../lib/teamPage.js'
 import { btnGhost, btnPrimary } from '../settingsUi.js'
@@ -283,8 +284,26 @@ function PersonCard({ r, ctx, testId = 'registration-card' }) {
       {ctx.hasPartners && r.partnerName && (
         <span className="font-mono text-xs text-apex-muted [overflow-wrap:anywhere]" data-testid="registration-partner">PARTNER: {r.partnerName}</span>
       )}
+      {ctx.hasExtras && r.extras?.length > 0 && (
+        <span className="font-mono text-xs text-apex-muted [overflow-wrap:anywhere]" data-testid="registration-extras">
+          DODATKI: <ExtrasText extras={r.extras} />
+        </span>
+      )}
     </li>
   )
+}
+
+// The ordered extras of one entry, in the event's order; a fully refunded one is muted.
+function ExtrasText({ extras }) {
+  return (extras ?? []).map((e, i) => {
+    const text = extrasText([e])
+    return (
+      <Fragment key={e.lineId ?? i}>
+        {i > 0 && ', '}
+        <span className={text.endsWith('(zwrócono)') ? 'text-apex-muted' : undefined}>{text}</span>
+      </Fragment>
+    )
+  })
 }
 
 function TeamCard({ item, ctx, open, onToggle, toggles }) {
@@ -352,6 +371,11 @@ function PersonTableRow({ r, ctx, member = false }) {
           {r.partnerName ?? '—'}
         </td>
       )}
+      {ctx.hasExtras && (
+        <td className={`${td} min-w-[140px] ${r.extras?.length ? 'text-apex-text-bright' : 'text-apex-muted'}`} data-testid="registration-extras">
+          {r.extras?.length ? <ExtrasText extras={r.extras} /> : '—'}
+        </td>
+      )}
       <td className="px-3 py-2 text-right">{rowMenu(r, ctx)}</td>
     </tr>
   )
@@ -381,6 +405,7 @@ function TeamTableRows({ item, ctx, open, onToggle, toggles }) {
         </td>
         <td className={`${td} font-mono whitespace-nowrap text-apex-text-bright`}>{t.fee > 0 ? formatPln(t.fee) : '—'}</td>
         {ctx.hasPartners && <td className={td} />}
+        {ctx.hasExtras && <td className={td} />}
         <td className="px-3 py-2 text-right">
           {captain && rowMenu(captain, ctx, { isTeamRow: true, name: t.name, squadHref: ctx.squadHref(t.id) })}
         </td>
@@ -390,7 +415,7 @@ function TeamTableRows({ item, ctx, open, onToggle, toggles }) {
   )
 }
 
-const EMPTY = { status: 'loading', rows: [], teams: [], competitions: [], event: null, partners: [], dpayFee: 0, offline: null }
+const EMPTY = { status: 'loading', rows: [], teams: [], competitions: [], event: null, partners: [], extras: [], dpayFee: 0, offline: null }
 
 export default function Zgloszenia({
   eventId, clubName = null, contactEmail = null, formFields = null, ageGroups = [], reckoning = 'race_day', charity = false,
@@ -399,6 +424,7 @@ export default function Zgloszenia({
   const [categoryId, setCategoryId] = useState(null)
   const [statusKey, setStatusKey] = useState(null)
   const [partnerId, setPartnerId] = useState(null)
+  const [extraId, setExtraId] = useState(null)
   const [q, setQ] = useState('')
   const [openTeams, setOpenTeams] = useState(() => new Set())
   const [notice, setNotice] = useState(null)
@@ -414,7 +440,7 @@ export default function Zgloszenia({
       const r = await callFunction('list-event-registrations', { eventId })
       setState({
         status: 'ok', rows: r.data ?? [], teams: r.teams ?? [], competitions: r.competitions ?? [], event: r.event ?? null,
-        partners: r.partners ?? [], dpayFee: r.counts?.dpayFee ?? 0,
+        partners: r.partners ?? [], extras: r.extras ?? [], dpayFee: r.counts?.dpayFee ?? 0,
         offline: { offlineTotal: r.counts?.offlineTotal ?? 0, offlineOrders: r.counts?.offlineOrders ?? 0 },
       })
     } catch {
@@ -441,7 +467,9 @@ export default function Zgloszenia({
   const byId = new Map(state.rows.map((r) => [r.id, r]))
   // A partner deleted meanwhile is no filter any more.
   const partnerFilter = partnerId && state.partners.some((p) => p.id === partnerId) ? partnerId : undefined
-  const filter = { categoryId: categoryId ?? undefined, statusKey: statusKey ?? undefined, partnerId: partnerFilter, q }
+  // An extra deleted meanwhile is no filter either.
+  const extraFilter = extraId && state.extras.some((x) => x.id === extraId) ? extraId : undefined
+  const filter = { categoryId: categoryId ?? undefined, statusKey: statusKey ?? undefined, partnerId: partnerFilter, extraId: extraFilter, q }
   const consentView = statusKey === AWAITING_CONSENT
   const items = listItems(filterEntries(state.rows, filter), state.teams)
   const isOpen = (id) => consentView || openTeams.has(id)
@@ -531,6 +559,7 @@ export default function Zgloszenia({
     onAction,
     rowOf: (id) => byId.get(id) ?? null,
     hasPartners: state.partners.length > 0,
+    hasExtras: state.extras.length > 0,
     squadHref: (teamId) => (event.slug ? `/events/${event.slug}/druzyna/${teamId}` : null),
   }
   const blocked = noPlacesForAwaiting(counts) && counts.awaiting > 0
@@ -611,6 +640,10 @@ export default function Zgloszenia({
         <Chips testId="partner-chips" label="Partnerzy" chips={partnerChips(state.rows, state.partners)}
           selected={partnerFilter ?? null} onPick={setPartnerId} />
       )}
+      {state.extras.length > 0 && (
+        <Chips testId="extra-chips" label="Dodatki" chips={extraChips(state.extras)}
+          selected={extraFilter ?? null} onPick={setExtraId} />
+      )}
       <div className="max-w-[360px]">
         <label htmlFor={searchId} className="sr-only">Szukaj</label>
         <input id={searchId} type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Szukaj"
@@ -641,6 +674,7 @@ export default function Zgloszenia({
                   <th className="px-3 py-2 font-normal">Status</th>
                   <th className="px-3 py-2 font-normal">Wpłata</th>
                   {state.partners.length > 0 && <th className="px-3 py-2 font-normal">Partner</th>}
+                  {state.extras.length > 0 && <th className="px-3 py-2 font-normal">Dodatki</th>}
                   <th className="px-3 py-2 font-normal"><span className="sr-only">Akcje</span></th>
                 </tr>
               </thead>
