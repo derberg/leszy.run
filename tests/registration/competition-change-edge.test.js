@@ -474,3 +474,43 @@ test('CC-68 after an organizer transfer, a cheaper move refunds the original pay
   assert.ok(!holderMail.includes(e.email), holderMail)
   assert.match(toPayer[0].text, /Zwrot różnicy: 20,00 zł/)
 })
+
+test('CC-69 after a transfer, a cheaper move that refunds only the holder\'s own surcharge: the original buyer hears nothing, the surcharge payer gets the notice with the refund (L-1)', async () => {
+  const event = await paidEvent()
+  const [c9, , c21] = event.categoryIds
+  const e = await paidEntry(event, { email: runnerEmail('first-buyer') })
+  const holderEmail = runnerEmail('holder')
+  const t = await organizerTransfer(event, e.registrationId, ownerId, { email: holderEmail, categoryId: c9, over: { firstName: 'Zofia', lastName: 'Nowa' } })
+  assert.equal(t.error, null, t.error?.message)
+  const newReg = t.data.registrationId
+  const { error } = await db().from('registrations').update({ consent_state: 'accepted' }).eq('id', newReg)
+  if (error) throw error
+
+  // Dearer: the surcharge bills the holder, never the first buyer; the holder pays it.
+  const up = await change(owner, newReg, c21, 2000)
+  assert.equal(up.status, 200, JSON.stringify(up.body))
+  const surcharge = await one('orders', { id: up.body.data.orderId })
+  assert.equal(surcharge.buyer_email, holderEmail)
+  const { transactionId } = await registerTransaction(nodeDpay(), { orderId: surcharge.id, grosze: surcharge.total })
+  await attemptFor(surcharge.id, surcharge.total, transactionId)
+  await dpayMode({ dropIpn: true })
+  await payMock(transactionId, 'paid')
+  await dpayMode({ dropIpn: false })
+  assert.equal((await confirmOk(surcharge.id, transactionId, surcharge.total)).outcome, 'surcharge_moved')
+  assert.equal((await reg(newReg)).category_id, c21)
+  await sleep(400)
+  const firstBuyerBefore = (await messagesTo(e.email)).length
+
+  // Back to 9 km: the 20 zł comes from the surcharge line, the newest paid one, the holder's.
+  const down = await change(owner, newReg, c9, -2000)
+  assert.equal(down.status, 200, JSON.stringify(down.body))
+  assert.equal(down.body.data.status, 'accepted')
+  const [refundId] = down.body.data.refundIds
+  assert.equal((await one('refunds', { id: refundId })).order_id, surcharge.id)
+  const toHolder = await waitForMail(holderEmail, 1, { subject: 'Zmieniono konkurencję' })
+  assert.ok(toHolder.some((m) => /Zwrot różnicy: 20,00 zł/.test(m.text)), JSON.stringify(toHolder.map((m) => m.text)))
+  await sleep(600)
+  const late = (await messagesTo(e.email)).slice(firstBuyerBefore)
+  assert.deepEqual(late.map((m) => m.subject), [], 'the first buyer is told nothing of a move whose money is not theirs')
+})
+

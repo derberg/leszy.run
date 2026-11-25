@@ -16,6 +16,7 @@ import { changeKind, changeQuote, PAYING_CLOSES_BEFORE_MS } from './competitionC
 import { claimRefundRequest, executeRefund, raiseAlert } from './orderFlow.js'
 import { refundsInFlight } from './refundInFlight.js'
 import { sendCompetitionChanged, sendSurchargeEmail } from './competitionChangeMail.js'
+import { ORGANIZER_AGREEMENT_VERSION } from '../organizer.js'
 
 async function single(query) {
   const { data, error } = await query
@@ -203,6 +204,8 @@ const callChange = (admin, args) => admin.rpc('change_competition', {
   p_registration_id: args.registrationId, p_to: args.categoryId, p_expected_difference: args.expectedDifference,
   p_actor: args.actor ?? null, p_actor_kind: args.actorKind, p_request_key: args.requestKey,
   p_offline_ack: args.offlineAck === true,
+  // A runner's change needs the club's acceptance of this version (the RPC checks it, L-2).
+  p_agreement_version: ORGANIZER_AGREEMENT_VERSION,
 })
 
 // A part's stored dpay state when this call did not execute it (a replay, or claimed elsewhere).
@@ -364,11 +367,13 @@ export async function runChange(admin, cfg, args, { log = async () => {} } = {})
     }
     const accepted = results.filter((r) => r.status === 'accepted')
     const claimed = await claimNotified(admin, accepted.map((r) => r.refundId))
-    acceptedGrosze = accepted.filter((r) => claimed.includes(r.refundId)).reduce((n, r) => n + r.grosze, 0)
+    const counted = accepted.filter((r) => claimed.includes(r.refundId))
+    acceptedGrosze = counted.reduce((n, r) => n + r.grosze, 0)
     // The change notice once: on the first call, or on a replay that newly settled a refund.
     if (!out.replay || claimed.length) {
       const mail = await sendCompetitionChanged(admin, {
         registrationId: reg.id, fromCategoryId, toCategoryId: args.categoryId, refundGrosze: acceptedGrosze > 0 ? acceptedGrosze : null,
+        refundIds: counted.map((r) => r.refundId),
       })
       emailed = mail.sent === true
       if (!emailed) {

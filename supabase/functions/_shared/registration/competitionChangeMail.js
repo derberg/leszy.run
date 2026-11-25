@@ -110,19 +110,27 @@ export function sendSurchargeRefunded(admin, orderId, reason) {
 }
 
 // The change notice, throwing. Recipients: the entry's own address (a child's: the guardian's),
-// the payer of the entry's order when a refund goes back to them and, for a settled surcharge, its buyer; deduplicated.
-async function deliverChange(admin, { registrationId, fromCategoryId, toCategoryId, refundGrosze = null, surchargeBuyer = null }) {
+// the buyer of every order a refund of this change actually went back to and, for a settled
+// surcharge, its buyer; deduplicated.
+// The money recipients come from the refunds themselves (`refundIds` → refunds.order_id → that
+// order's buyer), never from the entry's original order (security review L-1): after a package
+// transfer that order's buyer no longer holds the entry, and a cheaper move refunds the newest
+// paid lines first, which may be a surcharge somebody else paid. So the original buyer hears of
+// the move only when part of the difference goes back to their own order.
+async function deliverChange(admin, { registrationId, fromCategoryId, toCategoryId, refundGrosze = null, refundIds = [], surchargeBuyer = null }) {
   const reg = await single(admin.from('registrations').select(REG_COLUMNS).eq('id', registrationId).maybeSingle())
   if (!reg) return false
-  // The entry's original payer hears of it only when the difference goes back to them: after a
-  // package transfer that order's buyer is not the holder, and a surcharge bills the holder.
-  const paying = refundGrosze > 0 && reg.order_id
-    ? await single(admin.from('orders').select('buyer_email').eq('id', reg.order_id).maybeSingle())
-    : null
+  const ids = refundGrosze > 0 ? unique(refundIds ?? []) : []
+  const refundOrders = ids.length
+    ? unique((await single(admin.from('refunds').select('order_id').in('id', ids))).map((r) => r.order_id))
+    : []
+  const payers = refundOrders.length
+    ? await single(admin.from('orders').select('buyer_email').in('id', refundOrders))
+    : []
   const settings = await settingsOf(admin, reg.event_id)
   if (!settings) return false
   const names = await competitionNames(admin, [fromCategoryId, toCategoryId])
-  const addresses = unique([consentRecipient(reg), paying?.buyer_email, surchargeBuyer].map(lower))
+  const addresses = unique([consentRecipient(reg), ...payers.map((o) => o.buyer_email), surchargeBuyer].map(lower))
   return deliver(admin, settings, addresses, competitionChangedEmail({
     eventName: settings.name, from: names.get(fromCategoryId) ?? '', to: names.get(toCategoryId) ?? '', refundGrosze,
   }))
@@ -130,7 +138,8 @@ async function deliverChange(admin, { registrationId, fromCategoryId, toCategory
 
 /**
  * „Zmieniono konkurencję” to the runner and the payer (one address once). `refundGrosze` adds the
- * line about the difference when a cheaper move was refunded. → { sent, error }
+ * line about the difference when a cheaper move was refunded; `refundIds` are the refunds that
+ * line counts, whose orders' buyers get the notice too. → { sent, error }
  */
 export function sendCompetitionChanged(admin, args) {
   return outcome(() => deliverChange(admin, args))

@@ -186,7 +186,7 @@ test('CC-54 a surcharge paid into a full competition is refunded with „Dopłat
   assert.equal((await one('registrations', { id: a.reg.id })).category_id, c9, 'the entry stays')
 })
 
-test('CC-55 a cheaper move: sendCompetitionChanged names the refund and mails the payer too', async () => {
+test('CC-55 a cheaper move: sendCompetitionChanged names the refund; the entry\'s order buyer is mailed only when a refund went to their order', async () => {
   const { a, c9, c21 } = await withSurcharge()
   // Move the (still 9 km) entry nowhere cheaper in this fixture: use the helper directly.
   const payer = runnerEmail('orig-payer')
@@ -195,6 +195,7 @@ test('CC-55 a cheaper move: sendCompetitionChanged names the refund and mails th
   assert.deepEqual(res, { sent: true, error: null })
   const own = (await mailTo(a.email)).find((m) => m.subject.startsWith('Zmieniono konkurencję'))
   assert.match(own.text, /Zwrot różnicy: 20,00 zł trafi na konto, z którego zapłacono\./)
-  assert.ok((await mailTo(payer)).some((m) => m.subject.startsWith('Zmieniono konkurencję')))
   assert.ok(!own.text.includes(payer))
+  await sleep(400)
+  assert.equal((await messagesTo(payer)).length, 0, 'no refund names the order: its buyer hears nothing (L-1)')
 })
