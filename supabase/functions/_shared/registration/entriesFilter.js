@@ -21,14 +21,15 @@ function matches(row, needle) {
 
 /**
  * @param {object[]} rows
- * @param {{ categoryId?: string, statusKey?: string, q?: string, partnerId?: string }} [filters]
+ * @param {{ categoryId?: string, statusKey?: string, q?: string, partnerId?: string, extraId?: string }} [filters]
  *   `q` looks in the name, e-mail, team name and bib, ignoring case and diacritics
  */
-export function filterEntries(rows, { categoryId, statusKey, q, partnerId } = {}) {
+export function filterEntries(rows, { categoryId, statusKey, q, partnerId, extraId } = {}) {
   const needle = fold(q)
   return rows.filter((row) => {
     if (categoryId && row.categoryId !== categoryId) return false
     if (partnerId && row.partnerId !== partnerId) return false
+    if (extraId && !(row.extras ?? []).some((e) => e.extraId === extraId)) return false
     if (statusKey === AWAITING_CONSENT) {
       if (!awaitingConsent(row)) return false
     } else if (statusKey && row.statusKey !== statusKey) return false
@@ -36,7 +37,7 @@ export function filterEntries(rows, { categoryId, statusKey, q, partnerId } = {}
   })
 }
 
-const SUMMARY_KEYS = ['categoryId', 'statusKey', 'partnerId']
+const SUMMARY_KEYS = ['categoryId', 'statusKey', 'partnerId', 'extraId']
 
 /**
  * What the CSV export's audit row keeps of the filter: which filter keys were used and whether

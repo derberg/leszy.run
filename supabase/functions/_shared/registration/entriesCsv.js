@@ -4,6 +4,7 @@ import { warsawToday } from './dates.js'
 import { formatDpayValue } from './money.js'
 import { statusLabel } from './entries.js'
 import { missingDetailsText } from './memberDetails.js'
+import { extrasText } from './extrasList.js'
 
 const LIVE = new Set(['confirmed', 'pending_payment'])
 const CONSENT = { awaiting: 'czeka na zgodę', office: 'podpisany w biurze' }
@@ -80,6 +81,7 @@ const COLUMNS = [
   // the payer pays (organizerEntries.js `surcharge`).
   ['Dopłata czeka (zł)', (r) => zloty(r.surcharge?.grosze ?? null)],
   ['Zmiana konkurencji na', (r) => r.surcharge?.toCompetition],
+  ['Dodatki', (r) => extrasText(r.extras)],
 ]
 
 function toCsv(columns, rows) {
@@ -108,4 +110,33 @@ const VOUCHER_COLUMNS = [
 /** @param {{ code, percent, used, maxUses, validUntil, partner, note }[]} vouchers organizer-vouchers' `list` */
 export function vouchersToCsv(vouchers) {
   return toCsv(VOUCHER_COLUMNS, vouchers)
+}
+
+const EXTRAS_COLUMNS = [
+  ['Nr', (i) => i.bib],
+  ['Imię', (i) => i.firstName],
+  ['Nazwisko', (i) => i.lastName],
+  ['Konkurencja', (i) => i.competition],
+  ['Drużyna', (i) => i.team?.name],
+  ['Dodatek', (i) => i.extra],
+  ['Wariant', (i) => i.variant],
+  ['Ilość', (i) => i.qty],
+  ['Wpłata (zł)', (i) => zloty(i.paid)],
+  ['E-mail', (i) => i.email],
+  ['Telefon', (i) => i.phone, { phone: true }],
+  ['Status', (i) => i.status],
+]
+
+/** @param {{ handout: object[], awaiting: object[], totals: object[] }} list `extrasList()`'s answer */
+export function extrasToCsv(list) {
+  const items = [
+    ...list.handout.map((i) => ({ ...i, status: 'do wydania' })),
+    ...list.awaiting.map((i) => ({ ...i, status: 'czeka na wpłatę' })),
+  ]
+  const totals = toCsv([
+    ['Dodatek', (t) => t.extra],
+    ['Wariant', (t) => t.variant],
+    ['Do wydania', (t) => t.count],
+  ], list.totals).slice(1)
+  return `${toCsv(EXTRAS_COLUMNS, items)}\r\n\r\n${totals}`
 }

@@ -328,6 +328,18 @@ describe('partnerChips (B3 „Partnerzy”)', () => {
   it('none without partners', () => assert.deepEqual(partnerChips([row()], []), []))
 })
 
+describe('filterEntries by extra', () => {
+  const rows = [
+    row({ id: 'a', extras: [{ extraId: 'e1' }, { extraId: 'e2' }] }),
+    row({ id: 'b', extras: [{ extraId: 'e2' }] }),
+    row({ id: 'c' }),
+  ]
+  it('extraId filters rows holding that extra', () => {
+    assert.deepEqual(filterEntries(rows, { extraId: 'e1' }).map((r) => r.id), ['a'])
+    assert.deepEqual(filterEntries(rows, { extraId: 'e2' }).map((r) => r.id), ['a', 'b'])
+  })
+})
+
 describe('transferTargets (TransferDialog)', () => {
   const competitions = [
     { id: 'c1', name: 'Bieg 9 km', kind: 'individual' }, { id: 'c3', name: 'NW 9 km', kind: 'individual' }, { id: 'c2', name: 'Sztafeta', kind: 'team' },
