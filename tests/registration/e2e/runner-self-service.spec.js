@@ -78,6 +78,16 @@ async function toZapisy(page) {
 }
 
 const personRow = (page, name) => page.getByTestId('zapisy-person').filter({ hasText: name })
+const menuLabel = (name) => `Zarządzaj zgłoszeniem: ${name}`
+const trigger = (scope, name) => scope.getByRole('button', { name: menuLabel(name), exact: true })
+
+/** Opens the person's „⋯” menu (it is portalled to the page, not inside the row) and returns it. */
+async function openMenu(page, scope, name) {
+  await trigger(scope, name).click()
+  const menu = page.getByRole('menu', { name: menuLabel(name) })
+  await expect(menu).toBeVisible()
+  return menu
+}
 
 async function noOverflow(page) {
   const wide = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth)
@@ -96,17 +106,20 @@ test('RS-17 the runner moves to a dearer competition and pays the surcharge; the
   await toZapisy(page)
   const row = personRow(page, name)
   await expect(row.getByTestId('zapisy-competition')).toHaveText(' · Bieg 5 km')
-  await expect(row.getByRole('button', { name: `Zmień konkurencję — ${name}` })).toBeVisible()
-  await expect(row.getByRole('button', { name: `Popraw dane — ${name}` })).toBeVisible()
+  let menu = await openMenu(page, row, name)
+  await expect(menu.getByRole('menuitem')).toHaveText(['Zmień konkurencję', 'Popraw dane'])
   await shot(page, 'po-zapisy-actions-desktop.png')
+  await page.keyboard.press('Escape')
+  await expect(menu).toHaveCount(0)
   await page.setViewportSize(PHONE)
-  for (const b of await row.getByTestId('self-service').getByRole('button').all()) {
-    expect((await b.boundingBox()).height, 'a button label stays on one line').toBeLessThan(30)
+  menu = await openMenu(page, row, name)
+  for (const b of await menu.getByRole('menuitem').all()) {
+    expect((await b.boundingBox()).height, 'a menu item stays on one line').toBeLessThan(48)
   }
   await noOverflow(page)
   await shot(page, 'po-zapisy-actions-390.png')
 
-  await row.getByTestId('self-change').click()
+  await menu.getByRole('menuitem', { name: 'Zmień konkurencję' }).click()
   const dialog = page.getByRole('dialog', { name: 'Zmień konkurencję' })
   const target = dialog.getByTestId('change-target').filter({ hasText: 'Bieg 10 km' })
   await expect(target).toContainText('60,00 zł · dopłata 20,00 zł — zapłata online')
@@ -126,7 +139,9 @@ test('RS-17 the runner moves to a dearer competition and pays the surcharge; the
   await toZapisy(page)
   const waiting = personRow(page, name).getByTestId('self-surcharge')
   await expect(waiting).toHaveText('Dopłata czeka: 20,00 zł (Bieg 10 km) — Zapłać')
-  await expect(personRow(page, name).getByTestId('self-change')).toHaveCount(0)
+  // Only „Popraw dane” is left in the menu.
+  await expect((await openMenu(page, personRow(page, name), name)).getByRole('menuitem')).toHaveText(['Popraw dane'])
+  await page.keyboard.press('Escape')
   await noOverflow(page)
   await shot(page, 'po-zapisy-surcharge-390.png')
   await waiting.getByRole('link', { name: 'Zapłać' }).click()
@@ -154,7 +169,7 @@ test('RS-17 the runner fixes their birth date with „Popraw dane”; the names 
   await page.setViewportSize(PHONE)
 
   await toZapisy(page)
-  await personRow(page, name).getByTestId('self-edit').click()
+  await (await openMenu(page, personRow(page, name), name)).getByRole('menuitem', { name: 'Popraw dane' }).click()
   const dialog = page.getByRole('dialog', { name: 'Popraw dane' })
   const birth = dialog.getByLabel('Data urodzenia')
   await expect(birth).toHaveValue((await one('registrations', { id: entry.registrationId })).birth_date)
@@ -180,10 +195,11 @@ test('RS-17 the club unticks both switches: neither button is shown', async ({ b
   const { context, page } = await runnerPage(browser, email)
 
   await toZapisy(page)
-  await expect(personRow(page, name).getByTestId('self-change')).toBeVisible()
+  await expect(trigger(personRow(page, name), name)).toBeVisible()
   await setSettings(e.eventId, { runner_competition_change: false, runner_data_edit: false })
   await toZapisy(page)
   await expect(personRow(page, name)).toBeVisible()
+  await expect(trigger(personRow(page, name), name)).toHaveCount(0)
   await expect(personRow(page, name).getByTestId('self-service')).toHaveCount(0)
   await context.close()
 })
@@ -192,28 +208,37 @@ test('RS-17 the club unticks both switches: neither button is shown', async ({ b
 // The red outline is injected here and never ships in the app.
 const OUTLINE = '{ outline: 3px solid #e00 !important; outline-offset: 3px; }'
 async function outlined(page, testIds) {
-  await page.addStyleTag({ content: testIds.map((t) => `[data-testid="${t}"] ${OUTLINE}`).join('\n') })
+  return page.addStyleTag({ content: testIds.map((t) => `[data-testid="${t}"] ${OUTLINE}`).join('\n') })
 }
 
-/** The three actions sit in one container, on one line on a desktop and one per line on a phone, right-aligned. */
-async function oneActionRow(page, row, { phone }) {
-  const box = row.getByTestId('entry-actions')
-  await expect(box).toHaveCount(1)
-  await expect(box.locator(':scope > *')).toHaveText(['Zmień konkurencję →', 'Popraw dane →', 'Przekaż pakiet →'])
-  const rects = await Promise.all(['self-change', 'self-edit', 'transfer-action'].map((t) => box.getByTestId(t).boundingBox()))
-  for (const r of rects) expect(r.height, 'an action stays on one line').toBeLessThan(30)
-  const container = await box.boundingBox()
-  if (phone) {
-    expect(rects[1].y).toBeGreaterThan(rects[0].y)
-    expect(rects[2].y).toBeGreaterThan(rects[1].y)
-    for (const r of rects) expect(Math.abs(r.x + r.width - (container.x + container.width)), 'right-aligned').toBeLessThan(2)
-  } else {
-    expect(new Set(rects.map((r) => Math.round(r.y))).size, 'one line').toBe(1)
-    expect(Math.abs(rects[2].x + rects[2].width - (container.x + container.width)), 'right-aligned').toBeLessThan(2)
+/**
+ * The person's „⋯” sits at the right end of the person's own line (no extra row) and opens a menu of
+ * the three actions, in order, each on one line, inside the viewport and right-aligned to the trigger.
+ */
+async function menuOnTheLine(page, scope, name, nameLocator) {
+  const t = trigger(scope, name)
+  await expect(t).toHaveCount(1)
+  await expect(t).toHaveAttribute('aria-haspopup', 'menu')
+  await expect(t).toHaveAttribute('aria-expanded', 'false')
+  const [tb, nb, sb] = await Promise.all([t.boundingBox(), nameLocator.boundingBox(), scope.boundingBox()])
+  expect(Math.abs((tb.y + tb.height / 2) - (nb.y + nb.height / 2)), 'the trigger is on the name line').toBeLessThan(12)
+  expect(sb.x + sb.width - (tb.x + tb.width), 'the trigger ends the line').toBeLessThan(20)
+  const menu = await openMenu(page, scope, name)
+  await expect(t).toHaveAttribute('aria-expanded', 'true')
+  await expect(menu.getByRole('menuitem')).toHaveText(['Zmień konkurencję', 'Popraw dane', 'Przekaż pakiet'])
+  const mb = await menu.boundingBox()
+  const vw = page.viewportSize().width
+  expect(mb.x, 'inside the viewport').toBeGreaterThanOrEqual(0)
+  expect(mb.x + mb.width, 'inside the viewport').toBeLessThanOrEqual(vw)
+  expect(Math.abs(mb.x + mb.width - (tb.x + tb.width)), 'right-aligned to the trigger').toBeLessThan(2)
+  for (const item of await menu.getByRole('menuitem').all()) {
+    expect((await item.boundingBox()).height, 'an item stays on one line').toBeLessThan(48)
   }
+  await noOverflow(page)
+  return menu
 }
 
-test('RS-18 one action row per runner on Moje zapisy and RA5: Zmień konkurencję, Popraw dane, Przekaż pakiet (screenshots)', async ({ browser }) => {
+test('RS-18 one ⋯ menu per runner on Moje zapisy and RA5: Zmień konkurencję, Popraw dane, Przekaż pakiet (screenshots)', async ({ browser }) => {
   await resetThrottle()
   const e = await createPublishedPaidEvent(owner, { name: `Bieg Leśny ${crypto.randomBytes(3).toString('hex')}`, competitions: COMPETITIONS, prices: PRICES })
   await enableTransfers(e)
@@ -222,34 +247,49 @@ test('RS-18 one action row per runner on Moje zapisy and RA5: Zmień konkurencj�
   const entry = await paidEntry(e, email, { firstName: 'Joanna', lastName: 'Biegaczka' })
   const { context, page } = await runnerPage(browser, email)
   const decline = () => page.getByRole('button', { name: 'Odrzuć', exact: true }).click({ timeout: 3000 }).catch(() => {})
-  const ACTIONS = ['self-change', 'self-edit', 'transfer-action']
 
-  // „Moje zapisy” now offers „Przekaż pakiet →” too, to the same RA6 address as RA5.
+  // „Moje zapisy”: the menu holds „Przekaż pakiet” too, to the same RA6 address as RA5.
   await page.goto('/profil/zapisy'); await decline()
   const row = personRow(page, name)
-  await expect(row.getByRole('link', { name: `Przekaż pakiet — ${name}` }))
+  const rowName = row.getByText(name, { exact: false }).first()
+  let menu = await menuOnTheLine(page, row, name, rowName)
+  await expect(menu.getByRole('menuitem', { name: 'Przekaż pakiet' }))
     .toHaveAttribute('href', `/events/${e.slug}/przekaz/${entry.registrationId}`)
-  await oneActionRow(page, row, { phone: false })
-  await outlined(page, ACTIONS)
+  // Click outside closes it.
+  await page.mouse.click(5, 300)
+  await expect(menu).toHaveCount(0)
+  let style = await outlined(page, ['self-menu'])
   await shot(page, 'po-zapisy-where-desktop.png')
   await shot(page, 'po-zapisy-all-actions-desktop.png')
   await page.setViewportSize(PHONE)
-  await oneActionRow(page, row, { phone: true })
+  expect((await row.boundingBox()).height, 'one line per person').toBeLessThan(34)
   await noOverflow(page)
   await shot(page, 'po-zapisy-where-390.png')
   await shot(page, 'po-zapisy-all-actions-390.png')
+  await style.evaluate((el) => el.remove())
+  menu = await menuOnTheLine(page, row, name, rowName)
+  await shot(page, 'po-zapisy-menu-open-390.png')
+  // The item navigates like the old link did.
+  await menu.getByRole('menuitem', { name: 'Przekaż pakiet' }).click()
+  await expect(page).toHaveURL(new RegExp(`/events/${e.slug}/przekaz/${entry.registrationId}$`))
 
   await page.setViewportSize(DESKTOP)
   await page.goto(`/events/${e.slug}/zapisano`); await decline()
   const card = page.getByTestId('done-person').filter({ hasText: name })
-  await oneActionRow(page, card, { phone: false })
-  await outlined(page, ACTIONS)
+  const cardName = card.getByText(name, { exact: true })
+  menu = await menuOnTheLine(page, card, name, cardName)
+  await page.keyboard.press('Escape')
+  await expect(menu).toHaveCount(0)
+  await expect(trigger(card, name)).toBeFocused()
+  style = await outlined(page, ['self-menu'])
   await shot(page, 'po-ra5-all-actions-desktop.png')
   await shot(page, 'po-ra5-where-desktop.png')
   await page.setViewportSize(PHONE)
-  await oneActionRow(page, card, { phone: true })
   await noOverflow(page)
   await shot(page, 'po-ra5-all-actions-390.png')
   await shot(page, 'po-ra5-where-390.png')
+  await style.evaluate((el) => el.remove())
+  menu = await menuOnTheLine(page, card, name, cardName)
+  await shot(page, 'po-ra5-menu-open-390.png')
   await context.close()
 })

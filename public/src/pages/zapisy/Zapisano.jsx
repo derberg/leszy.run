@@ -21,10 +21,11 @@ import { eventPath } from './RegistrationEventPage.jsx'
 // („✓ REGULAMIN” / „✓ OPIEKUN” / „CZEKA NA ZGODĘ”), and an added adult who has not
 // accepted gets „Wyślij przypomnienie do <imię> →”. A row the server lets the session hand on
 // (its own adult entry, a team's as captain, transfers on and today ≤ the organizer's last day;
-// Plan 7 ruling 3) carries „Przekaż pakiet →” to RA6, and „Czeka na <adres>” while an invite is
-// open. A child's row never does. With it, in one row, the runner's own „Zmień konkurencję →” /
-// „Popraw dane →” where the server offers them (`actions`, selfService.js), and an open surcharge's
-// „Zapłać” (EntryActions); after one the rows are read again.
+// Plan 7 ruling 3) offers „Przekaż pakiet” to RA6, and shows „Czeka na <adres>” while an invite is
+// open. A child's row never does. With it, the runner's own „Zmień konkurencję” / „Popraw dane”
+// where the server offers them (`actions`, selfService.js); all three sit behind the „⋯” at the end
+// of the name line, and an open surcharge's „Zapłać” under the person (EntryActions); after a
+// change the rows are read again.
 
 function Done({ raw }) {
   const model = eventPageModel(raw)
@@ -74,11 +75,14 @@ function Done({ raw }) {
       </div>
       {teamName && <p className="text-lg text-apex-text-bright" data-testid="done-team">Drużyna: <strong className="[overflow-wrap:anywhere]">{teamName}</strong></p>}
       {rows.map((r) => (
-        <RegisteredPerson key={r.id} person={r} registrationId={r.id} name={`${r.firstName} ${r.lastName}`} showTag={tags}
-          onStale={() => setReads((n) => n + 1)} testId="done-person" footer={
-            <EntryActions entry={{ ...r, name: `${r.firstName} ${r.lastName}` }} slug={raw.slug} onChanged={() => setReads((n) => n + 1)} variant="card" />
-          }
-          meta={[r.competition, personGroupLabel(r), r.startTime ? `start ${r.startTime}` : null]} />
+        <EntryActions key={r.id} entry={{ ...r, name: `${r.firstName} ${r.lastName}` }} slug={raw.slug}
+          onChanged={() => setReads((n) => n + 1)} variant="card">
+          {({ menu, details }) => (
+            <RegisteredPerson person={r} registrationId={r.id} name={`${r.firstName} ${r.lastName}`} showTag={tags}
+              onStale={() => setReads((n) => n + 1)} testId="done-person" menu={menu} footer={details}
+              meta={[r.competition, personGroupLabel(r), r.startTime ? `start ${r.startTime}` : null]} />
+          )}
+        </EntryActions>
       ))}
       <DoneActions model={model} raw={raw} eventHref={eventPath(raw.slug)} teamHref={captainTeamPath(raw.slug, rows)}
         first={{ uid: first.id, name: `${first.firstName} ${first.lastName}`, competition: first.competition, startTime: first.startTime }} />

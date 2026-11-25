@@ -7,9 +7,9 @@ import { sectionTitle } from './fields.jsx'
 import EntryActions from '../../components/registration/EntryActions.jsx'
 
 // „Moje zapisy”: the registration events the session bought an order for or is on an entry of,
-// from my-registrations (upcoming first, then past). Under each person one row of the runner's own
-// actions, „Zmień konkurencję →”, „Popraw dane →” and „Przekaż pakiet →”, and an open surcharge's
-// „Zapłać” (EntryActions), where the server offers them.
+// from my-registrations (upcoming first, then past). At the end of each person's line a „⋯” menu of
+// the runner's own actions („Zmień konkurencję”, „Popraw dane”, „Przekaż pakiet”), and under it an
+// open surcharge's „Zapłać” (EntryActions), where the server offers them.
 
 const linkCls = 'whitespace-nowrap font-mono text-[11px] text-apex-yellow no-underline hover:text-apex-yellow-bright'
 
@@ -69,16 +69,23 @@ function EventCard({ ev, today, onChanged }) {
         <ul className="mt-2 space-y-1">
           {ev.people.map((p) => (
             <li key={p.id} className="text-xs min-w-0" data-testid="zapisy-person">
-              <div className="flex items-center gap-2 min-w-0">
-                <span className={`truncate ${p.mine ? 'text-apex-text-bright' : 'text-apex-text'}`}>
-                  {p.firstName} {p.lastName}
-                  {p.competition && <span className="text-apex-muted" data-testid="zapisy-competition"> · {p.competition}</span>}
-                </span>
-                {p.status === 'pending_payment' && (
-                  <span className="whitespace-nowrap flex-shrink-0 font-mono text-[9px] text-apex-muted">czeka na wpłatę</span>
-                )}
-              </div>
-              <EntryActions entry={{ ...p, name: `${p.firstName} ${p.lastName}` }} slug={ev.slug} onChanged={onChanged} />
+              <EntryActions entry={{ ...p, name: `${p.firstName} ${p.lastName}` }} slug={ev.slug} onChanged={onChanged}>
+                {({ menu, details }) => (<>
+                  <div className="flex items-center justify-between gap-2 min-w-0">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className={`truncate ${p.mine ? 'text-apex-text-bright' : 'text-apex-text'}`}>
+                        {p.firstName} {p.lastName}
+                        {p.competition && <span className="text-apex-muted" data-testid="zapisy-competition"> · {p.competition}</span>}
+                      </span>
+                      {p.status === 'pending_payment' && (
+                        <span className="whitespace-nowrap flex-shrink-0 font-mono text-[9px] text-apex-muted">czeka na wpłatę</span>
+                      )}
+                    </div>
+                    {menu}
+                  </div>
+                  {details}
+                </>)}
+              </EntryActions>
             </li>
           ))}
         </ul>

@@ -2,46 +2,44 @@ import { useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { formatPln } from '@registration/money.js'
 import { transferAction } from '../../lib/transferCopy.js'
+import ActionMenu from '../ActionMenu.jsx'
 import ChangeMyCompetitionDialog from './ChangeMyCompetitionDialog.jsx'
 import EditMyDataDialog from './EditMyDataDialog.jsx'
 
-// The runner's own actions under one entry, on „Moje zapisy” (/profil/zapisy) and RA5 (Zapisano):
-// one row, in this order, each only where the server says so:
-// - „Zmień konkurencję →” / „Popraw dane →”: `actions` (the club's switches, before closes_at, never
+// The runner's own actions on one entry, on „Moje zapisy” (/profil/zapisy) and RA5 (Zapisano). They
+// are rare, so they sit behind one small „⋯” (ActionMenu, the organizer's B3 menu) at the right end
+// of the person's own line, each item only where the server says so, in this order:
+// - „Zmień konkurencję” / „Popraw dane”: `actions` (the club's switches, before closes_at, never
 //   for a team member; a captain only edits; selfService.js);
-// - „Przekaż pakiet →” to RA6: the `transfer` block (the session's own adult entry or a team's as
+// - „Przekaż pakiet” to RA6: the `transfer` block (the session's own adult entry or a team's as
 //   captain, transfers on, today ≤ the organizer's last day, no refund in flight; transferViews in
-//   transfers.js), with „Czeka na <adres>” under the row while an invite is open.
-// An open competition-change surcharge reads „Dopłata czeka: X zł — Zapłać” above the row. A change
-// that needs a surcharge opens its order page to pay at once; any other change or edit reads the
-// list again (`onChanged`) and says what happened here.
-// Right-aligned; under 640 px the actions stack one per line, still right-aligned, so they sit on
-// the same edge as the card's other links („Zamówienie →”, „Twój zapis →”).
-
-const ACTION = 'whitespace-nowrap text-base font-bold text-apex-yellow hover:text-apex-yellow-bright underline-offset-2 hover:underline'
+//   transfers.js).
+// No item, no trigger. Under the person, outside the menu, stay what is not an action: an open
+// competition-change surcharge („Dopłata czeka: X zł — Zapłać”, a payment owed), „Czeka na <adres>”
+// while a transfer invite is open, and what the last change or edit did. A change that needs a
+// surcharge opens its order page to pay at once; any other change or edit reads the list again
+// (`onChanged`).
+//
+// The page places the two parts: children({ menu, details }), `menu` on the person's line (null
+// when there is nothing to offer), `details` under it (null when empty).
 
 const variants = {
   // /profil/zapisy: a compact list.
-  compact: {
-    box: 'mt-1.5',
-    text: 'font-mono text-[11px]',
-    pay: 'whitespace-nowrap font-mono text-[11px] text-apex-yellow hover:text-apex-yellow-bright underline-offset-2 hover:underline',
-  },
-  // RA5: under a person's card.
-  card: {
-    box: 'pt-2.5 mt-2.5 border-t border-apex-border',
-    text: 'text-sm',
-    pay: ACTION,
-  },
+  compact: { box: 'mt-0.5', text: 'font-mono text-[11px]' },
+  // RA5: inside a person's card, under the competition line.
+  card: { box: 'mt-2', text: 'text-sm' },
 }
+
+const PAY = 'whitespace-nowrap text-apex-yellow hover:text-apex-yellow-bright underline underline-offset-2'
 
 /**
  * @param {{ entry: { id: string, name: string, competition: string|null, actions?: { change: boolean, edit: boolean },
  *   transfer?: { allowed: boolean, pending: { toEmail: string } | null } | null,
  *   surcharge?: { orderId: string, toCompetition: string|null, grosze: number } | null },
- *   slug?: string|null, onChanged: () => void, variant?: 'compact' | 'card' }} p
+ *   slug?: string|null, onChanged: () => void, variant?: 'compact' | 'card',
+ *   children: (parts: { menu: import('react').ReactNode, details: import('react').ReactNode }) => import('react').ReactNode }} p
  */
-export default function EntryActions({ entry, slug = null, onChanged, variant = 'compact' }) {
+export default function EntryActions({ entry, slug = null, onChanged, variant = 'compact', children }) {
   const v = variants[variant]
   const navigate = useNavigate()
   const [dialog, setDialog] = useState(null)
@@ -50,10 +48,9 @@ export default function EntryActions({ entry, slug = null, onChanged, variant = 
   const actions = entry.actions ?? { change: false, edit: false }
   const s = entry.surcharge ?? null
   const transfer = slug ? transferAction(entry, slug) : null
-  if (!actions.change && !actions.edit && !transfer && !s && !notice) return null
 
-  const open = (kind) => (e) => {
-    opener.current = e.currentTarget
+  const open = (kind) => (trigger) => {
+    opener.current = trigger
     setNotice(null)
     setDialog(kind)
   }
@@ -69,39 +66,26 @@ export default function EntryActions({ entry, slug = null, onChanged, variant = 
     }
     setNotice(r)
     onChanged()
+    opener.current?.focus()
   }
-  const arrow = <span aria-hidden="true"> →</span>
 
-  return (<>
-    <div className={`${v.box} flex flex-col items-end gap-1 text-right`} data-testid="self-service">
+  const items = [
+    actions.change && { key: 'change', label: 'Zmień konkurencję', onSelect: open('change'), testId: 'self-change' },
+    actions.edit && { key: 'edit', label: 'Popraw dane', onSelect: open('edit'), testId: 'self-edit' },
+    transfer && { key: 'transfer', label: 'Przekaż pakiet', to: transfer.href, testId: 'transfer-action' },
+  ].filter(Boolean)
+
+  const menu = items.length
+    ? <ActionMenu label={`Zarządzaj zgłoszeniem: ${entry.name}`} items={items} size="sm" itemWeight="font-medium" testId="self-menu" />
+    : null
+
+  const details = (s || transfer?.pending || notice) ? (
+    <div className={`${v.box} flex flex-col gap-0.5 min-w-0`} data-testid="self-service">
       {s && (
         <span className={`${v.text} text-apex-cyan-text [overflow-wrap:anywhere]`} data-testid="self-surcharge">
           Dopłata czeka: {formatPln(s.grosze)}{s.toCompetition ? ` (${s.toCompetition})` : ''} —{' '}
-          <Link to={`/zamowienie/${s.orderId}`} className={v.pay}>Zapłać</Link>
+          <Link to={`/zamowienie/${s.orderId}`} className={PAY}>Zapłać</Link>
         </span>
-      )}
-      {(actions.change || actions.edit || transfer) && (
-        <div className="flex flex-col items-end gap-1 sm:flex-row sm:flex-wrap sm:justify-end sm:items-center sm:gap-x-5"
-          data-testid="entry-actions">
-          {actions.change && (
-            <button type="button" className={ACTION} onClick={open('change')} data-testid="self-change"
-              aria-label={`Zmień konkurencję — ${entry.name}`}>
-              Zmień konkurencję{arrow}
-            </button>
-          )}
-          {actions.edit && (
-            <button type="button" className={ACTION} onClick={open('edit')} data-testid="self-edit"
-              aria-label={`Popraw dane — ${entry.name}`}>
-              Popraw dane{arrow}
-            </button>
-          )}
-          {transfer && (
-            <Link to={transfer.href} className={ACTION} data-testid="transfer-action"
-              aria-label={`Przekaż pakiet — ${entry.name}`}>
-              Przekaż pakiet{arrow}
-            </Link>
-          )}
-        </div>
       )}
       {transfer?.pending && (
         <span className={`${v.text} text-apex-text-bright [overflow-wrap:anywhere]`} data-testid="entry-transfer-pending">{transfer.pending}</span>
@@ -113,6 +97,10 @@ export default function EntryActions({ entry, slug = null, onChanged, variant = 
         </p>
       )}
     </div>
+  ) : null
+
+  return (<>
+    {children({ menu, details })}
     {dialog === 'change' && <ChangeMyCompetitionDialog entry={entry} onClose={close} onDone={done} />}
     {dialog === 'edit' && <EditMyDataDialog entry={entry} onClose={close} onDone={done} />}
   </>)

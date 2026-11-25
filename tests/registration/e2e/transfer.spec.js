@@ -9,7 +9,7 @@ import { accept, enableTransfers, inviteOk, paidEntry } from '../helpers/transfe
 
 // Plan 7 task 8b: the runner's transfer pages in the browser. V-63…V-66 in
 // docs/registration/scenario-matrix.md:
-//   RA5  /events/:slug/zapisano      „Przekaż pakiet →” on the rows the server allows
+//   RA5  /events/:slug/zapisano      „Przekaż pakiet” in the ⋯ menu of the rows the server allows
 //   RA6  /events/:slug/przekaz/:id   the holder invites an address and can take the invite back
 //   RA7  /przekazanie#<token>        the recipient takes the package (the token only in the fragment)
 
@@ -94,7 +94,7 @@ async function fillRecipient(page, email) {
   for (let i = 0; i < n; i++) await boxes.nth(i).check()
 }
 
-test('V-65 RA5: „Przekaż pakiet →” on the holder\'s own row, never on the child\'s, and gone after transfer_until', async ({ browser }) => {
+test('V-65 RA5: „Przekaż pakiet” in the holder\'s own ⋯ menu, never on the child\'s, and gone after transfer_until', async ({ browser }) => {
   const event = await createPublishedFreeEvent(owner, { competitions: [BIEG()] })
   await enableTransfers(event)
   const email = runnerEmail('parent')
@@ -108,9 +108,18 @@ test('V-65 RA5: „Przekaż pakiet →” on the holder\'s own row, never on the
   const own = rows.filter({ hasText: 'Ola Leśna' })
   const child = rows.filter({ hasText: 'Zosia' })
   const selfId = r.data.registrations.find((x) => x.role === 'self').id
-  await expect(own.getByRole('link', { name: 'Przekaż pakiet — Ola Leśna' })).toHaveAttribute('href', `/events/${event.slug}/przekaz/${selfId}`)
-  await expect(own.getByTestId('transfer-action')).toHaveText('Przekaż pakiet →')
-  await expect(child.getByRole('link', { name: /Przekaż pakiet/ })).toHaveCount(0)
+  await own.getByRole('button', { name: 'Zarządzaj zgłoszeniem: Ola Leśna' }).click()
+  const menu = page.getByRole('menu', { name: 'Zarządzaj zgłoszeniem: Ola Leśna' })
+  await expect(menu.getByRole('menuitem', { name: 'Przekaż pakiet' })).toHaveAttribute('href', `/events/${event.slug}/przekaz/${selfId}`)
+  await page.keyboard.press('Escape')
+  // A child's entry is never transferable: its menu (if any) has no „Przekaż pakiet”.
+  const childMenu = child.getByRole('button', { name: /^Zarządzaj zgłoszeniem: / })
+  if (await childMenu.count()) {
+    await childMenu.click()
+    await expect(page.getByRole('menu')).toBeVisible()
+    await expect(page.getByRole('menuitem', { name: 'Przekaż pakiet' })).toHaveCount(0)
+    await page.keyboard.press('Escape')
+  }
 
   // The organizer's last day has passed: the server says no, and the page shows nothing.
   const yesterday = new Date(Date.now() - 86_400_000).toISOString().slice(0, 10)
@@ -118,6 +127,12 @@ test('V-65 RA5: „Przekaż pakiet →” on the holder\'s own row, never on the
   await page.reload()
   await expect(rows).toHaveCount(2)
   await expect(page.getByRole('link', { name: /Przekaż pakiet/ })).toHaveCount(0)
+  const ownMenu = own.getByRole('button', { name: 'Zarządzaj zgłoszeniem: Ola Leśna' })
+  if (await ownMenu.count()) {
+    await ownMenu.click()
+    await expect(page.getByRole('menu')).toBeVisible()
+    await expect(page.getByRole('menuitem', { name: 'Przekaż pakiet' })).toHaveCount(0)
+  }
   await ctx.close()
 })
 
@@ -130,7 +145,8 @@ test('V-63, V-64, V-66 RA6 → RA7 at 390 px: invite, take back, invite again; t
   const ra6 = await offline(await hctx.newPage())
   await ra6.setViewportSize({ width: 390, height: 844 })
   await ra6.goto(`/events/${event.slug}/zapisano`)
-  await ra6.getByRole('link', { name: /^Przekaż pakiet — / }).click()
+  await ra6.getByRole('button', { name: /^Zarządzaj zgłoszeniem: / }).click()
+  await ra6.getByRole('menuitem', { name: 'Przekaż pakiet' }).click()
   await expect(ra6).toHaveURL(new RegExp(`/events/${event.slug}/przekaz/${regId}$`))
   const page6 = ra6.getByTestId('transfer-invite')
   await expect(page6).toBeVisible()
@@ -359,6 +375,13 @@ test('V-87 M-1 a refund in flight: RA5 and B3 offer no transfer, RA6 says why, R
   await ra5.goto(`/events/${event.slug}/zapisano`)
   await expect(ra5.getByTestId('done-person')).toHaveCount(1)
   await expect(ra5.getByRole('link', { name: /Przekaż pakiet/ })).toHaveCount(0)
+  const ra5Menu = ra5.getByRole('button', { name: /^Zarządzaj zgłoszeniem: / })
+  if (await ra5Menu.count()) {
+    await ra5Menu.click()
+    await expect(ra5.getByRole('menu')).toBeVisible()
+    await expect(ra5.getByRole('menuitem', { name: 'Przekaż pakiet' })).toHaveCount(0)
+    await ra5.keyboard.press('Escape')
+  }
   // RA6 reached by its address: the reason, no form.
   await ra5.goto(`/events/${event.slug}/przekaz/${holder.reg.id}`)
   await expect(ra5.getByTestId('transfer-unavailable')).toContainText(REFUND_PENDING)
@@ -388,7 +411,9 @@ test('V-87 M-1 a refund in flight: RA5 and B3 offer no transfer, RA6 says why, R
   await ra7.getByRole('button', { name: 'Spróbuj ponownie' }).click()
   await expect(ra7.getByTestId('transfer-accept')).toBeVisible()
   await ra5.goto(`/events/${event.slug}/zapisano`)
-  await expect(ra5.getByRole('link', { name: /^Przekaż pakiet — / })).toHaveCount(1)
+  await ra5.getByRole('button', { name: /^Zarządzaj zgłoszeniem: / }).click()
+  await expect(ra5.getByRole('menuitem', { name: 'Przekaż pakiet' })).toHaveCount(1)
+  await ra5.keyboard.press('Escape')
   await b3.reload()
   await b3.getByRole('button', { name: /^Akcje — / }).first().click()
   await expect(b3.getByRole('menuitem', { name: 'Przekaż pakiet', exact: true })).toHaveCount(1)

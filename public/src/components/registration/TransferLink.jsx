@@ -2,8 +2,8 @@ import { Link } from 'react-router-dom'
 import { transferAction } from '../../lib/transferCopy.js'
 
 // The order page's transfer action under one person (Zamowienie, a paid order's lines carry the
-// server's `transfer` block). RA5 and „Moje zapisy” show it in the runner's action row instead
-// (EntryActions, „Przekaż pakiet →”). Shown only where the server says
+// server's `transfer` block). RA5 and „Moje zapisy” offer it in the runner's „⋯” menu instead
+// (EntryActions, „Przekaż pakiet”). Shown only where the server says
 // the session may hand this entry on now (ruling 3), with „Czeka na <adres>” while an invite is open.
 // `row` is { id | registrationId, transfer }.
 export default function TransferLink({ row, slug }) {
