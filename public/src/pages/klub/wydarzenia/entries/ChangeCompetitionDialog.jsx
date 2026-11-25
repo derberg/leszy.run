@@ -1,8 +1,9 @@
-import { useEffect, useId, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { formatPln } from '@registration/money.js'
 import { callFunction } from '../../../../lib/auth.js'
 import { btnDanger, btnPrimary } from '../../settingsUi.js'
 import EntryDialog from './EntryDialog.jsx'
+import CompetitionTargetList, { TargetsLoading, differenceText } from '../../../../components/registration/CompetitionTargetList.jsx'
 
 // ⋯ „Zmień konkurencję” (B3): organizer-entry-action change_competition_preview lists every other
 // visible individual competition at change_competition's own numbers (the order's frozen tier, the
@@ -14,24 +15,7 @@ import EntryDialog from './EntryDialog.jsx'
 // change (409 price_changed with the real difference) re-reads the targets and asks again; a 409
 // carrying data.moved means the entry moved and only the refund failed, so the dialog closes on it.
 
-const REASON = {
-  ineligible: 'nie spełnia warunków',
-  role_change: 'inna grupa wiekowa',
-  no_payer: 'brak płatnika',
-  no_price: 'brak ceny',
-  race_day: 'dzień zawodów',
-  paying_closed: 'płatność zamknięta',
-  full: 'brak miejsc',
-}
-
 const newKey = () => crypto.randomUUID()
-
-/** „bez zmiany ceny” / „zwrot 20,00 zł” / „dopłata 20,00 zł — zapłata online” */
-export function differenceText(t) {
-  if (t.kind === 'refund') return `zwrot ${formatPln(-t.difference)}`
-  if (t.kind === 'surcharge') return `dopłata ${formatPln(t.difference)} — zapłata online`
-  return 'bez zmiany ceny'
-}
 
 /** What the panel says once the change went through. */
 function doneText(row, target, r) {
@@ -49,7 +33,6 @@ function doneText(row, target, r) {
 }
 
 export default function ChangeCompetitionDialog({ row, onClose, onDone, onFailed }) {
-  const ids = useId()
   const [preview, setPreview] = useState({ status: 'loading', targets: [] })
   const [categoryId, setCategoryId] = useState(null)
   const [ack, setAck] = useState(false)
@@ -117,40 +100,13 @@ export default function ChangeCompetitionDialog({ row, onClose, onDone, onFailed
           Zmień konkurencję
         </button>
       )}>
-      {preview.status === 'loading' && <div className="flex flex-col gap-1.5" aria-busy="true">{[0, 1].map((i) => <div key={i} className="h-11 bg-apex-surface-2" />)}</div>}
+      {preview.status === 'loading' && <TargetsLoading />}
       {preview.status === 'ok' && preview.targets.length === 0 && (
         <p className="text-apex-muted text-sm" data-testid="change-no-targets">Brak innych konkurencji.</p>
       )}
       {preview.targets.length > 0 && (
-        <div role="radiogroup" aria-label="Nowa konkurencja" data-testid="change-targets" className="flex flex-col gap-1.5">
-          {preview.targets.map((t) => (
-            <label key={t.categoryId} data-testid="change-target"
-              className={`flex items-center gap-2.5 min-h-11 px-3 py-1.5 border min-w-0 ${!t.eligible
-                ? 'border-apex-border opacity-60 cursor-not-allowed' : t.categoryId === categoryId ? 'border-apex-yellow cursor-pointer' : 'border-apex-border-mid cursor-pointer'}`}>
-              <input type="radio" name={`${ids}-target`} value={t.categoryId} checked={t.categoryId === categoryId} disabled={busy || !t.eligible}
-                onChange={() => { setCategoryId(t.categoryId); setAck(false); setError(null) }} className="accent-apex-yellow w-4 h-4 shrink-0" />
-              <span className="min-w-0 flex-1">
-                <span className="block font-sans font-semibold text-base text-apex-text-bright [overflow-wrap:anywhere]">{t.name}</span>
-                <span className="block font-mono text-xs text-apex-muted [overflow-wrap:anywhere]">
-                  {formatPln(t.price)} · <span className={t.kind === 'surcharge' ? 'text-apex-cyan' : t.kind === 'refund' ? 'text-apex-yellow' : ''}>{differenceText(t)}</span>
-                </span>
-                {t.voucherLost && (
-                  <span className="block font-mono text-xs text-apex-red [overflow-wrap:anywhere]" data-testid="change-voucher-lost">
-                    kod rabatowy nie obejmuje tej konkurencji
-                  </span>
-                )}
-              </span>
-              {!t.eligible && (
-                <span className="shrink-0 whitespace-nowrap font-mono text-xs uppercase text-apex-muted">{REASON[t.reason] ?? 'niedostępna'}</span>
-              )}
-            </label>
-          ))}
-        </div>
-      )}
-      {target?.extrasNotOffered?.length > 0 && (
-        <p className="font-sans text-sm text-apex-text [overflow-wrap:anywhere]" data-testid="change-extras">
-          Dodatki niedostępne w tej konkurencji: {target.extrasNotOffered.join(', ')}
-        </p>
+        <CompetitionTargetList targets={preview.targets} categoryId={categoryId} busy={busy}
+          onPick={(id) => { setCategoryId(id); setAck(false); setError(null) }} />
       )}
       {needsAck && (
         <label className="flex items-start gap-2.5 font-sans text-base text-apex-text-bright cursor-pointer" data-testid="change-offline-ack">

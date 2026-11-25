@@ -12,6 +12,7 @@ import { checkEdit, RUNNER_EDITABLE, RUNNER_NOT_EDITABLE } from '../_shared/regi
 import { changeRefusal } from '../_shared/registration/competitionChange.js'
 import { changePreview, runChange } from '../_shared/registration/changeCompetitionFlow.js'
 import { dpayConfig, DpayConfigError } from '../_shared/dpay.js'
+import { actsOnEntry } from '../_shared/registration/selfService.js'
 
 function json(body, status, req, headers = {}) {
   return new Response(JSON.stringify(body), {
@@ -21,7 +22,7 @@ function json(body, status, req, headers = {}) {
 }
 
 const NOT_FOUND = { error: 'Not found' }
-const ACTIONS = ['targets', 'change', 'edit']
+const ACTIONS = ['targets', 'change', 'edit', 'details']
 // Changes and edits together, per entry (spec Part 2): claim_throttle_slot, fail closed.
 const CHANGES_PER_DAY = 10
 const DAY = 86400
@@ -66,14 +67,9 @@ async function entryFor(admin, session, registrationId) {
   const reg = await single(admin.from('registrations')
     .select('id, event_id, order_id, profile_id, email, guardian_profile_id, team_id, first_name, last_name')
     .eq('id', registrationId).maybeSingle())
-  if (!reg) return null
-  const sessionEmail = typeof session.email === 'string' ? session.email.trim().toLowerCase() : null
-  const mine = (reg.profile_id != null && reg.profile_id === session.userId)
-    || (reg.email != null && sessionEmail != null && reg.email.trim().toLowerCase() === sessionEmail)
-    || (reg.email == null && reg.guardian_profile_id != null && reg.guardian_profile_id === session.userId)
-  if (!mine) return null
+  if (!reg || !actsOnEntry(reg, session)) return null
   const settings = await single(admin.from('registration_settings')
-    .select('event_id, club_id, name, state, closes_at, contact_email, runner_competition_change, runner_data_edit')
+    .select('event_id, club_id, name, state, closes_at, contact_email, runner_competition_change, runner_data_edit, form_fields')
     .eq('event_id', reg.event_id).maybeSingle())
   if (!settings || settings.state === 'draft') return null
   if (!(await clubRegistrationEnabled(admin, settings.club_id))) return null
@@ -143,6 +139,9 @@ function editRefusal(req, code, keys) {
 //           200 surcharge (orderId, expiresAt), billed to the session. 403 not_allowed, 409
 //           price_changed with `difference`, 409 offline_paid for a cheaper move of an entry paid
 //           outside LESZY.RUN (never acknowledged by a runner).
+//   details { registrationId } → 200 { data: { competitionChange, dataEdit, closesAt, formFields, status,
+//           person: { firstName, lastName, birthDate, gender, phone, city, club, nationality, iceName,
+//           icePhone } } }: „Popraw dane”'s prefill (a captain too). No e-mail.
 //   edit    { registrationId, fields } → 200 { data: { changed, ageGroupLabel, fields } }: the
 //           organizer's editable fields without the names and the e-mail (422 field_not_allowed),
 //           runner_edit_registration re-checks eligibility and the age group. 403 not_allowed, 409
@@ -172,10 +171,28 @@ Deno.serve(async (req) => {
     const found = await entryFor(admin, session, body.registrationId)
     if (!found) return json(NOT_FOUND, 404, req)
     const { reg, settings, team } = found
-    if (team && (!team.captain || action !== 'edit')) return json(NOT_FOUND, 404, req)
+    if (team && (!team.captain || (action !== 'edit' && action !== 'details'))) return json(NOT_FOUND, 404, req)
     const competitionChange = settings.runner_competition_change === true
     const dataEdit = settings.runner_data_edit === true
     const claim = () => checkAndIncrement(admin, `runner-change:${reg.id}`, CHANGES_PER_DAY, { windowSeconds: DAY })
+
+    if (action === 'details') {
+      // „Popraw dane”'s prefill: the fields the runner may change, never the names' edit or the e-mail.
+      const p = await single(admin.from('registrations')
+        .select('status, birth_date, gender, phone, city, club, nationality, ice_name, ice_phone')
+        .eq('id', reg.id).single())
+      return json({
+        data: {
+          competitionChange, dataEdit, closesAt: settings.closes_at, formFields: settings.form_fields ?? {},
+          status: p.status,
+          person: {
+            firstName: reg.first_name, lastName: reg.last_name, birthDate: p.birth_date, gender: p.gender,
+            phone: p.phone, city: p.city, club: p.club, nationality: p.nationality,
+            iceName: p.ice_name, icePhone: p.ice_phone,
+          },
+        },
+      }, 200, req)
+    }
 
     if (action === 'targets') {
       const base = { competitionChange, dataEdit, closesAt: settings.closes_at }

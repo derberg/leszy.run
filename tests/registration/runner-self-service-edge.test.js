@@ -9,7 +9,7 @@ import { resetThrottle, sessionFor } from './helpers/stack.js'
 import { messagesTo, startCapture } from './helpers/emailCapture.js'
 import { acceptAgreement, callFn, createPublishedPaidEvent } from './helpers/registrationFixtures.js'
 import { dpayMode, dpayRefunds, dpayReset, payMock, startDpayMock } from './helpers/dpayControl.js'
-import { attemptFor, confirmOk, db, one, profileFor, rows, runnerEmail, setSettings } from './helpers/orders.js'
+import { attemptFor, confirmOk, db, one, person, profileFor, rows, runnerEmail, setSettings } from './helpers/orders.js'
 import { BIEG, DZIECI, adult, minor, orderGroupOk } from './helpers/groups.js'
 import { captain, freeTeamEvent, teamOk } from './helpers/teams.js'
 import { nodeDpay } from './helpers/organizerRefund.js'
@@ -138,6 +138,50 @@ test('RS-10 a disabled club: 404 even for the holder', async () => {
   } finally {
     const { error: back } = await db().from('clubs').update({ registration_enabled: true }).eq('slug', 'zatyrani-test')
     if (back) throw back
+  }
+})
+
+test('RS-10 a draft event: 404 for every action, even for the holder', async () => {
+  const event = await paidEvent()
+  const e = await ownEntry(event)
+  await setSettings(event.eventId, { state: 'draft' })
+  for (const body of [
+    { action: 'targets', registrationId: e.registrationId },
+    { action: 'details', registrationId: e.registrationId },
+    { action: 'change', registrationId: e.registrationId, categoryId: event.categoryIds[1], expectedDifference: -2000, requestKey: key() },
+    { action: 'edit', registrationId: e.registrationId, fields: { city: 'Szubin' } },
+  ]) {
+    const r = await act(e.session, body)
+    assert.deepEqual([r.status, r.body], [404, { error: 'Not found' }], body.action)
+  }
+  await setSettings(event.eventId, { state: 'published' })
+  assert.equal((await reg(e.registrationId)).category_id, event.categoryIds[0])
+})
+
+test('RS-10 an entry no longer live, reached through the address: targets allowed false (not_live), edit 409', async () => {
+  const event = await paidEvent()
+  // cancelled by the club
+  const a = await ownEntry(event)
+  const cancelled = await callFn('organizer-entry-action', owner, { action: 'cancel', registrationId: a.registrationId })
+  assert.equal(cancelled.status, 200, JSON.stringify(cancelled.body))
+  // moved to somebody else by the club (transferred_out)
+  const b = await ownEntry(event)
+  const moved = await callFn('organizer-entry-action', owner, {
+    action: 'transfer', registrationId: b.registrationId, categoryId: event.categoryIds[0],
+    person: (({ ageGroupLabel: _l, ...p }) => p)(person(runnerEmail('nowy'), { firstName: 'Jan', lastName: 'Nowak', gender: 'M' })),
+  })
+  assert.equal(moved.status, 200, JSON.stringify(moved.body))
+  for (const [e, status] of [[a, 'cancelled'], [b, 'transferred_out']]) {
+    const row = await reg(e.registrationId)
+    assert.equal(row.status, status)
+    // The address alone reaches it (the check does not depend on the profile).
+    await db().from('registrations').update({ profile_id: null }).eq('id', e.registrationId)
+    const t = await targets(e.session, e.registrationId)
+    assert.equal(t.status, 200, JSON.stringify(t.body))
+    assert.deepEqual([t.body.data.allowed, t.body.data.refusal, t.body.data.targets], [false, 'not_live', []], status)
+    const ed = await edit(e.session, e.registrationId, { city: 'Szubin' })
+    assert.deepEqual([ed.status, ed.body.code], [409, 'not_live'], `${status}: ${JSON.stringify(ed.body)}`)
+    assert.equal((await reg(e.registrationId)).city, row.city)
   }
 })
 
@@ -330,4 +374,37 @@ test('RS-14 ten changes and edits per entry per 24 h; the 11th is 429', async ()
   assert.equal(overChange.status, 429)
   assert.equal((await reg(e.registrationId)).category_id, event.categoryIds[0])
   assert.equal((await changesOf(e.registrationId)).length, 10)
+})
+
+// ---------------------------------------------------------------- RS-16 details, list actions
+
+test('RS-16 details prefills „Popraw dane” (never the e-mail); my-registrations and my-event-registrations carry actions', async () => {
+  const event = await paidEvent()
+  const e = await ownEntry(event)
+  const d = await act(e.session, { action: 'details', registrationId: e.registrationId })
+  assert.equal(d.status, 200, JSON.stringify(d.body))
+  const stored = await reg(e.registrationId)
+  assert.deepEqual(d.body.data.person, {
+    firstName: stored.first_name, lastName: stored.last_name, birthDate: stored.birth_date, gender: stored.gender,
+    phone: stored.phone, city: stored.city, club: stored.club, nationality: stored.nationality,
+    iceName: stored.ice_name, icePhone: stored.ice_phone,
+  })
+  assert.ok(!JSON.stringify(d.body).includes(e.email), 'no e-mail in the prefill')
+  assert.deepEqual([d.body.data.competitionChange, d.body.data.dataEdit, d.body.data.status], [true, true, 'confirmed'])
+  assert.equal(typeof d.body.data.formFields, 'object')
+
+  const { slug } = await one('registration_settings', { event_id: event.eventId })
+  const listed = async () => {
+    const mine = await callFn('my-registrations', e.session, {})
+    const ev = mine.body.data.find((x) => x.eventId === event.eventId)
+    const onEvent = await callFn('my-event-registrations', e.session, { slug })
+    return [ev.people.find((p) => p.id === e.registrationId).actions, onEvent.body.data.find((r) => r.id === e.registrationId).actions]
+  }
+  assert.deepEqual(await listed(), [{ change: true, edit: true }, { change: true, edit: true }])
+  await setSettings(event.eventId, { runner_competition_change: false })
+  assert.deepEqual(await listed(), [{ change: false, edit: true }, { change: false, edit: true }])
+  await setSettings(event.eventId, { runner_data_edit: false })
+  assert.deepEqual(await listed(), [{ change: false, edit: false }, { change: false, edit: false }])
+  await setSettings(event.eventId, { runner_competition_change: true, runner_data_edit: true, closes_at: new Date(Date.now() - 60_000).toISOString() })
+  assert.deepEqual(await listed(), [{ change: false, edit: false }, { change: false, edit: false }], 'after closes_at')
 })

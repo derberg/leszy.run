@@ -4,9 +4,12 @@ import useSeo from '../../hooks/useSeo.js'
 import { callFunction } from '../../lib/auth.js'
 import { formatPln } from '@registration/money.js'
 import { sectionTitle } from './fields.jsx'
+import EntrySelfService from '../../components/registration/EntrySelfService.jsx'
 
 // „Moje zapisy”: the registration events the session bought an order for or is on an entry of,
-// from my-registrations (upcoming first, then past).
+// from my-registrations (upcoming first, then past). Under each person the runner's own „Zmień
+// konkurencję” / „Popraw dane” and an open surcharge's „Zapłać” (EntrySelfService), where the server
+// offers them.
 
 const linkCls = 'whitespace-nowrap font-mono text-[11px] text-apex-yellow no-underline hover:text-apex-yellow-bright'
 
@@ -47,7 +50,7 @@ function Skeleton() {
   )
 }
 
-function EventCard({ ev, today }) {
+function EventCard({ ev, today, onChanged }) {
   const past = ev.eventDate != null && ev.eventDate < today
   // „Twój zapis” opens /zapisano, which lists every confirmed entry of the session's for the event.
   const confirmed = ev.people.filter((p) => p.status === 'confirmed').length
@@ -63,16 +66,19 @@ function EventCard({ ev, today }) {
       </div>
 
       {ev.people.length > 0 && (
-        <ul className="mt-2 space-y-0.5">
+        <ul className="mt-2 space-y-1">
           {ev.people.map((p) => (
-            <li key={p.id} className="flex items-center gap-2 text-xs min-w-0">
-              <span className={`truncate ${p.mine ? 'text-apex-text-bright' : 'text-apex-text'}`}>
-                {p.firstName} {p.lastName}
-                {p.competition && <span className="text-apex-muted"> · {p.competition}</span>}
-              </span>
-              {p.status === 'pending_payment' && (
-                <span className="whitespace-nowrap flex-shrink-0 font-mono text-[9px] text-apex-muted">czeka na wpłatę</span>
-              )}
+            <li key={p.id} className="text-xs min-w-0" data-testid="zapisy-person">
+              <div className="flex items-center gap-2 min-w-0">
+                <span className={`truncate ${p.mine ? 'text-apex-text-bright' : 'text-apex-text'}`}>
+                  {p.firstName} {p.lastName}
+                  {p.competition && <span className="text-apex-muted" data-testid="zapisy-competition"> · {p.competition}</span>}
+                </span>
+                {p.status === 'pending_payment' && (
+                  <span className="whitespace-nowrap flex-shrink-0 font-mono text-[9px] text-apex-muted">czeka na wpłatę</span>
+                )}
+              </div>
+              <EntrySelfService entry={{ ...p, name: `${p.firstName} ${p.lastName}` }} onChanged={onChanged} />
             </li>
           ))}
         </ul>
@@ -108,14 +114,16 @@ function EventCard({ ev, today }) {
 export default function Zapisy() {
   useSeo({ title: 'Moje zapisy — Leszy.run', path: '/profil/zapisy', noindex: true })
   const [state, setState] = useState({ status: 'loading', events: [] })
+  // Bumped after a change or an edit: the list is read again (the list stays on screen meanwhile).
+  const [reads, setReads] = useState(0)
 
   useEffect(() => {
     let active = true
     callFunction('my-registrations', {})
       .then((r) => { if (active) setState({ status: 'ok', events: r.data ?? [] }) })
-      .catch(() => { if (active) setState({ status: 'error', events: [] }) })
+      .catch(() => { if (active) setState((s) => (s.status === 'ok' ? s : { status: 'error', events: [] })) })
     return () => { active = false }
-  }, [])
+  }, [reads])
 
   // Warsaw calendar day, the same rule the function sorts by.
   const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/Warsaw' })
@@ -135,7 +143,7 @@ export default function Zapisy() {
       )}
       {state.status === 'ok' && state.events.length > 0 && (
         <div className="space-y-3" data-testid="zapisy-list">
-          {state.events.map((ev) => <EventCard key={ev.eventId} ev={ev} today={today} />)}
+          {state.events.map((ev) => <EventCard key={ev.eventId} ev={ev} today={today} onChanged={() => setReads((n) => n + 1)} />)}
         </div>
       )}
     </section>

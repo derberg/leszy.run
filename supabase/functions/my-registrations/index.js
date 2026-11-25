@@ -22,12 +22,14 @@ const chunks = (ids) => {
   return out
 }
 
-const REG_COLUMNS = 'id, event_id, category_id, order_id, status, first_name, last_name, profile_id, created_at'
+const REG_COLUMNS = 'id, event_id, category_id, order_id, status, first_name, last_name, profile_id, email, guardian_profile_id, team_id, created_at'
 
 // POST {} → 200 { data: [{ eventId, slug, eventName, eventDate, firstStartTime,
 //   orders: [{ id, status, total, refunded, cancelled, expiresAt, paidAt, createdAt }],
 //   people: [{ id, firstName, lastName, competition, status, mine,
-//     surcharge: { orderId, toCompetition, grosze, expiresAt } | null }] }] }
+//     surcharge: { orderId, toCompetition, grosze, expiresAt } | null,
+//     actions: { change, edit } }] }] }  (actions: the runner's own „Zmień konkurencję” / „Popraw dane”,
+//     selfService.js; my-entry-action decides)
 // „Moje zapisy”: every published (or closed) registration event where the session bought an order
 // (pending or paid) or is on a live entry (confirmed or awaiting payment) as the runner, as the
 // person who registered it, or as a child's guardian. The people of the session's own orders are
@@ -88,7 +90,15 @@ Deno.serve(async (req) => {
     const settings = []
     for (const ids of chunks(eventIds)) {
       settings.push(...await allRows(() => admin.from('registration_settings')
-        .select('event_id, slug, name, state, event_date, first_start_time').in('event_id', ids).order('event_id')))
+        .select('event_id, slug, name, state, event_date, first_start_time, closes_at, runner_competition_change, runner_data_edit')
+        .in('event_id', ids).order('event_id')))
+    }
+    // Which team entries are their team's captain: only a captain edits (selfService.js).
+    const teamIds = [...new Set(registrations.map((r) => r.team_id).filter(Boolean))]
+    const captains = new Set()
+    for (const ids of chunks(teamIds)) {
+      const teams = await allRows(() => admin.from('teams').select('id, captain_registration_id').in('id', ids).order('id'))
+      for (const t of teams) if (t.captain_registration_id) captains.add(t.captain_registration_id)
     }
     const categoryIds = [...new Set([
       ...registrations.map((r) => r.category_id),
@@ -100,7 +110,7 @@ Deno.serve(async (req) => {
         .select('category_id, name').in('category_id', ids).order('category_id')))
     }
 
-    return json({ data: shapeMyRegistrations({ userId: me, settings, orders, registrations, competitions, refunded, liveOrderIds }) }, 200, req)
+    return json({ data: shapeMyRegistrations({ userId: me, email: session.email, settings, orders, registrations, competitions, refunded, liveOrderIds, captains }) }, 200, req)
   } catch (err) {
     console.error('my-registrations error:', err?.message, err?.code)
     return json({ error: 'Internal server error' }, 500, req)

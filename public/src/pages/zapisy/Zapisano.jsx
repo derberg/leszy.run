@@ -10,6 +10,7 @@ import { orderPeople, personGroupLabel, showsConsentTags } from '../../lib/conse
 import { captainTeamPath } from '../../lib/teamPage.js'
 import { linkCls } from '../../components/registration/ui.js'
 import TransferLink from '../../components/registration/TransferLink.jsx'
+import EntrySelfService from '../../components/registration/EntrySelfService.jsx'
 import RegistrationShell from './RegistrationShell.jsx'
 import { eventPath } from './RegistrationEventPage.jsx'
 
@@ -22,8 +23,9 @@ import { eventPath } from './RegistrationEventPage.jsx'
 // accepted gets „Wyślij przypomnienie do <imię> →”. A row the server lets the session hand on
 // (its own adult entry, a team's as captain, transfers on and today ≤ the organizer's last day;
 // Plan 7 ruling 3) carries „Przekaż pakiet innej osobie →” to RA6, and „Czeka na <adres>” while an
-// invite is open. A child's row never does. Editing, adding people and changing competition belong
-// to later plans.
+// invite is open. A child's row never does. Where the server offers them (`actions`, selfService.js),
+// the runner's own „Zmień konkurencję” / „Popraw dane” and an open surcharge's „Zapłać” follow
+// (EntrySelfService); after one the rows are read again.
 
 function Done({ raw }) {
   const model = eventPageModel(raw)
@@ -74,7 +76,10 @@ function Done({ raw }) {
       {teamName && <p className="text-lg text-apex-text-bright" data-testid="done-team">Drużyna: <strong className="[overflow-wrap:anywhere]">{teamName}</strong></p>}
       {rows.map((r) => (
         <RegisteredPerson key={r.id} person={r} registrationId={r.id} name={`${r.firstName} ${r.lastName}`} showTag={tags}
-          onStale={() => setReads((n) => n + 1)} testId="done-person" footer={<TransferLink row={r} slug={raw.slug} />}
+          onStale={() => setReads((n) => n + 1)} testId="done-person" footer={<>
+            <TransferLink row={r} slug={raw.slug} />
+            <EntrySelfService entry={{ ...r, name: `${r.firstName} ${r.lastName}` }} onChanged={() => setReads((n) => n + 1)} variant="card" />
+          </>}
           meta={[r.competition, personGroupLabel(r), r.startTime ? `start ${r.startTime}` : null]} />
       ))}
       <DoneActions model={model} raw={raw} eventHref={eventPath(raw.slug)} teamHref={captainTeamPath(raw.slug, rows)}

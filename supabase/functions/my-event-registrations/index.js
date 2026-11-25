@@ -6,6 +6,8 @@ import { isValidSlug } from '../_shared/registration/slug.js'
 import { registrationRole } from '../_shared/registration/group.js'
 import { kidsGroupLabels } from '../_shared/registration/kidsGroupLabels.js'
 import { transferViews } from '../_shared/registration/transfers.js'
+import { selfServiceActions } from '../_shared/registration/selfService.js'
+import { pendingSurcharge } from '../_shared/registration/entries.js'
 
 function json(body, status, req) {
   return new Response(JSON.stringify(body), {
@@ -28,7 +30,9 @@ function json(body, status, req) {
 // team's only as captain, transfers on and today ≤ until), the organizer's last day (`until`,
 // null when transfers are off) and the session's own open invite (an invite past expires_at is
 // not open). Another person's entry the session registered always reads { allowed: false,
-// pending: null }: only the holder transfers.
+// pending: null }: only the holder transfers. surcharge: an open competition-change surcharge the
+// session pays ({ orderId, toCompetition, grosze, expiresAt } | null). actions { change, edit }: the runner's own
+// „Zmień konkurencję” / „Popraw dane” (selfService.js; my-entry-action decides each request).
 Deno.serve(async (req) => {
   const guard = guardRequest(req)
   if (guard) return guard
@@ -45,7 +49,8 @@ Deno.serve(async (req) => {
     const slug = body?.slug
     if (!isValidSlug(slug)) return json({ error: 'Not found' }, 404, req)
     const { data: settings, error } = await admin.from('registration_settings')
-      .select('event_id, state, first_start_time, event_date, transfer_enabled, transfer_until').eq('slug', slug).maybeSingle()
+      .select('event_id, state, first_start_time, event_date, transfer_enabled, transfer_until, closes_at, runner_competition_change, runner_data_edit')
+      .eq('slug', slug).maybeSingle()
     if (error) throw error
     if (!settings || settings.state === 'draft') return json({ error: 'Not found' }, 404, req)
 
@@ -75,6 +80,21 @@ Deno.serve(async (req) => {
       : []
     const teamOf = new Map(teams.map((t) => [t.id, t]))
     const transfers = await transferViews(admin, regs, settings, session.userId)
+    // An open competition-change surcharge: RA5 links the one the session pays, and „Zmień
+    // konkurencję” waits for any (selfService.js).
+    const now = new Date()
+    const surchargeOrders = regs.length
+      ? await allRows(() => admin.from('orders').select('id, kind, status, total, expires_at, buyer_profile_id, surcharge_registration_id, surcharge_to_category_id')
+        .eq('kind', 'surcharge').eq('status', 'pending').in('surcharge_registration_id', regs.map((r) => r.id)).order('id'))
+      : []
+    const toNames = new Map(comps.map((c) => [c.category_id, c.name]))
+    const toIds = [...new Set(surchargeOrders.map((o) => o.surcharge_to_category_id).filter((id) => id && !toNames.has(id)))]
+    if (toIds.length) {
+      for (const c of await allRows(() => admin.from('competitions').select('category_id, name').in('category_id', toIds).order('category_id'))) {
+        toNames.set(c.category_id, c.name)
+      }
+    }
+    const paysOwn = surchargeOrders.filter((o) => o.buyer_profile_id === session.userId)
 
     return json({
       data: regs.map((r) => {
@@ -97,6 +117,11 @@ Deno.serve(async (req) => {
           teamName: team?.name ?? null,
           isCaptain: team?.captain_registration_id === r.id,
           transfer: transfers.get(r.id),
+          surcharge: pendingSurcharge(r.id, paysOwn, toNames, now),
+          actions: selfServiceActions({
+            reg: r, settings, session, captain: team?.captain_registration_id === r.id,
+            surchargeOpen: pendingSurcharge(r.id, surchargeOrders, toNames, now) != null, now,
+          }),
         }
       }),
     }, 200, req)
