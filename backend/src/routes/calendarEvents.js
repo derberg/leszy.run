@@ -67,7 +67,7 @@ export async function calendarEventsRoutes(fastify) {
   })
 
   fastify.get('/calendar-events', async (request, reply) => {
-    const { page = 1, limit = 200, source, filter, status = 'active' } = request.query
+    const { page = 1, limit = 200, source, filter, status = 'active', snoozed } = request.query
     const from = (page - 1) * limit
 
     let query = supabase
@@ -83,7 +83,10 @@ export async function calendarEventsRoutes(fastify) {
 
     query = query.gte('date', new Date().toISOString().split('T')[0])
     // „Do przeglądu” leaves out what the operator put off (PÓŹNIEJ) until publish brings it new data.
-    if (status === 'pending') query = query.is('snoozed_at', null)
+    // „Odłożone” (snoozed=1) lists exactly those.
+    if (status === 'pending') {
+      query = snoozed === '1' ? query.not('snoozed_at', 'is', null) : query.is('snoozed_at', null)
+    }
 
     if (source) query = query.eq('source', source)
 
@@ -137,6 +140,21 @@ export async function calendarEventsRoutes(fastify) {
       .update({ snoozed_at: new Date().toISOString() })
       .eq('id', id)
       .eq('status', 'pending')
+      .select()
+      .single()
+
+    if (error) return reply.status(400).send({ error: error.message })
+    return { data }
+  })
+
+  // WRÓĆ in „Odłożone”: back in the review queue now.
+  fastify.patch('/calendar-events/:id/unsnooze', async (request, reply) => {
+    const { id } = request.params
+    await logAdminAction({ action: 'unsnooze_calendar_event', targetTable: 'calendar_events', targetId: id, req: request.raw })
+    const { data, error } = await supabase
+      .from('calendar_events')
+      .update({ snoozed_at: null })
+      .eq('id', id)
       .select()
       .single()
 

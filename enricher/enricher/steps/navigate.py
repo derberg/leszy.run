@@ -14,6 +14,7 @@ This step inspects the already-crawled page's links and returns up to N follow-u
 worth crawling. PDF links are also picked up (they'll be handled by the PDF step).
 """
 import re
+from datetime import date
 from urllib.parse import urljoin, urlparse
 
 
@@ -301,26 +302,49 @@ def pdf_belongs_to_event(event: dict, text: str) -> bool:
 
 # An edition number in a race name: "XVIII Bieg Uliczny …". Upper case only, so
 # the Polish conjunction "i" is never one.
-_ROMAN_RE = re.compile(r"(?<![A-Za-zĄĆĘŁŃÓŚŹŻąćęłńóśźż])([IVXLC]+)\.?\s+(" + r"[A-Za-zĄĆĘŁŃÓŚŹŻąćęłńóśźż]+)")
+_LETTER = "A-Za-zĄĆĘŁŃÓŚŹŻąćęłńóśźż"
+_ROMAN_RE = re.compile(rf"(?<![{_LETTER}])([IVXLC]+)\.?\s+((?:[{_LETTER}]+\s+){{0,1}}[{_LETTER}]+)")
 
-_MONTHS_GENITIVE = (
-    "stycznia|lutego|marca|kwietnia|maja|czerwca|lipca|sierpnia|"
-    "września|wrzesnia|października|pazdziernika|listopada|grudnia"
-)
+_MONTHS_GENITIVE = {
+    "stycznia": 1, "lutego": 2, "marca": 3, "kwietnia": 4, "maja": 5, "czerwca": 6,
+    "lipca": 7, "sierpnia": 8, "września": 9, "wrzesnia": 9, "października": 10,
+    "pazdziernika": 10, "listopada": 11, "grudnia": 12,
+}
 _DATE_RE = re.compile(
-    r"(?<!\d)\d{1,2}\s*(?:[./-]\s*\d{1,2}\s*[./-]|\s+(?:" + _MONTHS_GENITIVE + r")\s+)\s*((?:19|20)\d{2})(?!\d)",
+    r"(?<!\d)(\d{1,2})\s*(?:[./-]\s*(\d{1,2})\s*[./-]|\s+(" + "|".join(_MONTHS_GENITIVE)
+    + r")\s+)\s*((?:19|20)\d{2})(?!\d)",
     re.IGNORECASE,
 )
 # A date that names a law, not the race: "ustawą z dnia 10 maja 2018 r.".
 _LAW_DATE_PREFIX_RE = re.compile(r"(z\s+dnia|ustaw\w*)\s*$", re.IGNORECASE)
 
+# How far before the race a document's latest date must be to count as another
+# edition's. A January race takes entries in the November and December before it
+# (every date in an earlier year); last year's rules end about a year back.
+_OTHER_EDITION_DAYS = 180
+
 
 def _edition_numeral(name: str):
-    """(numeral, the next word's first four letters) of a race name, or None."""
-    m = _ROMAN_RE.search(name or "")
+    """(numeral, the first four letters of the next two name words) of a race name, or None."""
+    m = re.search(rf"(?<![{_LETTER}])([IVXLC]+)\.?\s+([{_LETTER}]+)(?:\s+([{_LETTER}]+))?", name or "")
     if not m:
         return None
-    return m.group(1), m.group(2).lower()[:4]
+    words = tuple(w.lower()[:4] for w in m.groups()[1:] if w)
+    return m.group(1), words
+
+
+def _doc_dates(text: str) -> list:
+    out = []
+    for m in _DATE_RE.finditer(text):
+        if _LAW_DATE_PREFIX_RE.search(text[max(0, m.start() - 30):m.start()]):
+            continue
+        day, month_num, month_name, year = m.groups()
+        month = int(month_num) if month_num else _MONTHS_GENITIVE[month_name.lower()]
+        try:
+            out.append(date(int(year), month, int(day)))
+        except ValueError:
+            continue
+    return out
 
 
 def names_another_edition(event: dict, text: str) -> bool:
@@ -333,36 +357,39 @@ def names_another_edition(event: dict, text: str) -> bool:
 
     Two signals, the first one that speaks decides:
     - the edition number: the document's first lines put a roman numeral before
-      the word that follows the event name's numeral ("XVII Biegu" against
-      "XVIII Bieg"). This edition's own numeral there keeps the document;
-    - the dates: at least two dates in the document, none in the event's year,
-      all earlier. A law cited by date ("ustawą z dnia 10 maja 2018") does not
-      count, and an undated document is never judged.
+      the two words that follow the event name's numeral ("XVII Biegu Ulicznego"
+      against "XVIII Bieg Uliczny"). Two words, so a section heading
+      ("II. TERMIN I MIEJSCE") never reads as an edition. This edition's own
+      numeral there keeps the document;
+    - the dates: at least two dates in the document, the latest more than
+      _OTHER_EDITION_DAYS before the race. A law cited by date ("ustawą z dnia
+      10 maja 2018") does not count, and an undated document is never judged.
     """
     if not text:
         return False
     edition = _edition_numeral(event.get("name"))
     if edition:
-        numeral, word = edition
+        numeral, words = edition
         lines = [ln for ln in text.splitlines() if ln.strip()][:_TITLE_LINES]
         found = set()
         for line in lines:
             for m in _ROMAN_RE.finditer(line):
-                if m.group(2).lower().startswith(word):
+                doc_words = m.group(2).lower().split()
+                if len(doc_words) >= len(words) and all(
+                    d.startswith(w) for d, w in zip(doc_words, words)
+                ):
                     found.add(m.group(1).upper())
         if numeral in found:
             return False
         if found:
             return True
 
-    year = str(event.get("date") or "")[:4]
-    if not year.isdigit():
+    try:
+        event_date = date.fromisoformat(str(event.get("date") or "")[:10])
+    except ValueError:
         return False
-    years = [
-        int(m.group(1)) for m in _DATE_RE.finditer(text)
-        if not _LAW_DATE_PREFIX_RE.search(text[max(0, m.start() - 30):m.start()])
-    ]
-    return len(years) >= 2 and max(years) < int(year)
+    dates = _doc_dates(text)
+    return len(dates) >= 2 and (event_date - max(dates)).days > _OTHER_EDITION_DAYS
 
 
 # Words that can stand before a race name in a document's title without naming

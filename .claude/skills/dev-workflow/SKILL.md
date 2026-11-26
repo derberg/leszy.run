@@ -65,7 +65,9 @@ scripts/worktree.sh new feature/<short-name>   # 1. fresh worktree off origin/ma
 # ... make changes ...
 git push -u origin feature/<short-name>        # 2. push
 # 3. open a PR:  gh pr create --fill --title "<type>(<scope>): <description>"   (Conventional Commits)
-# 4. review, then merge:  gh pr merge --squash          (no --delete-branch, see below)
+# 4. wait for CI, then merge:  gh pr checks <n> --watch && gh pr merge --squash   (no --delete-branch, see below)
+#    main has no branch protection: gh pr merge goes through with a red check, so merge only when
+#    `gh pr checks` exits 0. #533 was merged with a failing integration shard on 2026-11-26.
 # 5. confirm it merged:    gh pr view --json state -q .state   → must print MERGED
 # 6. only then delete:     git push origin --delete feature/<short-name>
 # 7. run any post-merge steps below, then remove the worktree:

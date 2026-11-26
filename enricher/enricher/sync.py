@@ -56,6 +56,27 @@ def _fmt(val) -> str:
     return str(val)
 
 
+# The fields the admin queue shows as missing (TRACKED_FIELDS in
+# packages/ui/src/lib/eventCompleteness.js). Filling one wakes a snoozed event.
+TRACKED_FIELDS = (
+    "location", "voivodeship", "event_type", "distances", "registration_url",
+    "regulamin_url", "registration_deadline", "price_from", "website",
+)
+
+
+def _empty(value) -> bool:
+    return value is None or value == "" or (isinstance(value, (list, tuple)) and len(value) == 0)
+
+
+def wakes_snoozed(ce: dict, updates: dict) -> bool:
+    """True when `updates` fills a tracked field that is empty on a snoozed calendar row."""
+    if not ce.get("snoozed_at"):
+        return False
+    return any(
+        f in updates and _empty(ce.get(f)) and not _empty(updates[f]) for f in TRACKED_FIELDS
+    )
+
+
 def filter_locked_fields(updates: dict, locked) -> dict:
     """Remove keys present in `locked` from `updates`.
 
@@ -127,7 +148,8 @@ def sync_to_calendar(config: Config, since: Optional[str], dry_run: bool):
         # Find matching calendar_events row — try source+source_id first, fallback to name+date
         ce_fields = (
             "id, event_type, distances, registration_url, regulamin_url, "
-            "registration_deadline, price_from, price_to, location, voivodeship, website, enriched_at, locked_fields"
+            "registration_deadline, price_from, price_to, location, voivodeship, website, enriched_at, locked_fields, "
+            "snoozed_at"
         )
         match = sb.from_("calendar_events").select(ce_fields).eq(
             "source", row["source"]
@@ -198,6 +220,11 @@ def sync_to_calendar(config: Config, since: Optional[str], dry_run: bool):
         if not real_changes:
             skipped += 1
             continue
+
+        # A snoozed event (PÓŹNIEJ in the review queue) comes back once it gains
+        # data it lacked, as in run-publish (backend/src/lib/calendarSnooze.js).
+        if wakes_snoozed(ce, updates):
+            updates["snoozed_at"] = None
 
         prefix = "WOULD UPDATE" if dry_run else "✓ UPDATED"
         click.echo(f"\n  {prefix}: {row['name']}")

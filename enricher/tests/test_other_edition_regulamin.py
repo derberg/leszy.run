@@ -97,3 +97,16 @@ async def test_previous_edition_pdf_does_not_reach_extraction(sample_event):
     assert result["steps"]["pdf_rejected"] == [PDF_URL]
     assert m["build_prompt"].call_args[0][2] is None, "the 2026 rules reached the prompt"
     assert "regulamin_url" not in result["updates"]
+
+
+def test_a_section_heading_is_not_an_edition_number():
+    # "II. TERMIN I MIEJSCE": I before "MIEJSCE" once matched "V Miejski".
+    event = {"name": "V Miejski Bieg Niepodległości", "date": "2026-11-11"}
+    doc = "REGULAMIN\n5. Miejskiego Biegu Niepodległości\nII. TERMIN I MIEJSCE\n11.11.2026, start 11:00\n"
+    assert names_another_edition(event, doc) is False
+
+
+def test_a_new_year_race_with_every_date_in_the_year_before():
+    event = {"name": "XXX Bieg Noworoczny", "date": "2027-01-01"}
+    doc = "Regulamin 30. Biegu Noworocznego\nodbędzie się 1 stycznia.\nZapisy od 01.11.2026 do 30.12.2026\n"
+    assert names_another_edition(event, doc) is False

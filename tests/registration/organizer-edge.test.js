@@ -729,7 +729,8 @@ test('O-65 extras export: lists, totals, filter, audit', async () => {
     assert.equal('email' in i, false)
     assert.equal('phone' in i, false)
   }
-  const [logged] = await actions(event.eventId, 'extras_exported')
+  // Two exports were logged (csv, then pdf), often in the same instant, so pick the csv one.
+  const logged = (await actions(event.eventId, 'extras_exported')).find((a) => a.payload.format === 'csv')
   assert.deepEqual(logged.payload, { format: 'csv', rows: pdf0.body.data.list.handout.length + pdf0.body.data.list.awaiting.length, filter: { keys: [], search: false } })
 
   const only = await call({ format: 'csv', filter: { extraId: medal.extra.id } })
