@@ -658,7 +658,7 @@ the database.
 - Scraped events default to `pending` (Supabase column default)
 - Manual events created via admin UI are set to `active` immediately
 - Public kalendarz only shows `active` events
-- Admin "Do przeglądu" tab shows `pending` events with OK/NIE/X actions
+- Admin "Do przeglądu" tab shows `pending` events with OK/NIE/PÓŹNIEJ actions. PÓŹNIEJ (`PATCH /api/calendar-events/:id/snooze`) sets `snoozed_at`: the row stays `pending` and leaves the queue until `run-publish` fills a field it lacked (`wakesSnoozed`, `backend/src/lib/calendarSnooze.js`). X in the other tabs is a reject too (`DELETE` sets `rejected`), never a delete
 - Dedup finds rejected events by `source + source_id` but skips updating them
 - URL resolver and LLM enricher process both `active` and `pending` events
 
@@ -1199,7 +1199,7 @@ pomiarczasuatelier.pl was dropped on 2026-03-28: its sign-ups all go through dos
 
 | Source | Events/year | Method | Data quality |
 |--------|-------------|--------|--------------|
-| maratonypolskie.pl | 500+ | Playwright (HTML tables) | Low (listing only, no reg URLs) |
+| maratonypolskie.pl | 500+ | Playwright (HTML tables) | Low (listing only, no reg URLs; a name the listing cut with "..." is read from the detail page. robots.txt allows only Googlebot; kept by operator decision 2026-11-26, since about 1/6 of upcoming calendar events come from it alone) |
 | b4sportonline.pl | 100+ | fetch+Cheerio (AJAX pagination) | Medium (city, name, date, reg URL, some distances) |
 | datasport.pl | 200+ | Cheerio (detail pages) | High (distances from h4 headings) |
 | elektronicznezapisy.pl | 300-500 | Cheerio + dostartu API enrichment | Medium-High |
