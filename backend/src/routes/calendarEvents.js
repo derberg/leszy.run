@@ -82,6 +82,8 @@ export async function calendarEventsRoutes(fastify) {
       .range(from, from + limit - 1)
 
     query = query.gte('date', new Date().toISOString().split('T')[0])
+    // „Do przeglądu” leaves out what the operator put off (PÓŹNIEJ) until publish brings it new data.
+    if (status === 'pending') query = query.is('snoozed_at', null)
 
     if (source) query = query.eq('source', source)
 
@@ -118,6 +120,23 @@ export async function calendarEventsRoutes(fastify) {
       .from('calendar_events')
       .update({ status: 'active', updated_at: new Date().toISOString() })
       .eq('id', id)
+      .select()
+      .single()
+
+    if (error) return reply.status(400).send({ error: error.message })
+    return { data }
+  })
+
+  // PÓŹNIEJ: out of the review queue without rejecting it. run-publish clears
+  // snoozed_at when it fills an empty field (src/lib/calendarSnooze.js).
+  fastify.patch('/calendar-events/:id/snooze', async (request, reply) => {
+    const { id } = request.params
+    await logAdminAction({ action: 'snooze_calendar_event', targetTable: 'calendar_events', targetId: id, req: request.raw })
+    const { data, error } = await supabase
+      .from('calendar_events')
+      .update({ snoozed_at: new Date().toISOString() })
+      .eq('id', id)
+      .eq('status', 'pending')
       .select()
       .single()
 

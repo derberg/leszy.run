@@ -338,7 +338,7 @@ function FieldVerdicts({ event }) {
   )
 }
 
-function EventRow({ event, onSave, onDelete, showReviewActions, onApprove, onReject }) {
+function EventRow({ event, onSave, onDelete, showReviewActions, onApprove, onReject, onSnooze }) {
   const [confirmDelete, setConfirmDelete] = useState(false)
   const confirmRef = useRef(null)
   const ready = isReadyToAccept(event)
@@ -408,9 +408,16 @@ function EventRow({ event, onSave, onDelete, showReviewActions, onApprove, onRej
               >
                 NIE
               </button>
+              <button
+                onClick={() => onSnooze(event.id)}
+                className="font-mono text-[9px] font-semibold tracking-wide uppercase whitespace-nowrap px-2 py-0.5 border border-apex-border text-apex-muted hover:border-apex-yellow-dim hover:text-apex-yellow transition-all"
+                title="Później — wróci, gdy dojdą brakujące dane"
+              >
+                PÓŹNIEJ
+              </button>
             </>
           )}
-          {confirmDelete ? (
+          {showReviewActions ? null : confirmDelete ? (
             <div
               ref={confirmRef}
               tabIndex={0}
@@ -726,6 +733,11 @@ export default function CalendarEventsList() {
     onSuccess: invalidateAll,
   })
 
+  const snoozeMutation = useMutation({
+    mutationFn: (id) => api.patch(`/calendar-events/${id}/snooze`),
+    onSuccess: invalidateAll,
+  })
+
   const handleDelete = (id) => deleteMutation.mutate(id)
 
   const handleSave = (id, updates) => {
@@ -855,6 +867,7 @@ export default function CalendarEventsList() {
                     showReviewActions={filter === 'review'}
                     onApprove={(id) => approveMutation.mutate(id)}
                     onReject={(id) => rejectMutation.mutate(id)}
+                    onSnooze={(id) => snoozeMutation.mutate(id)}
                   />
                 ))}
               </tbody>

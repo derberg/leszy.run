@@ -45,6 +45,7 @@ import { SOURCE_PRIORITY, jaccardSimilarity, citiesMatch, citiesConflict, tokeni
 import { supabase } from '../lib/supabaseClient.js'
 import { enrichFromUrl, isDostartuLikeUrl } from './apiEnrich.js'
 import { TRACKED_FIELDS, missingTrackedFields, missingRequiredFields, isReadyToAccept } from '@leszyrun/ui/eventCompleteness'
+import { wakesSnoozed } from '../lib/calendarSnooze.js'
 import { looksNonPolish } from '../lib/polishLocation.js'
 import { sameAtest } from '../lib/atestMatch.js'
 import { looksVirtual } from '../lib/virtualEvent.js'
@@ -1706,7 +1707,7 @@ async function publishToCalendar({ dryRun = false, sources = null } = {}) {
   while (true) {
     const { data, error } = await supabase
       .from('calendar_events')
-      .select('id, name, date, status, source, source_id, source_links, locked_fields, community_locked_fields, location, voivodeship, lat, lng, distances, event_type, registration_url, regulamin_url, website, price_from, price_to, registration_deadline, atest')
+      .select('id, name, date, status, source, source_id, source_links, locked_fields, community_locked_fields, location, voivodeship, lat, lng, distances, event_type, registration_url, regulamin_url, website, price_from, price_to, registration_deadline, atest, snoozed_at')
       .order('id')
       .range(from, from + pageSize - 1)
 
@@ -2014,11 +2015,13 @@ let existingCE = null
         continue
       }
       upd.last_verified_at = now
+      // A snoozed event (PÓŹNIEJ in the review queue) comes back once it gains data it lacked.
+      if (wakesSnoozed(existingCE, upd)) upd.snoozed_at = null
 
       // Per-field write detail: old (CE) value → new (scraper) value, so the
       // operator can see what actually changes and whether it overwrites an
       // existing value (overwrite=true) or just fills an empty field.
-      const writtenFields = Object.keys(upd).filter(k => k !== 'last_verified_at')
+      const writtenFields = Object.keys(upd).filter(k => k !== 'last_verified_at' && k !== 'snoozed_at')
       const writes = writtenFields.map(field => {
         const ceVal = existingCE[field]
         return {
