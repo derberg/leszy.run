@@ -29,3 +29,7 @@ test('a date move does not', () => {
 test('an event that is not snoozed is never woken', () => {
   assert.equal(wakesSnoozed({ ...snoozed, snoozed_at: null }, { registration_url: 'https://x.example' }), false)
 })
+
+test('a geocode or a source link alone does not', () => {
+  assert.equal(wakesSnoozed({ ...snoozed, lat: null, source_links: [] }, { lat: 51.8, lng: 16.7, source_links: [{ source: 'x' }] }), false)
+})

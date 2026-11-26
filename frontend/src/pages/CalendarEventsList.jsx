@@ -338,7 +338,7 @@ function FieldVerdicts({ event }) {
   )
 }
 
-function EventRow({ event, onSave, onDelete, showReviewActions, onApprove, onReject, onSnooze }) {
+function EventRow({ event, onSave, onDelete, showReviewActions, snoozedView, onApprove, onReject, onSnooze, onUnsnooze }) {
   const [confirmDelete, setConfirmDelete] = useState(false)
   const confirmRef = useRef(null)
   const ready = isReadyToAccept(event)
@@ -408,13 +408,23 @@ function EventRow({ event, onSave, onDelete, showReviewActions, onApprove, onRej
               >
                 NIE
               </button>
-              <button
-                onClick={() => onSnooze(event.id)}
-                className="font-mono text-[9px] font-semibold tracking-wide uppercase whitespace-nowrap px-2 py-0.5 border border-apex-border text-apex-muted hover:border-apex-yellow-dim hover:text-apex-yellow transition-all"
-                title="Później — wróci, gdy dojdą brakujące dane"
-              >
-                PÓŹNIEJ
-              </button>
+              {snoozedView ? (
+                <button
+                  onClick={() => onUnsnooze(event.id)}
+                  className="font-mono text-[9px] font-semibold tracking-wide uppercase whitespace-nowrap px-2 py-0.5 border border-apex-border text-apex-muted hover:border-apex-yellow-dim hover:text-apex-yellow transition-all"
+                  title="Wróć do przeglądu"
+                >
+                  WRÓĆ
+                </button>
+              ) : (
+                <button
+                  onClick={() => onSnooze(event.id)}
+                  className="font-mono text-[9px] font-semibold tracking-wide uppercase whitespace-nowrap px-2 py-0.5 border border-apex-border text-apex-muted hover:border-apex-yellow-dim hover:text-apex-yellow transition-all"
+                  title="Później — wróci, gdy dojdą brakujące dane"
+                >
+                  PÓŹNIEJ
+                </button>
+              )}
             </>
           )}
           {showReviewActions ? null : confirmDelete ? (
@@ -688,6 +698,11 @@ export default function CalendarEventsList() {
     queryFn: () => api.get('/calendar-events?limit=2000&status=pending'),
   })
 
+  const { data: snoozedEvents, isLoading: snoozedLoading } = useQuery({
+    queryKey: ['calendar-events-admin', 'snoozed'],
+    queryFn: () => api.get('/calendar-events?limit=2000&status=pending&snoozed=1'),
+  })
+
   const { data: activeEvents, isLoading: activeLoading } = useQuery({
     queryKey: ['calendar-events-admin', 'active'],
     queryFn: () => api.get('/calendar-events?limit=2000&status=active'),
@@ -738,6 +753,11 @@ export default function CalendarEventsList() {
     onSuccess: invalidateAll,
   })
 
+  const unsnoozeMutation = useMutation({
+    mutationFn: (id) => api.patch(`/calendar-events/${id}/unsnooze`),
+    onSuccess: invalidateAll,
+  })
+
   const handleDelete = (id) => deleteMutation.mutate(id)
 
   const handleSave = (id, updates) => {
@@ -750,8 +770,9 @@ export default function CalendarEventsList() {
 
   const pending = pendingEvents || []
   const active = activeEvents || []
+  const snoozed = snoozedEvents || []
   const dupGroups = dupData || []
-  const isLoading = filter === 'review' ? pendingLoading : filter === 'all' ? activeLoading : false
+  const isLoading = filter === 'review' ? pendingLoading : filter === 'snoozed' ? snoozedLoading : filter === 'all' ? activeLoading : false
 
   const incomplete = active.filter(isIncomplete)
   const complete = active.filter(e => !isIncomplete(e))
@@ -760,6 +781,7 @@ export default function CalendarEventsList() {
   const allView = allSubFilter === 'incomplete' ? incomplete : active
 
   const fullList = filter === 'review' ? pending
+    : filter === 'snoozed' ? snoozed
     : filter === 'all' ? allView
     : []
 
@@ -782,6 +804,7 @@ export default function CalendarEventsList() {
           </h1>
           <p className="text-apex-muted text-sm">
             {filter === 'review' && `${pending.length} do przeglądu`}
+            {filter === 'snoozed' && `${snoozed.length} odłożonych`}
             {filter === 'all' && `${incomplete.length} wymaga uzupełnienia · ${complete.length} kompletnych · ${active.length} łącznie`}
             {filter === 'duplicates' && `${dupGroups.length} grup duplikatów`}
             {filter === 'reports' && `${reportsCount} zgłoszeń od społeczności`}
@@ -791,8 +814,9 @@ export default function CalendarEventsList() {
             Źródło danych: Supabase · tabela{' '}
             {filter === 'reports' && <span className="text-apex-text-bright">calendar_event_reports</span>}
             {filter === 'feedback' && <span className="text-apex-text-bright">website_feedback</span>}
-            {(filter === 'review' || filter === 'all' || filter === 'duplicates') && <span className="text-apex-text-bright">calendar_events</span>}
+            {(filter === 'review' || filter === 'snoozed' || filter === 'all' || filter === 'duplicates') && <span className="text-apex-text-bright">calendar_events</span>}
             {filter === 'review' && <> · status=<span className="text-apex-text-bright">pending</span></>}
+            {filter === 'snoozed' && <> · status=<span className="text-apex-text-bright">pending</span> · snoozed_at=<span className="text-apex-text-bright">set</span></>}
             {filter === 'all' && <> · status=<span className="text-apex-text-bright">active</span></>}
             {(filter === 'reports' || filter === 'feedback') && <> · status=<span className="text-apex-text-bright">pending</span></>}
           </p>
@@ -801,6 +825,11 @@ export default function CalendarEventsList() {
           <button onClick={() => setFilter('review')} className={btnClass(filter === 'review')}>
             Do przeglądu{pending.length > 0 ? ` (${pending.length})` : ''}
           </button>
+          {(snoozed.length > 0 || filter === 'snoozed') && (
+            <button onClick={() => setFilter('snoozed')} className={btnClass(filter === 'snoozed')}>
+              Odłożone ({snoozed.length})
+            </button>
+          )}
           <button onClick={() => setFilter('all')} className={btnClass(filter === 'all')}>
             Wszystkie ({active.length})
           </button>
@@ -864,10 +893,12 @@ export default function CalendarEventsList() {
                     event={event}
                     onSave={handleSave}
                     onDelete={handleDelete}
-                    showReviewActions={filter === 'review'}
+                    showReviewActions={filter === 'review' || filter === 'snoozed'}
+                    snoozedView={filter === 'snoozed'}
                     onApprove={(id) => approveMutation.mutate(id)}
                     onReject={(id) => rejectMutation.mutate(id)}
                     onSnooze={(id) => snoozeMutation.mutate(id)}
+                    onUnsnooze={(id) => unsnoozeMutation.mutate(id)}
                   />
                 ))}
               </tbody>
@@ -877,6 +908,7 @@ export default function CalendarEventsList() {
           {!isLoading && fullList.length === 0 && (
             <div className="text-apex-muted text-center py-12">
               {filter === 'review' ? 'Brak wydarzeń do przeglądu!'
+                : filter === 'snoozed' ? 'Brak odłożonych wydarzeń.'
                 : filter === 'all' && allSubFilter === 'incomplete' ? 'Wszystkie wydarzenia są kompletne!'
                 : 'Brak wydarzeń.'}
             </div>

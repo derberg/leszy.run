@@ -658,7 +658,7 @@ the database.
 - Scraped events default to `pending` (Supabase column default)
 - Manual events created via admin UI are set to `active` immediately
 - Public kalendarz only shows `active` events
-- Admin "Do przeglądu" tab shows `pending` events with OK/NIE/PÓŹNIEJ actions. PÓŹNIEJ (`PATCH /api/calendar-events/:id/snooze`) sets `snoozed_at`: the row stays `pending` and leaves the queue until `run-publish` fills a field it lacked (`wakesSnoozed`, `backend/src/lib/calendarSnooze.js`). X in the other tabs is a reject too (`DELETE` sets `rejected`), never a delete
+- Admin "Do przeglądu" tab shows `pending` events with OK/NIE/PÓŹNIEJ actions. PÓŹNIEJ (`PATCH /api/calendar-events/:id/snooze`) sets `snoozed_at`: the row stays `pending` and leaves the queue until `run-publish` or `enricher sync` fills a tracked field it lacked (`wakesSnoozed` in `backend/src/lib/calendarSnooze.js`, `wakes_snoozed` in `enricher/enricher/sync.py`; keep the two equal). „Odłożone” (`?status=pending&snoozed=1`) lists them, WRÓĆ (`PATCH …/:id/unsnooze`) puts one back. X in the other tabs is a reject too (`DELETE` sets `rejected`), never a delete
 - Dedup finds rejected events by `source + source_id` but skips updating them
 - URL resolver and LLM enricher process both `active` and `pending` events
 
