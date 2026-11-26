@@ -294,7 +294,75 @@ def pdf_belongs_to_event(event: dict, text: str) -> bool:
         return False
     if not page_matches_event(event, text, fuzzy=True):
         return False
-    return not names_a_sibling_race(event, text)
+    if names_a_sibling_race(event, text):
+        return False
+    return not names_another_edition(event, text)
+
+
+# An edition number in a race name: "XVIII Bieg Uliczny …". Upper case only, so
+# the Polish conjunction "i" is never one.
+_ROMAN_RE = re.compile(r"(?<![A-Za-zĄĆĘŁŃÓŚŹŻąćęłńóśźż])([IVXLC]+)\.?\s+(" + r"[A-Za-zĄĆĘŁŃÓŚŹŻąćęłńóśźż]+)")
+
+_MONTHS_GENITIVE = (
+    "stycznia|lutego|marca|kwietnia|maja|czerwca|lipca|sierpnia|"
+    "września|wrzesnia|października|pazdziernika|listopada|grudnia"
+)
+_DATE_RE = re.compile(
+    r"(?<!\d)\d{1,2}\s*(?:[./-]\s*\d{1,2}\s*[./-]|\s+(?:" + _MONTHS_GENITIVE + r")\s+)\s*((?:19|20)\d{2})(?!\d)",
+    re.IGNORECASE,
+)
+# A date that names a law, not the race: "ustawą z dnia 10 maja 2018 r.".
+_LAW_DATE_PREFIX_RE = re.compile(r"(z\s+dnia|ustaw\w*)\s*$", re.IGNORECASE)
+
+
+def _edition_numeral(name: str):
+    """(numeral, the next word's first four letters) of a race name, or None."""
+    m = _ROMAN_RE.search(name or "")
+    if not m:
+        return None
+    return m.group(1), m.group(2).lower()[:4]
+
+
+def names_another_edition(event: dict, text: str) -> bool:
+    """True when the document is the rules of another edition of this race.
+
+    A race keeps its name every year, so pdf_belongs_to_event's name test passes
+    last year's regulamin. XVIII Bieg Uliczny o Łaziskie Liście (2027-05-23) got
+    60 zł, its distances and nordic walking from
+    Regulamin-XVII-Biegu-Ulicznego-24.05.2026-r.pdf on 2026-11-26.
+
+    Two signals, the first one that speaks decides:
+    - the edition number: the document's first lines put a roman numeral before
+      the word that follows the event name's numeral ("XVII Biegu" against
+      "XVIII Bieg"). This edition's own numeral there keeps the document;
+    - the dates: at least two dates in the document, none in the event's year,
+      all earlier. A law cited by date ("ustawą z dnia 10 maja 2018") does not
+      count, and an undated document is never judged.
+    """
+    if not text:
+        return False
+    edition = _edition_numeral(event.get("name"))
+    if edition:
+        numeral, word = edition
+        lines = [ln for ln in text.splitlines() if ln.strip()][:_TITLE_LINES]
+        found = set()
+        for line in lines:
+            for m in _ROMAN_RE.finditer(line):
+                if m.group(2).lower().startswith(word):
+                    found.add(m.group(1).upper())
+        if numeral in found:
+            return False
+        if found:
+            return True
+
+    year = str(event.get("date") or "")[:4]
+    if not year.isdigit():
+        return False
+    years = [
+        int(m.group(1)) for m in _DATE_RE.finditer(text)
+        if not _LAW_DATE_PREFIX_RE.search(text[max(0, m.start() - 30):m.start()])
+    ]
+    return len(years) >= 2 and max(years) < int(year)
 
 
 # Words that can stand before a race name in a document's title without naming
