@@ -112,6 +112,28 @@ function parseSearchResults(html, today) {
   return events
 }
 
+// The listing cuts names at 40 characters and appends "..." ("VII Charytatywny
+// ZwariOWany Trip Nocny d..."), with no other copy of the full name on the row.
+// The detail page shows it in its orange heading. robots.txt disallows every
+// crawler but Googlebot; the operator chose on 2026-11-26 to keep this source
+// (about 1/6 of upcoming calendar events come from it alone) and to read the
+// detail page only for a cut name, about ten a month.
+function isTruncatedName(name) {
+  return /\.\.\.$/.test(name || '')
+}
+
+function parseDetailName(html) {
+  const $ = cheerio.load(html)
+  const heading = $('font[size="6"][color="orange"]').first()
+  if (!heading.length) return null
+  const name = heading.text().replace(/ /g, ' ').replace(/\s+/g, ' ').trim()
+  return name.length >= 3 ? name : null
+}
+
+function detailUrl(sourceId) {
+  return `${BASE_URL}/mp_index.php?dzial=3&action=5&code=${sourceId}&bieganie`
+}
+
 async function scrape({ knownIds = new Set() } = {}) {
   const allEvents = []
   const allSeen = new Set()
@@ -172,6 +194,24 @@ async function scrape({ knownIds = new Set() } = {}) {
         }
       }
 
+      // Full names for the rows the listing cut. A detail page that fails or
+      // has no heading leaves the listing's name: a cut name is still a race.
+      const detail = await browser.newPage()
+      detail.setDefaultTimeout(15000)
+      let fixed = 0
+      for (const event of allEvents) {
+        if (!isTruncatedName(event.name) || !/^\d+$/.test(event.source_id)) continue
+        try {
+          await detail.goto(detailUrl(event.source_id), { waitUntil: 'domcontentloaded' })
+          const full = parseDetailName(await detail.content())
+          if (full) { event.name = full; fixed++ }
+          await detail.waitForTimeout(1000)
+        } catch (err) {
+          console.error(`[maratonypolskie] Detail ${event.source_id} failed:`, err.message?.slice(0, 100))
+        }
+      }
+      if (fixed) console.log(`[maratonypolskie] Full names read from detail pages: ${fixed}`)
+
       // Success — break retry loop
       break
 
@@ -189,4 +229,4 @@ async function scrape({ knownIds = new Set() } = {}) {
   return allEvents
 }
 
-export { scrape, parseSearchResults }
+export { scrape, parseSearchResults, parseDetailName, isTruncatedName }
